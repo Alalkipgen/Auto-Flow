@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
+import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
@@ -58,9 +60,11 @@ val SidebarSections: List<Pair<String, List<String>>> = listOf(
 fun App() {
     val model = koinInject<ProviderStatusModel>()
     val status by model.status.collectAsState(model.current())
+    val project by koinInject<CurrentProject>().state.collectAsState()
     var screen by remember { mutableStateOf("Dashboard") }
-    AppShell(providerStatus = status, selected = screen, onSelect = { screen = it }) {
+    AppShell(status, selected = screen, onSelect = { screen = it }, projectName = project?.project?.name) {
         when (screen) {
+            "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
             "Settings" -> SettingsScreen(koinInject())
             else -> ScreenPlaceholder(screen)
         }
@@ -77,10 +81,11 @@ fun AppShell(
     modifier: Modifier = Modifier,
     selected: String? = null,
     onSelect: (String) -> Unit = {},
+    projectName: String? = null,
     content: @Composable () -> Unit = {},
 ) {
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
-        TitleBar(providerStatus)
+        TitleBar(providerStatus, projectName)
         Row(Modifier.fillMaxSize()) {
             Sidebar(selected, onSelect)
             Box(Modifier.fillMaxSize()) { content() }
@@ -98,7 +103,7 @@ fun ScreenPlaceholder(name: String) {
 }
 
 @Composable
-private fun TitleBar(providerStatus: String) {
+private fun TitleBar(providerStatus: String, projectName: String?) {
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -119,6 +124,7 @@ private fun TitleBar(providerStatus: String) {
                     letterSpacing = 0.5.sp,
                 ),
             )
+            projectName?.let { AfText("·  $it", muted = true) }
             Spacer(Modifier.weight(1f))
             BasicText(providerStatus, style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp))
         }
