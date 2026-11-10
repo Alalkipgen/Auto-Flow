@@ -21,6 +21,8 @@ stalePrompt   = artifact(promptIr).inputs.spec != shot.spec || inputs.globalStyl
 staleRef      = artifact(ref).inputs.promptIr != shot.promptIr
 staleVideo    = artifact(video).inputs.promptIr != shot.promptIr || inputs.ref != shot.chosenRef
 ```
+Each comparison applies only when the input was recorded: `stale(artifact, key, current) = artifact.inputs[key] != null && artifact.inputs[key] != current`. User-provided artifacts record no inputs and are therefore never stale; they may still be superseded by the user choosing another artifact. A pointer whose sidecar is missing counts as stale.
+
 Stale never blocks viewing or exporting; it blocks *downstream generation* and shows an amber badge. Approvals are not auto-cleared; the badge is the signal.
 
 ## Handoff state (per shot)

@@ -13,7 +13,7 @@
 ```
 
 ## 1. Artifact naming
-`<kind>_<first 12 hex of sha256(bytes)>.<ext>` with a sidecar `<same>.meta.json` (Artifact record).
+`<kind>_<first 12 hex of sha256(bytes)>.<ext>` with a sidecar `<kind>_<hash12>.meta.json` (Artifact record; no data extension in the sidecar name, so the id alone locates it). The artifact list is always rebuildable by scanning `artifacts/` for sidecars; no index file is authoritative.
 Kinds: `an` analysis · `sb` storyboard · `sp` shotspec · `pr` promptIR · `im` image · `vd` video · `au` audio · `tx` transcript · `rg` rendergraph.
 Putting identical bytes twice returns the same id (dedupe). Deleting is never done by the app; a "Clean unreferenced" tool may list them for the user (phase 2+).
 

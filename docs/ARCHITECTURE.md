@@ -1,7 +1,7 @@
 # Architecture
 
 ## 1. Principles
-1. **Project is a folder.** Source of truth is `project.json` + immutable `artifacts/`. No hidden DB state. SQLite is only a rebuildable index of projects.
+1. **Project is a folder.** Source of truth is `project.json` + immutable `artifacts/`. No hidden DB state. The project index (`~/.autoflow/projects.json`, D-20) is only a rebuildable list.
 2. **Shot is the source of truth; prompt is compiled.** `ShotSpec` (structured, Burmese + English fields) → `PromptIR` → model dialect string.
 3. **Approval is domain logic.** `WorkflowRules` in `:core` decides what may happen. UI never bypasses it.
 4. **Stale is computed, not stored.** Every generated artifact records the artifact ids/hashes it was derived from. "Stale" = pointer mismatch at read time. No cascade updates.
@@ -14,13 +14,13 @@
 :core        model · project I/O · ArtifactStore · WorkflowRules · PromptCompiler · ShotSplitter
 :ai          provider interfaces · Gemini impls · Fake impls · ModelCapability config
 :media       expect/actual: ffmpeg (desktop) / Media3 (android) · RenderGraph compiler · frame extract · folder watcher
-:platform    expect/actual: secure storage · file pickers · open-URL · clipboard · app dirs
+:platform    JvmFs (core FileSystem on java.nio, D-18) · secure storage (DPAPI, D-19) · file pickers · open-URL · clipboard · app dirs
 :ui          Compose Multiplatform screens + ViewModels (shared)
 :app-desktop Compose Desktop entry, jpackage (MSIX)
 :app-android Android entry, SAF, share-sheet receiver, WorkManager (phase 3)
 spikes/      throwaway experiments (not in main build)
 ```
-Dependency direction: `app-* → ui → (core, ai, media, platform)`; `ai → core`; `media → core`. `:core` depends on nothing but kotlinx.
+Dependency direction: `app-* → ui → (core, ai, media, platform)`; `ai → core`; `media → core`; `platform → core` (D-18). `:core` depends on nothing but kotlinx.
 
 ## 3. Runtime flow (MV mode)
 ```
@@ -73,7 +73,7 @@ Only short API jobs exist (text/image/TTS). A small in-process `JobRunner` with 
 - Android ↔ Windows: user runs Syncthing (or copies folder). App is sync-agnostic. Artifacts never conflict; `project.json` conflict → keep both, show chooser (phase 3).
 
 ## 8. Security
-- API key: `:platform` SecureStorage. Never serialized.
+- API key: `:platform` SecureStorage (Windows DPAPI → `~/.autoflow/secrets.bin`, D-19). Never serialized.
 - Voice samples/consent recordings (phase 4): stored in project folder only; user is warned before upload.
 
 ## 9. Non-goals

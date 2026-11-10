@@ -89,6 +89,17 @@ class WorkflowRulesTest {
     }
 
     @Test
+    fun userProvidedArtifactsRecordNoInputsAndAreNeverStale() {
+        val own = ArtifactId("im_888888888888").also { record(it) } // "Upload own": inputs = {}
+        val shot = fullShot.copy(chosenRef = own, refImages = listOf(im, own), promptIr = pr2)
+        assertFalse(Stale.ref(shot, lookup))
+        assertTrue(Stale.ref(shot, lookup, ref = im)) // generated ref still tracks its prompt
+        val ownVideo = ArtifactId("vd_999999999999").also { record(it, Inputs.PROMPT_IR to pr.value) } // ref not recorded
+        assertFalse(Stale.video(fullShot.copy(acceptedVideo = ownVideo), lookup))
+        assertTrue(Stale.video(fullShot.copy(acceptedVideo = ownVideo, promptIr = pr2), lookup))
+    }
+
+    @Test
     fun storyboardGate() {
         val p = project(fullShot)
         assertTrue(WorkflowRules.canGenerateStoryboard(p, "မိုးရွာနေတဲ့ ညမှာ").allowed)
