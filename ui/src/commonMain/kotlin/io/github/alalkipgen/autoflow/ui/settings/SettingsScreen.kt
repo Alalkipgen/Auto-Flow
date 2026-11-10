@@ -1,6 +1,8 @@
 package io.github.alalkipgen.autoflow.ui.settings
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.Ratio
@@ -37,9 +40,9 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** Settings (DESIGN.md §3, PLAN 1C): AI key and mode, defaults, ffmpeg / VLC, fonts, model config. */
+/** Settings (DESIGN.md §3, PLAN 1C): AI key and mode, defaults, ffmpeg / VLC, fonts, model config; [info] adds About. */
 @Composable
-fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier) {
+fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(model) { model.refreshUsage() }
@@ -54,6 +57,21 @@ fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier) {
         ToolsCard(state, model, scope)
         FontsCard(state.settings.fontPaths, model, scope)
         ModelsCard(state, model, scope)
+        info?.let { AboutCard(it) }
+    }
+}
+
+/** Version line; on Android a long press opens the Self-test (PLAN S6), so it stays out of the way of normal use. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AboutCard(info: AppInfo) {
+    AfCard("About") {
+        val open = info.onVersionLongPress
+        AfText(
+            "Auto Flow ${info.version}",
+            Modifier.testTag("about-version").then(if (open != null) Modifier.combinedClickable(onClick = {}, onLongClick = open) else Modifier),
+        )
+        if (open != null) AfText("Long-press the version to open the Self-test.", muted = true, size = 12.sp)
     }
 }
 

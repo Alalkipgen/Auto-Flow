@@ -46,12 +46,14 @@ import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.input.InputScreen
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
+import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
@@ -73,6 +75,8 @@ fun App() {
     val shellState by shell.state.collectAsState(shell.current())
     val jobs = koinInject<StoryboardJobs>()
     var screen by remember { mutableStateOf("Dashboard") }
+    val koin = getKoin()
+    val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
     AppShell(
         status,
         selected = screen,
@@ -88,7 +92,7 @@ fun App() {
             "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
             "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
             "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
-            "Settings" -> SettingsScreen(koinInject())
+            "Settings" -> SettingsScreen(koinInject(), info = appInfo)
             else -> ScreenPlaceholder(screen)
         }
     }

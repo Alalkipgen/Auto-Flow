@@ -9,6 +9,7 @@ ktor = "3.6.1"
 koin = "4.2.2"
 androidx-activity = "1.13.0"
 jna = "5.17.0"
+media3 = "1.11.1"
 android-compileSdk = "37"
 android-targetSdk = "37"
 android-minSdk = "26"
@@ -33,6 +34,9 @@ compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
+media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
+media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

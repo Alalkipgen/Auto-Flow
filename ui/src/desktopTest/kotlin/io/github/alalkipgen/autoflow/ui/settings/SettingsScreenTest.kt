@@ -3,10 +3,13 @@ package io.github.alalkipgen.autoflow.ui.settings
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.alalkipgen.autoflow.ai.AiResult
@@ -84,5 +87,25 @@ class SettingsScreenTest {
         assertEquals("D:/VLC", settings.state.value.vlcPath)
         onNodeWithText("Using VLC in D:/VLC").assertExists()
         onNodeWithText("In use: ${LoadedModelConfig.BUNDLED}").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun aboutShowsTheVersionAndLongPressOpensTheSelfTest() = runComposeUiTest {
+        var opens = 0
+        setContent { SettingsScreen(model, info = AppInfo("0.1.0 (abc1234)") { opens++ }) }
+        onNodeWithText("Auto Flow 0.1.0 (abc1234)").performScrollTo().assertExists()
+        onNodeWithText("Long-press the version to open the Self-test.").assertExists()
+        onNodeWithTag("about-version").performClick()
+        waitForIdle()
+        assertEquals(0, opens)
+        onNodeWithTag("about-version").performTouchInput { longClick() }
+        waitForIdle()
+        assertEquals(1, opens)
+    }
+
+    @Test
+    fun withoutAppInfoThereIsNoAboutCard() = runComposeUiTest {
+        setContent { SettingsScreen(model) }
+        onNodeWithText("About").assertDoesNotExist()
     }
 }
