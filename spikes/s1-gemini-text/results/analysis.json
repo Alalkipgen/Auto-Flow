@@ -1,6 +1,6 @@
 {
-    "themeMy": "ဆုံးရှုံးခဲ့ရသောအချစ်အတွက် ဝမ်းနည်းပူဆွေးမှုနှင့် မနက်ဖြန်သစ်အတွက် မျှော်လင့်ချက်ဖြင့် ရှေ့ဆက်နိုင်ခြင်း",
-    "arcMy": "မိုးရွာသော ညအမှောင်ထဲတွင် အတိတ်က အမှတ်တရများကို လွမ်းဆွတ်ရင်း အထီးကျန်နေခဲ့ရာမှ နံနက်ခင်း နေရောင်နှင့်အတူ မျက်ရည်များခြောက်သွေ့ပြီး အသစ်စတင်ရဲသည့် သတ္တိကို မွေးမြူနိုင်ခဲ့သည်။",
+    "themeMy": "ချစ်သူကို လွမ်းဆွတ်သတိရခြင်းနှင့် မျှော်လင့်ချက်သစ်ဖြင့် ရှေ့ဆက်နိုင်ရန် ကြိုးစားခြင်း",
+    "arcMy": "မိုးရွာသော ညမှန်ပြတင်းဘေးတွင် တစ်ယောက်တည်း လွမ်းဆွတ်နေမိရာမှ နံနက်ခင်းနေရောင်နှင့်အတူ ဘဝသစ်ကို စတင်ရန် သတ္တိမွေးသည့် ခံစားချက်ပြောင်းလဲမှု",
     "sections": [
         {
             "type": "VERSE",
@@ -22,15 +22,13 @@
         }
     ],
     "motifsEn": [
-        "rain-streaked glass window",
-        "cold mug of coffee",
-        "faded vintage photograph",
-        "street puddle reflecting sky",
-        "bright golden morning sunlight"
+        "rain-streaked window glass with city lights blur",
+        "cooling coffee cup emitting faint steam",
+        "faded vintage memory photograph held gently",
+        "puddle reflection showing clear blue sky at sunrise"
     ],
-    "paletteEn": "Moody dark rain blue and deep grey tones transitioning into bright golden sunlight and vivid sky blue reflections",
+    "paletteEn": "Moody rainy night tones featuring deep navy blue and warm amber, transitioning into soft golden sunrise glow and clear sky pastel tones",
     "charactersMy": [
-        "အထီးကျန်စွာ အတိတ်ကို လွမ်းဆွတ်နေသော လူငယ်တစ်ဦး (ဝမ်းနည်းဖွယ် မျက်လုံးများ၊ ရိုးရှင်းသော အဝတ်အစား)",
-        "ဓာတ်ပုံဟောင်းလေးထဲမှ ချစ်သူ (တောက်ပစွာ ပြုံးနေသော ပုံရိပ်)"
+        "အချစ်ဟောင်းကို လွမ်းဆွတ်ကာ ပြတင်းပေါက်မှ နံနက်ခင်း နေရောင်ခြည်ဆီသို့ မျှော်လင့်ချက်ဖြင့် ငေးကြည့်နေသော လူငယ်တစ်ဦး"
     ]
 }

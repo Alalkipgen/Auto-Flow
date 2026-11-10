@@ -2,11 +2,29 @@ models=[gemini-3.8-flash, gemini-3.5-flash, gemini-flash-latest]
 [gemini-3.8-flash] HTTP 503; retry 1 in 10s
 [gemini-3.8-flash] HTTP 503; retry 2 in 20s
 [gemini-3.8-flash] HTTP 503; retry 3 in 40s
-[stageA-analysis-gemini-3.8-flash-attempt1] HTTP 503 in 837 ms (tries=4)
+[stageA-analysis-gemini-3.8-flash-attempt1] HTTP 503 in 106254 ms (tries=4)
 [gemini-3.5-flash] HTTP 503; retry 1 in 10s
-[stageA-analysis-gemini-3.5-flash-attempt1] HTTP 200 in 12642 ms (tries=2)
+[gemini-3.5-flash] HTTP 503; retry 2 in 20s
+[stageA-analysis-gemini-3.5-flash-attempt1] HTTP 200 in 14189 ms (tries=3)
 [gemini-3.5-flash] HTTP 503; retry 1 in 10s
 [gemini-3.5-flash] HTTP 503; retry 2 in 20s
 [gemini-3.5-flash] HTTP 503; retry 3 in 40s
-[stageB-storyboard-gemini-3.5-flash-attempt1] HTTP 200 in 18363 ms (tries=4)
-model=gemini-3.5-flash storyboard shots=6
+[stageB-storyboard-gemini-3.5-flash-attempt1] HTTP 503 in 5417 ms (tries=4)
+Exception in thread "main" java.lang.IllegalStateException: stageB-storyboard: no model produced valid JSON; not saving a partial storyboard
+	at MainKt.stage(Main.kt:62)
+	at MainKt.main(Main.kt:78)
+	at MainKt.main(Main.kt)
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':run' (registered by plugin 'org.gradle.application').
+> Process 'command '/usr/lib/jvm/temurin-21-jdk-amd64/bin/java'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 6m 26s
