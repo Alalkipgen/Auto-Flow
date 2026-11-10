@@ -18,7 +18,17 @@ kotlin {
 
 dependencies {
     implementation(project(":ui"))
+    // The app module binds the platform implementations for :ui and :ai (ARCHITECTURE §2: app-* → ui → …).
+    implementation(project(":core"))
+    implementation(project(":ai"))
+    implementation(project(":platform"))
     implementation(compose.desktop.currentOs)
+    testImplementation(libs.kotlin.test)
+}
+
+// Ship config/models.json (D-10) on the classpath as /config/models.json; Settings can point at an override file.
+tasks.named<ProcessResources>("processResources") {
+    from(rootProject.layout.projectDirectory.file("config/models.json")) { into("config") }
 }
 
 compose.desktop {

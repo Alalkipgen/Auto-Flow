@@ -41,7 +41,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] `:platform`: `JvmFs` (shared `jvmShared` source set, desktop + Android), AppDirs, Clipboard, UrlOpener, FilePicker (desktop) (D-18) — `PlatformResult`; one contract test for `InMemoryFileSystem` and `JvmFs`
 - [x] `:platform` SecureStorage: Windows DPAPI via JNA, `~/.autoflow/secrets.bin` (D-19); Windows CI job — `FileSecureStorage` + `DpapiCipher`, `desktopSecureStorage(appDirs)`
 - [ ] Dashboard: project list from `~/.autoflow/projects.json` (D-20), New Music Video, Open folder
-- [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status
+- [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status (live status done in 1C-a4)
 - [ ] Input screen (lyrics, duration, song style, video style, ratio, clip length, mood)
 - [ ] Storyboard screen (Burmese cards, edit, regenerate, approve all / per shot)
 - [ ] Shots screen (grid, badges: Accepted / Needs Flow / Stale / Draft)
@@ -118,3 +118,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1C-a2 `:platform` part 2: `AwtClipboard` (retry while Windows locks the clipboard), `DesktopUrlOpener` (http/https only, no userinfo; AWT `Desktop` or OS opener without a shell), `SwingFilePicker` (native file dialog, Swing folder chooser, extension filter); headless tests report `Unsupported`.
 - 2026-11-10 1C-a3 SecureStorage (D-19): JNA 5.17.0 (desktop only); `secrets.bin` = `AFS1` + DPAPI blob (current user, app entropy, no UI) of a name → value map, atomic write; unreadable file → `Failed` and replaced by the next save, I/O error never overwrites; messages never quote decrypted text; non-Windows → `Unsupported`. New `windows` CI job runs `:platform:desktopTest` with real DPAPI.
 - 2026-11-10 1C-a4 Settings part 1: `AppSettings` + `SettingsStore` (`~/.autoflow/settings.json`, atomic, lenient; first run = Fake mode; unreadable file → defaults + warning, replaced on next change) and `loadModelConfig` (override path from Settings, else the bundled `config/models.json`, with a problem message). `:ui` applies the kotlinx.serialization plugin (D-11).
+- 2026-11-10 1C-a4 Settings part 2: `AppAiHost` (mode from settings, key from SecureStorage per call, clipboard/URL from `:platform`), live title-bar status (`AI ● Fake (offline)` / `Gemini API ● Free tier` / `No key` / `Windows only` · `Flow ● Manual`), Koin: `desktopModule` + `uiModule` + `aiModule`; `config/models.json` bundled in `app-desktop`; graph test with the real desktop bindings in CI.
