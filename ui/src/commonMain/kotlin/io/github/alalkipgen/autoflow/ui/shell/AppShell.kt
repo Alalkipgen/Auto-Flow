@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
+import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import org.koin.compose.koinInject
@@ -59,7 +60,10 @@ fun App() {
     val status by model.status.collectAsState(model.current())
     var screen by remember { mutableStateOf("Dashboard") }
     AppShell(providerStatus = status, selected = screen, onSelect = { screen = it }) {
-        ScreenPlaceholder(screen)
+        when (screen) {
+            "Settings" -> SettingsScreen(koinInject())
+            else -> ScreenPlaceholder(screen)
+        }
     }
 }
 
