@@ -21,7 +21,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 ### 1A :core
 - [x] Project folder create/open, `project.json` atomic I/O (specs/project-format.md) — `ProjectStore` over the `core.io.FileSystem` port
 - [x] ArtifactStore: put(bytes/kind) → content-hash id, get, list by shot
-- [ ] Disk `FileSystem` implementation (fsync via `FileChannel.force`, `ATOMIC_MOVE`) for desktop + Android → `:platform` `JvmFs` in 1C-a (D-18)
+- [x] Disk `FileSystem` implementation (fsync via `FileChannel.force`, `ATOMIC_MOVE`) for desktop + Android → `:platform` `JvmFs` in 1C-a (D-18)
 - [x] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval (`core/model/`, strict `CoreJson`, fixture `fixtures/project-v1.json`)
 - [x] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md) — `WorkflowRules`, `Stale`, `approveAll`
 - [x] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests (`VeoFlowDialect`, `ImageDialect`; goldens: narrative, performance, abstract)
@@ -38,7 +38,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] ProviderRegistry + Koin `aiModule`: `AiHost` port (settings flag, API key, clipboard, open-URL); fake/real chosen per call; real TTS/transcribe answer `unavailable` until phase 4
 
 ### 1C :ui (desktop)
-- [ ] `:platform`: `JvmFs`, AppDirs, Clipboard, UrlOpener, FilePicker (desktop) (D-18)
+- [ ] `:platform`: `JvmFs` (shared `jvmShared` source set, desktop + Android), AppDirs, Clipboard, UrlOpener, FilePicker (desktop) (D-18) — `PlatformResult`; one contract test for `InMemoryFileSystem` and `JvmFs`
 - [ ] `:platform` SecureStorage: Windows DPAPI via JNA, `~/.autoflow/secrets.bin` (D-19); Windows CI job
 - [ ] Dashboard: project list from `~/.autoflow/projects.json` (D-20), New Music Video, Open folder
 - [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status
@@ -114,3 +114,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1B GeminiTextProvider (Ktor, header key, thought parts skipped, `limit: 0` → next candidate); tests on real S1/S2 responses via ktor-client-mock (D-17).
 - 2026-11-10 1B ProviderRegistry + Koin aiModule. 1B complete (GeminiImageProvider deferred per D-14).
 - 2026-11-10 Q-06/Q-07/Q-08 resolved: D-18 (FileSystem port + `:platform` JvmFs), sidecar naming + `ArtifactStore.scan()`, stale only on recorded inputs; D-19 DPAPI SecureStorage; D-20 JSON project index.
+- 2026-11-10 PR #16 merged. 1C-a2 `:platform` part 1: `JvmFs` (fsync + `ATOMIC_MOVE`, short retry on Windows `AccessDenied`), `PlatformResult`, `AppDirs` (`~/.autoflow/{projects,settings,usage}.json`, `secrets.bin`; `-Dautoflow.home` override); contract + disk round-trip tests; CI runs `:platform:check` and compiles `androidMain`. 1A complete.

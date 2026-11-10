@@ -16,4 +16,4 @@ jobs:
         run: ldconfig -p | grep -q libGL.so.1 || (sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1)
       - name: Check (fake providers only, no API keys)
         # chmod: files pushed via the GitHub API/web UI lose the executable bit.
-        run: chmod +x gradlew && ./gradlew :core:check :ai:check :ui:desktopTest
+        run: chmod +x gradlew && ./gradlew :core:check :ai:check :platform:check :platform:compileAndroidMain :ui:desktopTest
