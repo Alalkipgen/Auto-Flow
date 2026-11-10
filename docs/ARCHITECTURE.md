@@ -13,11 +13,11 @@
 ```
 :core        model · project I/O · ArtifactStore · WorkflowRules · PromptCompiler · ShotSplitter
 :ai          provider interfaces · Gemini impls · Fake impls · ModelCapability config
-:media       expect/actual: ffmpeg (desktop) / Media3 (android) · RenderGraph compiler · frame extract · folder watcher
+:media       RenderGraph → ffmpeg compiler (common, D-23) · expect/actual: ffmpeg runner (desktop: located binary; android: bundled binary) · probe · frame extract · player · folder watcher
 :platform    JvmFs (core FileSystem on java.nio, D-18) · secure storage (DPAPI, D-19) · file pickers · open-URL · clipboard · app dirs
 :ui          Compose Multiplatform screens + ViewModels (shared)
 :app-desktop Compose Desktop entry, jpackage (MSIX)
-:app-android Android entry, SAF, share-sheet receiver, WorkManager (phase 3)
+:app-android Android entry, bundled ffmpeg (D-23), share-sheet receiver, WorkManager render worker, Self-test (1F, D-22)
 spikes/      throwaway experiments (not in main build)
 ```
 Dependency direction: `app-* → ui → (core, ai, media, platform)`; `ai → core`; `media → core`; `platform → core` (D-18). `:core` depends on nothing but kotlinx.
@@ -70,7 +70,7 @@ Only short API jobs exist (text/image/TTS). A small in-process `JobRunner` with 
 
 ## 7. Persistence & sync
 - `project.json` atomic writes; artifacts write-once.
-- Android ↔ Windows: user runs Syncthing (or copies folder). App is sync-agnostic. Artifacts never conflict; `project.json` conflict → keep both, show chooser (phase 3).
+- Android ↔ Windows: user runs Syncthing (or copies folder). App is sync-agnostic. Artifacts never conflict; `project.json` conflict → keep both, show chooser (1F).
 
 ## 8. Security
 - API key: `:platform` SecureStorage (Windows DPAPI → `~/.autoflow/secrets.bin`, D-19). Never serialized.

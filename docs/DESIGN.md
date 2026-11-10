@@ -47,8 +47,8 @@ Not an NLE. Ordered clip strip (drag to reorder, trim handles), audio track with
 ### Settings
 Gemini API key (masked, "Test" button), model config editor (read-only view of `config/models.json` + override path), ffmpeg path + detect, font paths, default ratio/clip length, language.
 
-## 4. Android companion
-Bottom nav: Projects · Storyboard · Shots · Inbox · Settings. Same cards, single column. Primary actions: Approve, Copy Prompt, Edit, Regenerate, Attach video (from share sheet). No Timeline/Export. Shows banner "Rendering is Windows-only".
+## 4. Android (full app, D-22)
+Bottom nav: Projects · Storyboard · Shots · Inbox · More (References, Flow Handoff, Timeline, Export, Settings). Same cards, single column. Every desktop screen exists on the phone, including Timeline and Export (render runs in the background with a notification). Primary actions: Approve, Copy Prompt, Edit, Regenerate, Attach video (from share sheet). Settings → long-press the version opens the Self-test (S6).
 
 ## 5. Interaction rules
 - Every destructive or quota-consuming action has a confirm dialog that states what will be generated and what becomes stale.

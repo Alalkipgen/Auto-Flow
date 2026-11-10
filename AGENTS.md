@@ -40,7 +40,7 @@ Optimize for: correctness, small diffs, testability without API keys, and never 
 ## 4. Definition of Done (per task)
 - [ ] Spec section referenced in PR description
 - [ ] Unit tests for `:core` / `:ai` logic; UI has at least a smoke test with fakes
-- [ ] `./gradlew check` passes on desktop target
+- [ ] `./gradlew check` passes on desktop target; the CI `android` job builds the debug APK (D-24)
 - [ ] docs/PLAN.md updated
 - [ ] No TODOs without an issue reference
 

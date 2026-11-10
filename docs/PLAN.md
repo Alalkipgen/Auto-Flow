@@ -12,11 +12,12 @@ throwaway module under `spikes/` with a README recording the result.
 - [x] S3 Compose Desktop video playback: play a local mp4 in a Compose window (candidate: VLCJ). Record: bundle size impact, seeking, 9:16 rendering. → PASS 7/7 on Linux and Windows (VLCJ callback surface → Compose Image); trimmed VLC ≈ 95 MB + 3.7 MB JARs (Q-05). See spikes/s3-vlcj-playback/README.md.
 - [x] S4 Burmese text in Compose Desktop and in ffmpeg overlays (Pyidaungsu / Noto Sans Myanmar). Record screenshots; confirm stacked consonants/medials render correctly. → PASS on Linux and Windows CI via libass `ass=` (primary) and Compose/Skia PNG + `overlay` (fallback); plain `drawtext` is correct only on FFmpeg ≥ 9.0 (≤ 8.0 forces Latin script) and is not used. See spikes/s4-burmese-rendering/README.md.
 - [ ] S5 Gemini TTS: synthesize one Burmese sentence; attempt voice replication once. Record whether replication is available to this account. (Optional — non-blocking.)
+- [ ] S6 Android on-device feasibility (D-22/D-23), shipped inside the app: hidden Self-test (Settings → long-press version) extracts fixtures (two 8 s 9:16 clips, 20 s mp3, the S4 Burmese .ass, a Burmese font), runs `ffmpeg -version` (`ass`, `xfade`, `libx264`, `aac`), renders concat → 540p, + .ass overlay, + mp3 mix → 1080p in a foreground service, shows one frame of each, measures wall time and peak RSS, writes `selftest/report.md` (Copy / Share); exec failure → exact error + Media3 Transformer fallback. Built by CI (D-24); the owner pastes the report back
 
 Exit criteria: S1–S4 pass. If S3 fails, see DECISIONS.md D-07 fallback.
 
-## Phase 1 — Windows MVP (fake providers first, then real Gemini)
-Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
+## Phase 1 — MVP on Android and Windows (fake providers first, then real Gemini)
+Goal: full MV pipeline end-to-end with manual Flow handoff — on the owner's Android phone (D-22) and on Windows (verified by CI).
 
 ### 1A :core
 - [x] Project folder create/open, `project.json` atomic I/O (specs/project-format.md) — `ProjectStore` over the `core.io.FileSystem` port
@@ -52,13 +53,25 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [ ] Inbox: folder watcher → "attach to shot" dialog (video → `vd`, png/jpg → Ref A/B `im`)
 - [x] Settings: API key (secure storage), Fake/Real AI providers toggle (`AiHost.useFakeProviders`), ffmpeg path, VLC path (auto-detect; "Install VLC" link + playback disabled when missing, D-16), fonts, model config — `SettingsScreen` + `SettingsModel`; `SettingsUiState.vlcDir` is what playback (1D) checks
 
-### 1D :media (desktop)
+### 1D :media (desktop; the compiler is shared with Android, D-23)
 - [ ] ffmpeg locator + version check (`ass` filter / `--enable-libass` → overlay backend)
-- [ ] RenderGraph → filtergraph compiler (concat, trim, audio, text overlay via libass; Skia PNG fallback)
+- [ ] RenderGraph → filtergraph compiler in `:media` commonMain (concat, trim, audio, text overlay via libass; Skia PNG fallback) — one compiler for desktop and Android, no duplicated filtergraph code
 - [ ] Preview (proxy 540p) and Export (1080p) presets: 16:9, 9:16, 1:1
 - [ ] End-frame extraction for shot chaining
 
-Exit criteria: create project → storyboard → approve → prompts → ref images → handoff 3 shots to Flow by hand → import → export mp4 with music and lyric overlay.
+### 1F Android parity (was Phase 3, D-22)
+- [ ] CI debug APK artifact + GitHub Release on `v0.*` tags, stable signing from Actions secrets (D-24)
+- [ ] Bundled ffmpeg/ffprobe for arm64-v8a built from source in CI (D-23); README GPL note
+- [ ] Android bindings: AppDirs + project folders under the external files dir, `JvmFs`, Clipboard, UrlOpener, ToolLocator (bundled ffmpeg), bundled `config/models.json`; crash text shown with Copy/Share on the next launch
+- [ ] SecureStorage on Android Keystore AES-GCM (D-25)
+- [ ] File import via the system picker (video → `vd`, image → Ref A/B); SAF "Open folder" optional
+- [ ] Share-sheet import → Inbox
+- [ ] Phone layout for every screen (DESIGN.md §4: bottom nav, single column)
+- [ ] `:media` Android actuals: FfmpegRunner (bundled binary, progress from stderr), MediaProbe (ffprobe, else MediaMetadataRetriever), EndFrame, VideoPlayer = ExoPlayer composable (D-25)
+- [ ] Render in a WorkManager foreground worker (notification + progress, survives backgrounding, cancellable, one at a time) → `<project>/exports/`; warn when battery < 20 % and not charging; Preview 540p / Export 1080p, same presets as desktop
+- [ ] Settings → "Backup all projects" (zip → share sheet), so a reinstall never loses data (D-25)
+
+Exit criteria: create project → storyboard → approve → prompts → ref images → handoff 3 shots to Flow by hand → import → export mp4 with music and lyric overlay — on the owner's phone, and on Windows in CI.
 
 ## Phase 2 — Quality
 - [ ] Character Bible + token expansion in compiler
@@ -69,11 +82,11 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - [ ] Version browser per shot (artifact history)
 - [ ] Beat detection → snap cut points (optional)
 
-## Phase 3 — Android companion
-- [ ] Shared Compose UI on Android: Projects, Storyboard (edit/approve), Shots, Inbox, Settings
-- [ ] Project folder via SAF; Syncthing documented as the sync method
-- [ ] Share-sheet import → Inbox
-- [ ] No rendering on Android (preview only via Media3)
+## Phase 3 — Android companion (superseded by D-22: merged into Phase 1 as 1F Android parity)
+- ~~Shared Compose UI on Android: Projects, Storyboard (edit/approve), Shots, Inbox, Settings~~ → 1F (every screen)
+- ~~Project folder via SAF~~ → 1F (external files dir by default, SAF optional, D-25); Syncthing stays the documented sync method
+- ~~Share-sheet import → Inbox~~ → 1F
+- ~~No rendering on Android (preview only via Media3)~~ — superseded by D-22/D-23: Android renders with the bundled ffmpeg
 
 ## Phase 4 — Movie Recap mode
 - [ ] Import video, scene detect (ffmpeg scdet), scene picker, target duration
@@ -135,3 +148,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 1C-c Shell part 1: `:core` `Pipeline` (a step screen opens once one shot can work on it; done = every shot finished with current artifacts; current = first step not done) and `ShellModel` (sidebar locks: no project → every pipeline screen; Shots needs a storyboard, References an approved prompt, Flow Handoff an approved reference, Timeline/Export an accepted video; lock texts; stepper cells).
 - 2026-11-11 1C-c Shell part 2: sidebar locks (dimmed + 🔒, `stateDescription = "locked"`; hover or click shows the reason and does not open the screen), mockup stepper (✓ done, current highlighted) above pipeline screens, and the running AI job + Cancel moved from Input/Storyboard into a shell `JobBanner` shown on every screen (Input keeps its button, disabled while a job runs). Windows screenshots add the Storyboard screen. Shell item done.
 - 2026-11-11 1C-c Shots part 1: `:core` `ShotStatus` (Draft / Prompt ready / Needs Flow / Imported / Accepted / Stale; computed from pointers, approvals and handoff state; Stale wins) and `ImageHeader` (PNG IHDR / JPEG SOFn size without decoding, ratio match with 3 % tolerance for the "image ratio ≠ project ratio" warning).
+- 2026-11-11 Android first-class (owner has no PC): D-22 (parity, amends D-08), D-23 (bundled ffmpeg built from source, Media3 fallback), D-24 (CI APK + releases, stable signing from secrets), D-25 (ExoPlayer, Keystore AES-GCM, external files dir, backup). Phase 3 merged into Phase 1 as 1F; S6 on-device self-test added.
