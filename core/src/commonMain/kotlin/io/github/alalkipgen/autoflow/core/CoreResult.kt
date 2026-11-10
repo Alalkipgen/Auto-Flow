@@ -43,6 +43,17 @@ sealed interface CoreError {
         override val message: String get() = reason
     }
 
+    /**
+     * The prompt cannot be compiled (specs/prompt-compiler.md §4). [emptyFields] are `*En` field names;
+     * [unknownTokens] are character tokens with no character or an empty `descriptionEn`. Shown on the shot card.
+     */
+    data class CannotCompile(val shot: Int, val emptyFields: List<String>, val unknownTokens: List<String>) : CoreError {
+        override val message: String get() = buildList {
+            if (emptyFields.isNotEmpty()) add("empty English fields: ${emptyFields.joinToString()}")
+            if (unknownTokens.isNotEmpty()) add("unknown characters: ${unknownTokens.joinToString()}")
+        }.joinToString("; ", prefix = "Shot $shot: ")
+    }
+
     /** Different bytes map to an existing id (first 12 hex of SHA-256). The existing artifact is left untouched. */
     data class HashCollision(val id: ArtifactId) : CoreError {
         override val message: String get() = "Different content already stored as $id"

@@ -24,7 +24,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [ ] Disk `FileSystem` implementation (fsync via `FileChannel.force`, `ATOMIC_MOVE`) for desktop + Android (Q-06)
 - [x] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval (`core/model/`, strict `CoreJson`, fixture `fixtures/project-v1.json`)
 - [x] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md) — `WorkflowRules`, `Stale`, `approveAll`
-- [ ] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests
+- [x] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests (`VeoFlowDialect`, `ImageDialect`; goldens: narrative, performance, abstract)
 - [x] Shot auto-splitting from duration + clip length + section hints (`ShotSplitter`: remainder ≥ 2 s own shot, else merged; 1.5 s section snap)
 
 ### 1B :ai
@@ -100,3 +100,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1A ProjectStore (atomic save + .bak, crash-safe) and ArtifactStore (content-hash, write-once, dedupe); pure-Kotlin SHA-256; Q-06, Q-07.
 - 2026-11-10 1A ShotSplitter.
 - 2026-11-10 1A WorkflowRules gates, Stale functions, approve-all; Q-08.
+- 2026-11-10 1A PromptCompiler, VeoFlowDialect, ImageDialect + 3 golden cases. 1A :core complete except the disk FileSystem (Q-06).

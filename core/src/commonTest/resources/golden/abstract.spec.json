@@ -1,0 +1,24 @@
+{
+  "spec": {
+    "shot": 12,
+    "sceneMy": "ရေထဲမှာ မင်ရည်တွေ ပျံ့နှံ့နေတယ်",
+    "lyricsMy": "",
+    "subjectEn": "drops of black ink",
+    "actionEn": "bloom and curl slowly",
+    "settingEn": "inside a glass of clear water against a white backdrop",
+    "cameraEn": "slow pan across the ink clouds, macro lens",
+    "moodEn": "dreamlike atmosphere",
+    "lightingEn": "soft diffused backlight",
+    "characters": [],
+    "motifEn": "ink in water",
+    "transitionEn": "dissolve"
+  },
+  "globalStyle": {
+    "visual": "minimal fine-art film",
+    "palette": "monochrome with a single gold accent",
+    "negative": "people, faces, text"
+  },
+  "characters": [],
+  "ratio": "1:1",
+  "durationMs": 8000
+}

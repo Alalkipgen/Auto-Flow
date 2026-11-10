@@ -1,0 +1,27 @@
+{
+  "spec": {
+    "shot": 7,
+    "sceneMy": "ခေါင်မိုးပေါ်မှာ သီချင်းဆိုနေတယ်",
+    "lyricsMy": "ငါ မကြောက်ဘူး",
+    "subjectEn": "lead singer",
+    "actionEn": "sings the chorus with eyes closed, one hand on the microphone stand",
+    "settingEn": "rooftop at dusk, city lights below",
+    "cameraEn": "handheld orbit around the singer, low angle",
+    "moodEn": "defiant, euphoric",
+    "lightingEn": "magenta and cyan rim lights",
+    "characters": ["SINGER"],
+    "motifEn": "",
+    "transitionEn": "cut on beat"
+  },
+  "globalStyle": {
+    "visual": "music video, anamorphic lens flares",
+    "palette": "neon magenta and cyan",
+    "lighting": "high contrast",
+    "negative": "text, logos, watermark"
+  },
+  "characters": [
+    { "token": "SINGER", "nameMy": "ကိုသူ", "descriptionEn": "Burmese man in his late 20s, black leather jacket, silver microphone" }
+  ],
+  "ratio": "16:9",
+  "durationMs": 6000
+}
