@@ -88,6 +88,24 @@ class ArtifactStore(
         CoreResult.Ok(result.sortedWith(compareBy({ it.createdAt }, { it.id.value })))
     }
 
+    /**
+     * Every artifact, found by scanning the `<kind>_<hash12>.meta.json` sidecars in `artifacts/`, oldest first.
+     * No index is needed, so the artifact list can always be rebuilt from the folder (Q-07). Unreadable sidecars are
+     * listed in [ArtifactScan.unreadable] instead of failing the scan.
+     */
+    fun scan(): CoreResult<ArtifactScan> = io(dir) {
+        val found = mutableListOf<Artifact>()
+        val unreadable = mutableListOf<String>()
+        for (name in fs.list(dir)) {
+            if (name.startsWith('.') || !name.endsWith(META_SUFFIX)) continue
+            when (val r = decodeMeta(joinPath(dir, name), ArtifactId(name.removeSuffix(META_SUFFIX)))) {
+                is CoreResult.Ok -> found += r.value
+                is CoreResult.Err -> unreadable += name
+            }
+        }
+        CoreResult.Ok(ArtifactScan(found.sortedWith(compareBy({ it.createdAt }, { it.id.value })), unreadable.sorted()))
+    }
+
     /** Writes the data file if missing; returns an error if a different file already holds this id. */
     private fun ensureData(path: String, bytes: ByteArray, hex: String, id: ArtifactId): CoreResult.Err? {
         if (!fs.exists(path)) {
@@ -128,3 +146,6 @@ class ArtifactStore(
         private val EXT = Regex("[a-z0-9]{1,8}")
     }
 }
+
+/** Result of [ArtifactStore.scan]: readable artifacts (oldest first) and the names of sidecars that could not be read. */
+data class ArtifactScan(val artifacts: List<Artifact>, val unreadable: List<String>)

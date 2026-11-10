@@ -21,7 +21,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 ### 1A :core
 - [x] Project folder create/open, `project.json` atomic I/O (specs/project-format.md) — `ProjectStore` over the `core.io.FileSystem` port
 - [x] ArtifactStore: put(bytes/kind) → content-hash id, get, list by shot
-- [ ] Disk `FileSystem` implementation (fsync via `FileChannel.force`, `ATOMIC_MOVE`) for desktop + Android (Q-06)
+- [ ] Disk `FileSystem` implementation (fsync via `FileChannel.force`, `ATOMIC_MOVE`) for desktop + Android → `:platform` `JvmFs` in 1C-a (D-18)
 - [x] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval (`core/model/`, strict `CoreJson`, fixture `fixtures/project-v1.json`)
 - [x] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md) — `WorkflowRules`, `Stale`, `approveAll`
 - [x] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests (`VeoFlowDialect`, `ImageDialect`; goldens: narrative, performance, abstract)
@@ -38,6 +38,9 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] ProviderRegistry + Koin `aiModule`: `AiHost` port (settings flag, API key, clipboard, open-URL); fake/real chosen per call; real TTS/transcribe answer `unavailable` until phase 4
 
 ### 1C :ui (desktop)
+- [ ] `:platform`: `JvmFs`, AppDirs, Clipboard, UrlOpener, FilePicker (desktop) (D-18)
+- [ ] `:platform` SecureStorage: Windows DPAPI via JNA, `~/.autoflow/secrets.bin` (D-19); Windows CI job
+- [ ] Dashboard: project list from `~/.autoflow/projects.json` (D-20), New Music Video, Open folder
 - [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status
 - [ ] Input screen (lyrics, duration, song style, video style, ratio, clip length, mood)
 - [ ] Storyboard screen (Burmese cards, edit, regenerate, approve all / per shot)
@@ -84,9 +87,9 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - ~~Q-03 S2: Gemini image models have zero free-tier quota for this key.~~ Resolved → D-14.
 - ~~Q-04 S1: model ids drift and frequent 503s.~~ Resolved → D-15.
 - ~~Q-05 S3 packaging: bundle trimmed VLC or require an installed VLC?~~ Resolved → D-16 (separate install).
-- Q-06 1A: `:core` stores use a `FileSystem` port (in-memory fake for tests). Where should the disk implementation live? Proposal: `:platform` (expect/actual), which makes `:platform` depend on `:core`; ARCHITECTURE §2 does not list that edge yet.
-- Q-07 1A: artifact sidecar is named `<kind>_<hash12>.meta.json` (no data extension), so `get(id)` needs no directory scan. project-format.md §1 says `<same>.meta.json`, which could also mean `im_….png.meta.json`. Confirm, then the spec line can be made explicit.
-- Q-08 1A: `staleRef` compares `inputs.promptIr` with `shot.promptIr`, so a reference uploaded without a recorded `promptIr` ("Upload own") is always stale and blocks nothing but shows amber. Should own uploads be exempt (e.g. `inputs.source = "user"`)? Implemented literally for now.
+- ~~Q-06 1A: where should the disk `FileSystem` implementation live?~~ Resolved → D-18 (`:platform` `JvmFs`, port stays in `:core`).
+- ~~Q-07 1A: sidecar naming `<kind>_<hash12>.meta.json`?~~ Resolved → accepted; project-format.md §1 made explicit; `ArtifactStore.scan()` rebuilds the list from the folder.
+- ~~Q-08 1A: user-uploaded refs always stale?~~ Resolved → stale only when a recorded input exists and differs; user-provided artifacts record no inputs and are never stale (workflow-and-approval.md, `Stale`).
 - (agents append here)
 
 ## Changelog
@@ -110,3 +113,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1B ModelChain + UsageCounter (quota day = midnight Pacific).
 - 2026-11-10 1B GeminiTextProvider (Ktor, header key, thought parts skipped, `limit: 0` → next candidate); tests on real S1/S2 responses via ktor-client-mock (D-17).
 - 2026-11-10 1B ProviderRegistry + Koin aiModule. 1B complete (GeminiImageProvider deferred per D-14).
+- 2026-11-10 Q-06/Q-07/Q-08 resolved: D-18 (FileSystem port + `:platform` JvmFs), sidecar naming + `ArtifactStore.scan()`, stale only on recorded inputs; D-19 DPAPI SecureStorage; D-20 JSON project index.

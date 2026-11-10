@@ -20,9 +20,11 @@ object Inputs {
 }
 
 /**
- * Stale = recorded inputs no longer match the current pointers (specs/workflow-and-approval.md "Stale",
+ * Stale = a recorded input no longer matches the current pointer (specs/workflow-and-approval.md "Stale",
  * ARCHITECTURE.md §5). Computed at read time, never stored. A null pointer is never stale (nothing to compare).
- * A pointer whose sidecar cannot be found counts as stale, so downstream generation stays blocked until it is fixed.
+ * Only recorded inputs are compared: an artifact with no value for a key is never stale on that key, so
+ * user-provided artifacts (`inputs = {}`) are never stale (Q-08). A pointer whose sidecar cannot be found counts as
+ * stale, so downstream generation stays blocked until it is fixed.
  */
 object Stale {
     fun spec(project: Project, shot: Shot, lookup: ArtifactLookup): Boolean =
@@ -48,6 +50,6 @@ object Stale {
     private fun mismatch(id: ArtifactId?, lookup: ArtifactLookup, vararg expected: Pair<String, String?>): Boolean {
         if (id == null) return false
         val artifact = lookup(id) ?: return true
-        return expected.any { (key, current) -> artifact.inputs[key] != current }
+        return expected.any { (key, current) -> artifact.inputs[key].let { it != null && it != current } }
     }
 }

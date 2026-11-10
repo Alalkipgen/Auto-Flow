@@ -78,6 +78,19 @@ class ArtifactStoreTest {
     }
 
     @Test
+    fun scanRebuildsTheArtifactListFromSidecarsAndSkipsBrokenOnes() {
+        assertEquals(ArtifactScan(emptyList(), emptyList()), store.scan().ok()) // no artifacts/ folder yet
+        val a = store.put(byteArrayOf(1), ArtifactKind.IMAGE, "png", shot = 2).ok()
+        val b = store.put(byteArrayOf(2), ArtifactKind.ANALYSIS, "json").ok()
+        fs.writeDurably("/p/artifacts/im_000000000000.meta.json", "{".encodeToByteArray())
+        fs.writeDurably("/p/artifacts/.tmp-im_111111111111.meta.json", "{".encodeToByteArray())
+        val scan = store.scan().ok()
+        assertEquals(listOf(a, b), scan.artifacts)
+        assertEquals(listOf("im_000000000000.meta.json"), scan.unreadable)
+        assertEquals(scan.artifacts, ArtifactStore(fs, "/p", TestClock()).scan().ok().artifacts) // fresh store, same list
+    }
+
+    @Test
     fun rejectsBadExtensionAndReportsMissingOrCorrupt() {
         assertIs<CoreError.InvalidInput>(store.put(png, ArtifactKind.IMAGE, "../x").err())
         assertIs<CoreError.InvalidInput>(store.put(png, ArtifactKind.IMAGE, "PNG").err())

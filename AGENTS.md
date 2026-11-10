@@ -14,7 +14,7 @@ Optimize for: correctness, small diffs, testability without API keys, and never 
 - **Never delete or mutate an artifact file** under `artifacts/`. Artifacts are immutable and content-hash named. Only `project.json` pointers change.
 - **Never automate Google Flow** (no browser automation, no cookie reuse, no reverse-engineered endpoints). Flow is a manual handoff. See docs/specs/flow-handoff.md.
 - **Never hardcode** model names, quotas, credit costs, or prices in logic. They live in `config/models.json` and are treated as data that will change.
-- **API keys** are read from platform secure storage only (Windows Credential Manager / Android Keystore). Never in code, logs, test fixtures, or `project.json`.
+- **API keys** are read from platform secure storage only (Windows DPAPI via `:platform` SecureStorage, D-19 / Android Keystore). Never in code, logs, test fixtures, or `project.json`.
 - **All AI calls go through `:ai` interfaces.** UI and `:core` must compile and run with `Fake*Provider` implementations. CI runs with fakes only.
 - **Burmese vs English:** human-facing text lives in fields with the `My` suffix (camelCase, e.g. `sceneMy`, `lyricsMy`). Anything sent to an image/video model lives in fields with the `En` suffix (e.g. `subjectEn`, `descriptionEn`). Never mix, never auto-translate silently. JSON keys in `project.json` and all artifacts use the same camelCase names.
 - **Approval gates are enforced in `:core` (WorkflowRules), not in UI.** UI only reflects state.
