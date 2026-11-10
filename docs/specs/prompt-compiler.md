@@ -22,12 +22,12 @@ data class PromptIR(val shot:Int, val subject:String, val action:String, val set
   val camera:String, val lighting:String, val mood:String, val style:String /* from GlobalStyle */,
   val characters:List<String> /* expanded descriptions */, val negative:String, val ratio:String, val durationS:Int)
 ```
-Compiler: `compile(spec, globalStyle, characters) : PromptIR`. Token `{{HERO}}` → character.descriptionEn. Deterministic; no model call.
+Compiler: `compile(spec, globalStyle, characters, ratio, durationMs) : PromptIR` (ratio and shot duration fill `ratio`/`durationS`). Token `{{HERO}}` → character.descriptionEn. Deterministic; no model call.
 
 ## 3. Dialects
 `VeoFlowDialect.render(ir)`: one or two natural English sentences, order: subject+action, setting, camera, lighting/mood, style; then `Avoid: <negative>`. ≤ 900 characters. No markdown.
 `ImageDialect.render(ir)`: same, but drops camera motion verbs (push-in → "medium close-up"), adds "single frame, cinematic still".
-Golden tests: `golden/<case>.spec.json` + `.veo.txt` + `.image.txt`. Changing a dialect requires updating goldens in the same PR.
+Golden tests: `golden/<case>.spec.json` (`{spec, globalStyle, characters, ratio, durationMs}`) + `.veo.txt` + `.image.txt`. Changing a dialect requires updating goldens in the same PR: `UPDATE_GOLDEN=1 ./gradlew :core:desktopTest`, then review the diff.
 
 ## 4. Language rule
 Model-bound fields end in `En`; human fields end in `My`. The compiler never translates. If a `*En` field is empty, compile fails with a visible error on the shot card.

@@ -1,0 +1,26 @@
+{
+  "spec": {
+    "shot": 3,
+    "sceneMy": "ကော်ဖီဆိုင် မှန်ပြတင်းနောက်ကနေ မိုးရေစက်တွေကို ငေးကြည့်နေတယ်",
+    "lyricsMy": "မိုးရွာနေတဲ့ ညမှာ တစ်ယောက်တည်း",
+    "subjectEn": "{{HERO}}",
+    "actionEn": "gazes through rain-streaked café window",
+    "settingEn": "night café interior, neon street outside",
+    "cameraEn": "slow push-in, shallow DOF",
+    "moodEn": "melancholic",
+    "lightingEn": "warm interior vs cold blue exterior",
+    "characters": ["HERO"],
+    "motifEn": "rain on glass",
+    "transitionEn": "cut"
+  },
+  "globalStyle": {
+    "visual": "35mm film still look, fine grain",
+    "palette": "teal and amber",
+    "negative": "text, subtitles, watermark, extra fingers"
+  },
+  "characters": [
+    { "token": "HERO", "nameMy": "မမိုး", "descriptionEn": "young Burmese woman with shoulder-length black hair in a white cotton blouse" }
+  ],
+  "ratio": "9:16",
+  "durationMs": 8000
+}
