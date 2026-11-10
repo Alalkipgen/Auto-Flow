@@ -25,7 +25,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval (`core/model/`, strict `CoreJson`, fixture `fixtures/project-v1.json`)
 - [ ] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md)
 - [ ] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests
-- [ ] Shot auto-splitting from duration + clip length + section hints
+- [x] Shot auto-splitting from duration + clip length + section hints (`ShotSplitter`: remainder ≥ 2 s own shot, else merged; 1.5 s section snap)
 
 ### 1B :ai
 - [ ] Interfaces: TextProvider, ImageProvider, TtsProvider, TranscribeProvider
@@ -97,3 +97,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 Specs updated for D-14/D-15/S4: flow-handoff (image import/inbox), ai-providers (Deferred, ManualImageProvider, candidates chain, 120 s + Cancel), render-graph (libass primary, Skia PNG fallback, no drawtext).
 - 2026-11-10 Phase 0 merged (PR #2); S3 manual Windows audio check deferred by owner. 1A domain models added.
 - 2026-11-10 1A ProjectStore (atomic save + .bak, crash-safe) and ArtifactStore (content-hash, write-once, dedupe); pure-Kotlin SHA-256; Q-06, Q-07.
+- 2026-11-10 1A ShotSplitter.
