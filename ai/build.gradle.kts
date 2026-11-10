@@ -34,5 +34,15 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
+        named("desktopTest").dependencies {
+            implementation(libs.ktor.client.mock)
+        }
     }
+}
+
+// Live Gemini tests are opt-in: ./gradlew :ai:desktopTest -PliveAi=true (needs GEMINI_API_KEY in the environment).
+tasks.withType<Test>().configureEach {
+    val liveAi = providers.gradleProperty("liveAi").orElse("false")
+    inputs.property("liveAi", liveAi)
+    systemProperty("autoflow.liveAi", liveAi.get())
 }

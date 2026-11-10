@@ -32,7 +32,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] FakeTextProvider (schema-driven JSON, deterministic, offline, artificial latency, simulated 503) + ManualImageProvider
 - [x] FakeImageProvider (PNG), FakeTtsProvider (WAV), FakeTranscribeProvider (pure-Kotlin PNG/WAV codecs)
 - [x] ModelChain (candidates chain, backoff, short-429 wait, 120 s attempt timeout, cancellation) + UsageCounter — per D-15
-- [ ] GeminiTextProvider (structured JSON output) on ModelChain; opt-in live test
+- [x] GeminiTextProvider (structured JSON output) on ModelChain; opt-in live test (`-PliveAi=true` + `GEMINI_API_KEY`)
 - [!] GeminiImageProvider — deferred (D-14); keep the `ImageProvider` interface, ship `ManualImageProvider` (prompt → clipboard, returns `AiResult.Deferred`)
 - [x] `config/models.json` loader + ModelCapability (lenient; placeholders dropped; image stays MANUAL unless configured and probed)
 
@@ -107,3 +107,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1B interfaces merged (PR #9). FakeTextProvider + ManualImageProvider; D-17 test-only libraries.
 - 2026-11-10 1B fake media providers: placeholder PNG (shot number), sine-tone WAV, timed fake transcript.
 - 2026-11-10 1B ModelChain + UsageCounter (quota day = midnight Pacific).
+- 2026-11-10 1B GeminiTextProvider (Ktor, header key, thought parts skipped, `limit: 0` → next candidate); tests on real S1/S2 responses via ktor-client-mock (D-17).
