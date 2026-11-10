@@ -49,7 +49,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [ ] Flow Handoff screen: copy prompt, open Flow, export shot package, import video, draft/final
 - [ ] Reference-image handoff (D-14): copy ImageDialect prompt, open AI Studio, import image as Ref A/B
 - [ ] Inbox: folder watcher → "attach to shot" dialog (video → `vd`, png/jpg → Ref A/B `im`)
-- [ ] Settings: API key (secure storage), Fake/Real AI providers toggle (`AiHost.useFakeProviders`), ffmpeg path, VLC path (auto-detect; "Install VLC" link + playback disabled when missing, D-16), fonts, model config
+- [x] Settings: API key (secure storage), Fake/Real AI providers toggle (`AiHost.useFakeProviders`), ffmpeg path, VLC path (auto-detect; "Install VLC" link + playback disabled when missing, D-16), fonts, model config — `SettingsScreen` + `SettingsModel`; `SettingsUiState.vlcDir` is what playback (1D) checks
 
 ### 1D :media (desktop)
 - [ ] ffmpeg locator + version check (`ass` filter / `--enable-libass` → overlay backend)
@@ -121,3 +121,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1C-a4 Settings part 2: `AppAiHost` (mode from settings, key from SecureStorage per call, clipboard/URL from `:platform`), live title-bar status (`AI ● Fake (offline)` / `Gemini API ● Free tier` / `No key` / `Windows only` · `Flow ● Manual`), Koin: `desktopModule` + `uiModule` + `aiModule`; `config/models.json` bundled in `app-desktop`; graph test with the real desktop bindings in CI.
 - 2026-11-10 1C-a4 Settings part 3a: `SettingsModel` (key Save/Test/Remove — Test always calls Gemini once, even in Fake mode; Fake/Real toggle; default ratio/clip; ffmpeg path + Detect/Browse; VLC path/Browse/"Install VLC" link; fonts; models.json override; today's request count), `:platform` `ToolLocator` (PATH/`FFMPEG_PATH`, common VLC folders) and `ProviderRegistry.testGeminiKey()`.
 - 2026-11-10 1C-a4 Settings part 3b-1: foundation-only controls (`AfText`, `AfButton` Primary/Secondary/Flow/Danger, `AfChip`, `AfSwitch`, `AfTextField` with masked secret mode, `AfCard`) and sidebar navigation with the selected entry highlighted (mockup `.side a.on`); unbuilt screens show a placeholder.
+- 2026-11-10 1C-a4 Settings part 3b-2: `SettingsScreen` (AI card: fake switch, masked key field, Save/Test/Remove, today's requests; ratio/clip defaults; ffmpeg Detect/Browse; VLC folder + "Install VLC" when missing; fonts; models.json source, problem, override and read-only view), opened from the sidebar. Settings item done.

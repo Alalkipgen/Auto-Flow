@@ -18,12 +18,16 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.platform.Clipboard
+import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.SecureStorage
+import io.github.alalkipgen.autoflow.platform.ToolLocator
 import io.github.alalkipgen.autoflow.platform.UrlOpener
 import io.github.alalkipgen.autoflow.ui.di.uiModule
 import io.github.alalkipgen.autoflow.ui.projects.ProjectsScreen
 import io.github.alalkipgen.autoflow.ui.settings.BundledConfig
+import io.github.alalkipgen.autoflow.ui.settings.FakePicker
+import io.github.alalkipgen.autoflow.ui.settings.FakeTools
 import io.github.alalkipgen.autoflow.ui.settings.MemorySecureStorage
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.settings.TEST_MODELS_JSON
@@ -48,6 +52,8 @@ fun fakePlatformModule(fs: InMemoryFileSystem = InMemoryFileSystem(), secrets: S
     single<Clipboard> { Clipboard { PlatformResult.Ok(Unit) } }
     single<UrlOpener> { UrlOpener { PlatformResult.Ok(Unit) } }
     single { BundledConfig { TEST_MODELS_JSON } }
+    single<ToolLocator> { FakeTools() }
+    single<FilePicker> { FakePicker() }
 }
 
 @OptIn(ExperimentalTestApi::class)
@@ -84,6 +90,7 @@ class AppShellSmokeTest {
         sidebar("Settings").assertIsSelected()
         sidebar("Dashboard").assertIsNotSelected()
         onAllNodesWithText("Settings").assertCountEquals(2)
+        onNodeWithText("AI providers").assertExists()
     }
 
     @Test
