@@ -6,6 +6,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 Goal: de-risk the three things that can invalidate the architecture. Each spike is a
 throwaway module under `spikes/` with a README recording the result.
 
+- [x] Bootstrap: Gradle/KMP skeleton (core, ai, media, platform, ui, app-desktop, app-android), version catalog, desktop shell window, CI (D-13)
 - [ ] S1 Gemini free-tier text: generate a Burmese storyboard JSON (schema in specs/prompt-compiler.md §1) from sample lyrics using a user API key. Record: model used, latency, rate-limit headers, Burmese quality notes.
 - [ ] S2 Gemini free-tier image: generate one 9:16 reference image from an English prompt. Record: daily/minute limits observed, output size.
 - [ ] S3 Compose Desktop video playback: play a local mp4 in a Compose window (candidate: VLCJ). Record: bundle size impact, seeking, 9:16 rendering.
@@ -73,7 +74,9 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - [ ] Rights/usage disclaimer in UI
 
 ## Open Questions
+- Q-01 Windows installer: spec asks for MSIX, but Compose `jpackage` cannot produce MSIX. Bootstrap configures MSI. Decide: keep MSI, or add a separate MSIX packaging step later (e.g. MSIX Packaging Tool / `makeappx`).
 - (agents append here)
 
 ## Changelog
 - 2026-11-10 plan created
+- 2026-11-10 phase 0 bootstrap: Gradle/KMP skeleton (D-13)

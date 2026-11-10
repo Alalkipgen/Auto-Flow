@@ -1,0 +1,19 @@
+name: CI
+
+on: push
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Ensure libGL for headless Compose UI tests (Skiko)
+        run: ldconfig -p | grep -q libGL.so.1 || (sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1)
+      - name: Check (fake providers only, no API keys)
+        # chmod: files pushed via the GitHub API/web UI lose the executable bit.
+        run: chmod +x gradlew && ./gradlew :core:check :ai:check :ui:desktopTest

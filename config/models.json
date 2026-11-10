@@ -1,0 +1,6 @@
+{
+  "text":  { "default": "gemini-flash-latest", "candidates": ["..."] },
+  "image": { "default": "...", "ratios": ["16:9", "9:16", "1:1", "4:5"] },
+  "tts":   { "default": "...", "burmese": true, "replication": "unknown" },
+  "flow":  { "creditsHint": { "fast": 20, "quality": 100 }, "url": "https://labs.google/fx/tools/flow" }
+}
