@@ -60,6 +60,29 @@ jobs:
           else
             echo "::warning::ANDROID_KEYSTORE_B64 is not set: the APK is signed with this runner's debug key and will not install over a previous build"
           fi
+      - name: ffmpeg for Android (D-23) — restore the cached build
+        id: ffmpeg-cache
+        uses: actions/cache/restore@v4
+        with: { path: build/ffmpeg-android/out, key: "ffmpeg-android-${{ hashFiles('tools/ffmpeg-android/**') }}" }
+      - name: ffmpeg for Android — build from pinned sources (cache miss only, ~25 min)
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: |
+          source tools/ffmpeg-android/versions.sh
+          pipx install meson > /dev/null && pipx install ninja > /dev/null
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION" bash tools/ffmpeg-android/build.sh 2>&1 | tee "$RUNNER_TEMP/ffmpeg.log"
+          test "${PIPESTATUS[0]}" -eq 0
+      - name: ffmpeg for Android — save the build
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with: { path: build/ffmpeg-android/out, key: "ffmpeg-android-${{ hashFiles('tools/ffmpeg-android/**') }}" }
+      - name: Bundle ffmpeg into the APK
+        run: |
+          mkdir -p app-android/src/main/jniLibs/arm64-v8a app-android/build/generated/bundled/ffmpeg
+          cp build/ffmpeg-android/out/lib*.so app-android/src/main/jniLibs/arm64-v8a/
+          cp -r build/ffmpeg-android/out/BUILDINFO.txt build/ffmpeg-android/out/licenses app-android/build/generated/bundled/ffmpeg/
+          cat build/ffmpeg-android/out/BUILDINFO.txt
+          echo "::notice title=Bundled ffmpeg::$(grep -E '^lib' build/ffmpeg-android/out/BUILDINFO.txt | tr '\n' ' ')"
       - name: Assemble debug APK
         env:
           ANDROID_KEYSTORE_PASSWORD: "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
@@ -76,8 +99,10 @@ jobs:
       - name: Show the build error as an annotation
         if: failure()
         run: |
-          [ -f "$RUNNER_TEMP/apk.log" ] || exit 0
-          tail -n 60 "$RUNNER_TEMP/apk.log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed 's/^/::error title=assembleDebug::/'; echo
+          for f in ffmpeg apk; do
+            [ -f "$RUNNER_TEMP/$f.log" ] || continue
+            tail -n 80 "$RUNNER_TEMP/$f.log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed "s/^/::error title=$f log::/"; echo
+          done
       - uses: actions/upload-artifact@v4
         with: { name: "${{ env.APK }}", path: "${{ env.APK }}", if-no-files-found: error }
       - name: GitHub Release (tag v0.* or .github/release-tag.txt on main)

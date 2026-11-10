@@ -19,3 +19,6 @@ spikes/**/*.wav
 
 # S1/S2 raw live results are committed by the spike workflow
 !spikes/s2-gemini-image/results/*.png
+
+# D-23: CI builds the bundled ffmpeg from tools/ffmpeg-android/ and copies it here
+app-android/src/main/jniLibs/

@@ -9,7 +9,7 @@ resulting clips, and assembles the final video with ffmpeg.
 
 - Text / image / TTS: Gemini API **free tier** (user's own API key, stored locally)
 - Video: Google Flow (AI Pro subscription) via **manual handoff** — no automation, no scraping
-- Render: ffmpeg on Windows
+- Render: ffmpeg — bundled in the Android app (D-23), located on Windows
 - No backend, no accounts, no cloud sync engine. A project is a folder.
 
 ## Status
@@ -20,3 +20,5 @@ Kotlin Multiplatform · Compose Multiplatform · kotlinx.serialization · Ktor �
 
 ## License
 MIT
+
+The Android APK bundles a GPL-2.0-or-later ffmpeg build (with libx264), run as a separate program; its pinned sources and build script are in `tools/ffmpeg-android/`, and the APK carries its license texts and build info.
