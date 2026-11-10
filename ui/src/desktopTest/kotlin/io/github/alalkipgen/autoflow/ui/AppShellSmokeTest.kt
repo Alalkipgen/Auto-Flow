@@ -1,7 +1,14 @@
 package io.github.alalkipgen.autoflow.ui
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.JsonSchema
@@ -64,6 +71,19 @@ class AppShellSmokeTest {
         koin.get<SettingsStore>().update { it.copy(useFakeProviders = false) }
         waitForIdle()
         onNodeWithText("Gemini API ● No key · Flow ● Manual").assertExists()
+    }
+
+    @Test
+    fun sidebarSelectsAScreen() = runComposeUiTest {
+        startKoin { modules(fakePlatformModule(), uiModule, aiModule) }
+        setContent { App() }
+        fun sidebar(name: String) = onNode(hasText(name) and isSelectable())
+        sidebar("Dashboard").assertIsSelected()
+        sidebar("Settings").performClick()
+        waitForIdle()
+        sidebar("Settings").assertIsSelected()
+        sidebar("Dashboard").assertIsNotSelected()
+        onAllNodesWithText("Settings").assertCountEquals(2)
     }
 
     @Test
