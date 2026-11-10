@@ -71,8 +71,16 @@ jobs:
         with: { name: s4-linux, path: spikes/s4-burmese-rendering/evidence/methods/linux }
       - uses: actions/download-artifact@v4
         with: { name: s4-windows, path: spikes/s4-burmese-rendering/evidence/methods/windows }
+      - name: Contact sheets (rows - Windows Noto, Windows Pyidaungsu, Linux Noto, Linux Pyidaungsu; crop y 760-1240)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends imagemagick
+          cd spikes/s4-burmese-rendering/evidence
+          for m in A-drawtext B-libass C-skia; do
+            convert methods/windows/$m-notosansmyanmar.png methods/windows/$m-pyidaungsu.png methods/linux/$m-notosansmyanmar.png methods/linux/$m-pyidaungsu.png \
+              -crop 1080x480+0+760 +repage -append -resize 70% s4-$m.png 2>/dev/null || true
+          done
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f spikes/s4-burmese-rendering/evidence/methods
+          git add -f spikes/s4-burmese-rendering/evidence/methods spikes/s4-burmese-rendering/evidence/s4-*.png
           git commit -m "phase0(spikes): S4 method results [skip ci]" && git pull --rebase -q && git push || echo "nothing to commit"
