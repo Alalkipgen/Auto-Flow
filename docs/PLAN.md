@@ -61,7 +61,7 @@ Goal: full MV pipeline end-to-end with manual Flow handoff — on the owner's An
 
 ### 1F Android parity (was Phase 3, D-22)
 - [~] CI debug APK artifact + GitHub Release on `v0.*` tags, stable signing from Actions secrets (D-24) — `android` job done; stable signing starts once the owner adds the four `ANDROID_*` secrets
-- [ ] Bundled ffmpeg/ffprobe for arm64-v8a built from source in CI (D-23); README GPL note
+- [x] Bundled ffmpeg/ffprobe for arm64-v8a built from source in CI (D-23); README GPL note — `tools/ffmpeg-android/` (pinned versions + SHA-256), CI cache keyed on the script; APK is arm64-v8a only with extracted native libs
 - [ ] Android bindings: AppDirs + project folders under the external files dir, `JvmFs`, Clipboard, UrlOpener, ToolLocator (bundled ffmpeg), bundled `config/models.json`; crash text shown with Copy/Share on the next launch
 - [ ] SecureStorage on Android Keystore AES-GCM (D-25)
 - [ ] File import via the system picker (video → `vd`, image → Ref A/B); SAF "Open folder" optional
@@ -150,3 +150,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 1C-c Shots part 1: `:core` `ShotStatus` (Draft / Prompt ready / Needs Flow / Imported / Accepted / Stale; computed from pointers, approvals and handoff state; Stale wins) and `ImageHeader` (PNG IHDR / JPEG SOFn size without decoding, ratio match with 3 % tolerance for the "image ratio ≠ project ratio" warning).
 - 2026-11-11 Android first-class (owner has no PC): D-22 (parity, amends D-08), D-23 (bundled ffmpeg built from source, Media3 fallback), D-24 (CI APK + releases, stable signing from secrets), D-25 (ExoPlayer, Keystore AES-GCM, external files dir, backup). Phase 3 merged into Phase 1 as 1F; S6 on-device self-test added.
 - 2026-11-11 1F CI APK (D-24): `android` job assembles the debug APK on every push (`versionCode` = run number, `BuildConfig.GIT_SHA` / `SIGNING`), uploads `autoflow-debug-<sha7>.apk`, publishes a GitHub Release for `v0.*` tags or a `.github/release-tag.txt` change on main; signing key from Actions secrets, else the runner debug key with a warning; build errors are posted as an annotation.
+- 2026-11-11 1F bundled ffmpeg (D-23): `tools/ffmpeg-android/build.sh` cross-compiles FFmpeg 9.0.2 + x264 (stable) + libass 0.17.5 (freetype 2.15.0, fribidi 1.0.18, harfbuzz 15.1.0; no fontconfig) with NDK r29 for arm64-v8a / API 26 (PIE, static third-party libs and libc++); CI caches it by script hash, copies `libffmpeg.so` / `libffprobe.so` into `jniLibs/arm64-v8a/` and BUILDINFO + licenses into the APK assets; `useLegacyPackaging` so Android extracts them to `nativeLibraryDir`. README GPL note.

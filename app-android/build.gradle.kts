@@ -20,7 +20,16 @@ android {
         versionName = "0.1.0"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("String", "SIGNING", "\"${if (keystoreFile != null) "stable" else "runner-debug"}\"")
+        // D-23: the bundled ffmpeg exists for arm64-v8a only.
+        ndk { abiFilters += "arm64-v8a" }
     }
+
+    // D-23: extract native libs to nativeLibraryDir, the only place Android 10+ lets the app exec libffmpeg.so.
+    packaging { jniLibs { useLegacyPackaging = true } }
+
+    // CI-generated assets: ffmpeg BUILDINFO + licenses (D-23), self-test fixtures (S6). Absent in local builds.
+    // A plain File: AGP rejects Provider instances in the SourceSet API.
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/bundled").get().asFile)
 
     signingConfigs {
         if (keystoreFile != null) {
