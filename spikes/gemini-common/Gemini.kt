@@ -18,13 +18,17 @@ object Gemini {
 
     private fun once(model: String, requestJson: String): GeminiResult {
         val req = HttpRequest.newBuilder(URI.create("$BASE$model:generateContent"))
-            .timeout(Duration.ofSeconds(180))
+            .timeout(Duration.ofSeconds(300))
             .header("Content-Type", "application/json")
             .header("x-goog-api-key", apiKey())
             .POST(HttpRequest.BodyPublishers.ofString(requestJson))
             .build()
         val t0 = System.nanoTime()
-        val res = client.send(req, HttpResponse.BodyHandlers.ofString())
+        val res = try {
+            client.send(req, HttpResponse.BodyHandlers.ofString())
+        } catch (e: java.io.IOException) { // incl. HttpTimeoutException: report as status 0 so callers can fall back
+            return GeminiResult(0, (System.nanoTime() - t0) / 1_000_000, emptyMap(), "{\"clientError\": \"${e.javaClass.simpleName}: ${e.message}\"}")
+        }
         val ms = (System.nanoTime() - t0) / 1_000_000
         val headers = res.headers().map().filterKeys { !it.equals("set-cookie", true) }
         return GeminiResult(res.statusCode(), ms, headers, res.body())
