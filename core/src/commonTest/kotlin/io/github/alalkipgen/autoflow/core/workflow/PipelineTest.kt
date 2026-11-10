@@ -108,4 +108,17 @@ class PipelineTest {
         assertFalse(Pipeline.done(p, STORYBOARD, lookup), "spec made from an older storyboard")
         assertEquals(STORYBOARD, Pipeline.current(p, lookup))
     }
+
+    @Test
+    fun shotStatusFollowsTheShotsProgressAndStaleWins() {
+        fun status(s: Shot, p: Project = project(s)) = ShotStatus.of(p, s, lookup)
+        assertEquals(ShotStatus.DRAFT, status(shot(1)))
+        assertEquals(ShotStatus.DRAFT, status(approved))
+        assertEquals(ShotStatus.PROMPT_READY, status(prompted))
+        assertEquals(ShotStatus.NEEDS_FLOW, status(withRef))
+        assertEquals(ShotStatus.NEEDS_FLOW, status(prompted.copy(handoff = Handoff(HandoffState.SENT_TO_FLOW))))
+        assertEquals(ShotStatus.IMPORTED, status(withRef.copy(videos = listOf(vd), handoff = Handoff(HandoffState.IMPORTED))))
+        assertEquals(ShotStatus.ACCEPTED, status(accepted))
+        assertEquals(ShotStatus.STALE, status(accepted, project(accepted).copy(globalStyle = GlobalStyle(hash = "gs_bbbbbbbbbbbb"))))
+    }
 }
