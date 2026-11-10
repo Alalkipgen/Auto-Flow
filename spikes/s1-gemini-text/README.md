@@ -4,7 +4,8 @@
 
 Two-stage flow from `docs/specs/prompt-compiler.md` §1 with structured output
 (`responseMimeType: application/json` + `responseJsonSchema`). Input: `spikes/fixtures/lyrics-sample.txt` (12 lines).
-Outputs: `results/analysis.json` (SongAnalysis), `results/storyboard.json` (6 ShotSpecs). Raw responses and
+Outputs: `results/analysis.json` (SongAnalysis), `results/storyboard.json` (6 ShotSpecs). Note: after run #5,
+`analysis.json` is from run #5 and `storyboard.json` is still from run #4. Raw responses and
 response headers: `results/*.response.json`, `results/*.meta.txt`. Available models at run time: `results/models.txt`.
 
 ## Run
@@ -22,6 +23,7 @@ bash ./gradlew -p spikes/s1-gemini-text run
 | Latency | Stage A 12.6 s, Stage B 18.4 s (successful attempt only) |
 | Transient errors | 503 on 5 of 9 calls to 3.5-flash; backoff 10/20/40 s recovered each time |
 | Rate-limit headers | **None.** Success responses carry no `x-ratelimit-*` headers. Limits only show up in 429 bodies (`QuotaFailure` + `RetryInfo.retryDelay`) |
+| Run #5 retest | Stage A OK on 3.5-flash (14.2 s, 3 tries); Stage B hit 503 four times in a row, so the run failed by design (no partial storyboard). `gemini-3.8-flash` 503 again |
 | JSON validity | Both stages parsed on the first try; schema followed; no retry needed |
 
 ## Burmese quality notes
@@ -34,6 +36,7 @@ bash ./gradlew -p spikes/s1-gemini-text run
 
 ## Implications for Phase 1
 - Model ids drift fast. Keep them in `config/models.json` with a fallback list and never hard-code them.
-- GeminiTextProvider must retry 500/503 with backoff and fall back to the next model.
+- GeminiTextProvider must retry 500/503 with backoff and fall back to the next model at every stage, not only the first one
+  (run #5 failed because Stage B stayed pinned to the Stage A model).
   The client timeout must be ≥ 300 s.
 - The daily counter must be app-side: the API exposes no remaining-quota headers.

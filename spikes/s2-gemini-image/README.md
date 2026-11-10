@@ -1,6 +1,6 @@
 # S2 — Gemini free-tier image: one 9:16 reference image
 
-**Result: FAIL / BLOCKED on free tier** (2026-11-10, runs #1–#4)
+**Result: FAIL / BLOCKED on free tier** (2026-11-10, runs #1–#5)
 
 Request: `generateContent` with `responseModalities: [TEXT, IMAGE]` and `imageConfig.aspectRatio: "9:16"`,
 English prompt in `src/main/kotlin/Main.kt`. Raw responses: `results/*.response.json`, `results/*.meta.txt`.
@@ -20,7 +20,8 @@ free-tier requests per minute, requests per day, and input tokens per minute (th
 `gemini-2.0-flash-preview-image-generation` returned 404 (retired).
 
 The `RetryInfo.retryDelay` (~14 h) points to the daily reset, but with `limit: 0` a retry won't help.
-No image was produced, so output size is unknown.
+No image was produced, so output size is unknown. Run #5 retest (same project, still Free Tier) returned identical
+`limit: 0` errors for all 8 models. A retry will only help after billing is enabled or with a key from a project that has image quota.
 
 ## Options (see docs/PLAN.md Q-03)
 1. Enable billing (paid tier) for image models only and keep text on the free tier.
