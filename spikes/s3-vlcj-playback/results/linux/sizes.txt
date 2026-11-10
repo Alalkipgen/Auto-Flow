@@ -1,0 +1,12 @@
+## JARs added by VLCJ
+jna-jpms-5.14.0.jar	1879108
+jna-platform-jpms-5.14.0.jar	1370005
+vlcj-4.8.3.jar	399819
+vlcj-natives-4.8.3.jar	94899
+## Linux system libVLC (not bundled on Linux; for reference)
+14M	/usr/lib/x86_64-linux-gnu/vlc/plugins
+0	/usr/lib/x86_64-linux-gnu/libvlc.so
+0	/usr/lib/x86_64-linux-gnu/libvlc.so.5
+160K	/usr/lib/x86_64-linux-gnu/libvlc.so.5.6.1
+0	/usr/lib/x86_64-linux-gnu/libvlccore.so.9
+1.1M	/usr/lib/x86_64-linux-gnu/libvlccore.so.9.0.1

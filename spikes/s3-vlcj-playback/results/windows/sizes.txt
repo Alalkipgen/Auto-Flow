@@ -1,0 +1,42 @@
+zip: vlc-3.0.24-win64.zip 82765861 bytes
+## full VLC dir
+190M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24
+140M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins
+-rwxr-xr-x 1 runneradmin 197121  192448 Sep 21 09:38 /d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/libvlc.dll
+-rwxr-xr-x 1 runneradmin 197121 3019712 Sep 21 09:01 /d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/libvlccore.dll
+## plugins by category
+92K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/audio_mixer
+116K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/keystore
+136K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/logger
+152K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/d3d9
+196K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/video_splitter
+212K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/d3d11
+388K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/lua
+404K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/audio_output
+488K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/control
+508K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/stream_filter
+516K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/stream_extractor
+936K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/mux
+1012K	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/packetizer
+1.2M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/spu
+1.5M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/services_discovery
+1.6M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/meta_engine
+2.1M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/visualization
+2.9M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/video_filter
+3.0M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/video_chroma
+3.2M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/text_renderer
+3.7M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/misc
+3.7M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/video_output
+4.0M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/audio_filter
+4.6M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/stream_out
+8.5M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/access_output
+11M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/demux
+19M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/gui
+23M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/access
+43M	/d/a/Auto-Flow/Auto-Flow/vlcdist/vlc-3.0.24/plugins/codec
+## trimmed copy (vlcmin)
+95M	vlcmin
+jna-jpms-5.14.0.jar	1879108
+jna-platform-jpms-5.14.0.jar	1370005
+vlcj-4.8.3.jar	399819
+vlcj-natives-4.8.3.jar	94899

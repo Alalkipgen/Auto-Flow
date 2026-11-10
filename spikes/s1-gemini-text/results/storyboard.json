@@ -1,0 +1,98 @@
+[
+    {
+        "shot": 1,
+        "sceneMy": "မိုးရွာသောညတွင် မှန်ပြတင်းပေါက်နားတွင် ထိုင်ကာ မိုးစက်များကို ငေးကြည့်နေခြင်း",
+        "lyricsMy": "မိုးရွာနေတဲ့ ညမှာ တစ်ယောက်တည်း မှန်ပြတင်းပေါ်က မိုးစက်တွေ ရေတွက်နေမိ",
+        "subjectEn": "A young man HERO sitting quietly by a rain-streaked window frame",
+        "actionEn": "HERO traces rain droplets on the cold glass panel with a trembling finger, looking out into the dark night",
+        "settingEn": "Dimly lit cozy bedroom apartment, rain pouring heavily outside",
+        "cameraEn": "Slow medium close-up, shallow depth of field, 9:16 vertical composition",
+        "moodEn": "Melancholic, lonely, contemplative",
+        "lightingEn": "Moody blue night light with subtle warm street lamp reflections on rainy window",
+        "characters": [
+            "HERO"
+        ],
+        "motifEn": "rain-streaked glass window",
+        "transitionEn": "Slow dissolve to next shot"
+    },
+    {
+        "shot": 2,
+        "sceneMy": "အေးစက်သွားသော ကော်ဖီခွက်ကို ကိုင်ရင်း လမ်းမကြီးကို မျှော်လင့်ချက်မဲ့စွာ ငေးကြည့်နေခြင်း",
+        "lyricsMy": "ကော်ဖီခွက်လေး အေးသွားခဲ့ပြီ မင်းပြန်လာမယ့် လမ်းကို ငေးကြည့်ရင်း",
+        "subjectEn": "HERO holding a mug of lukewarm coffee near the balcony window",
+        "actionEn": "HERO looks down at the steam-less mug in his hands, then turns his gaze outside to the empty wet street",
+        "settingEn": "Dark apartment interior overlooking a dimly lit urban street",
+        "cameraEn": "Close-up shot focusing on the mug, slowly tilting up to HERO's mournful face",
+        "moodEn": "Sorrowful, longing, quiet heartbreak",
+        "lightingEn": "Low-key teal and amber street lighting bleeding through window blinds",
+        "characters": [
+            "HERO"
+        ],
+        "motifEn": "cold mug of coffee",
+        "transitionEn": "Soft cut"
+    },
+    {
+        "shot": 3,
+        "sceneMy": "ဓာတ်ပုံဟောင်းလေးထဲမှ ပြုံးနေသော ချစ်သူ၏ ပုံရိပ်ကို ကိုင်ကြည့်ကာ ဝမ်းနည်းနေခြင်း",
+        "lyricsMy": "ဓာတ်ပုံဟောင်းလေးထဲမှာ မင်းပြုံးနေတုန်း အမှတ်တရတွေ မိုးထဲမှာ စိုရွှဲ",
+        "subjectEn": "HERO holding a faded vintage photograph showing a smiling lover",
+        "actionEn": "HERO gently runs a thumb over the photograph while raindrops hit the windowpane in the background",
+        "settingEn": "Warm retro-styled wooden desk beside the rain-covered glass window",
+        "cameraEn": "Macro close-up on the vintage photograph, shifting focus back to HERO's face",
+        "moodEn": "Nostalgic, emotional, poignant",
+        "lightingEn": "Soft dim lamp light blended with moody rain aesthetics",
+        "characters": [
+            "HERO"
+        ],
+        "motifEn": "faded vintage photograph",
+        "transitionEn": "Fade to dark blue tint"
+    },
+    {
+        "shot": 4,
+        "sceneMy": "မိုးသည်းထန်စွာ ရွာသွန်းနေချိန် နှလုံးသားထဲမှ နာကျင်မှုကို ခံစားရင်း မျက်မှောက်ပြုနေခြင်း",
+        "lyricsMy": "ငါ့နှလုံးသားက မင်းနာမည်ကိုပဲ ခေါ်နေ ဒီညလည်း မိုးတွေ ရွာဦးမှာလား",
+        "subjectEn": "HERO sitting against the wall in the dark living room",
+        "actionEn": "HERO closes eyes tightly, leaning head back as rain continues to fall heavily against the exterior glass",
+        "settingEn": "Minimalist dark apartment living room, thunder flash outside",
+        "cameraEn": "Cinematic medium shot, slow zoom in on HERO",
+        "moodEn": "Desperate, sorrowful, emotionally intense",
+        "lightingEn": "Cool dark blue hues with dramatic lightning flashes cast across the room",
+        "characters": [
+            "HERO"
+        ],
+        "motifEn": "rain-streaked glass window",
+        "transitionEn": "Dissolve to golden sunrise sequence"
+    },
+    {
+        "shot": 5,
+        "sceneMy": "နံနက်ခင်း နေရောင်ခြည်နှင့်အတူ မျက်ရည်များခြောက်သွေ့ကာ သက်ပြင်းချလိုက်ခြင်း",
+        "lyricsMy": "နံနက်ခင်း နေရောင် ထွက်လာတဲ့အခါ မျက်ရည်တွေ ခြောက်သွားမလား မသိ",
+        "subjectEn": "HERO standing near the window as bright dawn light breaks through",
+        "actionEn": "HERO opens the window screen, feeling the warm morning sunlight gently drying tears on his cheeks",
+        "settingEn": "Apartment window as soft morning light streams into the room",
+        "cameraEn": "Medium profile shot, camera tracking gently along the golden light beam",
+        "moodEn": "Hopeful, peaceful, gentle realization",
+        "lightingEn": "Warm golden hour sunrise, bright cinematic sun flares",
+        "characters": [
+            "HERO"
+        ],
+        "motifEn": "bright golden morning sunlight",
+        "transitionEn": "Smooth cross-fade"
+    },
+    {
+        "shot": 6,
+        "sceneMy": "လမ်းမပေါ်သို့ ထွက်လာပြီး ရေကွက်ထဲတွင် ထိန်းဟပ်နေသော ကောင်းကင်ပြာကို ကြည့်ကာ အသစ်စတင်ခြင်း",
+        "lyricsMy": "လမ်းမပေါ်က ရေကွက်လေးထဲ ကောင်းကင်ပြာ မင်းမရှိတဲ့ မနက်ကို စတင်ရဲပြီ",
+        "subjectEn": "HERO walking outdoors on a fresh morning street",
+        "actionEn": "HERO pauses near a street puddle reflecting vivid blue sky and walks forward with confidence",
+        "settingEn": "Clean city street bathed in early morning light after rain",
+        "cameraEn": "Low angle shot starting on puddle reflection, panning up to follow HERO walking into the bright future",
+        "moodEn": "Uplifting, courageous, hopeful",
+        "lightingEn": "Vivid morning daylight, rich golden and sky blue contrast",
+        "characters": [
+            "HERO"
+        ],
+        "motifEn": "street puddle reflecting sky",
+        "transitionEn": "Fade out to bright light"
+    }
+]

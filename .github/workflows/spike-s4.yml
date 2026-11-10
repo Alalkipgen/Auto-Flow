@@ -1,0 +1,86 @@
+# S4 spike (Q-02): Burmese text via A) drawtext, B) libass, C) Compose/Skia PNG + overlay, on Linux and Windows. No secrets.
+name: Spike S4 (Burmese rendering)
+
+on:
+  push:
+    branches: [work/phase-0-spikes]
+    paths: [spikes/s4-burmese-rendering/methods/**, spikes/s4-burmese-rendering/src/**, spikes/s4-burmese-rendering/*.kts, .github/workflows/spike-s4.yml]
+
+permissions:
+  contents: write
+
+concurrency: spike-s4
+
+env:
+  NOTO_URL: https://raw.githubusercontent.com/notofonts/notofonts.github.io/main/fonts/NotoSansMyanmar/hinted/ttf/NotoSansMyanmar-Regular.ttf
+  PYI_URL: https://raw.githubusercontent.com/mcfnlp/Pyidaungsu/ff1cd8dfe8c451244329d7a6181c83e769226cac/Pyidaungsu2.5.3/Release/Pyidaungsu-2.5.3_Regular.ttf
+  SKIKO_RENDER_API: SOFTWARE
+
+jobs:
+  run:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    defaults: { run: { shell: bash } }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Fonts
+        run: |
+          mkdir -p s4fonts
+          curl -sfL -o s4fonts/NotoSansMyanmar-Regular.ttf "$NOTO_URL"
+          curl -sfL -o s4fonts/Pyidaungsu-Regular.ttf "$PYI_URL"
+          ls -l s4fonts
+      - name: FFmpeg (Linux, distro package)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg libgl1
+          echo "FFMPEG=ffmpeg" >> "$GITHUB_ENV"; echo "TAG=linux" >> "$GITHUB_ENV"
+      - name: FFmpeg (Windows, gyan.dev release full build)
+        if: runner.os == 'Windows'
+        run: |
+          curl -sfL -o ff.7z https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z
+          7z x -y -offdist ff.7z > /dev/null
+          echo "FFMPEG=$(ls -d "$PWD"/ffdist/ffmpeg-*/bin)/ffmpeg.exe" >> "$GITHUB_ENV"; echo "TAG=windows" >> "$GITHUB_ENV"
+      - name: C) Compose/Skia transparent PNGs
+        run: |
+          chmod +x gradlew
+          S4_PNG_OUT="$PWD/s4skia" S4_FONTS_DIR="$PWD/s4fonts" ./gradlew -q -p spikes/s4-burmese-rendering run
+      - name: A/B/C frames
+        run: |
+          out=spikes/s4-burmese-rendering/evidence/methods/$TAG; rm -rf "$out"
+          FONTS_DIR=s4fonts OUT="$out" SKIA_DIR="$PWD/s4skia" bash spikes/s4-burmese-rendering/methods/run.sh
+          cat "$out/ffmpeg-info.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: "s4-${{ env.TAG }}", path: "spikes/s4-burmese-rendering/evidence/methods/${{ env.TAG }}" }
+
+  commit:
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rm -rf spikes/s4-burmese-rendering/evidence/methods
+      - uses: actions/download-artifact@v4
+        with: { name: s4-linux, path: spikes/s4-burmese-rendering/evidence/methods/linux }
+      - uses: actions/download-artifact@v4
+        with: { name: s4-windows, path: spikes/s4-burmese-rendering/evidence/methods/windows }
+      - name: Contact sheets (rows - Windows Noto, Windows Pyidaungsu, Linux Noto, Linux Pyidaungsu; crop y 760-1240)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends imagemagick
+          cd spikes/s4-burmese-rendering/evidence
+          for m in A-drawtext B-libass C-skia; do
+            convert methods/windows/$m-notosansmyanmar.png methods/windows/$m-pyidaungsu.png methods/linux/$m-notosansmyanmar.png methods/linux/$m-pyidaungsu.png \
+              -crop 1080x480+0+760 +repage -append -resize 70% s4-$m.png 2>/dev/null || true
+          done
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f spikes/s4-burmese-rendering/evidence/methods spikes/s4-burmese-rendering/evidence/s4-*.png
+          git commit -m "phase0(spikes): S4 method results [skip ci]" && git pull --rebase -q && git push || echo "nothing to commit"
