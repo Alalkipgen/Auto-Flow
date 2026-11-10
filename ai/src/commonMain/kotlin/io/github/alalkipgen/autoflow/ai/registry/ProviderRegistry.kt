@@ -99,6 +99,17 @@ class ProviderRegistry(
             ModelCapability.from(config, imageApiProbe).copy(imageMode = ImageMode.MANUAL) // GeminiImageProvider deferred (D-14)
         }
 
+    /**
+     * Settings → "Test": one tiny real Gemini request with the saved key, whatever the Fake/Real setting. It counts
+     * toward today's usage like any other call. `RateLimited` still means the key itself was accepted.
+     */
+    suspend fun testGeminiKey(): AiResult<Unit> = when (val r = gemini.json(KEY_TEST_PROMPT, KEY_TEST_SCHEMA)) {
+        is AiResult.Ok -> AiResult.Ok(Unit, r.usage)
+        is AiResult.RateLimited -> r
+        is AiResult.Failed -> r
+        is AiResult.Deferred -> r
+    }
+
     fun close() {
         if (http.isInitialized()) http.value.close()
     }
@@ -106,6 +117,17 @@ class ProviderRegistry(
     private fun unavailable(what: String) =
         AiResult.Failed("unavailable", "$what is not available with real providers in this version")
 }
+
+private const val KEY_TEST_PROMPT = "Connection test. Reply with ok = true."
+private val KEY_TEST_SCHEMA = JsonSchema(
+    kotlinx.serialization.json.buildJsonObject {
+        put("type", kotlinx.serialization.json.JsonPrimitive("object"))
+        put("properties", kotlinx.serialization.json.buildJsonObject {
+            put("ok", kotlinx.serialization.json.buildJsonObject { put("type", kotlinx.serialization.json.JsonPrimitive("boolean")) })
+        })
+        put("required", kotlinx.serialization.json.JsonArray(listOf(kotlinx.serialization.json.JsonPrimitive("ok"))))
+    },
+)
 
 /** Engine from the classpath (CIO on desktop, OkHttp on Android). [HttpTimeout] replaces the engines' short defaults. */
 fun defaultAiHttpClient(): HttpClient = HttpClient {

@@ -33,8 +33,10 @@ class AppAiHost(
 
 enum class KeyState { SET, MISSING, UNREADABLE, UNSUPPORTED }
 
-fun SecureStorage.geminiKeyState(): KeyState = when (val r = get(SecretNames.GEMINI_API_KEY)) {
-    is PlatformResult.Ok -> if (r.value.isNullOrBlank()) KeyState.MISSING else KeyState.SET
+fun SecureStorage.geminiKeyState(): KeyState = get(SecretNames.GEMINI_API_KEY).toKeyState()
+
+internal fun PlatformResult<String?>.toKeyState(): KeyState = when (this) {
+    is PlatformResult.Ok -> if (value.isNullOrBlank()) KeyState.MISSING else KeyState.SET
     is PlatformResult.Failed -> KeyState.UNREADABLE
     is PlatformResult.Unsupported -> KeyState.UNSUPPORTED
 }

@@ -16,3 +16,21 @@ class MemorySecureStorage(private val unsupported: Boolean = false) : SecureStor
     override fun remove(name: String): PlatformResult<Unit> =
         if (unsupported) PlatformResult.Unsupported("needs Windows") else PlatformResult.Ok(Unit).also { values -= name }
 }
+
+/** Scripted [ToolLocator]: [vlcDirs] are the folders that hold libvlc. */
+class FakeTools(var ffmpeg: String? = null, var detectedVlc: String? = null, val vlcDirs: MutableSet<String> = mutableSetOf()) :
+    io.github.alalkipgen.autoflow.platform.ToolLocator {
+    override fun findFfmpeg() = ffmpeg
+    override fun findVlc() = detectedVlc
+    override fun isVlcDir(dir: String) = dir in vlcDirs
+}
+
+/** [FilePicker] that answers with [folder] / [files], or [unsupported]. */
+class FakePicker(var folder: String? = null, var files: List<String> = emptyList(), var unsupported: Boolean = false) :
+    io.github.alalkipgen.autoflow.platform.FilePicker {
+    override suspend fun pickFolder(title: String, startDir: String?): PlatformResult<String?> =
+        if (unsupported) PlatformResult.Unsupported("no dialogs") else PlatformResult.Ok(folder)
+
+    override suspend fun pickFiles(title: String, extensions: Set<String>, multiple: Boolean, startDir: String?): PlatformResult<List<String>> =
+        if (unsupported) PlatformResult.Unsupported("no dialogs") else PlatformResult.Ok(files)
+}
