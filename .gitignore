@@ -13,3 +13,6 @@ spikes/**/*.wav
 !spikes/fixtures/**
 *.log
 .DS_Store
+
+# S4 screenshot evidence (generated clips remain ignored)
+!spikes/s4-burmese-rendering/evidence/*.png
