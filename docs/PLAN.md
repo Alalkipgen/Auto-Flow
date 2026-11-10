@@ -23,7 +23,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] ArtifactStore: put(bytes/kind) → content-hash id, get, list by shot
 - [ ] Disk `FileSystem` implementation (fsync via `FileChannel.force`, `ATOMIC_MOVE`) for desktop + Android (Q-06)
 - [x] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval (`core/model/`, strict `CoreJson`, fixture `fixtures/project-v1.json`)
-- [ ] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md)
+- [x] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md) — `WorkflowRules`, `Stale`, `approveAll`
 - [ ] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests
 - [x] Shot auto-splitting from duration + clip length + section hints (`ShotSplitter`: remainder ≥ 2 s own shot, else merged; 1.5 s section snap)
 
@@ -83,6 +83,7 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - ~~Q-05 S3 packaging: bundle trimmed VLC or require an installed VLC?~~ Resolved → D-16 (separate install).
 - Q-06 1A: `:core` stores use a `FileSystem` port (in-memory fake for tests). Where should the disk implementation live? Proposal: `:platform` (expect/actual), which makes `:platform` depend on `:core`; ARCHITECTURE §2 does not list that edge yet.
 - Q-07 1A: artifact sidecar is named `<kind>_<hash12>.meta.json` (no data extension), so `get(id)` needs no directory scan. project-format.md §1 says `<same>.meta.json`, which could also mean `im_….png.meta.json`. Confirm, then the spec line can be made explicit.
+- Q-08 1A: `staleRef` compares `inputs.promptIr` with `shot.promptIr`, so a reference uploaded without a recorded `promptIr` ("Upload own") is always stale and blocks nothing but shows amber. Should own uploads be exempt (e.g. `inputs.source = "user"`)? Implemented literally for now.
 - (agents append here)
 
 ## Changelog
@@ -98,3 +99,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 Phase 0 merged (PR #2); S3 manual Windows audio check deferred by owner. 1A domain models added.
 - 2026-11-10 1A ProjectStore (atomic save + .bak, crash-safe) and ArtifactStore (content-hash, write-once, dedupe); pure-Kotlin SHA-256; Q-06, Q-07.
 - 2026-11-10 1A ShotSplitter.
+- 2026-11-10 1A WorkflowRules gates, Stale functions, approve-all; Q-08.
