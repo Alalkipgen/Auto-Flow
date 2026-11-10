@@ -1,6 +1,6 @@
 # Auto Flow
 
-Personal AI music-video & movie-recap studio for Windows (primary) and Android (companion).
+Personal AI music-video & movie-recap studio for Android (primary, D-22) and Windows.
 
 Auto Flow does **not** generate video itself. It turns lyrics + duration + style into an
 approval-gated pipeline — Burmese storyboard → numbered English shot prompts → reference
