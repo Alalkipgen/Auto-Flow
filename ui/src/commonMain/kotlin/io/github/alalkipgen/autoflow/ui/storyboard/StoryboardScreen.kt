@@ -65,12 +65,6 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
             }
             else -> {
                 Header(state, model, busy)
-                job.running?.let { running ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AfText("$running…", color = AutoFlowColors.Cyan)
-                        AfButton("Cancel", jobs::cancel, kind = ButtonKind.Danger)
-                    }
-                }
                 job.last?.takeIf { it != StoryboardResult.Done }?.message()?.let { AfText(it, color = AutoFlowColors.Amber) }
                 message?.let { AfText(it, color = AutoFlowColors.Amber) }
                 state.cards.forEach { card -> ShotCard(card, model, busy) }

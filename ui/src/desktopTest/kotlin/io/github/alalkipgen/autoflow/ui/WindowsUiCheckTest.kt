@@ -1,5 +1,10 @@
 package io.github.alalkipgen.autoflow.ui
 
+import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
+import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
+import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
+import kotlinx.coroutines.runBlocking
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -62,6 +67,15 @@ class WindowsUiCheckTest {
             save(dir, "dashboard")
             onNode(hasText("Settings") and isSelectable()).performClick()
             save(dir, "settings")
+            // A project with a storyboard: sidebar locks, stepper and Burmese cards.
+            dashboard.open("D:/Videos/မိုးရေစက်.autoflow")
+            val session = koin.get<ProjectSession>()
+            val open = session.open!!.project
+            session.save(open.copy(settings = open.settings.copy(durationMs = 30_000)))
+            session.writeLyrics("မိုးတွေ ရွာနေတယ်\nမင်းကို သတိရနေတယ်")
+            runBlocking { StoryboardService(session, StoryboardGenerator(FakeTextProvider())).generateAll() }
+            onNode(hasText("Storyboard") and isSelectable()).performClick()
+            save(dir, "storyboard")
         }
     }
 

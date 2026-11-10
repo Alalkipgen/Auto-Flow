@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.input
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -26,6 +27,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import io.github.alalkipgen.autoflow.ui.shell.JobBanner
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
 import kotlin.test.Test
@@ -89,12 +91,17 @@ class InputScreenTest {
     fun aRunningJobLocksTheFormAndCanBeCancelled() = runComposeUiTest {
         open()
         jobs.run("Regenerating shot 2") { awaitCancellation() }
-        setContent { InputScreen(InputModel(session, jobs), jobs, onGenerated = {}) }
+        setContent {
+            Column {
+                JobBanner(jobs)
+                InputScreen(InputModel(session, jobs), jobs, onGenerated = {})
+            }
+        }
         onNodeWithText("Regenerating shot 2…").assertExists()
-        onNodeWithText(GENERATE_BUTTON).assertDoesNotExist()
+        onNodeWithText(GENERATE_BUTTON).performScrollTo().assertIsNotEnabled()
         onNodeWithText("16:9").performScrollTo().performClick()
         assertEquals(Ratio.R9_16, onDisk().settings.ratio, "locked")
-        onNodeWithText("Cancel").performScrollTo().performClick()
+        onNodeWithText("Cancel").performClick()
         waitForIdle()
         onNodeWithText(StoryboardJobs.CANCELLED.message).assertExists()
         onNodeWithText(GENERATE_BUTTON).assertExists()
