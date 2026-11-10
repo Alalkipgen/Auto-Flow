@@ -1,24 +1,12 @@
 models=[gemini-3.8-flash, gemini-3.5-flash, gemini-flash-latest]
-Exception in thread "main" java.net.http.HttpTimeoutException: request timed out
-	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
-	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
-	at Gemini.once(Gemini.kt:27)
-	at Gemini.generate(Gemini.kt:35)
-	at Gemini.generate$default(Gemini.kt:34)
-	at MainKt.stage(Main.kt:50)
-	at MainKt.main(Main.kt:68)
-	at MainKt.main(Main.kt)
-
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':run' (registered by plugin 'org.gradle.application').
-> Process 'command '/usr/lib/jvm/temurin-21-jdk-amd64/bin/java'' finished with non-zero exit value 1
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights from a Build Scan (powered by Develocity).
-> Get more help at https://help.gradle.org.
-
-BUILD FAILED in 3m 33s
+[gemini-3.8-flash] HTTP 503; retry 1 in 10s
+[gemini-3.8-flash] HTTP 503; retry 2 in 20s
+[gemini-3.8-flash] HTTP 503; retry 3 in 40s
+[stageA-analysis-gemini-3.8-flash-attempt1] HTTP 503 in 837 ms (tries=4)
+[gemini-3.5-flash] HTTP 503; retry 1 in 10s
+[stageA-analysis-gemini-3.5-flash-attempt1] HTTP 200 in 12642 ms (tries=2)
+[gemini-3.5-flash] HTTP 503; retry 1 in 10s
+[gemini-3.5-flash] HTTP 503; retry 2 in 20s
+[gemini-3.5-flash] HTTP 503; retry 3 in 40s
+[stageB-storyboard-gemini-3.5-flash-attempt1] HTTP 200 in 18363 ms (tries=4)
+model=gemini-3.5-flash storyboard shots=6
