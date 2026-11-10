@@ -21,7 +21,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 ### 1A :core
 - [ ] Project folder create/open, `project.json` atomic I/O (specs/project-format.md)
 - [ ] ArtifactStore: put(bytes/kind) → content-hash id, get, list by shot
-- [ ] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval
+- [x] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval (`core/model/`, strict `CoreJson`, fixture `fixtures/project-v1.json`)
 - [ ] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md)
 - [ ] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests
 - [ ] Shot auto-splitting from duration + clip length + section hints
@@ -92,3 +92,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 S4 pass: libass (primary) and Skia PNG overlay (fallback) verified on Linux and Windows; Q-02 closed. Phase 0 exit criteria met (S1–S4).
 - 2026-11-10 D-14 follow-ups in 1B/1C; D-15 amended (120 s + Cancel, `candidates` chain); D-16 VLC separate install (Q-05 closed).
 - 2026-11-10 Specs updated for D-14/D-15/S4: flow-handoff (image import/inbox), ai-providers (Deferred, ManualImageProvider, candidates chain, 120 s + Cancel), render-graph (libass primary, Skia PNG fallback, no drawtext).
+- 2026-11-10 Phase 0 merged (PR #2); S3 manual Windows audio check deferred by owner. 1A domain models added.
