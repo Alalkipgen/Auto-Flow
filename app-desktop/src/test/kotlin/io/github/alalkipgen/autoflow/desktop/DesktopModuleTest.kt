@@ -6,6 +6,7 @@ import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.registry.aiModule
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.ui.di.uiModule
+import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.settings.LoadedModelConfig
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import java.nio.file.Files
@@ -45,5 +46,6 @@ class DesktopModuleTest {
         assertTrue(app.koin.get<ProviderStatusModel>().current().startsWith("AI ● Fake (offline)"))
         assertIs<AiResult.Ok<*>>(app.koin.get<TextProvider>().json("hello", JsonSchema(JsonObject(emptyMap()))))
         assertEquals(home.toString().replace('\\', '/'), app.koin.get<AppDirs>().root)
+        assertNull(app.koin.get<InputModel>().state.value.projectName, "no project open yet")
     }
 }
