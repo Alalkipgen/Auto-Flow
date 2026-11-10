@@ -16,3 +16,6 @@ spikes/**/*.wav
 
 # S4 screenshot evidence (generated clips remain ignored)
 !spikes/s4-burmese-rendering/evidence/*.png
+
+# S1/S2 raw live results are committed by the spike workflow
+!spikes/s2-gemini-image/results/*.png
