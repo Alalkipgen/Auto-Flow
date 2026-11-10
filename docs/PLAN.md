@@ -19,8 +19,9 @@ Exit criteria: S1–S4 pass. If S3 fails, see DECISIONS.md D-07 fallback.
 Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 
 ### 1A :core
-- [ ] Project folder create/open, `project.json` atomic I/O (specs/project-format.md)
-- [ ] ArtifactStore: put(bytes/kind) → content-hash id, get, list by shot
+- [x] Project folder create/open, `project.json` atomic I/O (specs/project-format.md) — `ProjectStore` over the `core.io.FileSystem` port
+- [x] ArtifactStore: put(bytes/kind) → content-hash id, get, list by shot
+- [ ] Disk `FileSystem` implementation (fsync via `FileChannel.force`, `ATOMIC_MOVE`) for desktop + Android (Q-06)
 - [x] Domain models: Project, Shot, ShotSpec, GlobalStyle, Character, Artifact, Approval (`core/model/`, strict `CoreJson`, fixture `fixtures/project-v1.json`)
 - [ ] WorkflowRules: gate checks + stale detection (specs/workflow-and-approval.md)
 - [ ] PromptCompiler: ShotSpec → PromptIR → Veo/Flow dialect string + golden tests
@@ -80,6 +81,8 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - ~~Q-03 S2: Gemini image models have zero free-tier quota for this key.~~ Resolved → D-14.
 - ~~Q-04 S1: model ids drift and frequent 503s.~~ Resolved → D-15.
 - ~~Q-05 S3 packaging: bundle trimmed VLC or require an installed VLC?~~ Resolved → D-16 (separate install).
+- Q-06 1A: `:core` stores use a `FileSystem` port (in-memory fake for tests). Where should the disk implementation live? Proposal: `:platform` (expect/actual), which makes `:platform` depend on `:core`; ARCHITECTURE §2 does not list that edge yet.
+- Q-07 1A: artifact sidecar is named `<kind>_<hash12>.meta.json` (no data extension), so `get(id)` needs no directory scan. project-format.md §1 says `<same>.meta.json`, which could also mean `im_….png.meta.json`. Confirm, then the spec line can be made explicit.
 - (agents append here)
 
 ## Changelog
@@ -93,3 +96,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 D-14 follow-ups in 1B/1C; D-15 amended (120 s + Cancel, `candidates` chain); D-16 VLC separate install (Q-05 closed).
 - 2026-11-10 Specs updated for D-14/D-15/S4: flow-handoff (image import/inbox), ai-providers (Deferred, ManualImageProvider, candidates chain, 120 s + Cancel), render-graph (libass primary, Skia PNG fallback, no drawtext).
 - 2026-11-10 Phase 0 merged (PR #2); S3 manual Windows audio check deferred by owner. 1A domain models added.
+- 2026-11-10 1A ProjectStore (atomic save + .bak, crash-safe) and ArtifactStore (content-hash, write-once, dedupe); pure-Kotlin SHA-256; Q-06, Q-07.
