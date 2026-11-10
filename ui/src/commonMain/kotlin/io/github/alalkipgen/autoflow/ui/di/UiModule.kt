@@ -3,7 +3,11 @@ package io.github.alalkipgen.autoflow.ui.di
 import io.github.alalkipgen.autoflow.ai.registry.AiHost
 import io.github.alalkipgen.autoflow.ai.registry.ProviderRegistry
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.AppDirs
+import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
+import io.github.alalkipgen.autoflow.ui.projects.DashboardModel
+import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.settings.AppAiHost
 import io.github.alalkipgen.autoflow.ui.settings.LoadedModelConfig
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
@@ -24,6 +28,10 @@ val uiModule = module {
     single { get<LoadedModelConfig>().config }
     single<AiHost> { AppAiHost(get(), get(), get(), get()) }
     single { ProviderStatusModel(get(), get()) }
+    single { ProjectStore(get()) }
+    single { ProjectIndex(get(), get<AppDirs>().projectsIndex) }
+    single { CurrentProject() }
+    factory { DashboardModel(get(), get(), get(), get(), get(), get()) }
     factory {
         val registry = get<ProviderRegistry>()
         SettingsModel(get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey)
