@@ -54,8 +54,12 @@ class VlcPlayer {
     var playing by mutableStateOf(false)
     @Volatile var frames = 0L
     @Volatile var lastFrameNs = 0L
-    @Volatile var srcW = 0
+    @Volatile var changedFrames = 0L // frames whose pixels differ from the previous one
+    @Volatile var srcW = 0 // buffer size (VLC pads it, e.g. 540x960 -> 544x962)
     @Volatile var srcH = 0
+    @Volatile var dispW = 0 // real video size from libVLC; used to crop the padding
+    @Volatile var dispH = 0
+    private var lastCrc = 0L
     @Volatile var lastSkia: org.jetbrains.skia.Image? = null
     val discovered: Boolean
     private var bytes = ByteArray(0)
@@ -78,10 +82,14 @@ class VlcPlayer {
             override fun display(mediaPlayer: MediaPlayer, nativeBuffers: Array<ByteBuffer>, bufferFormat: BufferFormat) {
                 val buf = nativeBuffers[0]
                 buf.rewind(); buf.get(bytes); buf.rewind()
+                val crc = java.util.zip.CRC32().apply { update(bytes) }.value
+                if (crc != lastCrc) { changedFrames++; lastCrc = crc }
+                val w = if (dispW in 1..bufferFormat.width) dispW else bufferFormat.width
+                val h = if (dispH in 1..bufferFormat.height) dispH else bufferFormat.height
                 // RV32 is BGRX in memory; alpha byte is undefined, so treat as opaque.
+                // rowBytes stays the padded buffer width, so this crops the right/bottom padding.
                 val img = org.jetbrains.skia.Image.makeRaster(
-                    ImageInfo(bufferFormat.width, bufferFormat.height, ColorType.BGRA_8888, ColorAlphaType.OPAQUE),
-                    bytes, bufferFormat.width * 4,
+                    ImageInfo(w, h, ColorType.BGRA_8888, ColorAlphaType.OPAQUE), bytes, bufferFormat.width * 4,
                 )
                 lastSkia = img
                 frame = img.toComposeImageBitmap()
@@ -96,6 +104,9 @@ class VlcPlayer {
             override fun playing(mediaPlayer: MediaPlayer) { playing = true }
             override fun paused(mediaPlayer: MediaPlayer) { playing = false }
             override fun stopped(mediaPlayer: MediaPlayer) { playing = false }
+            override fun videoOutput(mediaPlayer: MediaPlayer, newCount: Int) {
+                mediaPlayer.video().videoDimension()?.let { dispW = it.width; dispH = it.height }
+            }
         })
     }
 
@@ -130,7 +141,7 @@ fun main() {
     log("video=${video.name} exists=${video.exists()}")
 
     application {
-        val state = rememberWindowState(size = DpSize(420.dp, 860.dp))
+        val state = rememberWindowState(size = DpSize(380.dp, 720.dp))
         Window(onCloseRequest = { vlc.release(); exitApplication() }, state = state, title = "S3 VLCJ playback") {
             Column(Modifier.fillMaxSize().background(Color(0xFF111114)).padding(8.dp)) {
                 // 9:16 stage; the frame is letterboxed with ContentScale.Fit, like the real preview panel.
@@ -162,18 +173,20 @@ fun main() {
                     vlc.player.media().play(video.path)
                     var waited = 0
                     while (vlc.frames == 0L && waited < 15000) { delay(50); waited += 50 }
-                    check("first frame", vlc.frames > 0, "after ${(System.nanoTime() - playNs) / 1_000_000} ms; source ${vlc.srcW}x${vlc.srcH}")
+                    check("first frame", vlc.frames > 0, "after ${(System.nanoTime() - playNs) / 1_000_000} ms; buffer ${vlc.srcW}x${vlc.srcH}, video ${vlc.dispW}x${vlc.dispH}")
                     if (vlc.frames > 0) {
-                        check("9:16 source", vlc.srcW * 16 == vlc.srcH * 9, "${vlc.srcW}x${vlc.srcH}")
+                        delay(200)
+                        val fw = vlc.frame?.width ?: 0; val fh = vlc.frame?.height ?: 0
+                        check("9:16 frame (padding cropped)", fw * 16 == fh * 9, "displayed image ${fw}x${fh}; buffer ${vlc.srcW}x${vlc.srcH}")
                         val f0 = vlc.frames; val tA = System.nanoTime(); delay(2000)
                         val fps = (vlc.frames - f0) * 1e9 / (System.nanoTime() - tA)
                         check("playback", fps > 20, "rendered %.1f fps over 2 s; time=%d ms".format(fps, vlc.timeMs))
                         withContext(Dispatchers.IO) { shot("01-playing") }
 
                         vlc.player.controls().setPause(true); delay(800)
-                        val p1 = vlc.player.status().time(); val fp = vlc.frames; delay(1000)
+                        val p1 = vlc.player.status().time(); val fp = vlc.frames; val cp = vlc.changedFrames; delay(1000)
                         val p2 = vlc.player.status().time()
-                        check("pause", abs(p2 - p1) < 50 && vlc.frames - fp <= 1, "time $p1 -> $p2 ms, frames +${vlc.frames - fp} while paused")
+                        check("pause", abs(p2 - p1) < 50 && vlc.changedFrames - cp == 0L, "time $p1 -> $p2 ms; changed frames +${vlc.changedFrames - cp}, redisplays +${vlc.frames - fp} in 1 s while paused")
 
                         val target = 5000L; val fs = vlc.frames; val sNs = System.nanoTime()
                         vlc.player.controls().setTime(target)
