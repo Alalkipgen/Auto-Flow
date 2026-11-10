@@ -4,7 +4,6 @@ import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.JsonSchema
 import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.Usage
-import io.github.alalkipgen.autoflow.core.hash.Sha256
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonArray
@@ -38,8 +37,7 @@ class FakeTextProvider(
             failFirst--
             return AiResult.Failed("http_503", "Fake: model overloaded")
         }
-        val seed = Sha256.digest("$system\u0000$prompt\u0000${schema.json}".encodeToByteArray())
-            .take(8).fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+        val seed = fakeSeed(system.orEmpty(), prompt, schema.json.toString())
         val value = SchemaFaker(Random(seed)).value(schema.json, key = "", index = 0)
         return AiResult.Ok(value, Usage(model = MODEL, latencyMs = delayMs))
     }
@@ -88,26 +86,8 @@ internal class SchemaFaker(private val random: Random) {
     }
 
     private fun text(key: String): String = when {
-        key.endsWith("My") -> BURMESE[random.nextInt(BURMESE.size)]
-        else -> ENGLISH[random.nextInt(ENGLISH.size)]
-    }
-
-    private companion object {
-        val BURMESE = listOf(
-            "မိုးရွာနေတဲ့ ညမှာ တစ်ယောက်တည်း",
-            "လမ်းမီးတွေအောက်မှာ ဖြည်းဖြည်းလျှောက်နေတယ်",
-            "ပြတင်းပေါက်ကနေ ငေးကြည့်နေတယ်",
-            "အမှတ်တရ ဓာတ်ပုံဟောင်းကို ကိုင်ထားတယ်",
-            "မနက်ခင်း နေရောင်ထဲမှာ ပြုံးနေတယ်",
-        )
-        val ENGLISH = listOf(
-            "young woman walking alone in the rain",
-            "neon-lit street at night",
-            "slow push-in, shallow depth of field",
-            "warm tungsten light against cold blue shadows",
-            "melancholic, hopeful",
-            "old photograph held in trembling hands",
-        )
+        key.endsWith("My") -> FakeFixtures.BURMESE.random(random)
+        else -> FakeFixtures.ENGLISH.random(random)
     }
 }
 

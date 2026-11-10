@@ -19,11 +19,13 @@ interface ImageProvider {
     suspend fun image(prompt: String, ratio: Ratio, refImages: List<ByteArray> = emptyList()): AiResult<ByteArray>
 }
 
+/** Speech synthesis. Audio is returned as a PCM WAV file. */
 interface TtsProvider {
     suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String? = null): AiResult<ByteArray>
     val capabilities: TtsCapabilities
 }
 
+/** Speech-to-text with segment timings (used to align lyrics to the song). */
 interface TranscribeProvider {
     suspend fun transcribe(audio: ByteArray, lang: String): AiResult<Transcript>
 }
