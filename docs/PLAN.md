@@ -28,11 +28,11 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] Shot auto-splitting from duration + clip length + section hints (`ShotSplitter`: remainder ≥ 2 s own shot, else merged; 1.5 s section snap)
 
 ### 1B :ai
-- [ ] Interfaces: TextProvider, ImageProvider, TtsProvider, TranscribeProvider
+- [x] Interfaces: TextProvider, ImageProvider, TtsProvider, TranscribeProvider (`AiResult` incl. `Deferred`)
 - [ ] Fake* providers (deterministic, offline, with artificial latency)
 - [ ] GeminiTextProvider (structured JSON output), retry/backoff, daily counter — per D-15
 - [!] GeminiImageProvider — deferred (D-14); keep the `ImageProvider` interface, ship `ManualImageProvider` (prompt → clipboard, returns `AiResult.Deferred`)
-- [ ] `config/models.json` loader + ModelCapability
+- [x] `config/models.json` loader + ModelCapability (lenient; placeholders dropped; image stays MANUAL unless configured and probed)
 
 ### 1C :ui (desktop)
 - [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status
@@ -101,3 +101,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1A ShotSplitter.
 - 2026-11-10 1A WorkflowRules gates, Stale functions, approve-all; Q-08.
 - 2026-11-10 1A PromptCompiler, VeoFlowDialect, ImageDialect + 3 golden cases. 1A :core complete except the disk FileSystem (Q-06).
+- 2026-11-10 1A merged (PRs #3–#8). 1B interfaces, ModelConfig loader, ModelCapability; `config/models.json` candidates from S1.
