@@ -39,7 +39,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 
 ### 1C :ui (desktop)
 - [x] `:platform`: `JvmFs` (shared `jvmShared` source set, desktop + Android), AppDirs, Clipboard, UrlOpener, FilePicker (desktop) (D-18) — `PlatformResult`; one contract test for `InMemoryFileSystem` and `JvmFs`
-- [ ] `:platform` SecureStorage: Windows DPAPI via JNA, `~/.autoflow/secrets.bin` (D-19); Windows CI job
+- [x] `:platform` SecureStorage: Windows DPAPI via JNA, `~/.autoflow/secrets.bin` (D-19); Windows CI job — `FileSecureStorage` + `DpapiCipher`, `desktopSecureStorage(appDirs)`
 - [ ] Dashboard: project list from `~/.autoflow/projects.json` (D-20), New Music Video, Open folder
 - [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status
 - [ ] Input screen (lyrics, duration, song style, video style, ratio, clip length, mood)
@@ -116,3 +116,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 Q-06/Q-07/Q-08 resolved: D-18 (FileSystem port + `:platform` JvmFs), sidecar naming + `ArtifactStore.scan()`, stale only on recorded inputs; D-19 DPAPI SecureStorage; D-20 JSON project index.
 - 2026-11-10 PR #16 merged. 1C-a2 `:platform` part 1: `JvmFs` (fsync + `ATOMIC_MOVE`, short retry on Windows `AccessDenied`), `PlatformResult`, `AppDirs` (`~/.autoflow/{projects,settings,usage}.json`, `secrets.bin`; `-Dautoflow.home` override); contract + disk round-trip tests; CI runs `:platform:check` and compiles `androidMain`. 1A complete.
 - 2026-11-10 1C-a2 `:platform` part 2: `AwtClipboard` (retry while Windows locks the clipboard), `DesktopUrlOpener` (http/https only, no userinfo; AWT `Desktop` or OS opener without a shell), `SwingFilePicker` (native file dialog, Swing folder chooser, extension filter); headless tests report `Unsupported`.
+- 2026-11-10 1C-a3 SecureStorage (D-19): JNA 5.17.0 (desktop only); `secrets.bin` = `AFS1` + DPAPI blob (current user, app entropy, no UI) of a name → value map, atomic write; unreadable file → `Failed` and replaced by the next save, I/O error never overwrites; messages never quote decrypted text; non-Windows → `Unsupported`. New `windows` CI job runs `:platform:desktopTest` with real DPAPI.

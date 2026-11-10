@@ -33,6 +33,11 @@ kotlin {
         commonMain.dependencies {
             api(project(":core"))
         }
+        // D-19: DPAPI (CryptProtectData) for the API key. Desktop only; Android uses its Keystore in phase 3.
+        named("desktopMain").dependencies {
+            implementation(libs.jna)
+            implementation(libs.jna.platform)
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
