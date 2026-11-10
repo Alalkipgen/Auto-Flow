@@ -1,0 +1,19 @@
+[gemini-2.5-flash-image] HTTP 429 in 310 ms
+Exception in thread "main" [gemini-2.0-flash-preview-image-generation] HTTP 404 in 76 ms
+java.lang.IllegalStateException: No model returned an image (see results/*.response.json)
+	at MainKt.main(Main.kt:39)
+	at MainKt.main(Main.kt)
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':run' (registered by plugin 'org.gradle.application').
+> Process 'command '/usr/lib/jvm/temurin-21-jdk-amd64/bin/java'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 3s

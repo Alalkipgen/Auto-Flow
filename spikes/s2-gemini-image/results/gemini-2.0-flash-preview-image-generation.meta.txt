@@ -1,0 +1,14 @@
+status: 404
+latencyMs: 76
+headers:
+  :status: 404
+  accept-ranges: none
+  alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+  content-type: application/json; charset=UTF-8
+  date: Tue, 10 Nov 2026 17:47:20 GMT
+  server: scaffolding on HTTPServer2
+  server-timing: gfet4t7; dur=59
+  vary: X-Origin, Referer, Origin,Accept-Encoding
+  x-content-type-options: nosniff
+  x-frame-options: SAMEORIGIN
+  x-xss-protection: 0
