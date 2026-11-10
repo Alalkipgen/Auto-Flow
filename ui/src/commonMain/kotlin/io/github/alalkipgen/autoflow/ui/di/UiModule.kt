@@ -1,6 +1,25 @@
 package io.github.alalkipgen.autoflow.ui.di
 
+import io.github.alalkipgen.autoflow.ai.registry.AiHost
+import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.platform.AppDirs
+import io.github.alalkipgen.autoflow.ui.settings.AppAiHost
+import io.github.alalkipgen.autoflow.ui.settings.LoadedModelConfig
+import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
+import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
+import io.github.alalkipgen.autoflow.ui.settings.loadModelConfig
 import org.koin.dsl.module
 
-/** Root Koin module. Providers, stores and ViewModels are registered here from Phase 1 on. */
-val uiModule = module { }
+/**
+ * App bindings shared by desktop and Android. The app module must bind the platform: [AppDirs],
+ * `core.io.FileSystem`, `SecureStorage`, `Clipboard`, `UrlOpener`, `FilePicker` and `BundledConfig`; then load
+ * `aiModule` too, which takes [AiHost] and `ModelConfig` from here.
+ */
+val uiModule = module {
+    single { SettingsStore(get(), get<AppDirs>().settings) }
+    single { UsageCounter(get(), get<AppDirs>().usage) }
+    single { loadModelConfig(get(), get<SettingsStore>().state.value.modelsConfigPath, get()) }
+    single { get<LoadedModelConfig>().config }
+    single<AiHost> { AppAiHost(get(), get(), get(), get()) }
+    single { ProviderStatusModel(get(), get()) }
+}

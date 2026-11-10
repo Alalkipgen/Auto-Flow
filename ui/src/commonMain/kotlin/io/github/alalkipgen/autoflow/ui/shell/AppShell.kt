@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -28,10 +30,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
-
-/** Title bar provider status — docs/DESIGN.md §2. Static until providers exist (Phase 1B). */
-const val PROVIDER_STATUS = "Gemini API ● Free tier · Flow ● Manual"
+import org.koin.compose.koinInject
 
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
 val SidebarSections: List<Pair<String, List<String>>> = listOf(
@@ -42,14 +43,22 @@ val SidebarSections: List<Pair<String, List<String>>> = listOf(
     "System" to listOf("Settings"),
 )
 
+/** Desktop window content wired to the Koin graph (see `uiModule`). */
+@Composable
+fun App() {
+    val model = koinInject<ProviderStatusModel>()
+    val status by model.status.collectAsState(model.current())
+    AppShell(providerStatus = status)
+}
+
 /**
- * Desktop window content: title bar, pipeline sidebar and an empty content area.
- * Bootstrap only — no navigation, selection or lock state yet (Phase 1C, gates from WorkflowRules).
+ * Desktop window content: title bar with [providerStatus] (DESIGN.md §2), pipeline sidebar and an empty content area.
+ * No navigation, selection or lock state yet (Phase 1C, gates from WorkflowRules).
  */
 @Composable
-fun AppShell(modifier: Modifier = Modifier) {
+fun AppShell(providerStatus: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
-        TitleBar()
+        TitleBar(providerStatus)
         Row(Modifier.fillMaxSize()) {
             Sidebar()
             Box(Modifier.fillMaxSize())
@@ -58,7 +67,7 @@ fun AppShell(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TitleBar() {
+private fun TitleBar(providerStatus: String) {
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -80,7 +89,7 @@ private fun TitleBar() {
                 ),
             )
             Spacer(Modifier.weight(1f))
-            BasicText(PROVIDER_STATUS, style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp))
+            BasicText(providerStatus, style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp))
         }
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
     }
