@@ -39,7 +39,7 @@ jobs:
       - name: Run S3 (automated)
         env: { S3_AUTO: "1", S3_TAG: linux, SKIKO_RENDER_API: SOFTWARE }
         run: |
-          chmod +x gradlew && mkdir -p spikes/s3-vlcj-playback/results/linux
+          chmod +x gradlew && rm -rf spikes/s3-vlcj-playback/results && mkdir -p spikes/s3-vlcj-playback/results/linux
           timeout 600 xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew -q -p spikes/s3-vlcj-playback run 2>&1 | tee spikes/s3-vlcj-playback/results/linux/run.log || true
       - name: Sizes
         run: |
@@ -74,7 +74,7 @@ jobs:
           cp "$full"/libvlc.dll "$full"/libvlccore.dll vlcmin/
           for c in access audio_filter audio_mixer audio_output codec demux packetizer video_chroma video_output logger misc; do cp -r "$full/plugins/$c" vlcmin/plugins/ || echo "missing $c"; done
           echo "VLC_MIN=$(cygpath -w "$PWD/vlcmin")" >> "$GITHUB_ENV"
-          out=spikes/s3-vlcj-playback/results/windows; mkdir -p "$out"
+          rm -rf spikes/s3-vlcj-playback/results; out=spikes/s3-vlcj-playback/results/windows; mkdir -p "$out"
           {
             echo "zip: $zip $(stat -c %s vlc.zip) bytes"
             echo "## full VLC dir"; du -sh "$full"; du -sh "$full/plugins"; ls -l "$full"/libvlc*.dll
@@ -93,7 +93,11 @@ jobs:
         run: ./gradlew -q -p spikes/s3-vlcj-playback depSizes >> spikes/s3-vlcj-playback/results/windows/sizes.txt 2>&1 || true
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: results-windows, path: spikes/s3-vlcj-playback/results }
+        with:
+          name: results-windows
+          path: |
+            spikes/s3-vlcj-playback/results/windows
+            spikes/s3-vlcj-playback/results/windows-min
 
   commit:
     needs: [linux, windows]
@@ -101,6 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - run: rm -rf spikes/s3-vlcj-playback/results
       - uses: actions/download-artifact@v4
         with: { name: results-linux, path: spikes/s3-vlcj-playback/results/linux }
       - uses: actions/download-artifact@v4
