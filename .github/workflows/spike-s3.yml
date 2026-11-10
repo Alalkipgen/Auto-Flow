@@ -1,0 +1,112 @@
+# S3 spike: Compose Desktop + VLCJ playback on Linux (Xvfb) and Windows (portable VLC). No secrets.
+name: Spike S3 (VLCJ playback)
+
+on:
+  push:
+    branches: [work/phase-0-spikes]
+    paths: [spikes/s3-vlcj-playback/src/**, spikes/s3-vlcj-playback/*.kts, .github/workflows/spike-s3.yml]
+
+permissions:
+  contents: write
+
+concurrency: spike-s3
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    steps:
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: 10 s 540x960 (9:16) H.264/AAC test clip
+        run: |
+          ffmpeg -hide_banner -loglevel error -f lavfi -i "testsrc2=size=540x960:rate=30" -f lavfi -i "sine=frequency=440:sample_rate=48000" -t 10 \
+            -c:v libx264 -pix_fmt yuv420p -g 30 -c:a aac -shortest sample.mp4
+          ls -l sample.mp4
+      - uses: actions/upload-artifact@v4
+        with: { name: sample, path: sample.mp4 }
+
+  linux:
+    needs: sample
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/download-artifact@v4
+        with: { name: sample, path: spikes/fixtures }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libvlc-dev vlc-plugin-base vlc-plugin-video-output xvfb libgl1 libgl1-mesa-dri
+      - name: Run S3 (automated)
+        env: { S3_AUTO: "1", S3_TAG: linux, SKIKO_RENDER_API: SOFTWARE }
+        run: |
+          chmod +x gradlew && mkdir -p spikes/s3-vlcj-playback/results/linux
+          timeout 600 xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew -q -p spikes/s3-vlcj-playback run 2>&1 | tee spikes/s3-vlcj-playback/results/linux/run.log || true
+      - name: Sizes
+        run: |
+          {
+            echo "## JARs added by VLCJ"; ./gradlew -q -p spikes/s3-vlcj-playback depSizes
+            echo "## Linux system libVLC (not bundled on Linux; for reference)"
+            du -sh /usr/lib/x86_64-linux-gnu/vlc/plugins /usr/lib/x86_64-linux-gnu/libvlc*.so* 2>/dev/null
+          } > spikes/s3-vlcj-playback/results/linux/sizes.txt 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: results-linux, path: spikes/s3-vlcj-playback/results/linux }
+
+  windows:
+    needs: sample
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults: { run: { shell: bash } }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/download-artifact@v4
+        with: { name: sample, path: spikes/fixtures }
+      - name: Portable VLC (win64 zip) + trimmed copy
+        run: |
+          base=https://download.videolan.org/pub/videolan/vlc/last/win64/
+          zip=$(curl -sL "$base" | grep -o 'vlc-[0-9.]*-win64\.zip' | head -1)
+          echo "VLC zip: $zip"; curl -sL -o vlc.zip "$base$zip"; unzip -q vlc.zip -d vlcdist
+          full=$(ls -d "$PWD"/vlcdist/vlc-*); echo "VLC_FULL=$(cygpath -w "$full")" >> "$GITHUB_ENV"
+          mkdir -p vlcmin/plugins
+          cp "$full"/libvlc.dll "$full"/libvlccore.dll vlcmin/
+          for c in access audio_filter audio_mixer audio_output codec demux packetizer video_chroma video_output logger misc; do cp -r "$full/plugins/$c" vlcmin/plugins/ || echo "missing $c"; done
+          echo "VLC_MIN=$(cygpath -w "$PWD/vlcmin")" >> "$GITHUB_ENV"
+          out=spikes/s3-vlcj-playback/results/windows; mkdir -p "$out"
+          {
+            echo "zip: $zip $(stat -c %s vlc.zip) bytes"
+            echo "## full VLC dir"; du -sh "$full"; du -sh "$full/plugins"; ls -l "$full"/libvlc*.dll
+            echo "## plugins by category"; du -sh "$full"/plugins/* | sort -h
+            echo "## trimmed copy (vlcmin)"; du -sh vlcmin
+          } > "$out/sizes.txt"
+      - name: Run S3 (automated, full VLC)
+        env: { S3_AUTO: "1", S3_TAG: windows, SKIKO_RENDER_API: SOFTWARE }
+        run: S3_VLC_DIR="$VLC_FULL" timeout 600 ./gradlew -q -p spikes/s3-vlcj-playback run 2>&1 | tee spikes/s3-vlcj-playback/results/windows/run.log || true
+      - name: Run S3 (automated, trimmed VLC)
+        env: { S3_AUTO: "1", S3_TAG: windows-min, SKIKO_RENDER_API: SOFTWARE }
+        run: |
+          mkdir -p spikes/s3-vlcj-playback/results/windows-min
+          S3_VLC_DIR="$VLC_MIN" timeout 600 ./gradlew -q -p spikes/s3-vlcj-playback run 2>&1 | tee spikes/s3-vlcj-playback/results/windows-min/run.log || true
+      - name: JAR sizes
+        run: ./gradlew -q -p spikes/s3-vlcj-playback depSizes >> spikes/s3-vlcj-playback/results/windows/sizes.txt 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: results-windows, path: spikes/s3-vlcj-playback/results }
+
+  commit:
+    needs: [linux, windows]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with: { name: results-linux, path: spikes/s3-vlcj-playback/results/linux }
+      - uses: actions/download-artifact@v4
+        with: { name: results-windows, path: spikes/s3-vlcj-playback/results }
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f spikes/s3-vlcj-playback/results
+          git commit -m "phase0(spikes): S3 results [skip ci]" && git pull --rebase -q && git push || echo "nothing to commit"

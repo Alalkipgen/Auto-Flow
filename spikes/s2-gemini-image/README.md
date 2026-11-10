@@ -23,7 +23,10 @@ The `RetryInfo.retryDelay` (~14 h) points to the daily reset, but with `limit: 0
 No image was produced, so output size is unknown. Run #5 retest (same project, still Free Tier) returned identical
 `limit: 0` errors for all 8 models. A retry will only help after billing is enabled or with a key from a project that has image quota.
 
-## Options (see docs/PLAN.md Q-03)
+## Decision
+Resolved by **D-14** (docs/DECISIONS.md): manual reference-image handoff via the AI Studio UI or Flow (AI Pro), with an optional, capability-gated `GeminiImageProvider`.
+
+## Options considered
 1. Enable billing (paid tier) for image models only and keep text on the free tier.
 2. Make reference images part of the manual Google Flow handoff (AI Pro), and import them like video clips.
 3. Make `ImageProvider` optional: shots can proceed with no reference image, or with a user-supplied one.
