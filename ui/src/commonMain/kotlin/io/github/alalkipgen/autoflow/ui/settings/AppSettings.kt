@@ -23,6 +23,8 @@ data class AppSettings(
     val modelsConfigPath: String? = null,
     val defaultRatio: Ratio = Ratio.R9_16,
     val defaultClipMs: Long = 8_000,
+    /** Parent folder used for the last new project; the Dashboard suggests it next time. */
+    val projectsDir: String? = null,
 )
 
 /**
