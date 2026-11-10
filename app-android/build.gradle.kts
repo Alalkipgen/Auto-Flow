@@ -30,6 +30,8 @@ android {
     // CI-generated assets: ffmpeg BUILDINFO + licenses (D-23), self-test fixtures (S6). Absent in local builds.
     // A plain File: AGP rejects Provider instances in the SourceSet API.
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/bundled").get().asFile)
+    // The bundled models.json (same file the desktop app ships as a resource).
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("config"))
 
     signingConfigs {
         if (keystoreFile != null) {
@@ -57,6 +59,14 @@ android {
 }
 
 dependencies {
+    implementation(project(":core"))
+    implementation(project(":ai"))
+    implementation(project(":media"))
+    implementation(project(":platform"))
     implementation(project(":ui"))
     implementation(libs.androidx.activity.compose)
+    // D-23: Self-test fallback when exec of the bundled ffmpeg is blocked on a device.
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
+    implementation(libs.media3.common)
 }
