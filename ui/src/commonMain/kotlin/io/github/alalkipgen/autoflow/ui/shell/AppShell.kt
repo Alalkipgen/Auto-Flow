@@ -2,6 +2,9 @@ package io.github.alalkipgen.autoflow.ui.shell
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -32,6 +35,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -43,6 +48,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
@@ -63,8 +69,21 @@ fun App() {
     val model = koinInject<ProviderStatusModel>()
     val status by model.status.collectAsState(model.current())
     val project by koinInject<CurrentProject>().state.collectAsState()
+    val shell = koinInject<ShellModel>()
+    val shellState by shell.state.collectAsState(shell.current())
+    val jobs = koinInject<StoryboardJobs>()
     var screen by remember { mutableStateOf("Dashboard") }
-    AppShell(status, selected = screen, onSelect = { screen = it }, projectName = project?.project?.name) {
+    AppShell(
+        status,
+        selected = screen,
+        onSelect = { screen = it },
+        projectName = project?.project?.name,
+        locks = shellState.locks,
+        top = {
+            JobBanner(jobs)
+            if (screen in ShellModel.SCREEN_STEPS && shellState.steps.isNotEmpty()) Stepper(shellState.steps)
+        },
+    ) {
         when (screen) {
             "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
             "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
@@ -76,8 +95,8 @@ fun App() {
 }
 
 /**
- * Desktop window content: title bar with [providerStatus] (DESIGN.md §2), pipeline sidebar with [selected] highlighted,
- * and [content]. Lock state comes with the project screens (gates from WorkflowRules).
+ * Desktop window content: title bar with [providerStatus] (DESIGN.md §2), pipeline sidebar with [selected]
+ * highlighted and [locks] (entry → what must be done first) dimmed, [top] (job banner, stepper) and [content].
  */
 @Composable
 fun AppShell(
@@ -86,13 +105,18 @@ fun AppShell(
     selected: String? = null,
     onSelect: (String) -> Unit = {},
     projectName: String? = null,
+    locks: Map<String, String> = emptyMap(),
+    top: @Composable () -> Unit = {},
     content: @Composable () -> Unit = {},
 ) {
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         TitleBar(providerStatus, projectName)
         Row(Modifier.fillMaxSize()) {
-            Sidebar(selected, onSelect)
-            Box(Modifier.fillMaxSize()) { content() }
+            Sidebar(selected, locks, onSelect)
+            Column(Modifier.fillMaxSize()) {
+                top()
+                Box(Modifier.fillMaxWidth().weight(1f)) { content() }
+            }
         }
     }
 }
@@ -137,7 +161,8 @@ private fun TitleBar(providerStatus: String, projectName: String?) {
 }
 
 @Composable
-private fun Sidebar(selected: String?, onSelect: (String) -> Unit) {
+private fun Sidebar(selected: String?, locks: Map<String, String>, onSelect: (String) -> Unit) {
+    var tapped by remember { mutableStateOf<String?>(null) }
     Row(Modifier.fillMaxHeight()) {
         Column(
             modifier = Modifier
@@ -155,39 +180,70 @@ private fun Sidebar(selected: String?, onSelect: (String) -> Unit) {
                     modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 4.dp),
                     style = TextStyle(color = AutoFlowColors.Muted, fontSize = 10.sp, letterSpacing = 1.sp),
                 )
-                items.forEach { item -> SidebarItem(item, item == selected) { onSelect(item) } }
+                items.forEach { item ->
+                    val lock = locks[item]
+                    SidebarItem(item, item == selected, lock, showLock = tapped == item) {
+                        if (lock == null) {
+                            tapped = null
+                            onSelect(item)
+                        } else {
+                            tapped = item
+                        }
+                    }
+                }
             }
         }
         Box(Modifier.width(AutoFlowShapes.Border).fillMaxHeight().background(AutoFlowColors.Line))
     }
 }
 
-/** Selected: purple left bar + fading purple background, white text (mockup `.side a.on`). */
+/**
+ * Selected: purple left bar + fading purple background, white text (mockup `.side a.on`). Locked ([lock] != null):
+ * dimmed with a lock glyph; hovering or clicking shows [lock] instead of opening the screen (DESIGN.md §2).
+ */
 @Composable
-private fun SidebarItem(name: String, selected: Boolean, onClick: () -> Unit) {
+private fun SidebarItem(name: String, selected: Boolean, lock: String?, showLock: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .then(
-                if (selected) {
-                    Modifier.background(Brush.horizontalGradient(listOf(AutoFlowColors.Purple.copy(alpha = 0.25f), Color.Transparent)))
-                } else {
-                    Modifier
-                },
+    val hover = remember { MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .then(
+                    if (selected) {
+                        Modifier.background(Brush.horizontalGradient(listOf(AutoFlowColors.Purple.copy(alpha = 0.25f), Color.Transparent)))
+                    } else {
+                        Modifier
+                    },
+                )
+                .hoverable(hover)
+                .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+                .then(if (lock != null) Modifier.semantics { stateDescription = "locked" } else Modifier)
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selected) Box(Modifier.width(3.dp).fillMaxHeight().background(AutoFlowColors.Purple))
+            val ink = when {
+                selected -> Color.White
+                lock != null -> AutoFlowColors.Muted.copy(alpha = 0.5f)
+                else -> AutoFlowColors.Muted
+            }
+            BasicText(
+                text = name,
+                modifier = Modifier.padding(start = if (selected) 9.dp else 12.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
+                style = TextStyle(color = ink, fontSize = 13.sp),
             )
-            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
-            .height(IntrinsicSize.Min),
-    ) {
-        if (selected) Box(Modifier.width(3.dp).fillMaxHeight().background(AutoFlowColors.Purple))
-        BasicText(
-            text = name,
-            modifier = Modifier.padding(start = if (selected) 9.dp else 12.dp, end = 12.dp, top = 9.dp, bottom = 9.dp),
-            style = TextStyle(color = if (selected) Color.White else AutoFlowColors.Muted, fontSize = 13.sp),
-        )
+            if (lock != null) BasicText(LOCK_GLYPH, style = TextStyle(color = ink, fontSize = 11.sp))
+        }
+        if (lock != null && (hovered || showLock)) {
+            AfText(lock, Modifier.padding(start = 12.dp, end = 8.dp, bottom = 6.dp), size = 11.sp, color = AutoFlowColors.Amber)
+        }
     }
 }
+
+const val LOCK_GLYPH = "🔒"
 
 /** Logo — gradient purple→cyan rounded square with a white play triangle (docs/DESIGN.md §1). */
 @Composable

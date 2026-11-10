@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.storyboard
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
@@ -21,6 +22,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import io.github.alalkipgen.autoflow.ui.shell.JobBanner
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -118,7 +120,12 @@ class StoryboardScreenTest {
     fun aRunningJobShowsCancelAndLocksTheCards() = runComposeUiTest {
         open()
         jobs.run(StoryboardModel.regenerateLabel(2)) { awaitCancellation() }
-        setContent { StoryboardScreen(model, jobs, onGoToInput = {}) }
+        setContent {
+            Column {
+                JobBanner(jobs)
+                StoryboardScreen(model, jobs, onGoToInput = {})
+            }
+        }
         onNodeWithText("Regenerating shot #02…").assertExists()
         onAllNodesWithText(APPROVE)[0].assertIsNotEnabled()
         onNodeWithText("Cancel").performClick()

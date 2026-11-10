@@ -17,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -122,12 +121,8 @@ private fun GenerateCard(state: InputUiState, job: JobState, jobs: StoryboardJob
         state.blockers.forEach { AfText("• ${it.text()}", color = AutoFlowColors.Amber) }
         state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
         job.last?.takeIf { it != StoryboardResult.Done }?.message()?.let { AfText(it, color = AutoFlowColors.Amber) }
-        if (running != null) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfText("$running…", color = AutoFlowColors.Cyan)
-                AfButton("Cancel", jobs::cancel, kind = ButtonKind.Danger)
-            }
-        } else if (confirming) {
+        // A running job (with Cancel) shows in the shell's JobBanner.
+        if (confirming && running == null) {
             AfCard(if (state.hasStoryboard) "Make a new storyboard version?" else "Generate the storyboard?") {
                 AfText(confirmText(state), muted = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -136,7 +131,7 @@ private fun GenerateCard(state: InputUiState, job: JobState, jobs: StoryboardJob
                 }
             }
         } else {
-            AfButton(GENERATE_BUTTON, { jobs.clearLast(); confirming = true }, kind = ButtonKind.Primary, enabled = state.blockers.isEmpty())
+            AfButton(GENERATE_BUTTON, { jobs.clearLast(); confirming = true }, kind = ButtonKind.Primary, enabled = state.blockers.isEmpty() && running == null)
         }
     }
 }
