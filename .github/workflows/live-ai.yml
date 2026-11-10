@@ -1,0 +1,29 @@
+# Opt-in live Gemini test (one free-tier request), no PC needed. Needs the repository secret GEMINI_API_KEY
+# (GitHub → Settings → Secrets and variables → Actions). Start it from the Actions tab ("Run workflow"), or by pushing
+# a change to .github/live-ai-run.txt. Normal CI (ci.yml) stays on fake providers only.
+name: Live AI test
+
+on:
+  workflow_dispatch:
+  push:
+    paths: [.github/live-ai-run.txt]
+
+concurrency: live-ai
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Require the secret (otherwise the test would skip and look green)
+        run: '[ -n "$GEMINI_API_KEY" ] || { echo "::error::Add the repository secret GEMINI_API_KEY first"; exit 1; }'
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: GeminiLiveTest
+        run: chmod +x gradlew && ./gradlew :ai:desktopTest -PliveAi=true --tests '*GeminiLiveTest*'
+      - name: Fail if the live test was skipped
+        run: '! grep -rq "GeminiLiveTest skipped" ai/build/test-results/desktopTest/'

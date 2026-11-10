@@ -20,6 +20,7 @@ jobs:
 
   windows:
     # D-19: real DPAPI round trip (AUTOFLOW_EXPECT_DPAPI makes the test fail if it is not on Windows), and JvmFs on NTFS.
+    # UI tests on Windows too: a system font must cover Myanmar, and screenshots are uploaded for review.
     runs-on: windows-latest
     timeout-minutes: 20
     defaults: { run: { shell: bash } }
@@ -31,3 +32,9 @@ jobs:
       - name: ":platform tests on Windows (fakes only, no secrets)"
         env: { AUTOFLOW_EXPECT_DPAPI: "1" }
         run: ./gradlew :platform:desktopTest
+      - name: ":ui tests on Windows (Myanmar font fallback, screenshots)"
+        env: { AUTOFLOW_EXPECT_MYANMAR_FONT: "1", AUTOFLOW_SCREENSHOTS_DIR: "${{ github.workspace }}/ui/build/screenshots" }
+        run: ./gradlew :ui:desktopTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: windows-screenshots, path: ui/build/screenshots, if-no-files-found: warn }
