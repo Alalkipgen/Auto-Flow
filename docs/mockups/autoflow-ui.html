@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<title>Auto Flow — UI Mockup</title>
+<style>
+  :root{--bg:#0B1020;--panel:#131A2E;--card:#1A2340;--line:#263153;--txt:#E6EAF5;--mut:#8A94B3;--pur:#8B5CF6;--cy:#22D3EE;--ok:#22C55E;--warn:#F59E0B}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#06091A;color:var(--txt);font-family:"Pyidaungsu","Noto Sans Myanmar",Segoe UI,sans-serif;padding:32px;display:flex;gap:32px;align-items:flex-start;justify-content:center;min-height:100vh}
+  .win{width:1100px;height:680px;background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .titlebar{height:40px;background:#0E1428;display:flex;align-items:center;padding:0 16px;gap:10px;border-bottom:1px solid var(--line);font-size:13px}
+  .logo{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--pur),var(--cy));display:inline-block;position:relative}
+  .logo:after{content:"";position:absolute;left:8px;top:6px;border-left:8px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent}
+  .brand{font-weight:700;letter-spacing:.5px}
+  .body{flex:1;display:flex;min-height:0}
+  .side{width:190px;background:var(--panel);border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:4px}
+  .side a{padding:9px 12px;border-radius:8px;color:var(--mut);font-size:13px;text-decoration:none}
+  .side a.on{background:linear-gradient(90deg,rgba(139,92,246,.25),transparent);color:#fff;border-left:3px solid var(--pur)}
+  .side .sec{font-size:10px;color:var(--mut);margin:10px 12px 4px;text-transform:uppercase;letter-spacing:1px}
+  .main{flex:1;padding:18px;overflow:hidden;display:flex;flex-direction:column;gap:14px}
+  .hdr{display:flex;justify-content:space-between;align-items:center}
+  .hdr h1{font-size:18px}
+  .hdr small{color:var(--mut);font-size:12px}
+  .tag{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+  .steps{display:flex;gap:6px;background:var(--panel);padding:10px;border-radius:12px;border:1px solid var(--line)}
+  .step{flex:1;text-align:center;font-size:11px;padding:8px 4px;border-radius:8px;color:var(--mut);position:relative}
+  .step.done{color:var(--ok)}.step.cur{background:rgba(139,92,246,.2);color:#fff;border:1px solid var(--pur)}
+  .step b{display:block;font-size:14px;margin-bottom:2px}
+  .shots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .shot{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .thumb{height:88px;background:linear-gradient(135deg,#1e2a5a,#4c1d95 60%,#0e7490)}
+  .shot:nth-child(2) .thumb{background:linear-gradient(135deg,#7c2d12,#be123c 60%,#1e1b4b)}
+  .shot:nth-child(3) .thumb{background:linear-gradient(135deg,#0f766e,#1e3a8a 60%,#6d28d9);outline:2px solid var(--pur)}
+  .shot:nth-child(4) .thumb{background:linear-gradient(135deg,#374151,#111827 60%,#1f2937)}
+  .shot .m{padding:8px 10px;font-size:11px;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+  .shot .m b{color:#fff;font-size:12px}
+  .badge{font-size:10px;padding:2px 7px;border-radius:999px}
+  .b-ok{background:rgba(34,197,94,.15);color:var(--ok)}.b-w{background:rgba(245,158,11,.15);color:var(--warn)}.b-p{background:rgba(139,92,246,.2);color:#c4b5fd}.b-m{background:rgba(138,148,179,.15);color:var(--mut)}
+  .lower{flex:1;display:flex;gap:14px;min-height:0}
+  .sb{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:12px;overflow:hidden}
+  .sb h3{font-size:12px;color:var(--mut);margin-bottom:8px;font-weight:600}
+  .row{display:flex;gap:10px;padding:8px;border-radius:8px;border:1px solid transparent}
+  .row.on{background:var(--card);border-color:var(--line)}
+  .row .tc{color:var(--cy);width:86px;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .row p{color:#cdd3e6;line-height:1.6}
+  .row .ly{color:var(--mut);font-size:11px}
+  .detail{width:330px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;font-size:12px}
+  .detail h2{font-size:15px;display:flex;justify-content:space-between}
+  .meta{display:flex;gap:6px;flex-wrap:wrap}
+  .refs{display:flex;gap:8px}
+  .ref{flex:1;height:70px;border-radius:8px;background:linear-gradient(135deg,#0f766e,#1e3a8a 60%,#6d28d9);position:relative;border:2px solid transparent}
+  .ref.sel{border-color:var(--cy)}
+  .ref span{position:absolute;bottom:4px;left:6px;font-size:10px;background:rgba(0,0,0,.5);padding:1px 5px;border-radius:4px}
+  .prompt{background:#0E1428;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:Consolas,monospace;font-size:10.5px;color:#b7c0dc;line-height:1.5;max-height:90px;overflow:hidden}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto}
+  .btn{padding:8px;border-radius:8px;text-align:center;font-size:11.5px;border:1px solid var(--line);color:#fff;background:var(--card)}
+  .btn.pri{background:linear-gradient(90deg,var(--pur),#6d28d9);border:none}
+  .btn.cy{background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.4);color:var(--cy)}
+  .btn.ok{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.4);color:var(--ok);grid-column:1/3}
+
+  /* phone */
+  .phone{width:300px;height:640px;background:#000;border-radius:38px;padding:10px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .scr{background:var(--bg);height:100%;border-radius:30px;overflow:hidden;display:flex;flex-direction:column;font-size:12px}
+  .sbar{height:28px;display:flex;justify-content:space-between;padding:8px 20px 0;font-size:10px;color:var(--mut)}
+  .ph-h{padding:10px 16px;display:flex;align-items:center;gap:8px;font-weight:700}
+  .ph-body{flex:1;padding:0 14px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+  .pcard .t{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:6px}
+  .bar{height:5px;background:#0E1428;border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;width:62%;background:linear-gradient(90deg,var(--pur),var(--cy))}
+  .mini{display:flex;gap:6px;margin-top:8px}.mini span{flex:1;height:34px;border-radius:6px;background:linear-gradient(135deg,#1e2a5a,#4c1d95)}
+  .mini span:nth-child(2){background:linear-gradient(135deg,#7c2d12,#be123c)}.mini span:nth-child(3){background:linear-gradient(135deg,#0f766e,#6d28d9);outline:2px solid var(--cy)}
+  .ph-thumb{height:120px;border-radius:10px;background:linear-gradient(135deg,#0f766e,#1e3a8a 60%,#6d28d9);display:flex;align-items:flex-end;padding:8px;font-size:11px}
+  .ph-thumb b{background:rgba(0,0,0,.55);padding:3px 8px;border-radius:6px}
+  .ph-my{color:#cdd3e6;line-height:1.6;font-size:11.5px}
+  .ph-btn{padding:11px;border-radius:10px;text-align:center;font-weight:600}
+  .nav{height:58px;border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;font-size:10px;color:var(--mut);background:var(--panel)}
+  .nav span.on{color:var(--cy)}
+  .nav span i{display:block;width:18px;height:18px;border-radius:5px;background:currentColor;opacity:.7;margin:0 auto 3px}
+</style>
+</head>
+<body>
+
+<!-- ===== Windows ===== -->
+<div class="win">
+  <div class="titlebar"><span class="logo"></span><span class="brand">Auto Flow</span><span style="color:var(--mut)">— Midnight Rain.autoflow</span><span style="margin-left:auto;color:var(--mut)">Gemini API ● Free tier · Flow ● Manual</span></div>
+  <div class="body">
+    <div class="side">
+      <div class="sec">Project</div>
+      <a>🏠 Dashboard</a>
+      <a>🎵 Input</a>
+      <a class="on">🎬 Storyboard</a>
+      <a>🔢 Shots</a>
+      <a>🖼 References</a>
+      <a>📤 Flow Handoff</a>
+      <a>🎞 Timeline</a>
+      <a>💾 Export</a>
+      <div class="sec">Mode</div>
+      <a>🎤 Music Video</a>
+      <a>🎥 Movie Recap</a>
+      <div class="sec" style="margin-top:auto">System</div>
+      <a>⚙ Settings</a>
+    </div>
+    <div class="main">
+      <div class="hdr">
+        <div><h1>Midnight Rain</h1><small>Ballad · Cinematic · 3:20 · 9:16 · 8s clips · Shots 25</small></div>
+        <div style="display:flex;gap:6px"><span class="tag">Storyboard v3</span><span class="tag">Approved 18 / 25</span><span class="tag" style="color:var(--cy);border-color:var(--cy)">Flow ထုတ်ပြီး 7</span></div>
+      </div>
+      <div class="steps">
+        <div class="step done"><b>✓</b>Input</div>
+        <div class="step done"><b>✓</b>Storyboard</div>
+        <div class="step cur"><b>3</b>Prompts</div>
+        <div class="step"><b>4</b>References</div>
+        <div class="step"><b>5</b>Flow Video</div>
+        <div class="step"><b>6</b>Assembly</div>
+      </div>
+      <div class="shots">
+        <div class="shot"><div class="thumb"></div><div class="m"><b>#01</b> 0:00–0:08 <span class="badge b-ok">Accepted</span></div></div>
+        <div class="shot"><div class="thumb"></div><div class="m"><b>#02</b> 0:08–0:16 <span class="badge b-ok">Accepted</span></div></div>
+        <div class="shot"><div class="thumb"></div><div class="m"><b>#03</b> 0:16–0:24 <span class="badge b-p">Flow မှာလုပ်ရန်</span></div></div>
+        <div class="shot"><div class="thumb"></div><div class="m"><b>#04</b> 0:24–0:32 <span class="badge b-w">⚠ Stale</span></div></div>
+      </div>
+      <div class="lower">
+        <div class="sb">
+          <h3>STORYBOARD (မြန်မာ)</h3>
+          <div class="row"><span class="tc">0:08–0:16</span><div><p>မိုးရွာနေတဲ့ လမ်းမပေါ် ထီးမပါဘဲ လမ်းလျှောက်နေတဲ့ ကောင်မလေး၊ ဝေးကနေ ကင်မရာ ဖြေးဖြေးချင်း လိုက်</p><span class="ly">♪ "ညမိုးထဲ တစ်ယောက်တည်း…"</span></div></div>
+          <div class="row on"><span class="tc">0:16–0:24</span><div><p>ကော်ဖီဆိုင် မှန်ပြတင်းနောက်ကနေ မိုးစက်တွေကို ငေးနေတဲ့ မျက်နှာ close-up၊ မှန်ပေါ် မီးရောင် reflection</p><span class="ly">♪ "မင့်ပုံရိပ် မှန်ပေါ်မှာ…"</span></div></div>
+          <div class="row"><span class="tc">0:24–0:32</span><div><p>ဓာတ်ပုံအဟောင်းကို လက်ထဲ ကိုင်ထား၊ slow dolly-in၊ ဆီမီးရောင် warm tone</p><span class="ly">♪ "အမှတ်တရတွေ…"</span></div></div>
+        </div>
+        <div class="detail">
+          <h2>Shot #03 <span class="badge b-p">Flow Handoff</span></h2>
+          <div class="meta"><span class="tag">0:16–0:24</span><span class="tag">9:16</span><span class="tag">8s</span><span class="tag">Veo 3.1 Fast</span><span class="tag">Draft pass</span></div>
+          <div class="refs"><div class="ref sel"><span>Ref A ✓</span></div><div class="ref" style="filter:hue-rotate(40deg)"><span>Ref B</span></div></div>
+          <div class="prompt">Close-up of a young Burmese woman gazing through a rain-streaked café window at night, neon reflections on glass, shallow depth of field, slow push-in, melancholic cinematic lighting, anamorphic, warm interior vs cold blue exterior. --no text, watermark</div>
+          <div class="btns">
+            <div class="btn pri">📋 Copy Prompt</div>
+            <div class="btn cy">↗ Open Flow</div>
+            <div class="btn">📦 Export Package</div>
+            <div class="btn">📥 Import Video</div>
+            <div class="btn ok">✓ Accept Video</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Android ===== -->
+<div class="phone"><div class="scr">
+  <div class="sbar"><span>21:45</span><span>▲ 📶 🔋</span></div>
+  <div class="ph-h"><span class="logo"></span>Auto Flow <span class="tag" style="margin-left:auto">Companion</span></div>
+  <div class="ph-body">
+    <div class="pcard">
+      <div class="t"><b style="color:#fff;font-size:13px">Midnight Rain</b><span>18 / 25 approved</span></div>
+      <div class="bar"><i></i></div>
+      <div class="mini"><span></span><span></span><span></span><span style="background:#1f2937"></span></div>
+    </div>
+    <div class="ph-thumb"><b>#03 · 0:16–0:24 · 9:16</b></div>
+    <div class="ph-my">ကော်ဖီဆိုင် မှန်ပြတင်းနောက်ကနေ မိုးစက်တွေကို ငေးနေတဲ့ မျက်နှာ close-up၊ မှန်ပေါ် မီးရောင် reflection</div>
+    <div class="prompt" style="max-height:60px">Close-up of a young Burmese woman gazing through a rain-streaked café window at night…</div>
+    <div class="ph-btn" style="background:var(--card);border:1px solid var(--line)">📋 Prompt ကူးရန်</div>
+    <div class="ph-btn" style="background:linear-gradient(90deg,var(--pur),#6d28d9)">✓ Approve</div>
+    <div style="display:flex;gap:8px"><div class="ph-btn" style="flex:1;background:var(--card);border:1px solid var(--line);font-weight:400">✎ ပြင်</div><div class="ph-btn" style="flex:1;background:var(--card);border:1px solid var(--line);font-weight:400">↻ ပြန်ထုတ်</div></div>
+  </div>
+  <div class="nav"><span><i></i>Projects</span><span class="on"><i></i>Storyboard</span><span><i></i>Shots</span><span><i></i>Inbox</span><span><i></i>Settings</span></div>
+</div></div>
+
+</body>
+</html>
