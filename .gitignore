@@ -1,0 +1,15 @@
+.gradle/
+build/
+.idea/
+*.iml
+local.properties
+.kotlin/
+*.autoflow/
+.autoflow/
+spikes/**/out/
+spikes/**/*.png
+spikes/**/*.mp4
+spikes/**/*.wav
+!spikes/fixtures/**
+*.log
+.DS_Store

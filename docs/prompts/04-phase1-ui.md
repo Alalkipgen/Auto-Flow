@@ -1,0 +1,2 @@
+# Task: Phase 1C — :ui desktop
+Implement screens per docs/DESIGN.md §2–3 and §6 strings, backed by `:core` + fake providers: Shell, Dashboard, Input, Storyboard, Shots + Shot detail, Flow Handoff (copy/open/export package/import/inbox), Settings (API key via :platform SecureStorage). ViewModels in shared code; gates come from WorkflowRules only. Smoke test each screen with fakes. Branch: `work/phase-1-ui`.
