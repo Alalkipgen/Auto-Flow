@@ -16,7 +16,7 @@ Optimize for: correctness, small diffs, testability without API keys, and never 
 - **Never hardcode** model names, quotas, credit costs, or prices in logic. They live in `config/models.json` and are treated as data that will change.
 - **API keys** are read from platform secure storage only (Windows Credential Manager / Android Keystore). Never in code, logs, test fixtures, or `project.json`.
 - **All AI calls go through `:ai` interfaces.** UI and `:core` must compile and run with `Fake*Provider` implementations. CI runs with fakes only.
-- **Burmese vs English:** human-facing storyboard text is Burmese (`*_my` fields). Anything sent to an image/video model is English (`*_en` fields). Never mix.
+- **Burmese vs English:** human-facing text lives in fields with the `My` suffix (camelCase, e.g. `sceneMy`, `lyricsMy`). Anything sent to an image/video model lives in fields with the `En` suffix (e.g. `subjectEn`, `descriptionEn`). Never mix, never auto-translate silently. JSON keys in `project.json` and all artifacts use the same camelCase names.
 - **Approval gates are enforced in `:core` (WorkflowRules), not in UI.** UI only reflects state.
 - Writes to `project.json` are atomic (write temp → fsync → rename).
 - No new third-party dependency without a line in docs/DECISIONS.md explaining why.
