@@ -17,3 +17,17 @@ jobs:
       - name: Check (fake providers only, no API keys)
         # chmod: files pushed via the GitHub API/web UI lose the executable bit.
         run: chmod +x gradlew && ./gradlew :core:check :ai:check :platform:check :platform:compileAndroidMain :ui:desktopTest
+
+  windows:
+    # D-19: real DPAPI round trip (AUTOFLOW_EXPECT_DPAPI makes the test fail if it is not on Windows), and JvmFs on NTFS.
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults: { run: { shell: bash } }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: ":platform tests on Windows (fakes only, no secrets)"
+        env: { AUTOFLOW_EXPECT_DPAPI: "1" }
+        run: ./gradlew :platform:desktopTest
