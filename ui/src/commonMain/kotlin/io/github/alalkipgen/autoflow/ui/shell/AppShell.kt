@@ -43,6 +43,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import org.koin.compose.koinInject
@@ -67,6 +68,7 @@ fun App() {
         when (screen) {
             "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
             "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
+            "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
             "Settings" -> SettingsScreen(koinInject())
             else -> ScreenPlaceholder(screen)
         }
