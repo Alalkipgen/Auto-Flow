@@ -51,6 +51,8 @@ data class ImageModels(
     val provider: String = MANUAL,
     val candidates: List<String> = emptyList(),
     val ratios: List<String> = listOf("16:9", "9:16", "1:1", "4:5"),
+    /** Opened by the manual path after the prompt is copied. */
+    val manualUrl: String = "https://aistudio.google.com/",
 ) {
     /** Ratios the image path accepts; unknown labels are ignored. */
     val supportedRatios: List<Ratio> get() = ratios.mapNotNull { label -> Ratio.entries.firstOrNull { it.label == label } }
