@@ -41,7 +41,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] `:platform`: `JvmFs` (shared `jvmShared` source set, desktop + Android), AppDirs, Clipboard, UrlOpener, FilePicker (desktop) (D-18) — `PlatformResult`; one contract test for `InMemoryFileSystem` and `JvmFs`
 - [x] `:platform` SecureStorage: Windows DPAPI via JNA, `~/.autoflow/secrets.bin` (D-19); Windows CI job — `FileSecureStorage` + `DpapiCipher`, `desktopSecureStorage(appDirs)`
 - [ ] Dashboard: project list from `~/.autoflow/projects.json` (D-20), New Music Video, Open folder
-- [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status (live status done in 1C-a4)
+- [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status (live status, sidebar navigation + selection done in 1C-a4; locks and stepper with the project screens)
 - [ ] Input screen (lyrics, duration, song style, video style, ratio, clip length, mood)
 - [ ] Storyboard screen (Burmese cards, edit, regenerate, approve all / per shot)
 - [ ] Shots screen (grid, badges: Accepted / Needs Flow / Stale / Draft)
@@ -120,3 +120,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1C-a4 Settings part 1: `AppSettings` + `SettingsStore` (`~/.autoflow/settings.json`, atomic, lenient; first run = Fake mode; unreadable file → defaults + warning, replaced on next change) and `loadModelConfig` (override path from Settings, else the bundled `config/models.json`, with a problem message). `:ui` applies the kotlinx.serialization plugin (D-11).
 - 2026-11-10 1C-a4 Settings part 2: `AppAiHost` (mode from settings, key from SecureStorage per call, clipboard/URL from `:platform`), live title-bar status (`AI ● Fake (offline)` / `Gemini API ● Free tier` / `No key` / `Windows only` · `Flow ● Manual`), Koin: `desktopModule` + `uiModule` + `aiModule`; `config/models.json` bundled in `app-desktop`; graph test with the real desktop bindings in CI.
 - 2026-11-10 1C-a4 Settings part 3a: `SettingsModel` (key Save/Test/Remove — Test always calls Gemini once, even in Fake mode; Fake/Real toggle; default ratio/clip; ffmpeg path + Detect/Browse; VLC path/Browse/"Install VLC" link; fonts; models.json override; today's request count), `:platform` `ToolLocator` (PATH/`FFMPEG_PATH`, common VLC folders) and `ProviderRegistry.testGeminiKey()`.
+- 2026-11-10 1C-a4 Settings part 3b-1: foundation-only controls (`AfText`, `AfButton` Primary/Secondary/Flow/Danger, `AfChip`, `AfSwitch`, `AfTextField` with masked secret mode, `AfCard`) and sidebar navigation with the selected entry highlighted (mockup `.side a.on`); unbuilt screens show a placeholder.
