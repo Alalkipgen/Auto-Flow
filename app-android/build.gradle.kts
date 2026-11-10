@@ -28,7 +28,8 @@ android {
     packaging { jniLibs { useLegacyPackaging = true } }
 
     // CI-generated assets: ffmpeg BUILDINFO + licenses (D-23), self-test fixtures (S6). Absent in local builds.
-    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/bundled"))
+    // A plain File: AGP rejects Provider instances in the SourceSet API.
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/bundled").get().asFile)
 
     signingConfigs {
         if (keystoreFile != null) {
