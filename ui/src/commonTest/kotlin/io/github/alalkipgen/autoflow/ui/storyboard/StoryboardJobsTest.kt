@@ -49,6 +49,11 @@ class StoryboardJobsTest {
         assertEquals(JobState(last = StoryboardJobs.CANCELLED), jobs.state.value)
         assertFalse(done, "a cancelled job does not call onDone")
 
+        jobs.run("never started") { awaitCancellation() }
+        jobs.cancel()
+        runCurrent()
+        assertEquals(JobState(last = StoryboardJobs.CANCELLED), jobs.state.value, "cancelled before it ran")
+
         jobs.run("crash") { error("disk full") }
         runCurrent()
         assertEquals(JobState(last = StoryboardResult.Failed("disk full")), jobs.state.value)

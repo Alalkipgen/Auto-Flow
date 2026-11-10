@@ -27,11 +27,10 @@ class StoryboardJobs(private val service: StoryboardService, private val scope: 
     fun run(label: String, onDone: (StoryboardResult) -> Unit = {}, block: suspend StoryboardService.() -> StoryboardResult): Boolean {
         if (busy) return false
         _state.value = JobState(running = label)
-        job = scope.launch {
+        val launched = scope.launch {
             val result = try {
                 service.block()
             } catch (e: CancellationException) {
-                _state.value = JobState(last = CANCELLED)
                 throw e
             } catch (e: Exception) {
                 StoryboardResult.Failed(e.message ?: e::class.simpleName ?: "error")
@@ -39,6 +38,9 @@ class StoryboardJobs(private val service: StoryboardService, private val scope: 
             _state.value = JobState(last = result)
             onDone(result)
         }
+        // Also covers a job cancelled before it started, whose body never runs.
+        launched.invokeOnCompletion { cause -> if (cause is CancellationException) _state.value = JobState(last = CANCELLED) }
+        job = launched
         return true
     }
 
