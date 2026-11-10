@@ -4,6 +4,7 @@ import io.github.alalkipgen.autoflow.ai.ImageProvider
 import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.ai.TtsProvider
+import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
 import org.koin.core.module.dsl.onClose
 import org.koin.core.module.dsl.withOptions
@@ -21,4 +22,5 @@ val aiModule = module {
     single<ImageProvider> { get<ProviderRegistry>().image }
     single<TtsProvider> { get<ProviderRegistry>().tts }
     single<TranscribeProvider> { get<ProviderRegistry>().transcribe }
+    single { StoryboardGenerator(get()) }
 }
