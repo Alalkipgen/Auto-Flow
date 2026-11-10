@@ -17,6 +17,7 @@ import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.settings.loadModelConfig
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
 import kotlinx.coroutines.MainScope
 import org.koin.dsl.module
@@ -41,6 +42,7 @@ val uiModule = module {
     single { StoryboardService(get(), get()) }
     single { StoryboardJobs(get(), MainScope()) }
     factory { InputModel(get(), get()) }
+    factory { StoryboardModel(get(), get(), get()) }
     factory {
         val registry = get<ProviderRegistry>()
         SettingsModel(get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey)

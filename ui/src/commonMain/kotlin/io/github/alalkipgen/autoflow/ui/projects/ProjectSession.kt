@@ -12,6 +12,7 @@ import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.core.workflow.ArtifactLookup
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
 
 /**
@@ -26,6 +27,9 @@ class ProjectSession(
     private val clock: Clock = Clock.System,
 ) {
     val open: OpenProject? get() = current.state.value
+
+    /** The open project; screens rebuild from it after every save. */
+    val state: StateFlow<OpenProject?> get() = current.state
 
     fun artifacts(): ArtifactStore? = open?.let { ArtifactStore(fs, it.dir, clock) }
 
