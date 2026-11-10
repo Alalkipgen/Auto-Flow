@@ -5,3 +5,4 @@ plugins {
 }
 dependencies { implementation(compose.desktop.currentOs) }
 compose.desktop { application { mainClass = "MainKt" } }
+tasks.withType<JavaExec>().configureEach { workingDir = projectDir }
