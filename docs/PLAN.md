@@ -35,6 +35,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [x] GeminiTextProvider (structured JSON output) on ModelChain; opt-in live test (`-PliveAi=true` + `GEMINI_API_KEY`)
 - [!] GeminiImageProvider — deferred (D-14); keep the `ImageProvider` interface, ship `ManualImageProvider` (prompt → clipboard, returns `AiResult.Deferred`)
 - [x] `config/models.json` loader + ModelCapability (lenient; placeholders dropped; image stays MANUAL unless configured and probed)
+- [x] ProviderRegistry + Koin `aiModule`: `AiHost` port (settings flag, API key, clipboard, open-URL); fake/real chosen per call; real TTS/transcribe answer `unavailable` until phase 4
 
 ### 1C :ui (desktop)
 - [ ] Shell: sidebar (pipeline order), stepper, title-bar provider status
@@ -45,7 +46,7 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [ ] Flow Handoff screen: copy prompt, open Flow, export shot package, import video, draft/final
 - [ ] Reference-image handoff (D-14): copy ImageDialect prompt, open AI Studio, import image as Ref A/B
 - [ ] Inbox: folder watcher → "attach to shot" dialog (video → `vd`, png/jpg → Ref A/B `im`)
-- [ ] Settings: API key (secure storage), ffmpeg path, VLC path (auto-detect; "Install VLC" link + playback disabled when missing, D-16), fonts, model config
+- [ ] Settings: API key (secure storage), Fake/Real AI providers toggle (`AiHost.useFakeProviders`), ffmpeg path, VLC path (auto-detect; "Install VLC" link + playback disabled when missing, D-16), fonts, model config
 
 ### 1D :media (desktop)
 - [ ] ffmpeg locator + version check (`ass` filter / `--enable-libass` → overlay backend)
@@ -108,3 +109,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 1B fake media providers: placeholder PNG (shot number), sine-tone WAV, timed fake transcript.
 - 2026-11-10 1B ModelChain + UsageCounter (quota day = midnight Pacific).
 - 2026-11-10 1B GeminiTextProvider (Ktor, header key, thought parts skipped, `limit: 0` → next candidate); tests on real S1/S2 responses via ktor-client-mock (D-17).
+- 2026-11-10 1B ProviderRegistry + Koin aiModule. 1B complete (GeminiImageProvider deferred per D-14).
