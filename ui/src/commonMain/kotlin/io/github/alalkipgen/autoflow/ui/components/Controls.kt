@@ -144,7 +144,10 @@ fun AfSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modif
     }
 }
 
-/** One-line text input. [secret] masks the value (API keys); the caller still never echoes a saved secret. */
+/**
+ * Text input; [placeholder] is also its content description. [secret] masks the value (API keys; the caller still
+ * never echoes a saved secret). [lines] > 1 makes it multiline with that minimum height; [mono] off for prose.
+ */
 @Composable
 fun AfTextField(
     value: String,
@@ -152,6 +155,9 @@ fun AfTextField(
     placeholder: String,
     modifier: Modifier = Modifier,
     secret: Boolean = false,
+    lines: Int = 1,
+    mono: Boolean = true,
+    enabled: Boolean = true,
 ) {
     Box(
         modifier
@@ -165,8 +171,14 @@ fun AfTextField(
             value = value,
             onValueChange = onChange,
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },
-            singleLine = true,
-            textStyle = TextStyle(color = AutoFlowColors.Text, fontSize = 13.sp, fontFamily = FontFamily.Monospace),
+            enabled = enabled,
+            singleLine = lines == 1,
+            minLines = lines,
+            textStyle = TextStyle(
+                color = if (enabled) AutoFlowColors.Text else AutoFlowColors.Muted,
+                fontSize = 13.sp,
+                fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default,
+            ),
             cursorBrush = SolidColor(AutoFlowColors.Cyan),
             visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
         )

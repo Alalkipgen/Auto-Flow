@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.input.InputScreen
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
@@ -65,6 +66,7 @@ fun App() {
     AppShell(status, selected = screen, onSelect = { screen = it }, projectName = project?.project?.name) {
         when (screen) {
             "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
+            "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
             "Settings" -> SettingsScreen(koinInject())
             else -> ScreenPlaceholder(screen)
         }

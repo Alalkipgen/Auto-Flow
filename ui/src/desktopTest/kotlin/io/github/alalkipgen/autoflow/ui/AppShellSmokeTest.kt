@@ -24,6 +24,7 @@ import io.github.alalkipgen.autoflow.platform.SecureStorage
 import io.github.alalkipgen.autoflow.platform.ToolLocator
 import io.github.alalkipgen.autoflow.platform.UrlOpener
 import io.github.alalkipgen.autoflow.ui.di.uiModule
+import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.projects.ProjectsScreen
 import io.github.alalkipgen.autoflow.ui.settings.BundledConfig
 import io.github.alalkipgen.autoflow.ui.settings.FakePicker
@@ -91,6 +92,9 @@ class AppShellSmokeTest {
         sidebar("Dashboard").assertIsNotSelected()
         onAllNodesWithText("Settings").assertCountEquals(2)
         onNodeWithText("AI providers").assertExists()
+        sidebar("Input").performClick()
+        waitForIdle()
+        onNodeWithText(NO_PROJECT_TEXT).assertExists()
     }
 
     @Test
