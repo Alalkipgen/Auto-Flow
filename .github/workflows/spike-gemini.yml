@@ -29,11 +29,8 @@ jobs:
           mkdir -p spikes/s1-gemini-text/results
           curl -s -H "x-goog-api-key: $GEMINI_API_KEY" "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000" \
             | jq -r '.models[] | "\(.name)\t\(.supportedGenerationMethods | join(","))"' > spikes/s1-gemini-text/results/models.txt || true
-          cat spikes/s1-gemini-text/results/models.txt
-          echo "S2_MODELS=$(grep -i 'image' spikes/s1-gemini-text/results/models.txt | grep generateContent | grep -vi imagen | cut -f1 | sed 's#^models/##' | paste -sd, -)" >> "$GITHUB_ENV"
+          echo "S2_MODELS=$(grep -iE 'image|banana' spikes/s1-gemini-text/results/models.txt | grep generateContent | grep -vi imagen | cut -f1 | sed 's#^models/##' | paste -sd, -)" >> "$GITHUB_ENV"
       - name: S1 text storyboard
-        env:
-          S1_MODEL: gemini-3.8-flash
         run: chmod +x gradlew && ./gradlew -q -p spikes/s1-gemini-text run 2>&1 | tee spikes/s1-gemini-text/results-run.log || true
       - name: S2 image
         run: |

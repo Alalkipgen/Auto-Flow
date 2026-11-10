@@ -3,7 +3,7 @@ import kotlinx.serialization.json.*
 import java.nio.file.Files
 import java.nio.file.Path
 
-val model = System.getenv("S1_MODEL") ?: "gemini-2.5-flash"
+val models = (System.getenv("S1_MODELS") ?: "gemini-3.8-flash,gemini-3.5-flash,gemini-flash-latest").split(",")
 val outDir: Path = Path.of("results")
 val json = Json { prettyPrint = true }
 
@@ -40,25 +40,31 @@ fun request(prompt: String, schema: JsonObject) = buildJsonObject {
 fun modelText(body: String): String = Json.parseToJsonElement(body).jsonObject["candidates"]!!.jsonArray[0]
     .jsonObject["content"]!!.jsonObject["parts"]!!.jsonArray.joinToString("") { it.jsonObject["text"]?.jsonPrimitive?.content ?: "" }
 
-/** One call + one retry with the parse error appended (spec §1). */
+var chosenModel: String? = null
+
+/** One call + one retry with the parse error appended (spec §1). Falls back to the next model on HTTP errors. */
 fun stage(name: String, prompt: String, schema: JsonObject): JsonElement {
-    var p = prompt
-    repeat(2) { attempt ->
-        val r = Gemini.generate(model, request(p, schema))
-        Gemini.save(outDir, "$name-attempt${attempt + 1}", r)
-        if (r.status != 200) error("$name failed: HTTP ${r.status} (see results/$name-attempt${attempt + 1}.response.json)")
-        try {
-            return Json.parseToJsonElement(modelText(r.body))
-        } catch (e: Exception) {
-            p = "$prompt\n\nYour previous output was invalid JSON: ${e.message}. Return only valid JSON matching the schema."
+    for (model in chosenModel?.let { listOf(it) } ?: models) {
+        var p = prompt
+        for (attempt in 1..2) {
+            val r = Gemini.generate(model, request(p, schema))
+            Gemini.save(outDir, "$name-$model-attempt$attempt", r)
+            if (r.status != 200) break
+            try {
+                val parsed = Json.parseToJsonElement(modelText(r.body))
+                chosenModel = model
+                return parsed
+            } catch (e: Exception) {
+                p = "$prompt\n\nYour previous output was invalid JSON: ${e.message}. Return only valid JSON matching the schema."
+            }
         }
     }
-    error("$name: invalid JSON after retry; not saving a partial storyboard")
+    error("$name: no model produced valid JSON; not saving a partial storyboard")
 }
 
 fun main() {
     val lyrics = Files.readString(Path.of("../fixtures/lyrics-sample.txt"))
-    println("model=$model")
+    println("models=$models")
     val analysis = stage("stageA-analysis", """
         You are a music-video director. Analyse these Burmese song lyrics for a 9:16 AI music video.
         Assume ~8 s per lyric line. Fields ending in My must be natural Burmese (Myanmar Unicode);
@@ -79,5 +85,5 @@ fun main() {
         $analysis
     """.trimIndent(), storyboardSchema)
     Files.writeString(outDir.resolve("storyboard.json"), json.encodeToString(JsonElement.serializer(), storyboard))
-    println("storyboard shots=${storyboard.jsonArray.size}")
+    println("model=$chosenModel storyboard shots=${storyboard.jsonArray.size}")
 }
