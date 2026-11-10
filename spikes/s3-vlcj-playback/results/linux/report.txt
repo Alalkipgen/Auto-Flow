@@ -1,0 +1,11 @@
+os=Linux amd64 java=21.0.13
+nativeDiscovery=true vlc=3.0.23 Vetinari initMs=576
+video=sample.mp4 exists=true
+PASS first frame: after 307 ms; source 544x962
+FAIL 9:16 source: 544x962
+PASS playback: rendered 29.9 fps over 2 s; time=1900 ms
+FAIL pause: time 2400 -> 2400 ms, frames +15 while paused
+PASS seek while paused: target 5000 -> 5000 ms; new frame after 321 ms
+PASS resume: time 5000 -> 6334 ms after 1.5 s
+PASS seek while playing (backward): target 1000 -> 1583 ms (704 ms incl. 700 ms wait)
+RESULT FAIL (5/7)
