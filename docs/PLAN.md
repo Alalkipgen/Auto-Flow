@@ -74,7 +74,7 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - [ ] Rights/usage disclaimer in UI
 
 ## Open Questions
-- Q-02 S4: Linux FFmpeg 5.1 drawtext failed the stacked-character visual check. Which HarfBuzz-enabled FFmpeg build should be tested for Windows export? See spikes/s4-burmese-rendering/README.md.
+- Q-02 S4: Linux FFmpeg 5.1 and stock 7.1.1 drawtext showed incorrect stacked characters; an experimental Myanmar-script patch improved the sample. What supported approach handles Burmese and mixed-script text for Windows export? See spikes/s4-burmese-rendering/README.md.
 - Q-01 Windows installer: spec asks for MSIX, but Compose `jpackage` cannot produce MSIX. Bootstrap configures MSI. Decide: keep MSI, or add a separate MSIX packaging step later (e.g. MSIX Packaging Tool / `makeappx`).
 - (agents append here)
 
