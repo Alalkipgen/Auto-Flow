@@ -1,0 +1,17 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Lyric,Pyidaungsu,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,40,40,0,1
+Style: Karaoke,Pyidaungsu,64,&H0000D7FF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:05.00,Lyric,,0,0,0,,{\pos(540,860)}ကျွန်တော် မိုးရွာနေတဲ့ ညမှာ တစ်ယောက်တည်း
+Dialogue: 0,0:00:00.00,0:00:05.00,Lyric,,0,0,0,,{\pos(540,980)}မြန်မာ စာလုံးဆင့် ကမ္ဘာ ကြွက် ညှိ ဉာဏ်
+Dialogue: 0,0:00:00.00,0:00:05.00,Karaoke,,0,0,0,,{\pos(540,1200)\k100}ကျွန်တော် {\k100}မိုးရွာနေတဲ့ {\k100}ညမှာ {\k200}တစ်ယောက်တည်း
