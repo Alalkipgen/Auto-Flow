@@ -41,12 +41,12 @@ Goal: full MV pipeline end-to-end on Windows with manual Flow handoff.
 - [ ] Shot detail panel: PromptIR view, Ref A/B: Copy image prompt · Import image (file/inbox), handoff buttons
 - [ ] Flow Handoff screen: copy prompt, open Flow, export shot package, import video, draft/final
 - [ ] Reference-image handoff (D-14): copy ImageDialect prompt, open AI Studio, import image as Ref A/B
-- [ ] Inbox: folder watcher → "attach to shot" dialog
+- [ ] Inbox: folder watcher → "attach to shot" dialog (video → `vd`, png/jpg → Ref A/B `im`)
 - [ ] Settings: API key (secure storage), ffmpeg path, VLC path (auto-detect; "Install VLC" link + playback disabled when missing, D-16), fonts, model config
 
 ### 1D :media (desktop)
-- [ ] ffmpeg locator + version check
-- [ ] RenderGraph → filtergraph compiler (concat, trim, audio, text overlay)
+- [ ] ffmpeg locator + version check (`ass` filter / `--enable-libass` → overlay backend)
+- [ ] RenderGraph → filtergraph compiler (concat, trim, audio, text overlay via libass; Skia PNG fallback)
 - [ ] Preview (proxy 540p) and Export (1080p) presets: 16:9, 9:16, 1:1
 - [ ] End-frame extraction for shot chaining
 
@@ -75,7 +75,7 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - [ ] Rights/usage disclaimer in UI
 
 ## Open Questions
-- ~~Q-02 S4: supported approach for Burmese text in exports?~~ Resolved → libass primary, Skia PNG overlay fallback (S4 README); render-graph.md overlay section update pending approval.
+- ~~Q-02 S4: supported approach for Burmese text in exports?~~ Resolved → libass primary, Skia PNG overlay fallback (S4 README); specs updated (render-graph.md overlays, flow-handoff.md image inbox, ai-providers.md ManualImageProvider).
 - Q-01 Windows installer: spec asks for MSIX, but Compose `jpackage` cannot produce MSIX. Bootstrap configures MSI. Decide: keep MSI, or add a separate MSIX packaging step later (e.g. MSIX Packaging Tool / `makeappx`).
 - ~~Q-03 S2: Gemini image models have zero free-tier quota for this key.~~ Resolved → D-14.
 - ~~Q-04 S1: model ids drift and frequent 503s.~~ Resolved → D-15.
@@ -91,3 +91,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-10 S3 pass: VLCJ playback, pause/seek, and 9:16 verified on Linux and Windows CI; bundle size measured (Q-05).
 - 2026-11-10 S4 pass: libass (primary) and Skia PNG overlay (fallback) verified on Linux and Windows; Q-02 closed. Phase 0 exit criteria met (S1–S4).
 - 2026-11-10 D-14 follow-ups in 1B/1C; D-15 amended (120 s + Cancel, `candidates` chain); D-16 VLC separate install (Q-05 closed).
+- 2026-11-10 Specs updated for D-14/D-15/S4: flow-handoff (image import/inbox), ai-providers (Deferred, ManualImageProvider, candidates chain, 120 s + Cancel), render-graph (libass primary, Skia PNG fallback, no drawtext).
