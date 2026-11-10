@@ -38,3 +38,62 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: windows-screenshots, path: ui/build/screenshots, if-no-files-found: warn }
+
+  android:
+    # D-24: every push builds a debug APK (Actions artifact); a v0.* tag, or a change to .github/release-tag.txt on main,
+    # also publishes it as a GitHub Release so the owner can install it from the phone.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 2 }
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Signing key from secrets (stable across builds; never committed)
+        env: { KEYSTORE_B64: "${{ secrets.ANDROID_KEYSTORE_B64 }}" }
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/autoflow.jks"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/autoflow.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::ANDROID_KEYSTORE_B64 is not set: the APK is signed with this runner's debug key and will not install over a previous build"
+          fi
+      - name: Assemble debug APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+          ANDROID_KEY_ALIAS: "${{ secrets.ANDROID_KEY_ALIAS }}"
+          ANDROID_KEY_PASSWORD: "${{ secrets.ANDROID_KEY_PASSWORD }}"
+        run: |
+          chmod +x gradlew
+          ./gradlew :app-android:assembleDebug -PversionCode=${{ github.run_number }} -PgitSha=${GITHUB_SHA::7} 2>&1 | tee "$RUNNER_TEMP/apk.log"
+          test "${PIPESTATUS[0]}" -eq 0
+          APK="autoflow-debug-${GITHUB_SHA::7}.apk"
+          cp app-android/build/outputs/apk/debug/app-android-debug.apk "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          ls -l "$APK"
+      - name: Show the build error as an annotation
+        if: failure()
+        run: |
+          [ -f "$RUNNER_TEMP/apk.log" ] || exit 0
+          tail -n 60 "$RUNNER_TEMP/apk.log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed 's/^/::error title=assembleDebug::/'; echo
+      - uses: actions/upload-artifact@v4
+        with: { name: "${{ env.APK }}", path: "${{ env.APK }}", if-no-files-found: error }
+      - name: GitHub Release (tag v0.* or .github/release-tag.txt on main)
+        if: startsWith(github.ref, 'refs/tags/v0.') || github.ref == 'refs/heads/main'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v0.* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif git diff --name-only HEAD~1 HEAD | grep -qx .github/release-tag.txt; then
+            TAG="$(tr -d '[:space:]' < .github/release-tag.txt)"
+          else
+            echo "No release requested"; exit 0
+          fi
+          [[ "$TAG" == v0.* ]] || { echo "::error::.github/release-tag.txt must hold a v0.* tag, got '$TAG'"; exit 1; }
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title "Auto Flow $TAG" --notes-file .github/release-notes.md
+          fi
