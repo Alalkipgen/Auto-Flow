@@ -1,0 +1,16 @@
+status: 429
+latencyMs: 122
+tries: 1
+headers:
+  :status: 429
+  accept-ranges: none
+  alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+  content-type: application/json; charset=UTF-8
+  date: Tue, 10 Nov 2026 17:58:36 GMT
+  server: scaffolding on HTTPServer2
+  server-timing: gfet4t7; dur=107
+  vary: X-Origin, Referer, Origin,Accept-Encoding
+  x-content-type-options: nosniff
+  x-frame-options: SAMEORIGIN
+  x-gemini-service-tier: standard
+  x-xss-protection: 0

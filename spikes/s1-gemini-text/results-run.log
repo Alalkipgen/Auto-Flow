@@ -1,8 +1,12 @@
-model=gemini-3.8-flash
-[stageA-analysis-attempt1] HTTP 503 in 852 ms
-Exception in thread "main" java.lang.IllegalStateException: stageA-analysis failed: HTTP 503 (see results/stageA-analysis-attempt1.response.json)
-	at MainKt.stage(Main.kt:49)
-	at MainKt.main(Main.kt:62)
+models=[gemini-3.8-flash, gemini-3.5-flash, gemini-flash-latest]
+Exception in thread "main" java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at Gemini.once(Gemini.kt:27)
+	at Gemini.generate(Gemini.kt:35)
+	at Gemini.generate$default(Gemini.kt:34)
+	at MainKt.stage(Main.kt:50)
+	at MainKt.main(Main.kt:68)
 	at MainKt.main(Main.kt)
 
 FAILURE: Build failed with an exception.
@@ -17,4 +21,4 @@ Execution failed for task ':run' (registered by plugin 'org.gradle.application')
 > Run with --scan to get full insights from a Build Scan (powered by Develocity).
 > Get more help at https://help.gradle.org.
 
-BUILD FAILED in 27s
+BUILD FAILED in 3m 33s
