@@ -1,11 +1,11 @@
 os=Windows Server 2025 amd64 java=21.0.13
-nativeDiscovery=true vlc=3.0.24 Vetinari initMs=918
+nativeDiscovery=true vlc=3.0.24 Vetinari initMs=1072
 video=sample.mp4 exists=true
-PASS first frame: after 1160 ms; source 544x962
-FAIL 9:16 source: 544x962
-PASS playback: rendered 29.9 fps over 2 s; time=2156 ms
-FAIL pause: time 3660 -> 3660 ms, frames +14 while paused
-PASS seek while paused: target 5000 -> 5000 ms; new frame after 323 ms
+PASS first frame: after 449 ms; buffer 544x962, video 540x960
+PASS 9:16 frame (padding cropped): displayed image 540x960; buffer 544x962
+PASS playback: rendered 30.0 fps over 2 s; time=1909 ms
+PASS pause: time 2410 -> 2410 ms; changed frames +0, redisplays +14 in 1 s while paused
+PASS seek while paused: target 5000 -> 5000 ms; new frame after 321 ms
 PASS resume: time 5000 -> 6341 ms after 1.5 s
-PASS seek while playing (backward): target 1000 -> 1341 ms (702 ms incl. 700 ms wait)
-RESULT FAIL (5/7)
+PASS seek while playing (backward): target 1000 -> 1343 ms (702 ms incl. 700 ms wait)
+RESULT PASS (7/7)
