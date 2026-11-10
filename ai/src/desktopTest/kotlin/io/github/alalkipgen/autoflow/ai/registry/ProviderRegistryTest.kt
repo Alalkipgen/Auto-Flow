@@ -75,6 +75,14 @@ class ProviderRegistryTest {
     }
 
     @Test
+    fun keyTestAlwaysCallsGeminiEvenInFakeMode() = runTest {
+        val registry = ProviderRegistry(Host(fake = true), config, http = http(), fakeDelayMs = 0)
+        assertEquals("gemini-3.5-flash", assertIs<AiResult.Ok<Unit>>(registry.testGeminiKey()).usage!!.model)
+        assertEquals(1, httpCalls)
+        registry.close()
+    }
+
+    @Test
     fun realImagesAreManualAndRealSpeechIsUnavailable() = runTest {
         val host = Host(fake = false)
         val registry = ProviderRegistry(host, config, http = http(), fakeDelayMs = 0)
