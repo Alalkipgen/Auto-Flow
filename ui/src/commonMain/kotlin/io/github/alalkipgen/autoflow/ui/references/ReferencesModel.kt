@@ -19,6 +19,7 @@ import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** One row on the References screen. */
@@ -54,9 +55,9 @@ class ReferencesModel(
     private val filePicker: FilePicker,
     private val aiStudioUrl: String = "https://aistudio.google.com/",
 ) {
-    val state: Flow<ReferencesUiState> = session.state.map { open -> build(open?.project) }
     private val _selected = MutableStateFlow<Int?>(null)
     private val _message = MutableStateFlow<String?>(null)
+    val state: Flow<ReferencesUiState> = combine(session.state, _selected, _message) { open, _, _ -> build(open?.project) }
 
     fun current(): ReferencesUiState = build(session.open?.project)
 

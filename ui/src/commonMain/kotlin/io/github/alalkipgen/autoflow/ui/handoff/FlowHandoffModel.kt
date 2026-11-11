@@ -24,6 +24,7 @@ import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** One row on the Flow Handoff screen. */
@@ -67,10 +68,10 @@ class FlowHandoffModel(
     private val creditHintFast: Int = 20,
     private val creditHintQuality: Int = 100,
 ) {
-    val state: Flow<FlowHandoffUiState> = session.state.map { open -> build(open?.project) }
     private val _selected = MutableStateFlow<Int?>(null)
     private val _message = MutableStateFlow<String?>(null)
     val message = _message.asStateFlow()
+    val state: Flow<FlowHandoffUiState> = combine(session.state, _selected, _message) { open, _, _ -> build(open?.project) }
 
     fun current(): FlowHandoffUiState = build(session.open?.project)
 

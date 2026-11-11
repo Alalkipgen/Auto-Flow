@@ -63,6 +63,19 @@ fun ShotsScreen(model: ShotsModel, modifier: Modifier = Modifier) {
     val state by model.state.collectAsState(model.current())
     val compact = LocalCompact.current
 
+    // Phone: show detail as a separate "page" (replaces the grid)
+    if (compact && state.detail != null) {
+        Column(
+            modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            state.actionError?.let { AfText(it, color = AutoFlowColors.Amber) }
+            ShotDetailPanel(state.detail!!, model)
+            AfButton("← Back", { model.select(null) })
+        }
+        return
+    }
+
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -73,23 +86,15 @@ fun ShotsScreen(model: ShotsModel, modifier: Modifier = Modifier) {
             state.rows.isEmpty() -> AfText("No shots yet — generate a storyboard first.", muted = true)
             else -> {
                 state.actionError?.let { AfText(it, color = AutoFlowColors.Amber) }
-                if (compact || state.selected == null) {
+                if (!compact && state.detail != null) {
+                    // Desktop: side-by-side
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.widthIn(min = 160.dp, max = 220.dp)) { ShotGrid(state, model) }
+                        Column(Modifier.weight(1f)) { ShotDetailPanel(state.detail!!, model) }
+                    }
+                } else {
                     ShotGrid(state, model)
                 }
-                state.detail?.let { detail ->
-                    if (!compact) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Column(Modifier.widthIn(min = 160.dp, max = 220.dp)) { ShotGrid(state, model) }
-                            Column(Modifier.weight(1f)) { ShotDetailPanel(detail, model) }
-                        }
-                    } else {
-                        ShotDetailPanel(detail, model)
-                        AfButton("← Back to list", { model.select(null) })
-                    }
-                } ?: if (!compact) {
-                    // No selection on desktop: show grid full width (already shown above)
-                    Unit
-                } else Unit
             }
         }
     }
