@@ -15,6 +15,8 @@ object SelfTestState {
 
     data class Ui(
         val running: Boolean = false,
+        /** The "Render job (WorkManager)" check ([SelfTestJob]) runs apart from the service. */
+        val jobRunning: Boolean = false,
         val progress: String = "",
         val steps: List<Step> = emptyList(),
         val frames: List<Frame> = emptyList(),
@@ -39,5 +41,23 @@ object SelfTestState {
 
     fun finish(report: String?) = state.update { it.copy(running = false, progress = "", report = report ?: it.report) }
 
-    fun showSaved(report: String) = state.update { if (it.running || it.report != null) it else it.copy(report = report) }
+    /** Starts the render-job check: drops the frames of an earlier job run. */
+    fun jobBegin() = state.update { ui -> ui.copy(jobRunning = true, frames = ui.frames.filterNot { it.label.startsWith(JOB_FRAME) }) }
+
+    /** Ends the render-job check; [report] is the whole report with the job section (see [withJobSection]). */
+    fun jobFinish(report: String?) = state.update { it.copy(jobRunning = false, progress = "", report = report ?: it.report) }
+
+    fun currentReport(): String? = state.value.report
+
+    /** [report] with its render-job section replaced by [section] (the job section is always last). */
+    fun withJobSection(report: String?, section: String): String {
+        val base = report?.substringBefore(JOB_SECTION)?.trimEnd()
+            ?: "# Auto Flow self-test\n\nOnly the render job ran (tap Run all for the full report)."
+        return "$base\n\n$section"
+    }
+
+    const val JOB_SECTION = "## Render job (WorkManager)"
+    const val JOB_FRAME = "job "
+
+    fun showSaved(report: String) = state.update { if (it.running || it.jobRunning || it.report != null) it else it.copy(report = report) }
 }
