@@ -14,6 +14,7 @@ import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** One row in the Shots grid. */
@@ -49,10 +50,11 @@ data class ShotsUiState(
 
 /** Shots screen logic: grid + detail panel. Compile prompt is deterministic (no AI call). */
 class ShotsModel(private val session: ProjectSession) {
-    val state: Flow<ShotsUiState> = session.state.map { open -> build(open?.project) }
     private val _selected = MutableStateFlow<Int?>(null)
     private val _actionError = MutableStateFlow<String?>(null)
     val selected = _selected.asStateFlow()
+    // Combine both: re-emit whenever the project saves OR the selection changes
+    val state: Flow<ShotsUiState> = combine(session.state, _selected, _actionError) { open, _, _ -> build(open?.project) }
 
     fun current(): ShotsUiState = build(session.open?.project)
 
