@@ -30,6 +30,9 @@ import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.LocalCompact
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
 import io.github.alalkipgen.autoflow.ui.storyboard.JobState
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
@@ -58,7 +61,7 @@ fun InputScreen(model: InputModel, jobs: StoryboardJobs, onGenerated: () -> Unit
         }
     }
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 760.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AfText("Input", size = 18.sp, bold = true)
@@ -82,9 +85,14 @@ fun InputScreen(model: InputModel, jobs: StoryboardJobs, onGenerated: () -> Unit
 @Composable
 private fun SongCard(state: InputUiState, model: InputModel, locked: Boolean) {
     AfCard("Song") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (LocalCompact.current) {
             AfTextField(state.durationText, model::setDuration, "Duration (m:ss)", Modifier.widthIn(max = 160.dp), enabled = !locked)
-            AfTextField(state.settings.songStyle, model::setSongStyle, "Song style (e.g. Burmese pop ballad)", Modifier.weight(1f), mono = false, enabled = !locked)
+            AfTextField(state.settings.songStyle, model::setSongStyle, "Song style (e.g. Burmese pop ballad)", mono = false, enabled = !locked)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfTextField(state.durationText, model::setDuration, "Duration (m:ss)", Modifier.widthIn(max = 160.dp), enabled = !locked)
+                AfTextField(state.settings.songStyle, model::setSongStyle, "Song style (e.g. Burmese pop ballad)", Modifier.weight(1f), mono = false, enabled = !locked)
+            }
         }
         AfTextField(state.settings.mood, model::setMood, "Mood / colour (e.g. nostalgic, rainy blue)", mono = false, enabled = !locked)
     }
@@ -108,7 +116,7 @@ private fun VideoCard(state: InputUiState, model: InputModel, locked: Boolean) {
 
 @Composable
 private fun <T> ChipRow(items: List<T>, label: (T) -> String, selected: (T) -> Boolean, onPick: (T) -> Unit, locked: Boolean) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    WrapRow {
         items.forEach { item -> AfChip(label(item), selected(item), { if (!locked) onPick(item) }) }
     }
 }
@@ -125,7 +133,7 @@ private fun GenerateCard(state: InputUiState, job: JobState, jobs: StoryboardJob
         if (confirming && running == null) {
             AfCard(if (state.hasStoryboard) "Make a new storyboard version?" else "Generate the storyboard?") {
                 AfText(confirmText(state), muted = true)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WrapRow {
                     AfButton("Generate", { confirming = false; onStart() }, kind = ButtonKind.Primary)
                     AfButton("Back", { confirming = false })
                 }

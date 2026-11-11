@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -36,6 +35,9 @@ import io.github.alalkipgen.autoflow.ui.components.AfSwitch
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.FieldRow
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -51,7 +53,7 @@ fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: Ap
     LaunchedEffect(model) { model.refreshUsage() }
     LaunchedEffect(backup) { backup?.refresh() }
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 760.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AfText("Settings", size = 18.sp, bold = true)
@@ -78,7 +80,7 @@ private fun BackupCard(model: BackupModel) {
         )
         AfText(if (state.projects == 1) "1 project" else "${state.projects} projects", muted = true, size = 12.sp)
         val progress = state.progress
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        WrapRow {
             if (progress != null) {
                 AfText("Backing up… ${(progress.fraction * 100).toInt()} %", Modifier.testTag("backup-progress"))
                 AfButton("Cancel", model::cancel, kind = ButtonKind.Danger)
@@ -124,16 +126,18 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
             },
             muted = true,
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfTextField(input, { input = it }, "Paste a Gemini API key", Modifier.weight(1f), secret = true)
-            AfButton("Save", { model.saveKey(input); input = "" }, kind = ButtonKind.Primary, enabled = input.isNotBlank())
-            AfButton(
-                if (state.testing) "Testing…" else "Test",
-                { scope.launch { model.testKey() } },
-                enabled = hasKey && !state.testing,
-            )
-            AfButton("Remove", model::removeKey, kind = ButtonKind.Danger, enabled = hasKey)
-        }
+        FieldRow(
+            field = { AfTextField(input, { input = it }, "Paste a Gemini API key", it, secret = true) },
+            actions = {
+                AfButton("Save", { model.saveKey(input); input = "" }, kind = ButtonKind.Primary, enabled = input.isNotBlank())
+                AfButton(
+                    if (state.testing) "Testing…" else "Test",
+                    { scope.launch { model.testKey() } },
+                    enabled = hasKey && !state.testing,
+                )
+                AfButton("Remove", model::removeKey, kind = ButtonKind.Danger, enabled = hasKey)
+            },
+        )
         AfText("Test sends one short request to Gemini, even in fake mode.", muted = true, size = 12.sp)
         val total = state.usageToday.values.sum()
         AfText(
@@ -150,11 +154,11 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
 private fun DefaultsCard(settings: AppSettings, model: SettingsModel) {
     AfCard("New project defaults") {
         AfText("Ratio", muted = true)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        WrapRow {
             Ratio.entries.forEach { r -> AfChip(r.label, r == settings.defaultRatio, { model.setDefaultRatio(r) }) }
         }
         AfText("Clip length", muted = true)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        WrapRow {
             SettingsModel.CLIP_LENGTHS_MS.forEach { ms ->
                 AfChip("${ms / 1000}s", ms == settings.defaultClipMs, { model.setDefaultClipMs(ms) })
             }
@@ -165,19 +169,28 @@ private fun DefaultsCard(settings: AppSettings, model: SettingsModel) {
 @Composable
 private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
     AfCard("Tools") {
-        PathRow("ffmpeg", state.settings.ffmpegPath, "Path to ffmpeg.exe", model::setFfmpegPath) {
-            AfButton("Detect", model::detectFfmpeg)
-            AfButton("Browse…", { scope.launch { model.browseFfmpeg() } })
-        }
-        PathRow("VLC folder (preview playback)", state.settings.vlcPath, "Auto-detect", model::setVlcPath) {
-            AfButton("Browse…", { scope.launch { model.browseVlc() } })
-        }
-        if (state.vlcDir != null) {
-            AfText("Using VLC in ${state.vlcDir}", muted = true, size = 12.sp)
+        if (state.toolsBundled) {
+            // Android (D-23): ffmpeg is inside the APK; there is nothing to point at or install.
+            if (state.ffmpegFound) {
+                AfText("ffmpeg: bundled with the app.", muted = true)
+            } else {
+                AfText("ffmpeg is missing from this install: rendering is off. Reinstall Auto Flow.", color = AutoFlowColors.Amber)
+            }
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfText("VLC 3.x not found: video playback is off.", color = AutoFlowColors.Amber, size = 12.sp)
-                AfButton("Install VLC", model::openVlcDownload, kind = ButtonKind.Flow)
+            PathRow("ffmpeg", state.settings.ffmpegPath, "Path to ffmpeg.exe", model::setFfmpegPath) {
+                AfButton("Detect", model::detectFfmpeg)
+                AfButton("Browse…", { scope.launch { model.browseFfmpeg() } })
+            }
+            PathRow("VLC folder (preview playback)", state.settings.vlcPath, "Auto-detect", model::setVlcPath) {
+                AfButton("Browse…", { scope.launch { model.browseVlc() } })
+            }
+            if (state.vlcDir != null) {
+                AfText("Using VLC in ${state.vlcDir}", muted = true, size = 12.sp)
+            } else {
+                WrapRow {
+                    AfText("VLC 3.x not found: video playback is off.", color = AutoFlowColors.Amber, size = 12.sp)
+                    AfButton("Install VLC", model::openVlcDownload, kind = ButtonKind.Flow)
+                }
             }
         }
     }
@@ -221,13 +234,15 @@ private fun PathRow(
     saved: String?,
     placeholder: String,
     onApply: (String?) -> Unit,
-    actions: @Composable RowScope.() -> Unit,
+    actions: @Composable () -> Unit,
 ) {
     var text by remember(saved) { mutableStateOf(saved.orEmpty()) }
     AfText(label, muted = true)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AfTextField(text, { text = it }, placeholder, Modifier.weight(1f))
-        if (text != saved.orEmpty()) AfButton("Apply", { onApply(text) }, kind = ButtonKind.Primary)
-        actions()
-    }
+    FieldRow(
+        field = { AfTextField(text, { text = it }, placeholder, it) },
+        actions = {
+            if (text != saved.orEmpty()) AfButton("Apply", { onApply(text) }, kind = ButtonKind.Primary)
+            actions()
+        },
+    )
 }

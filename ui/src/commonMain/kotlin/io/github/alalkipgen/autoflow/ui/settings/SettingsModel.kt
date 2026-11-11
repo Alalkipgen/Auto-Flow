@@ -24,6 +24,9 @@ data class SettingsUiState(
     val usageToday: Map<String, Int> = emptyMap(),
     /** The VLC folder playback will use: the configured one if valid, else the detected one (D-16). */
     val vlcDir: String?,
+    /** ffmpeg ships inside the app (Android, D-23): no path or VLC rows; [ffmpegFound] says if the install has it. */
+    val toolsBundled: Boolean = false,
+    val ffmpegFound: Boolean = true,
     val models: LoadedModelConfig,
     val message: String? = null,
 )
@@ -125,6 +128,8 @@ class SettingsModel(
             keyState = key.toKeyState(),
             maskedKey = key.getOrNull()?.takeIf { it.isNotBlank() }?.let { "••••" + it.takeLast(4) },
             vlcDir = s.vlcPath?.takeIf(tools::isVlcDir) ?: tools.findVlc(),
+            toolsBundled = tools.bundled,
+            ffmpegFound = !tools.bundled || tools.findFfmpeg() != null,
             models = models,
             message = message,
         )

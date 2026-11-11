@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.android
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -40,7 +41,7 @@ class MainActivity : ComponentActivity() {
             Box(Modifier.fillMaxSize().background(AutoFlowColors.Background).safeDrawingPadding()) {
                 val r = report
                 if (r == null) {
-                    App()
+                    App(backHandler = { enabled, onBack -> BackHandler(enabled, onBack) })
                 } else {
                     CrashScreen(r) { CrashLog.clear(this@MainActivity); report = null }
                 }

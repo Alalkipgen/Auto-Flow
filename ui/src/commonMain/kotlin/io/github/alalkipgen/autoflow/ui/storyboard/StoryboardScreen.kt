@@ -31,6 +31,9 @@ import io.github.alalkipgen.autoflow.ui.components.AfSwitch
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.LocalCompact
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
@@ -53,7 +56,7 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
     val job by jobs.state.collectAsState()
     val busy = job.running != null
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 860.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         AfText("Storyboard", size = 18.sp, bold = true)
@@ -76,13 +79,26 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
 @Composable
 private fun Header(state: StoryboardUiState, model: StoryboardModel, busy: Boolean) {
     var confirming by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AfText("${state.approvedCount}/${state.cards.size} approved", muted = true)
-        Spacer(Modifier.weight(1f))
+    val count: @Composable () -> Unit = { AfText("${state.approvedCount}/${state.cards.size} approved", muted = true) }
+    val versions: @Composable () -> Unit = {
         AfText("Version", muted = true)
         state.versions.forEach { v -> AfChip(v.label, v.current, { if (!busy && !v.current) model.switchVersion(v.id) }) }
+    }
+    val actions: @Composable () -> Unit = {
         AfButton("Approve all", { model.approveAll() }, kind = ButtonKind.Primary, enabled = !busy && state.approvedCount < state.cards.size)
         AfButton("↻ Regenerate all", { confirming = true }, enabled = !busy)
+    }
+    if (LocalCompact.current) {
+        count()
+        WrapRow { versions() }
+        WrapRow { actions() }
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            count()
+            Spacer(Modifier.weight(1f))
+            versions()
+            actions()
+        }
     }
     if (confirming && !busy) {
         val downstream = state.cards.count { it.hasDownstream }
@@ -111,13 +127,23 @@ private fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean) {
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        val badges: @Composable () -> Unit = {
             AfText(number, bold = true)
             AfText(card.timecode, color = AutoFlowColors.Cyan, mono = true)
             if (card.approved) AfText("✓ Approved", color = AutoFlowColors.Green, size = 12.sp)
             if (card.stale) AfText(STALE, color = AutoFlowColors.Amber, size = 12.sp)
-            Spacer(Modifier.weight(1f))
-            AfText(card.tag, muted = true, size = 12.sp, mono = true)
+        }
+        if (LocalCompact.current) {
+            WrapRow(spacing = 10.dp) {
+                badges()
+                AfText(card.tag, muted = true, size = 12.sp, mono = true)
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                badges()
+                Spacer(Modifier.weight(1f))
+                AfText(card.tag, muted = true, size = 12.sp, mono = true)
+            }
         }
         if (card.lyric.isNotBlank()) AfText(card.lyric, muted = true)
         val spec = card.spec
@@ -126,7 +152,7 @@ private fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean) {
             mode == CardMode.EDIT -> EditSpec(spec, onSave = { edited -> if (model.edit(card.number) { edited }) mode = CardMode.VIEW }, onBack = { mode = CardMode.VIEW })
             else -> {
                 AfText(spec.sceneMy, size = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                WrapRow(spacing = 6.dp) {
                     listOf(spec.cameraEn, spec.moodEn).filter { it.isNotBlank() }.forEach { Tag(it) }
                 }
             }
@@ -143,7 +169,7 @@ private fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean) {
             ) { AfSwitch("Keep my Burmese scene (only rewrite the English details)", keep, { keep = it }) }
         }
         if (mode == CardMode.VIEW && spec != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WrapRow {
                 AfButton(EDIT, { mode = CardMode.EDIT }, enabled = !busy)
                 AfButton(REGENERATE, { mode = CardMode.REGENERATE }, enabled = !busy)
                 if (card.approved) {
@@ -167,10 +193,16 @@ private fun EditSpec(spec: ShotSpec, onSave: (ShotSpec) -> Unit, onBack: () -> U
     AfTextField(draft.subjectEn, { draft = draft.copy(subjectEn = it) }, "Subject", mono = false)
     AfTextField(draft.actionEn, { draft = draft.copy(actionEn = it) }, "Action", mono = false)
     AfTextField(draft.settingEn, { draft = draft.copy(settingEn = it) }, "Setting", mono = false)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AfTextField(draft.cameraEn, { draft = draft.copy(cameraEn = it) }, "Camera", Modifier.weight(1f), mono = false)
-        AfTextField(draft.moodEn, { draft = draft.copy(moodEn = it) }, "Mood", Modifier.weight(1f), mono = false)
-        AfTextField(draft.lightingEn, { draft = draft.copy(lightingEn = it) }, "Lighting", Modifier.weight(1f), mono = false)
+    if (LocalCompact.current) {
+        AfTextField(draft.cameraEn, { draft = draft.copy(cameraEn = it) }, "Camera", mono = false)
+        AfTextField(draft.moodEn, { draft = draft.copy(moodEn = it) }, "Mood", mono = false)
+        AfTextField(draft.lightingEn, { draft = draft.copy(lightingEn = it) }, "Lighting", mono = false)
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfTextField(draft.cameraEn, { draft = draft.copy(cameraEn = it) }, "Camera", Modifier.weight(1f), mono = false)
+            AfTextField(draft.moodEn, { draft = draft.copy(moodEn = it) }, "Mood", Modifier.weight(1f), mono = false)
+            AfTextField(draft.lightingEn, { draft = draft.copy(lightingEn = it) }, "Lighting", Modifier.weight(1f), mono = false)
+        }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         AfButton("Save", { onSave(draft) }, kind = ButtonKind.Primary, enabled = draft.sceneMy.isNotBlank())

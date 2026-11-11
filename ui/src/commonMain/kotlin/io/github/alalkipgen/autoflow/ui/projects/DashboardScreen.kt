@@ -34,6 +34,10 @@ import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.FieldRow
+import io.github.alalkipgen.autoflow.ui.components.LocalCompact
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlin.time.Clock
@@ -47,18 +51,32 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
     var creating by remember { mutableStateOf(false) }
+    val compact = LocalCompact.current
     LaunchedEffect(model) { model.refresh() }
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 900.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("Projects", size = 18.sp, bold = true)
-            Spacer(Modifier.weight(1f))
-            // With a projects home (Android, D-27) every project lives there; there is no folder to open.
+        // With a projects home (Android, D-27) every project lives there; there is no folder to open.
+        val openFolder: @Composable () -> Unit = {
             if (model.projectsHome == null) AfButton("Open folder…", { scope.launch { if (model.openFolder()) onOpened() } })
-            AfButton("New Movie Recap (Phase 4)", {}, enabled = false)
+        }
+        val newMusicVideo: @Composable () -> Unit = {
             AfButton("New Music Video", { creating = true }, kind = ButtonKind.Primary, enabled = !creating)
+        }
+        val newMovieRecap: @Composable () -> Unit = { AfButton("New Movie Recap (Phase 4)", {}, enabled = false) }
+        if (compact) {
+            // Phone: the title on its own line, the main action first, the rest wrapping below it.
+            AfText("Projects", size = 18.sp, bold = true)
+            WrapRow { newMusicVideo(); openFolder(); newMovieRecap() }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfText("Projects", size = 18.sp, bold = true)
+                Spacer(Modifier.weight(1f))
+                openFolder()
+                newMovieRecap()
+                newMusicVideo()
+            }
         }
         state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
         if (creating) {
@@ -85,10 +103,10 @@ private fun NewProjectCard(model: DashboardModel, onCancel: () -> Unit, onCreate
     AfCard("New Music Video") {
         AfTextField(name, { name = it }, "Project name")
         if (home == null) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfTextField(parent, { parent = it }, "Folder to save it in", Modifier.weight(1f))
-                AfButton("Browse…", { scope.launch { model.pickParent()?.let { parent = it } } })
-            }
+            FieldRow(
+                field = { AfTextField(parent, { parent = it }, "Folder to save it in", it) },
+                actions = { AfButton("Browse…", { scope.launch { model.pickParent()?.let { parent = it } } }) },
+            )
         } else {
             AfText("Saved in this app's storage. Back it up in Settings → Backup before uninstalling.", muted = true, size = 12.sp)
         }
@@ -106,17 +124,38 @@ private fun NewProjectCard(model: DashboardModel, onCancel: () -> Unit, onCreate
 @Composable
 private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit) {
     val e = row.entry
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(AutoFlowShapes.Card)
-            .background(AutoFlowColors.Panel)
-            .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
-            .clickable(enabled = !row.missing, role = Role.Button, onClick = onOpen)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    val box = Modifier
+        .fillMaxWidth()
+        .clip(AutoFlowShapes.Card)
+        .background(AutoFlowColors.Panel)
+        .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+        .clickable(enabled = !row.missing, role = Role.Button, onClick = onOpen)
+        .padding(horizontal = 16.dp, vertical = 12.dp)
+    val mode = if (e.mode == Mode.MUSIC_VIDEO) "Music Video" else "Movie Recap"
+    val shots = "${e.acceptedShots}/${e.totalShots} shots"
+    val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted
+    if (LocalCompact.current) {
+        // Phone: name, then one wrapped line of facts; the folder path is left out (it is app storage, D-27).
+        Column(box, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            AfText(e.name, bold = true, muted = row.missing, size = 15.sp)
+            if (row.missing) {
+                AfText(e.path, muted = true, size = 11.sp, mono = true)
+                WrapRow {
+                    AfText("Folder not found", color = AutoFlowColors.Amber)
+                    AfButton("Remove from list", onRemove, kind = ButtonKind.Danger)
+                }
+            } else {
+                WrapRow(spacing = 10.dp) {
+                    AfText(mode, muted = true)
+                    AfText(e.ratio.label, muted = true)
+                    AfText(shots, color = shotsColor)
+                    AfText(relativeTime(e.lastOpenedAt, now), muted = true)
+                }
+            }
+        }
+        return
+    }
+    Row(box, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             AfText(e.name, bold = true, muted = row.missing)
             AfText(e.path, muted = true, size = 11.sp, mono = true)
@@ -125,9 +164,9 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             AfText("Folder not found", color = AutoFlowColors.Amber)
             AfButton("Remove from list", onRemove, kind = ButtonKind.Danger)
         } else {
-            AfText(if (e.mode == Mode.MUSIC_VIDEO) "Music Video" else "Movie Recap", muted = true)
+            AfText(mode, muted = true)
             AfText(e.ratio.label, muted = true)
-            AfText("${e.acceptedShots}/${e.totalShots} shots", color = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted)
+            AfText(shots, color = shotsColor)
             AfText(relativeTime(e.lastOpenedAt, now), muted = true)
         }
     }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +45,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.COMPACT_WIDTH
+import io.github.alalkipgen.autoflow.ui.components.LocalCompact
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.InputScreen
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
@@ -66,9 +71,13 @@ val SidebarSections: List<Pair<String, List<String>>> = listOf(
     "System" to listOf("Settings"),
 )
 
-/** Desktop window content wired to the Koin graph (see `uiModule`). Starts on the Dashboard. */
+/**
+ * Window content wired to the Koin graph (see `uiModule`). Starts on the Dashboard. A window narrower than
+ * [COMPACT_WIDTH] (a phone) gets [PhoneShell] with bottom tabs, a wider one [AppShell] with the sidebar
+ * (DESIGN.md §2, §4). [backHandler] lets Android's Back button step back (see [backTarget]); the desktop has none.
+ */
 @Composable
-fun App() {
+fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> }) {
     val model = koinInject<ProviderStatusModel>()
     val status by model.status.collectAsState(model.current())
     val project by koinInject<CurrentProject>().state.collectAsState()
@@ -79,23 +88,34 @@ fun App() {
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
     val backup = koinInject<BackupModel>().takeIf { it.available }
-    AppShell(
-        status,
-        selected = screen,
-        onSelect = { screen = it },
-        projectName = project?.project?.name,
-        locks = shellState.locks,
-        top = {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxWidth < COMPACT_WIDTH
+        // MORE is a phone tab; a window widened while on it shows the Dashboard.
+        val current = if (!compact && screen == MORE) "Dashboard" else screen
+        val back = if (compact) backTarget(current) else null
+        backHandler(back != null) { back?.let { screen = it } }
+        val top: @Composable () -> Unit = {
             JobBanner(jobs)
-            if (screen in ShellModel.SCREEN_STEPS && shellState.steps.isNotEmpty()) Stepper(shellState.steps)
-        },
-    ) {
-        when (screen) {
-            "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
-            "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
-            "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
-            "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
-            else -> ScreenPlaceholder(screen)
+            if (current in ShellModel.SCREEN_STEPS && shellState.steps.isNotEmpty()) Stepper(shellState.steps)
+        }
+        val content: @Composable () -> Unit = {
+            when (current) {
+                "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
+                "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
+                "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
+                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
+                MORE -> MoreScreen(shellState.locks, onSelect = { screen = it })
+                else -> ScreenPlaceholder(current)
+            }
+        }
+        CompositionLocalProvider(LocalCompact provides compact) {
+            if (compact) {
+                PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
+                    locks = shellState.locks, top = top, content = content)
+            } else {
+                AppShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
+                    locks = shellState.locks, top = top, content = content)
+            }
         }
     }
 }
@@ -130,7 +150,7 @@ fun AppShell(
 /** Content for a sidebar entry whose screen is not built yet. */
 @Composable
 fun ScreenPlaceholder(name: String) {
-    Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.padding(screenPadding), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         AfText(name, size = 18.sp, bold = true)
         AfText("This screen is not built yet.", muted = true)
     }
