@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -42,6 +44,7 @@ import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardResult
 import io.github.alalkipgen.autoflow.ui.storyboard.message
 import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
 const val GENERATE_BUTTON = "Storyboard ထုတ်မယ်"
 const val IMPORT_SONG_BUTTON = "သီချင်းဖိုင် ထည့်မယ်"
@@ -82,6 +85,7 @@ fun InputScreen(model: InputModel, jobs: StoryboardJobs, onGenerated: () -> Unit
         }
         SongCard(state, model, locked)
         VideoCard(state, model, locked)
+        CharactersCard(state, model, locked)
         GenerateCard(state, job, jobs, onStart = { model.generate { if (open.value) goOn() } })
     }
 }
@@ -134,6 +138,39 @@ private fun VideoCard(state: InputUiState, model: InputModel, locked: Boolean) {
         ChipRow(StoryboardMode.entries, { it.name.lowercase().replaceFirstChar(Char::uppercase) }, { it == s.storyboardMode }, model::setMode, locked)
     }
 }
+
+/** Character Bible (PLAN Phase 2): each character once; the compiler puts its description into every shot. */
+@Composable
+private fun CharactersCard(state: InputUiState, model: InputModel, locked: Boolean) {
+    AfCard("Characters") {
+        AfText(CHARACTERS_HELP, muted = true, size = 12.sp)
+        state.characters.forEachIndexed { i, c ->
+            Column(
+                Modifier.fillMaxWidth().clip(AutoFlowShapes.Card)
+                    .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card).padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                AfTextField(c.token, { model.setCharacterToken(i, it) }, "Token (e.g. HERO)", Modifier.widthIn(max = 260.dp), enabled = !locked)
+                AfTextField(c.nameMy, { model.setCharacterName(i, it) }, "Burmese name (e.g. မောင်မောင်)", mono = false, enabled = !locked)
+                AfTextField(
+                    c.descriptionEn, { model.setCharacterDescription(i, it) },
+                    "English description (e.g. a young East Asian man in his 20s, short black hair, grey sweater)",
+                    lines = 3, mono = false, enabled = !locked,
+                )
+                AfButton("Remove", { model.removeCharacter(i) }, kind = ButtonKind.Danger, enabled = !locked)
+            }
+        }
+        AfButton(ADD_CHARACTER_BUTTON, model::addCharacter, enabled = !locked)
+        state.characterProblems.forEach { AfText("⚠ $it", color = AutoFlowColors.Amber, size = 12.sp) }
+        if (state.hasStoryboard && state.characters.isNotEmpty()) AfText(CHARACTERS_AFTER_STORYBOARD, muted = true, size = 12.sp)
+    }
+}
+
+const val ADD_CHARACTER_BUTTON = "+ Add character"
+const val CHARACTERS_HELP = "ဇာတ်ကောင်တစ်ယောက်ကို တစ်ခါပဲ ရေးပါ — shot တိုင်းမှာ အဲဒီ English description အတိုင်း ထည့်ပေးမယ်၊ " +
+    "ဒါကြောင့် ရုပ်တူနေမယ်။ (Write each character once: every shot that uses its token gets the same description.)"
+const val CHARACTERS_AFTER_STORYBOARD = "The storyboard uses the characters when it is generated (again); a changed description " +
+    "reaches a shot's prompt when it is recompiled on Shots (↻ Recompile)."
 
 @Composable
 private fun <T> ChipRow(items: List<T>, label: (T) -> String, selected: (T) -> Boolean, onPick: (T) -> Unit, locked: Boolean) {
