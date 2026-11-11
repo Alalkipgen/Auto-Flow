@@ -85,7 +85,7 @@ class ExportModel(
         _state.value = ExportUiState(
             projectName = p.name,
             shots = p.shots.count { it.durationMs > 0 },
-            accepted = p.shots.count { it.durationMs > 0 && it.acceptedVideo != null && videoFile(open, it.acceptedVideo) != null },
+            accepted = p.shots.count { s -> s.durationMs > 0 && s.acceptedVideo?.let { videoFile(open, it) } != null },
             durationMs = p.shots.filter { it.durationMs > 0 }.sumOf { it.durationMs },
             songFile = session.songPath()?.substringAfterLast('/'),
             font = font?.family,
