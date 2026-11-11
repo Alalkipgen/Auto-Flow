@@ -13,7 +13,8 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v6
       - name: Ensure libGL for headless Compose UI tests (Skiko)
-        run: ldconfig -p | grep -q libGL.so.1 || (sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1)
+        timeout-minutes: 15
+        run: ldconfig -p | grep -q libGL.so.1 || bash tools/ci-apt-install.sh libgl1
       - name: Check (fake providers only, no API keys)
         # chmod: files pushed via the GitHub API/web UI lose the executable bit.
         run: chmod +x gradlew && ./gradlew :core:check :ai:check :media:check :platform:check :platform:compileAndroidMain :ui:desktopTest :app-desktop:test
@@ -86,8 +87,9 @@ jobs:
           cat build/ffmpeg-android/out/BUILDINFO.txt
           echo "::notice title=Bundled ffmpeg::$(grep -E '^lib' build/ffmpeg-android/out/BUILDINFO.txt | tr '\n' ' ')"
       - name: Self-test media (PLAN S6) — generated, not committed
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
+          bash tools/ci-apt-install.sh ffmpeg
           bash tools/selftest-fixtures.sh app-android/build/generated/bundled
       - name: Assemble debug APK
         env:
