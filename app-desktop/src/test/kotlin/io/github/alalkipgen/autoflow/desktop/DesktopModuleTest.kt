@@ -41,7 +41,7 @@ class DesktopModuleTest {
     }
 
     @Test
-    fun graphResolvesWithTheBundledModelConfigAndStartsInFakeMode() = runBlocking {
+    fun graphResolvesWithTheBundledModelConfigAndStartsInFakeMode(): Unit = runBlocking {
         val models = app.koin.get<LoadedModelConfig>()
         assertEquals(LoadedModelConfig.BUNDLED, models.source)
         assertNull(models.problem)

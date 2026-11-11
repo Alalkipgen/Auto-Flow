@@ -31,6 +31,7 @@ class InProcessRenderQueueTest {
     private class Locator(val ffmpeg: String?) : ToolLocator {
         override fun findFfmpeg(): String? = ffmpeg
         override fun findVlc(): String? = null
+        override fun isVlcDir(dir: String): Boolean = false
     }
 
     /** ffprobe: a silent 8 s video; ffmpeg: reports half way, waits for [gate] when set, writes its output file. */
