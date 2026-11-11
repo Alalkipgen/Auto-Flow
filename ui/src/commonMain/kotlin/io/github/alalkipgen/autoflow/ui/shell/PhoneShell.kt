@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
 /** Bottom navigation on a phone (DESIGN.md §4): screen name → tab label. The rest sits behind [MORE]. */
@@ -94,7 +95,7 @@ private fun PhoneTopBar(providerStatus: String, projectName: String?) {
                 style = TextStyle(color = AutoFlowColors.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
             )
             projectName?.let {
-                BasicText("·  $it", Modifier.weight(1f), style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                BasicText("·  $it", Modifier.weight(1f), style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp, fontFamily = LocalUiFontFamily.current), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         BasicText(providerStatus, Modifier.padding(top = 2.dp), style = TextStyle(color = AutoFlowColors.Muted, fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)

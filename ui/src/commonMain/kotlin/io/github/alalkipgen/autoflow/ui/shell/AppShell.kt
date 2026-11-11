@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -55,10 +56,13 @@ import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
+import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
+import io.github.alalkipgen.autoflow.ui.theme.UiFont
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 
@@ -88,6 +92,10 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
     val backup = koinInject<BackupModel>().takeIf { it.available }
+    val settings by koinInject<SettingsStore>().state.collectAsState()
+    val fontPaths = settings.fontPaths
+    val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+    val uiFont = remember(fontPaths) { UiFont.load(fontPaths) { runCatching { fs.read(it) }.getOrNull() } ?: FontFamily.Default }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxWidth < COMPACT_WIDTH
         // MORE is a phone tab; a window widened while on it shows the Dashboard.
@@ -124,7 +132,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 else -> ScreenPlaceholder(current)
             }
         }
-        CompositionLocalProvider(LocalCompact provides compact) {
+        CompositionLocalProvider(LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
             if (compact) {
                 PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
                     locks = shellState.locks, top = top, content = content)

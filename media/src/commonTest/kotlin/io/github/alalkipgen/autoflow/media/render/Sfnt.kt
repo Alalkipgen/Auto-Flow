@@ -5,9 +5,9 @@ object Sfnt {
     class Name(val platform: Int, val id: Int, val text: String)
 
     /** A minimal sfnt: offset table + `head`, `OS/2`, `name` (only the fields FontInfo reads are meaningful). */
-    fun font(unitsPerEm: Int, winAscent: Int, winDescent: Int, names: List<Name>): ByteArray {
+    fun font(unitsPerEm: Int, winAscent: Int, winDescent: Int, names: List<Name>, weight: Int = 400): ByteArray {
         val head = ByteArray(54).also { put16(it, 18, unitsPerEm) }
-        val os2 = ByteArray(78).also { put16(it, 74, winAscent); put16(it, 76, winDescent) }
+        val os2 = ByteArray(78).also { put16(it, 4, weight); put16(it, 74, winAscent); put16(it, 76, winDescent) }
         val encoded = names.map { n -> if (n.platform == 1) n.text.encodeToByteArray() else utf16(n.text) }
         val strings = 6 + 12 * names.size
         val name = ByteArray(strings + encoded.sumOf { it.size })
