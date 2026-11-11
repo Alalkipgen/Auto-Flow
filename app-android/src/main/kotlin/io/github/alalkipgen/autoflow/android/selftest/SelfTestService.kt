@@ -41,13 +41,13 @@ class SelfTestService : Service() {
             return START_NOT_STICKY
         }
         if (job?.isActive == true) return START_NOT_STICKY
-        startInForeground(notification("Starting…", null))
+        SelfTestState.begin()
+        val foreground = startInForeground(notification("Starting…", null))
         wakeLock = getSystemService(PowerManager::class.java)
             ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AutoFlow:SelfTest")
             ?.apply { acquire(WAKE_LOCK_MS) }
         val mode = if (intent?.getBooleanExtra(EXTRA_MEDIA3_ONLY, false) == true) SelfTestRunner.Mode.MEDIA3_ONLY else SelfTestRunner.Mode.ALL
-        SelfTestState.begin()
-        val r = SelfTestRunner(this) { text, percent -> onProgress(text, percent) }
+        val r = SelfTestRunner(this, startNotes = listOf(foreground)) { text, percent -> onProgress(text, percent) }
         runner = r
         job = scope.launch {
             var md: String? = null
@@ -90,13 +90,34 @@ class SelfTestService : Service() {
         getSystemService(NotificationManager::class.java)?.notify(ID_RUNNING, notification(text, percent))
     }
 
-    private fun startInForeground(n: Notification) {
-        val type = when {
-            Build.VERSION.SDK_INT >= 35 -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
-            Build.VERSION.SDK_INT >= 29 -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            else -> 0
+    /**
+     * Starts the foreground part and returns a line for the report. The framework call is used on purpose:
+     * androidx `ServiceCompat.startForeground` (core 1.18) masks the type with the Android 14 set, which turns
+     * `mediaProcessing` (Android 15) into "none" — prohibited for targetSdk ≥ 34 (the v0.1.0 crash on Android 16).
+     * A refused type falls back to the next one; if all are refused the run continues while the screen is open.
+     */
+    private fun startInForeground(n: Notification): String {
+        if (Build.VERSION.SDK_INT < 29) {
+            startForeground(ID_RUNNING, n)
+            SelfTestState.step("Foreground service", Status.OK)
+            return "Foreground service: started"
         }
-        ServiceCompat.startForeground(this, ID_RUNNING, n, type)
+        val types = buildList {
+            if (Build.VERSION.SDK_INT >= 35) add(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING to "mediaProcessing")
+            add(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC to "dataSync")
+        }
+        val refused = mutableListOf<String>()
+        for ((type, name) in types) {
+            try {
+                startForeground(ID_RUNNING, n, type)
+                SelfTestState.step("Foreground service", Status.OK, name)
+                return "Foreground service: $name" + if (refused.isEmpty()) "" else " (${refused.joinToString("; ")})"
+            } catch (e: RuntimeException) {
+                refused += "$name refused: ${e::class.simpleName}: ${e.message}"
+            }
+        }
+        SelfTestState.step("Foreground service", Status.FAILED, "refused; keep this screen open")
+        return "Foreground service REFUSED (${refused.joinToString("; ")}); the run continued only while the app was open"
     }
 
     private fun notification(text: String, percent: Int?): Notification {
@@ -141,8 +162,13 @@ class SelfTestService : Service() {
         private const val WAKE_LOCK_MS = 60 * 60_000L
         private const val NOTIFY_EVERY_MS = 1_000L
 
+        /**
+         * Started from the visible Self-test screen with `startService`, not `startForegroundService`: the service may
+         * still call startForeground (the app is in the foreground), and a refused type cannot end in a
+         * "did not call startForeground in time" crash.
+         */
         fun start(context: Context, media3Only: Boolean) {
-            context.startForegroundService(Intent(context, SelfTestService::class.java).putExtra(EXTRA_MEDIA3_ONLY, media3Only))
+            context.startService(Intent(context, SelfTestService::class.java).putExtra(EXTRA_MEDIA3_ONLY, media3Only))
         }
 
         fun cancel(context: Context) {

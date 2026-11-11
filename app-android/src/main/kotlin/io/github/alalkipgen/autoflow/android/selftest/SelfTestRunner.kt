@@ -27,7 +27,11 @@ import kotlinx.coroutines.withContext
  * PLAN S6 on the phone: device info → test media from the APK → exec the bundled ffmpeg (capabilities) → the three
  * renders with time / peak RSS / ffprobe / a frame each. If exec is refused, the Media3 fallback runs instead (D-23).
  */
-class SelfTestRunner(private val context: Context, private val onProgress: (String, Int?) -> Unit) {
+class SelfTestRunner(
+    private val context: Context,
+    private val startNotes: List<String> = emptyList(),
+    private val onProgress: (String, Int?) -> Unit,
+) {
     enum class Mode { ALL, MEDIA3_ONLY }
 
     private val work = File(context.cacheDir, "selftest")
@@ -44,7 +48,7 @@ class SelfTestRunner(private val context: Context, private val onProgress: (Stri
     suspend fun run(mode: Mode): SelfTestReport = withContext(Dispatchers.IO) {
         val t0 = System.currentTimeMillis()
         val startedAt = ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z"))
-        val notes = mutableListOf<String>()
+        val notes = startNotes.toMutableList()
         val renders = mutableListOf<RenderResult>()
         var caps: FfmpegCapabilities? = null
         var execError: String? = null

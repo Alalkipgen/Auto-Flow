@@ -61,7 +61,8 @@ object DeviceInfo {
     }
 
     fun battery(context: Context): String {
-        val i = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return "unknown"
+        // Sticky system broadcast, no receiver registered; guarded anyway so device info can never stop a run.
+        val i = runCatching { context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) }.getOrNull() ?: return "unknown"
         val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
         val plugged = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
