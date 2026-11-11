@@ -55,8 +55,8 @@ Goal: full MV pipeline end-to-end with manual Flow handoff — on the owner's An
 
 ### 1D :media (desktop; the compiler is shared with Android, D-23)
 - [ ] ffmpeg locator + version check (`ass` filter / `--enable-libass` → overlay backend)
-- [ ] RenderGraph → filtergraph compiler in `:media` commonMain (concat, trim, audio, text overlay via libass; Skia PNG fallback) — one compiler for desktop and Android, no duplicated filtergraph code
-- [ ] Preview (proxy 540p) and Export (1080p) presets: 16:9, 9:16, 1:1
+- [~] RenderGraph → filtergraph compiler in `:media` commonMain (concat, trim, audio, text overlay via libass; Skia PNG fallback) — one compiler for desktop and Android, no duplicated filtergraph code — model (`RenderGraph`, serializable) and `.ass` writer (`AssWriter`, `FontInfo` size factor) done
+- [x] Preview (proxy 540p) and Export (1080p) presets: 16:9, 9:16, 1:1 — `RenderPresets` (also 4:5, 21:9)
 - [ ] End-frame extraction for shot chaining
 
 ### 1F Android parity (was Phase 3, D-22)
@@ -155,3 +155,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 Release v0.1.0 (D-24): first phone build with the S6 Self-test, published from `.github/release-tag.txt`; release notes give the install and Self-test steps.
 - 2026-11-11 v0.1.1 Self-test foreground-service fix: v0.1.0 crashed on Run all (Android 16) because androidx `ServiceCompat.startForeground` (core 1.18) masks the type to the Android 14 set, turning `mediaProcessing` into "none"; now the framework `startForeground` with a `dataSync` fallback (the result is a report line), started with `startService` from the visible screen; battery info guarded; versionName 0.1.1, release v0.1.1.
 - 2026-11-11 S6 PASS (owner's report, v0.1.1): exec of the bundled ffmpeg works on Android 16 / SM7435 (SELinux `untrusted_app`), all three renders ok, `mediaProcessing` foreground service granted; results in spikes/s6-android-selftest/README.md, D-23 marked verified. Stage 2 (Android rendering for real) starts.
+- 2026-11-11 1D compiler part 1 (Stage 2): `:media` `render/` — `RenderGraph` model (clips with placeholder + CUT/CROSSFADE, song track with offset / fades / mute, overlays, output; kotlinx.serialization for `rendergraph.json` / `project.timeline`), `RenderPresets` (540p preview ultrafast crf 23 / 1080p export slow crf 18, AAC 128k / 192k, 24 fps), `AssWriter` (PlayRes = output, style per font/size/colour, `\an`+`\pos`, `\fad`, `WrapStyle: 2`, libass-safe escaping), `FontInfo` (family + libass size factor from the font's `name` / `head` / `OS/2` tables).
