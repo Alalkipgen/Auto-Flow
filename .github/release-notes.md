@@ -1,20 +1,21 @@
-Debug build for the phone (D-24). v0.1.3 is the first build signed with the stable key: after this one, every new build installs over the previous one and keeps the app's data. Same features as v0.1.2, which added the real render queue (PLAN 1F, D-26): renders run one at a time in the background with a progress notification and Cancel, and the Self-test gets a **Render job (WorkManager)** check that renders one 21 s 1080p video (crossfades, a placeholder card, the song and Burmese text) through that queue.
+Debug build for the phone (D-24), signed with the stable key: if you have v0.1.3 installed, this one **installs over it** (tap **Update**), no uninstall, the app's data stays.
+
+Fix: the Self-test **Render job (WorkManager)** failed on the phone with "Unknown input format: 'lavfi'" (ffmpeg exit 234). The phone's ffmpeg has no `lavfi` input device, so the dark placeholder card and the silence for clips without sound are now made inside the filter graph instead (PLAN 1D/1F).
 
 Install:
 
-1. **One last uninstall.** v0.1.2 and older were signed with temporary keys, so Android will refuse to update them ("App not installed" / "conflicts with an existing package"). Back up anything you need, uninstall the old Auto Flow (this deletes its data), then install this one. From v0.1.3 on, updates install directly.
-2. Tap the `autoflow-debug-….apk` file below to download it.
-3. Open it from the download notification. If Android asks, allow "Install unknown apps" for your browser, then go back and tap **Install** (or **Update**).
+1. Tap the `autoflow-debug-….apk` file below to download it.
+2. Open it from the download notification and tap **Update** (or **Install**). If Android asks, allow "Install unknown apps" for your browser first.
+3. Only if you still have v0.1.2 or older: Android refuses the update ("App not installed" / "conflicts with an existing package"). Back up, uninstall the old Auto Flow, then install this one.
 4. Open **Auto Flow**.
 
 Self-test (checks video rendering on this phone):
 
 1. In the left sidebar tap **Settings**, scroll to the bottom to **About**.
-2. Long-press the line **Auto Flow 0.1.3 (…)**. The Self-test screen opens.
-3. Tap **Run all** (allow notifications if asked). It takes about 2–10 minutes; the screen may turn off, it keeps running.
-4. Then tap **Render job (WorkManager)**. Turn the screen off for a while during the render; it should keep going, with a "Rendering Self-test job" notification.
-5. When it finishes, tap **Copy report** and paste it back into the chat. A screenshot of the frames helps too.
-6. Optional: tap **Render job (WorkManager)** again and press **Cancel** in the notification halfway. The report should say **CANCELLED** and "Half-written … left behind: no".
+2. Long-press the line **Auto Flow 0.1.4 (…)**. The Self-test screen opens.
+3. Tap **Render job (WorkManager)** (allow notifications if asked). Turn the screen off for a while during the render; it should keep going, with a "Rendering Self-test job" notification.
+4. When it finishes, tap **Copy report** and paste it back into the chat. A screenshot of the frames helps too.
+5. Optional: tap **Render job (WorkManager)** again and press **Cancel** in the notification halfway. The report should say **CANCELLED** and "Half-written … left behind: no".
 
 If the app ever stops, the next launch shows the error with **Copy report**: send that back as well.
 
