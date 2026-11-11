@@ -28,6 +28,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 const val PREVIEW_BUTTON = "Preview 540p"
 const val EXPORT_BUTTON = "Export 1080p"
+const val SAVE_BUTTON = "Save to Gallery"
 
 /**
  * Export (PLAN Q-09 c): what goes into the video (shots, accepted videos, song, lyrics font), Preview / Export,
@@ -74,14 +75,14 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
                 AfButton(EXPORT_BUTTON, { model.render(Quality.EXPORT) }, kind = ButtonKind.Primary, enabled = state.canRender)
             }
             AfText("Preview is fast and small; Export is the full-quality 1080p video. Rendering goes on with the screen off.", muted = true)
-            state.run?.let { RunStatus(it, model) }
-            state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
+            state.run?.let { RunStatus(it, model, state.savingToGallery) }
+            state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
     }
 }
 
 @Composable
-private fun RunStatus(run: ExportRun, model: ExportModel) {
+private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
     val what = ExportModel.label(run.quality)
     when (val s = run.state) {
         RenderState.Queued -> {
@@ -102,6 +103,7 @@ private fun RunStatus(run: ExportRun, model: ExportModel) {
             WrapRow {
                 AfButton("Open", model::open, kind = ButtonKind.Primary)
                 AfButton("Share…", model::share)
+                AfButton(if (saving) "Saving…" else SAVE_BUTTON, model::saveToGallery, enabled = !saving)
             }
         }
         is RenderState.Failed -> {

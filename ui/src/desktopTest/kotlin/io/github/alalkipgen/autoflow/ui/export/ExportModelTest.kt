@@ -71,6 +71,8 @@ class ExportModelTest {
         override fun open(path: String, mime: String): PlatformResult<Unit> = PlatformResult.Ok(Unit).also { calls += "open $path $mime" }
         override fun share(path: String, mime: String, title: String): PlatformResult<Unit> =
             PlatformResult.Unsupported("No app can receive the video").also { calls += "share $path $mime" }
+        override suspend fun saveToGallery(path: String, mime: String, displayName: String): PlatformResult<String> =
+            PlatformResult.Ok("Movies/AutoFlow/$displayName").also { calls += "gallery $path $displayName" }
     }
 
     private fun open(withVideo: Boolean = true) {
@@ -167,8 +169,25 @@ class ExportModelTest {
         assertEquals(listOf("open $dir/exports/export.mp4 video/mp4", "share $dir/exports/export.mp4 video/mp4"), share.calls)
         assertEquals("No app can receive the video", m.state.value.message)
 
+        assertFalse(m.state.value.messageOk)
+
+        m.saveToGallery()
+        runCurrent()
+        assertEquals("gallery $dir/exports/export.mp4 Rain-export-job1.mp4", share.calls.last())
+        assertEquals("Saved to Gallery ✓ · Movies/AutoFlow/Rain-export-job1.mp4", m.state.value.message)
+        assertTrue(m.state.value.messageOk)
+        assertFalse(m.state.value.savingToGallery)
+
         m.refresh()
         assertNotNull(m.state.value.run, "the finished run stays on screen after a refresh")
+    }
+
+    @Test
+    fun galleryNameKeepsBurmeseAndDropsOtherSigns() {
+        val run = ExportRun("/p", Quality.EXPORT, "job3", "/p/exports/export.mp4", RenderState.Queued)
+        assertEquals("ဟယ်လို-export-job3.mp4", ExportModel.galleryName("ဟယ်လို", run))
+        assertEquals("My-MV-export-job3.mp4", ExportModel.galleryName("My MV!", run))
+        assertEquals("AutoFlow-preview-job3.mp4", ExportModel.galleryName("///", run.copy(quality = Quality.PREVIEW)))
     }
 
     @Test
