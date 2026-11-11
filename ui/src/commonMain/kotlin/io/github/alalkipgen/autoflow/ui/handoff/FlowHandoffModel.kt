@@ -42,7 +42,16 @@ data class HandoffRow(
     val accepted: Boolean,
     /** Gate message when Copy Prompt is blocked. */
     val gateMsg: String?,
+    /** Flow credits logged for this shot so far. */
+    val creditsLogged: Int = 0,
+    /** Ask "Credits used?" — a video was imported and not logged or skipped yet (specs/flow-handoff.md §Credit log). */
+    val askCredits: Boolean = false,
+    /** The suggested value for this shot's pass: Draft → Fast hint, Final → Quality hint. */
+    val creditDefault: Int = 20,
 )
+
+/** One line of the manual credit log, newest first; [index] is its position in `flowCredits.manualLog`. */
+data class CreditLogRow(val index: Int, val date: String, val shot: Int?, val credits: Int)
 
 data class FlowHandoffUiState(
     val projectName: String? = null,
@@ -53,6 +62,11 @@ data class FlowHandoffUiState(
     /** Hint credit values from models.json. */
     val creditHintFast: Int = 20,
     val creditHintQuality: Int = 100,
+    /** Credits logged on the current quota day (Pacific midnight, like the Gemini quota) and in its month. */
+    val creditsToday: Int = 0,
+    val creditsMonth: Int = 0,
+    /** This month's log, newest first. */
+    val creditLog: List<CreditLogRow> = emptyList(),
 )
 
 /**
@@ -67,11 +81,15 @@ class FlowHandoffModel(
     private val flowUrl: String = "https://labs.google/fx/tools/flow",
     private val creditHintFast: Int = 20,
     private val creditHintQuality: Int = 100,
+    private val nowMs: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     private val _selected = MutableStateFlow<Int?>(null)
     private val _message = MutableStateFlow<String?>(null)
+    /** Shot number → video count when the user chose Skip; the question comes back after the next import. */
+    private val _skipped = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val message = _message.asStateFlow()
-    val state: Flow<FlowHandoffUiState> = combine(session.state, _selected, _message) { open, _, _ -> build(open?.project) }
+    val state: Flow<FlowHandoffUiState> =
+        combine(session.state, _selected, _message, _skipped) { open, _, _, _ -> build(open?.project) }
 
     fun current(): FlowHandoffUiState = build(session.open?.project)
 
@@ -168,14 +186,38 @@ class FlowHandoffModel(
         _message.value = "Shot $number accepted ✓"
     }
 
-    /** Log credits used for shot [number] (manual, as per spec). */
+    /** Log [credits] Flow credits used for shot [number] (manual, specs/flow-handoff.md §Credit log). */
     fun logCredits(number: Int, credits: Int) {
         val project = session.open?.project ?: return
-        val today = io.github.alalkipgen.autoflow.ai.usage.UsageCounter.quotaDay(Clock.System.now().toEpochMilliseconds())
-        val entry = CreditEntry(date = today, credits = credits, shot = number)
+        if (credits !in 1..MAX_CREDITS) { _message.value = "Credits must be a number from 1 to $MAX_CREDITS"; return }
+        val entry = CreditEntry(date = today(), credits = credits, shot = number)
         val updated = project.copy(flowCredits = FlowCredits(manualLog = project.flowCredits.manualLog + entry))
-        session.save(updated)
+        when (val r = session.save(updated)) {
+            is CoreResult.Ok -> _message.value = "Logged $credits credits for Shot $number."
+            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+        }
     }
+
+    /** "Skip" on the credits question: nothing is logged; asked again after the next import for this shot. */
+    fun skipCredits(number: Int) {
+        val shot = session.open?.project?.shots?.firstOrNull { it.number == number } ?: return
+        _skipped.value = _skipped.value + (number to shot.videos.size)
+    }
+
+    /** Remove a wrong line from the credit log ([CreditLogRow.index]). */
+    fun removeCredit(index: Int) {
+        val project = session.open?.project ?: return
+        val log = project.flowCredits.manualLog
+        if (index !in log.indices) return
+        val gone = log[index]
+        val updated = project.copy(flowCredits = FlowCredits(manualLog = log.filterIndexed { i, _ -> i != index }))
+        when (val r = session.save(updated)) {
+            is CoreResult.Ok -> _message.value = "Removed ${gone.credits} credits (${gone.date})."
+            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+        }
+    }
+
+    private fun today(): String = io.github.alalkipgen.autoflow.ai.usage.UsageCounter.quotaDay(nowMs())
 
     private fun readPromptIr(shot: Shot): PromptIR? =
         shot.promptIr?.let { (session.readJson(it, PromptIR.serializer()) as? CoreResult.Ok)?.value }
@@ -183,7 +225,10 @@ class FlowHandoffModel(
     private fun build(project: Project?): FlowHandoffUiState {
         if (project == null) return FlowHandoffUiState()
         val lookup = session.lookup()
+        val log = project.flowCredits.manualLog
+        val skipped = _skipped.value
         val rows = project.shots.map { shot ->
+            val entries = log.count { it.shot == shot.number }
             val ir = readPromptIr(shot)
             val gate = WorkflowRules.canHandoff(shot)
             val gateMsg = if (gate.allowed) null else gate.blockers.firstOrNull()?.handoffMsg()
@@ -200,8 +245,14 @@ class FlowHandoffModel(
                 videoCount = shot.videos.size,
                 accepted = shot.acceptedVideo != null,
                 gateMsg = gateMsg,
+                creditsLogged = log.filter { it.shot == shot.number }.sumOf { it.credits },
+                askCredits = shot.videos.isNotEmpty() && entries < shot.videos.size &&
+                    (skipped[shot.number] ?: -1) < shot.videos.size,
+                creditDefault = if (shot.handoff.pass == Pass.FINAL) creditHintQuality else creditHintFast,
             )
         }
+        val day = today()
+        val month = day.take(7)
         return FlowHandoffUiState(
             projectName = project.name,
             rows = rows,
@@ -210,7 +261,16 @@ class FlowHandoffModel(
             flowUrl = flowUrl,
             creditHintFast = creditHintFast,
             creditHintQuality = creditHintQuality,
+            creditsToday = log.filter { it.date == day }.sumOf { it.credits },
+            creditsMonth = log.filter { it.date.startsWith(month) }.sumOf { it.credits },
+            creditLog = log.mapIndexed { i, e -> CreditLogRow(i, e.date, e.shot, e.credits) }
+                .filter { it.date.startsWith(month) }.asReversed(),
         )
+    }
+
+    companion object {
+        /** Sanity limit for one entry (a Quality generation is about 100). */
+        const val MAX_CREDITS = 10_000
     }
 
     private fun io.github.alalkipgen.autoflow.core.workflow.Blocker.handoffMsg(): String = when (this) {

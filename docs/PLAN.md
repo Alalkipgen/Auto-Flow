@@ -84,7 +84,7 @@ Phone run (v0.1.11, 2026-11-12, project "ဟယ်လို"): create → storyb
 - [ ] Lyrics timing via Gemini transcription (fallback: manual tap-to-sync)
 - [ ] Draft (Fast) / Final (Quality) two-pass per shot
 - [ ] Batch handoff sheet (HTML export of all pending shots)
-- [ ] Flow credit manual counter
+- [x] Flow credit manual counter — Flow Handoff: "Flow credits — today N · this month M" panel (quota day = Pacific midnight, same as `UsageCounter`) with the month's log, newest first, and ✕ to remove a wrong line; after each video import the shot asks "Credits used in Flow for this video?" with `[20] (Fast)` / `[100] (Quality)` (from `config/models.json` `flow.creditsHint`; the shot's pass picks the highlighted one) / custom / Skip; "Log Credits…" adds more later; entries go to `flowCredits.manualLog` (1–10 000 per line); `FlowCreditsTest`, `FlowHandoffScreenTest`.
 - [ ] Version browser per shot (artifact history)
 - [ ] Beat detection → snap cut points (optional)
 
@@ -201,3 +201,4 @@ Phone run (v0.1.11, 2026-11-12, project "ဟယ်လို"): create → storyb
 - 2026-11-12 Phone test v0.1.11 passed through Export (Q-09 closed); fixes from it: References and Shots detail buttons wrap on a phone (the third button was squeezed out of sight), the phone stepper names the open screen's step (Export showed "Step 3 of 6: Prompts"), "1 accepted video" singular; `StepperTest`. New items: desktop `RenderQueue`, Export → Save to Gallery.
 - 2026-11-12 Export → Save to Gallery: the finished mp4 is copied to Movies/AutoFlow through MediaStore (`FileShare.saveToGallery`, `AndroidFileShare`); `ExportModelTest`.
 - 2026-11-12 1F share-sheet import → Inbox: share videos/images to Auto Flow from another app; they land in the open project's inbox (`SharedInbox`, Android `SharedReceiver`); `SharedInboxTest`.
+- 2026-11-12 Phase 2 Flow credit counter: today / this month panel, editable log, "Credits used?" after each import (Fast / Quality / custom / Skip).
