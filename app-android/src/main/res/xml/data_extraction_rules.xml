@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+. D-25: the API key file is sealed with a Keystore key that never leaves this phone, so a restored or
+     transferred copy could not be read; leave it out. Everything else keeps the default behaviour. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="autoflow/secrets.bin" />
+        <exclude domain="file" path="autoflow/secrets.bin.tmp" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="autoflow/secrets.bin" />
+        <exclude domain="file" path="autoflow/secrets.bin.tmp" />
+    </device-transfer>
+</data-extraction-rules>

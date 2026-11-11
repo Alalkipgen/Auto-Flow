@@ -13,13 +13,13 @@ import io.github.alalkipgen.autoflow.platform.AndroidUrlOpener
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.platform.Clipboard
 import io.github.alalkipgen.autoflow.platform.FilePicker
-import io.github.alalkipgen.autoflow.platform.FileSecureStorage
 import io.github.alalkipgen.autoflow.platform.JvmFs
 import io.github.alalkipgen.autoflow.platform.ProjectBackup
 import io.github.alalkipgen.autoflow.platform.SecureStorage
 import io.github.alalkipgen.autoflow.platform.ToolLocator
 import io.github.alalkipgen.autoflow.platform.UnsupportedFilePicker
 import io.github.alalkipgen.autoflow.platform.UrlOpener
+import io.github.alalkipgen.autoflow.platform.androidSecureStorage
 import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import io.github.alalkipgen.autoflow.ui.settings.BundledConfig
 import java.io.File
@@ -30,8 +30,8 @@ fun androidModule(app: Application) = module {
     // D-27: projects under the external files dir (no permission; the Backup card covers uninstalls).
     single { AppDirs(File(app.filesDir, "autoflow").path, File(app.getExternalFilesDir(null) ?: app.filesDir, "projects").path) }
     single<FileSystem> { JvmFs() }
-    // D-25: the Keystore cipher is a PLAN 1F item; until then saving a key reports Unsupported (fake AI still works).
-    single<SecureStorage> { FileSecureStorage(get(), get<AppDirs>().secrets, cipher = null, "Saving an API key on Android arrives with PLAN 1F (D-25)") }
+    // D-25: secrets.bin sealed with an AES-256-GCM key in the Android Keystore.
+    single<SecureStorage> { androidSecureStorage(get(), get()) }
     single<Clipboard> { AndroidClipboard(app) }
     single<UrlOpener> { AndroidUrlOpener(app) }
     single<FilePicker> { UnsupportedFilePicker() }

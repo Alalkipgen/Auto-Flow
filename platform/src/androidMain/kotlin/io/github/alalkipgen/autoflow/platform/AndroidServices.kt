@@ -9,7 +9,7 @@ import java.io.File
 import android.content.ClipboardManager as AndroidClipboardManager
 
 // PLAN 1F "Android bindings": the first Android implementations of the :platform interfaces. The file picker (SAF
-// document trees, D-08) and Keystore-backed SecureStorage (D-25) are the remaining 1F items.
+// document trees, D-08) is the remaining 1F item; the Keystore-backed SecureStorage is in AndroidSecureStorage.kt.
 
 /** [Clipboard] on the Android clipboard service. */
 class AndroidClipboard(private val context: Context) : Clipboard {
