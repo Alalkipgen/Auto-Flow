@@ -1,10 +1,14 @@
 package io.github.alalkipgen.autoflow.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import io.github.alalkipgen.autoflow.platform.AndroidFilePicker
+import org.koin.android.ext.android.inject
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,9 +36,31 @@ import io.github.alalkipgen.autoflow.ui.shell.App
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 class MainActivity : ComponentActivity() {
+    private val filePicker: AndroidFilePicker by inject()
+
+    // Single-file picker (image/video import)
+    private val singlePick = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        filePicker.onResult(listOfNotNull(uri))
+    }
+
+    // Multi-file picker (future use)
+    private val multiPick = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        filePicker.onResult(uris)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Wire the picker launcher into AndroidFilePicker
+        filePicker.launchPickIntent = { _, extensions, multiple ->
+            val mime = when {
+                extensions.any { it in setOf("mp4", "mov") } && extensions.any { it in setOf("png", "jpg", "jpeg") } -> "*/*"
+                extensions.any { it in setOf("mp4", "mov") } -> "video/*"
+                extensions.any { it in setOf("png", "jpg", "jpeg") } -> "image/*"
+                else -> "*/*"
+            }
+            if (multiple) multiPick.launch(mime) else singlePick.launch(mime)
+        }
         val crash = CrashLog.pending(this)
         setContent {
             var report by remember { mutableStateOf(crash) }

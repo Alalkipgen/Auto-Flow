@@ -12,12 +12,12 @@ import io.github.alalkipgen.autoflow.platform.AndroidToolLocator
 import io.github.alalkipgen.autoflow.platform.AndroidUrlOpener
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.platform.Clipboard
+import io.github.alalkipgen.autoflow.platform.AndroidFilePicker
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.JvmFs
 import io.github.alalkipgen.autoflow.platform.ProjectBackup
 import io.github.alalkipgen.autoflow.platform.SecureStorage
 import io.github.alalkipgen.autoflow.platform.ToolLocator
-import io.github.alalkipgen.autoflow.platform.UnsupportedFilePicker
 import io.github.alalkipgen.autoflow.platform.UrlOpener
 import io.github.alalkipgen.autoflow.platform.androidSecureStorage
 import io.github.alalkipgen.autoflow.ui.settings.AppInfo
@@ -34,7 +34,9 @@ fun androidModule(app: Application) = module {
     single<SecureStorage> { androidSecureStorage(get(), get()) }
     single<Clipboard> { AndroidClipboard(app) }
     single<UrlOpener> { AndroidUrlOpener(app) }
-    single<FilePicker> { UnsupportedFilePicker() }
+    // SAF file picker; MainActivity registers the launcher and calls onResult().
+    single<FilePicker> { AndroidFilePicker(app) }
+    single { get<FilePicker>() as AndroidFilePicker }
     single<ToolLocator> { AndroidToolLocator(app.applicationInfo.nativeLibraryDir) }
     // PLAN 1F / D-26: renders run one at a time in a WorkManager foreground worker.
     single<RenderQueue> { WorkManagerRenderQueue(app) }
