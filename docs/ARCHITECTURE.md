@@ -13,7 +13,7 @@
 ```
 :core        model · project I/O · ArtifactStore · WorkflowRules · PromptCompiler · ShotSplitter
 :ai          provider interfaces · Gemini impls · Fake impls · ModelCapability config
-:media       RenderGraph → ffmpeg compiler (common, D-23) · expect/actual: ffmpeg runner (desktop: located binary; android: bundled binary) · probe · frame extract · player · folder watcher
+:media       RenderGraph → ffmpeg compiler, ffmpeg runner (progress), probe, frame grab — all common code (D-23) over the `ToolRunner` port, which the apps bind to `:platform` ProcessRunner (desktop: located binary; android: bundled binary) · player · folder watcher
 :platform    JvmFs (core FileSystem on java.nio, D-18) · secure storage (DPAPI, D-19) · file pickers · open-URL · clipboard · app dirs
 :ui          Compose Multiplatform screens + ViewModels (shared)
 :app-desktop Compose Desktop entry, jpackage (MSIX)
