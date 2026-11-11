@@ -28,7 +28,7 @@ class AndroidFileShare(private val context: Context) : FileShare {
         val uri = uri(path) ?: return PlatformResult.Failed("The file is not in the projects folder: $path")
         val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        return start(view, "No app can play this video")
+        return start(view, if (mime.startsWith("video/")) "No app can play this video" else "No app can open this file")
     }
 
     override fun share(path: String, mime: String, title: String): PlatformResult<Unit> {
@@ -39,7 +39,7 @@ class AndroidFileShare(private val context: Context) : FileShare {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         send.clipData = ClipData.newRawUri(File(path).name, uri)
         val chooser = Intent.createChooser(send, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        return start(chooser, "No app can receive the video")
+        return start(chooser, if (mime.startsWith("video/")) "No app can receive the video" else "No app can receive this file")
     }
 
     override suspend fun saveToGallery(path: String, mime: String, displayName: String): PlatformResult<String> =
