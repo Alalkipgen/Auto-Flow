@@ -17,7 +17,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = ciVersionCode
-        versionName = "0.1.7"
+        versionName = "0.1.8"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("String", "SIGNING", "\"${if (keystoreFile != null) "stable" else "runner-debug"}\"")
         // D-23: the bundled ffmpeg exists for arm64-v8a only.
