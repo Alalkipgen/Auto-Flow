@@ -11,6 +11,14 @@ data class FontInfo(val family: String, val assScale: Double) {
         /** Null for anything that is not a single sfnt font with those tables (collections, damaged files). */
         fun parse(bytes: ByteArray): FontInfo? = runCatching { read(Bytes(bytes)) }.getOrNull()
 
+        /** OS/2 `usWeightClass` (400 regular, 700 bold) of a font [parse] accepts; null otherwise. */
+        fun weightClass(bytes: ByteArray): Int? = runCatching {
+            val b = Bytes(bytes)
+            if (read(b) == null) return null
+            val os2 = (0 until b.u16(4)).map { 12 + 16 * it }.first { b.tag(it) == "OS/2" }
+            b.u16(b.u32(os2 + 8).toInt() + 4)
+        }.getOrNull()
+
         private fun read(b: Bytes): FontInfo? {
             val version = b.u32(0)
             if (version != 0x00010000L && version != 0x4F54544FL /* OTTO */ && version != 0x74727565L /* true */) return null

@@ -20,6 +20,14 @@ class FontInfoTest {
     }
 
     @Test
+    fun readsTheWeightClass() {
+        val names = listOf(Sfnt.Name(3, 1, "Noto Sans Myanmar"))
+        assertEquals(400, FontInfo.weightClass(Sfnt.font(1000, 1520, 664, names)))
+        assertEquals(700, FontInfo.weightClass(Sfnt.font(1000, 1520, 664, names, weight = 700)))
+        assertNull(FontInfo.weightClass(ByteArray(3)))
+    }
+
+    @Test
     fun rejectsCollectionsAndDamagedFiles() {
         assertNull(FontInfo.parse("ttcf\u0000\u0001".encodeToByteArray()))
         assertNull(FontInfo.parse(ByteArray(3)))
