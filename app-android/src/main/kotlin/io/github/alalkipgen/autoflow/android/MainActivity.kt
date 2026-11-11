@@ -32,11 +32,13 @@ import io.github.alalkipgen.autoflow.android.selftest.SelfTestActivity
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.inbox.SharedInbox
 import io.github.alalkipgen.autoflow.ui.shell.App
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 class MainActivity : ComponentActivity() {
     private val filePicker: AndroidFilePicker by inject()
+    private val sharedInbox: SharedInbox by inject()
 
     // Single-file picker (image/video import)
     private val singlePick = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -62,6 +64,8 @@ class MainActivity : ComponentActivity() {
             }
             if (multiple) multiPick.launch(mime) else singlePick.launch(mime)
         }
+        // A share from another app (share sheet → Inbox); a restored activity already took its intent.
+        if (savedInstanceState == null) takeShare(intent)
         val crash = CrashLog.pending(this)
         setContent {
             var report by remember { mutableStateOf(crash) }
@@ -74,6 +78,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        takeShare(intent)
+    }
+
+    private fun takeShare(intent: Intent?) {
+        if (SharedReceiver.handle(this, intent, sharedInbox)) setIntent(Intent(this, MainActivity::class.java))
     }
 
     /** Shown once after a crash: the owner copies or shares the text back (there is no adb on the phone). */
