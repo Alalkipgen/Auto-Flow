@@ -29,6 +29,7 @@ import io.github.alalkipgen.autoflow.core.workflow.ShotStatus
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.VideoPreview
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
@@ -156,6 +157,9 @@ private fun ShotDetailPanel(detail: ShotDetail, model: ShotsModel) {
             StatusBadge(detail.status)
         }
         detail.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 13.sp) }
+
+        // Accepted video preview
+        detail.acceptedVideoPath?.let { VideoPreview(it) }
 
         // Storyboard spec summary
         if (detail.spec != null) {

@@ -35,6 +35,10 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
+        named("androidMain").dependencies {
+            implementation(libs.media3.exoplayer)
+            implementation(libs.media3.ui)
+        }
         named("desktopTest").dependencies {
             implementation(libs.compose.ui.test)
             implementation(compose.desktop.currentOs)

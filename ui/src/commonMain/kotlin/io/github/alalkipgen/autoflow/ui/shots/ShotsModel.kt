@@ -1,8 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.shots
 
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.CoreJson
+import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.Shot
 import io.github.alalkipgen.autoflow.core.model.ShotSpec
@@ -37,6 +40,8 @@ data class ShotDetail(
     val compileError: String?,
     val status: ShotStatus,
     val approvedPrompt: Boolean,
+    /** Absolute path to the accepted video file, or null if none yet. */
+    val acceptedVideoPath: String? = null,
 )
 
 data class ShotsUiState(
@@ -107,6 +112,13 @@ class ShotsModel(private val session: ProjectSession) {
     private fun readPromptIr(shot: Shot): PromptIR? =
         shot.promptIr?.let { (session.readJson(it, PromptIR.serializer()) as? CoreResult.Ok)?.value }
 
+    /** Returns the absolute file path of [id] in the current project's artifact store, or null on any error. */
+    private fun resolveArtifactPath(id: ArtifactId): String? {
+        val dir = session.open?.dir ?: return null
+        val artifact = (session.artifacts()?.get(id) as? CoreResult.Ok)?.value ?: return null
+        return joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), artifact.file)
+    }
+
     private fun build(project: Project?): ShotsUiState {
         if (project == null) return ShotsUiState()
         val lookup = session.lookup()
@@ -139,6 +151,7 @@ class ShotsModel(private val session: ProjectSession) {
                 compileError = compileError,
                 status = ShotStatus.of(project, shot, lookup),
                 approvedPrompt = shot.approvals.prompt,
+                acceptedVideoPath = shot.acceptedVideo?.let { resolveArtifactPath(it) },
             )
         }
         return ShotsUiState(
