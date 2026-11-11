@@ -1,6 +1,12 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.hasParent
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -23,6 +29,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import org.koin.core.context.startKoin
@@ -110,6 +117,22 @@ class PhoneShellTest {
         waitForIdle()
         onNode(tab("Projects")).assertIsSelected()
         assertNull(back)
+    }
+
+    @Test
+    fun tabLabelsFitWithALargeFontSize() = runDesktopComposeUiTest(width = 412, height = 900) {
+        startPhoneKoin()
+        // The owner's phone uses a large font size: "Storyboard" was cut to "Storyboa…" in v0.1.6.
+        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, fontScale = 1.5f)) { App() } }
+        PhoneTabs.forEach { (_, label) ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            onNode(hasText(label, substring = true) and hasParent(isSelectable()), useUnmergedTree = true).fetchSemanticsNode()
+                .config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
+            // isLineEllipsized is not reported on the desktop, so compare the full text width with the drawn width.
+            val layout = layouts.single()
+            val full = layout.multiParagraph.intrinsics.maxIntrinsicWidth
+            assertTrue(full <= layout.size.width + 0.5f, "$label is cut off: needs $full px, has ${layout.size.width} px")
+        }
     }
 
     @Test

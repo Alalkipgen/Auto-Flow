@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -121,12 +122,15 @@ private fun BottomTabs(selected: String?, locks: Map<String, String>, onTap: (St
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.fillMaxWidth().height(3.dp).background(if (on) AutoFlowColors.Purple else Color.Transparent))
+                // Shrinks instead of "Storyboa…" when the phone's font size is large (owner's v0.1.6 screenshot).
                 BasicText(
                     if (locked) "$label $LOCK_GLYPH" else label,
-                    Modifier.padding(vertical = 14.dp),
-                    style = TextStyle(color = ink, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal),
+                    Modifier.padding(horizontal = 1.dp, vertical = 14.dp),
+                    style = TextStyle(color = ink, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    // Clip, not Ellipsis: autoSize detects an ellipsized line only on Android, a clipped one everywhere.
+                    overflow = TextOverflow.Clip,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = 12.sp, stepSize = 0.5.sp),
                 )
             }
         }
