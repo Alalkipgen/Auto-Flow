@@ -18,8 +18,12 @@ class MemorySecureStorage(private val unsupported: Boolean = false) : SecureStor
 }
 
 /** Scripted [ToolLocator]: [vlcDirs] are the folders that hold libvlc. */
-class FakeTools(var ffmpeg: String? = null, var detectedVlc: String? = null, val vlcDirs: MutableSet<String> = mutableSetOf()) :
-    io.github.alalkipgen.autoflow.platform.ToolLocator {
+class FakeTools(
+    var ffmpeg: String? = null,
+    var detectedVlc: String? = null,
+    val vlcDirs: MutableSet<String> = mutableSetOf(),
+    override val bundled: Boolean = false,
+) : io.github.alalkipgen.autoflow.platform.ToolLocator {
     override fun findFfmpeg() = ffmpeg
     override fun findVlc() = detectedVlc
     override fun isVlcDir(dir: String) = dir in vlcDirs

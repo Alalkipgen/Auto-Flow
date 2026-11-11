@@ -44,6 +44,8 @@ class AndroidUrlOpener(private val context: Context) : UrlOpener {
  * place Android 10+ lets an app execute a binary (D-23). There is no VLC on Android (preview uses Media3, D-22).
  */
 class AndroidToolLocator(private val nativeLibraryDir: String) : ToolLocator {
+    override val bundled: Boolean get() = true
+
     override fun findFfmpeg(): String? = File(nativeLibraryDir, FFMPEG).takeIf { it.isFile }?.path?.toPortablePath()
 
     /** The bundled ffprobe next to ffmpeg, or null. */

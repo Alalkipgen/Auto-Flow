@@ -30,6 +30,18 @@ class SettingsModelTest {
     )
 
     @Test
+    fun bundledToolsReportWhetherTheApkHasFfmpeg() {
+        assertEquals(false, model().state.value.toolsBundled)
+        val apk = FakeTools(ffmpeg = "/lib/libffmpeg.so", bundled = true)
+        fun bundled() = SettingsModel(settings, secrets, status, usage, loadModelConfig(fs, null) { TEST_MODELS_JSON }, apk, picker,
+            { PlatformResult.Ok(Unit) }, { testResult }).state.value
+        assertEquals(true, bundled().toolsBundled)
+        assertEquals(true, bundled().ffmpegFound)
+        apk.ffmpeg = null
+        assertEquals(false, bundled().ffmpegFound)
+    }
+
+    @Test
     fun keyIsSavedMaskedAndRemoved() {
         val m = SettingsModel(settings, secrets, status, usage, loadModelConfig(fs, null) { TEST_MODELS_JSON }, tools, picker,
             { PlatformResult.Ok(Unit) }, { testResult })

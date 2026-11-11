@@ -3,9 +3,11 @@ package io.github.alalkipgen.autoflow.ui.shell
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -21,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.LocalCompact
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
@@ -34,7 +38,7 @@ fun JobBanner(jobs: StoryboardJobs, modifier: Modifier = Modifier) {
     val job by jobs.state.collectAsState()
     val running = job.running ?: return
     Row(
-        modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = screenPadding, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -46,6 +50,10 @@ fun JobBanner(jobs: StoryboardJobs, modifier: Modifier = Modifier) {
 /** Pipeline stepper (mockup `.steps`): ✓ for done steps, the current step highlighted, the rest numbered. */
 @Composable
 fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier) {
+    if (LocalCompact.current) {
+        CompactStepper(steps, modifier)
+        return
+    }
     val cell = RoundedCornerShape(8.dp)
     Row(
         modifier
@@ -78,6 +86,44 @@ fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier) {
             ) {
                 AfText(if (s.done && !s.current) "✓" else "${i + 1}", size = 14.sp, bold = true, color = ink)
                 AfText(s.label, size = 11.sp, color = ink)
+            }
+        }
+    }
+}
+
+/** Phone stepper: "Step 2 of 6: Storyboard" over one bar per step (green done, purple current) — six cells do not fit. */
+@Composable
+private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier) {
+    val at = steps.indexOfFirst { it.current }
+    Column(
+        modifier
+            .padding(start = 14.dp, end = 14.dp, top = 10.dp)
+            .fillMaxWidth()
+            .background(AutoFlowColors.Panel, AutoFlowShapes.Card)
+            .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val done = steps.count { it.done }
+        AfText(
+            if (at >= 0) "Step ${at + 1} of ${steps.size}: ${steps[at].label}" else "$done of ${steps.size} steps done",
+            size = 12.sp,
+            bold = true,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            steps.forEach { s ->
+                val color = when {
+                    s.current -> AutoFlowColors.Purple
+                    s.done -> AutoFlowColors.Green
+                    else -> AutoFlowColors.Line
+                }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .background(color, RoundedCornerShape(2.dp))
+                        .semantics { stateDescription = "${s.label} " + if (s.current) "current" else if (s.done) "done" else "to do" },
+                )
             }
         }
     }

@@ -85,6 +85,21 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun bundledFfmpegHidesThePathsAndVlc() = runComposeUiTest {
+        val apk = FakeTools(ffmpeg = "/data/app/lib/libffmpeg.so", bundled = true)
+        val bundled = SettingsModel(
+            settings, secrets, ProviderStatusModel(settings, secrets), UsageCounter(fs, "/a/usage.json"),
+            loadModelConfig(fs, null) { TEST_MODELS_JSON }, apk, FakePicker(), { PlatformResult.Ok(Unit) },
+            { AiResult.Ok(Unit, Usage(model = "gemini-x", latencyMs = 1)) },
+        )
+        setContent { SettingsScreen(bundled) }
+        onNodeWithText("ffmpeg: bundled with the app.").performScrollTo().assertExists()
+        onNodeWithContentDescription("Path to ffmpeg.exe").assertDoesNotExist()
+        onNodeWithText("Install VLC").assertDoesNotExist()
+        onNodeWithText("VLC folder (preview playback)").assertDoesNotExist()
+    }
+
+    @Test
     fun typedPathAppliesAndModelConfigIsShown() = runComposeUiTest {
         tools.vlcDirs += "D:/VLC"
         setContent { SettingsScreen(model) }
