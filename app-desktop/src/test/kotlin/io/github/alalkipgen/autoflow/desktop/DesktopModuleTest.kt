@@ -6,7 +6,9 @@ import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.registry.aiModule
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.ui.di.uiModule
+import io.github.alalkipgen.autoflow.media.render.RenderQueue
 import io.github.alalkipgen.autoflow.ui.export.ExportModel
+import io.github.alalkipgen.autoflow.ui.media.InProcessRenderQueue
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.settings.LoadedModelConfig
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
@@ -39,7 +41,7 @@ class DesktopModuleTest {
     }
 
     @Test
-    fun graphResolvesWithTheBundledModelConfigAndStartsInFakeMode() = runBlocking {
+    fun graphResolvesWithTheBundledModelConfigAndStartsInFakeMode(): Unit = runBlocking {
         val models = app.koin.get<LoadedModelConfig>()
         assertEquals(LoadedModelConfig.BUNDLED, models.source)
         assertNull(models.problem)
@@ -48,6 +50,7 @@ class DesktopModuleTest {
         assertIs<AiResult.Ok<*>>(app.koin.get<TextProvider>().json("hello", JsonSchema(JsonObject(emptyMap()))))
         assertEquals(home.toString().replace('\\', '/'), app.koin.get<AppDirs>().root)
         assertNull(app.koin.get<InputModel>().state.value.projectName, "no project open yet")
-        assertNull(app.koin.get<ExportModel>().state.value.projectName, "Export resolves without a render queue")
+        assertNull(app.koin.get<ExportModel>().state.value.projectName, "Export resolves")
+        assertIs<InProcessRenderQueue>(app.koin.get<RenderQueue>(), "Export renders on the desktop")
     }
 }
