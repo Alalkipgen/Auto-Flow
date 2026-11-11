@@ -171,3 +171,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 Release v0.1.6 (D-24): phone layout (bottom tabs + More, Back, one-column screens) so the owner can redo the v0.1.5 checks (create a project, Backup → Download/AutoFlow, Share…); versionName 0.1.6.
 - 2026-11-11 Owner checked v0.1.6 on the phone: phone layout, project creation and Settings → Backup (zip in Download/AutoFlow, share sheet) work. Follow-ups: tab labels shrink with a large font size (autoSize), backup size in B / KB below 0.1 MB.
 - 2026-11-11 1F Android SecureStorage (D-25): Keystore AES-256-GCM key sealing `secrets.bin`, left out of Android backups; Real AI mode can now keep a Gemini key on the phone.
+- 2026-11-11 Release v0.1.7 (D-24): Gemini key saved with the Android Keystore (D-25), tab labels shrink to fit, backup sizes in B / KB, so the owner can check Real AI mode on the phone (Save, Test, restart, first real storyboard); versionName 0.1.7.
