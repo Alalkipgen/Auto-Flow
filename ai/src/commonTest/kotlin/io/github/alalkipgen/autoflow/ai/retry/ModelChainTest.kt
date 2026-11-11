@@ -44,11 +44,12 @@ class ModelChainTest {
 
     @Test
     fun fiveTransientFailuresMoveToTheNextCandidate() = runTest {
-        val s = Script("m1" to List(5) { e503 })
+        // maxTries=3: three transient failures on m1 → move to m2
+        val s = Script("m1" to List(3) { e503 })
         val r = assertIs<AiResult.Ok<String>>(run(s))
         assertEquals("m2", r.usage!!.model)
-        assertEquals(listOf("m1", "m1", "m1", "m1", "m1", "m2"), s.calls)
-        assertEquals(1_000L + 2_000 + 4_000 + 8_000, currentTime) // no wait after the last try
+        assertEquals(listOf("m1", "m1", "m1", "m2"), s.calls)
+        assertEquals(1_000L + 2_000, currentTime) // no wait after the last try
     }
 
     @Test

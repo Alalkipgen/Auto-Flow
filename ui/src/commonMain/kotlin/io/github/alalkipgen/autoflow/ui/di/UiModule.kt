@@ -18,6 +18,7 @@ import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.settings.loadModelConfig
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.shell.ShellModel
+import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
@@ -47,6 +48,7 @@ val uiModule = module {
     single { StoryboardJobs(get(), MainScope()) }
     factory { InputModel(get(), get()) }
     factory { StoryboardModel(get(), get(), get()) }
+    factory { ShotsModel(get()) }
     single { ShellModel(get()) }
     factory {
         val registry = get<ProviderRegistry>()
