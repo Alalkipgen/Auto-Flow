@@ -1,10 +1,13 @@
 package io.github.alalkipgen.autoflow.media
 
+import io.github.alalkipgen.autoflow.media.tool.FakeToolRunner
+import io.github.alalkipgen.autoflow.media.tool.ToolExec
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class FfmpegCapabilitiesTest {
     private val version = """
@@ -52,8 +55,38 @@ class FfmpegCapabilitiesTest {
     }
 
     @Test
+    fun enableLibassInTheConfigurationAlsoPicksLibass() {
+        val c = FfmpegCapabilities.parse(version, "", "")
+        assertTrue(c.hasAss)
+        assertEquals(OverlayBackend.LIBASS, c.overlayBackend)
+    }
+
+    @Test
+    fun checkRunsVersionFiltersAndEncoders() = runTest {
+        val runner = FakeToolRunner { cmd ->
+            val out = when (cmd.last()) { "-version" -> version; "-filters" -> filters; else -> encoders }
+            ToolExec.Done(0, out, out.lines().takeLast(3), 10, false)
+        }
+        val r = FfmpegCheck.run(runner, "/opt/ffmpeg", "/opt") as FfmpegCheck.Ok
+        assertEquals(listOf("-version", "-filters", "-encoders"), runner.commands.map { it.last() })
+        assertEquals("/opt/ffmpeg", runner.commands.first().first())
+        assertEquals("9.0.2", r.caps.version)
+        assertTrue(r.caps.hasXfade && r.caps.hasLibx264)
+    }
+
+    @Test
+    fun checkReportsWhyItFailed() = runTest {
+        val cannot = FfmpegCheck.run(FakeToolRunner { ToolExec.CannotStart("No such file") }, "/x/ffmpeg", "/x")
+        assertEquals(FfmpegCheck.Failed("Cannot start ffmpeg: No such file"), cannot)
+        val exit = FfmpegCheck.run(FakeToolRunner { ToolExec.Done(1, "", listOf("bad option"), 5, false) }, "/x/ffmpeg", "/x")
+        assertTrue((exit as FfmpegCheck.Failed).message.contains("exited with 1"))
+        val notFfmpeg = FfmpegCheck.run(FakeToolRunner { ToolExec.Done(0, "hello", emptyList(), 5, false) }, "/x/vlc", "/x")
+        assertTrue((notFfmpeg as FfmpegCheck.Failed).message.contains("does not look like ffmpeg"))
+    }
+
+    @Test
     fun withoutLibassTheOverlayBackendIsPng() {
-        val c = FfmpegCapabilities.parse(version, filters.lines().filterNot { "ass " in it }.joinToString("\n"), "")
+        val c = FfmpegCapabilities.parse(version.replace(" --enable-libass", ""), filters.lines().filterNot { "ass " in it }.joinToString("\n"), "")
         assertFalse(c.hasAss)
         assertTrue(c.encoders.isEmpty())
         assertEquals(OverlayBackend.PNG_OVERLAY, c.overlayBackend)

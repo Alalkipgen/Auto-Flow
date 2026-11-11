@@ -13,7 +13,8 @@ data class FfmpegCapabilities(
     val filters: Set<String>,
     val encoders: Set<String>,
 ) {
-    val hasAss: Boolean get() = "ass" in filters
+    /** The `ass` filter, or a build configured `--enable-libass` (PLAN 1D: either one picks libass). */
+    val hasAss: Boolean get() = "ass" in filters || configuration?.contains("--enable-libass") == true
     val hasXfade: Boolean get() = "xfade" in filters
     val hasLibx264: Boolean get() = "libx264" in encoders
     val hasAac: Boolean get() = "aac" in encoders

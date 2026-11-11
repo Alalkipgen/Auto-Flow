@@ -5,12 +5,15 @@ import io.github.alalkipgen.autoflow.ai.Usage
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.media.tool.ToolExec
+import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.SecretNames
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class SettingsModelTest {
@@ -95,6 +98,45 @@ class SettingsModelTest {
         m.setDefaultClipMs(10_000)
         val saved = SettingsStore(fs, "/a/settings.json").state.value
         assertEquals(AppSettings(useFakeProviders = false, defaultRatio = Ratio.R16_9, defaultClipMs = 10_000), saved)
+    }
+
+    @Test
+    fun ffmpegCheckShowsVersionAndOverlayBackend() = runTest {
+        val ran = mutableListOf<Pair<List<String>, String>>()
+        var libass = true
+        val runner = ToolRunner { cmd, dir, _, _, _ ->
+            ran += cmd to dir
+            val out = when (cmd.last()) {
+                "-version" -> "ffmpeg version 7.0.2-static\nconfiguration: --enable-gpl" + if (libass) " --enable-libass" else ""
+                "-encoders" -> " V....D libx264              libx264 H.264\n A....D aac                  AAC"
+                else -> ""
+            }
+            ToolExec.Done(0, out, emptyList(), 5, false)
+        }
+        fun m() = SettingsModel(settings, secrets, status, usage, loadModelConfig(fs, null) { TEST_MODELS_JSON }, tools, picker,
+            { PlatformResult.Ok(Unit) }, { testResult }, ffmpegRunner = runner)
+        val model = m()
+        model.checkFfmpeg()
+        assertEquals("ffmpeg not found: set its path or press Detect.", model.state.value.ffmpegCheck)
+        assertTrue(model.state.value.ffmpegCheckWarn)
+
+        model.setFfmpegPath("C:/ffmpeg/bin/ffmpeg.exe")
+        assertNull(model.state.value.ffmpegCheck)
+        model.checkFfmpeg()
+        assertEquals("ffmpeg 7.0.2-static · libass ✓ · libx264 ✓ · aac ✓ → text overlays: libass", model.state.value.ffmpegCheck)
+        assertFalse(model.state.value.ffmpegCheckWarn)
+        assertEquals(listOf("C:/ffmpeg/bin/ffmpeg.exe", "-hide_banner", "-version") to "C:/ffmpeg/bin", ran.first())
+
+        libass = false
+        model.checkFfmpeg()
+        assertTrue(model.state.value.ffmpegCheck!!.endsWith("text overlays: PNG fallback (no libass)"))
+        assertTrue(model.state.value.ffmpegCheckWarn)
+        model.setDefaultClipMs(6_000) // other changes keep the result
+        assertTrue(model.state.value.ffmpegCheck!!.contains("libass ✗"))
+
+        val none = model()
+        none.checkFfmpeg() // no runner: nothing to show
+        assertNull(none.state.value.ffmpegCheck)
     }
 
     @Test

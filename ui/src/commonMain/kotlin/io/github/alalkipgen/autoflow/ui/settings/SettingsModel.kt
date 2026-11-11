@@ -3,6 +3,10 @@ package io.github.alalkipgen.autoflow.ui.settings
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.media.FfmpegCapabilities
+import io.github.alalkipgen.autoflow.media.FfmpegCheck
+import io.github.alalkipgen.autoflow.media.OverlayBackend
+import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.SecretNames
@@ -27,6 +31,10 @@ data class SettingsUiState(
     /** ffmpeg ships inside the app (Android, D-23): no path or VLC rows; [ffmpegFound] says if the install has it. */
     val toolsBundled: Boolean = false,
     val ffmpegFound: Boolean = true,
+    /** Last ffmpeg version check (PLAN 1D), e.g. `ffmpeg 7.0.2 · libass ✓ → text overlays: libass`; null = not run. */
+    val ffmpegCheck: String? = null,
+    /** True when the check found a problem (no libass or ffmpeg did not answer). */
+    val ffmpegCheckWarn: Boolean = false,
     val models: LoadedModelConfig,
     val message: String? = null,
 )
@@ -42,6 +50,8 @@ class SettingsModel(
     private val picker: FilePicker,
     private val urls: UrlOpener,
     private val testKeyCall: suspend () -> AiResult<Unit>,
+    /** Runs ffmpeg for the version check; null = no check (tests, previews). */
+    private val ffmpegRunner: ToolRunner? = null,
 ) {
     private val _state = MutableStateFlow(snapshot(message = settings.problem ?: models.problem))
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -74,7 +84,29 @@ class SettingsModel(
 
     fun setDefaultClipMs(ms: Long) = change { it.copy(defaultClipMs = ms) }
 
-    fun setFfmpegPath(path: String?) = change { it.copy(ffmpegPath = path?.trim()?.ifEmpty { null }) }
+    fun setFfmpegPath(path: String?) {
+        change { it.copy(ffmpegPath = path?.trim()?.ifEmpty { null }) }
+        _state.value = _state.value.copy(ffmpegCheck = null, ffmpegCheckWarn = false)
+    }
+
+    /**
+     * ffmpeg version check (PLAN 1D): `-version` / `-filters` / `-encoders` of the configured ffmpeg (else the one on
+     * PATH; on Android the bundled one) → version and overlay backend (libass, else the PNG fallback).
+     */
+    suspend fun checkFfmpeg() {
+        val runner = ffmpegRunner ?: return
+        val path = settings.state.value.ffmpegPath.takeUnless { tools.bundled } ?: tools.findFfmpeg()
+        if (path == null) return showCheck("ffmpeg not found: set its path or press Detect.", warn = true)
+        showCheck("Checking ffmpeg…", warn = false)
+        when (val r = FfmpegCheck.run(runner, path, path.substringBeforeLast('/', "."))) {
+            is FfmpegCheck.Failed -> showCheck(r.message, warn = true)
+            is FfmpegCheck.Ok -> showCheck(describe(r.caps), warn = !r.caps.hasAss || !r.caps.hasLibx264)
+        }
+    }
+
+    private fun showCheck(text: String, warn: Boolean) {
+        _state.value = _state.value.copy(ffmpegCheck = text, ffmpegCheckWarn = warn)
+    }
 
     fun detectFfmpeg() {
         val found = tools.findFfmpeg() ?: return done("ffmpeg was not found on PATH. Choose ffmpeg.exe instead.")
@@ -117,7 +149,11 @@ class SettingsModel(
 
     private fun done(message: String?) {
         status.refreshKey()
-        _state.value = snapshot(message).copy(usageToday = _state.value.usageToday)
+        _state.value = snapshot(message).copy(
+            usageToday = _state.value.usageToday,
+            ffmpegCheck = _state.value.ffmpegCheck,
+            ffmpegCheckWarn = _state.value.ffmpegCheckWarn,
+        )
     }
 
     private fun snapshot(message: String?): SettingsUiState {
@@ -142,6 +178,14 @@ class SettingsModel(
     }
 
     companion object {
+        /** One line for Settings → Tools. */
+        fun describe(c: FfmpegCapabilities): String {
+            fun mark(ok: Boolean) = if (ok) "✓" else "✗"
+            val overlays = if (c.overlayBackend == OverlayBackend.LIBASS) "libass" else "PNG fallback (no libass)"
+            return "ffmpeg ${c.version} · libass ${mark(c.hasAss)} · libx264 ${mark(c.hasLibx264)} · aac ${mark(c.hasAac)}" +
+                " → text overlays: $overlays"
+        }
+
         const val VLC_DOWNLOAD_URL = "https://www.videolan.org/vlc/"
         val CLIP_LENGTHS_MS = listOf(8_000L, 10_000L, 5_000L)
     }

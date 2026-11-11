@@ -168,12 +168,22 @@ private fun DefaultsCard(settings: AppSettings, model: SettingsModel) {
 }
 
 @Composable
+private fun FfmpegCheckRow(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
+    LaunchedEffect(model, state.settings.ffmpegPath) { model.checkFfmpeg() }
+    WrapRow {
+        state.ffmpegCheck?.let { AfText(it, size = 12.sp, color = if (state.ffmpegCheckWarn) AutoFlowColors.Amber else AutoFlowColors.Muted) }
+        AfButton("Check ffmpeg", { scope.launch { model.checkFfmpeg() } })
+    }
+}
+
+@Composable
 private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
     AfCard("Tools") {
         if (state.toolsBundled) {
             // Android (D-23): ffmpeg is inside the APK; there is nothing to point at or install.
             if (state.ffmpegFound) {
                 AfText("ffmpeg: bundled with the app.", muted = true)
+                FfmpegCheckRow(state, model, scope)
             } else {
                 AfText("ffmpeg is missing from this install: rendering is off. Reinstall Auto Flow.", color = AutoFlowColors.Amber)
             }
@@ -182,6 +192,7 @@ private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: Corou
                 AfButton("Detect", model::detectFfmpeg)
                 AfButton("Browse…", { scope.launch { model.browseFfmpeg() } })
             }
+            FfmpegCheckRow(state, model, scope)
             PathRow("VLC folder (preview playback)", state.settings.vlcPath, "Auto-detect", model::setVlcPath) {
                 AfButton("Browse…", { scope.launch { model.browseVlc() } })
             }

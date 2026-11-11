@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.desktop
 
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.platform.AwtClipboard
 import io.github.alalkipgen.autoflow.platform.Clipboard
@@ -27,6 +28,7 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     single<UrlOpener> { DesktopUrlOpener() }
     single<FilePicker> { SwingFilePicker(owner = window) }
     single<ToolLocator> { DesktopToolLocator(get()) }
+    single<ToolRunner> { DesktopToolRunner() }
     single { BundledConfig { readResource("/config/models.json") } }
 }
 
