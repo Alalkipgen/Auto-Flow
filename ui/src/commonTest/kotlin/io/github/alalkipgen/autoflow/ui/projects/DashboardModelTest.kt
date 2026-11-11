@@ -81,4 +81,32 @@ class DashboardModelTest {
         assertFalse(model.open("/p/A.autoflow"))
         assertTrue(model.state.value.message!!.endsWith("A backup (project.json.bak) exists."), model.state.value.message)
     }
+
+    @Test
+    fun projectsHomeTakesNewProjectsAndAdoptsFoldersFoundThere() {
+        val home = "/ext/files/projects"
+        val phone = DashboardModel(fs, store, index, settings, picker, current, projectsHome = home)
+        assertEquals(home, phone.lastParent)
+        assertTrue(phone.createMusicVideo(phone.lastParent!!, "Rain"))
+        assertEquals("$home/Rain.autoflow", current.state.value!!.dir)
+        assertNull(settings.state.value.projectsDir) // the phone never asks, so nothing to remember
+
+        // A restored folder, a stray file and a broken folder: only the restored project joins the list.
+        store.create("$home/Restored.autoflow", "Restored", Mode.MUSIC_VIDEO)
+        fs.writeDurably("$home/notes.txt", byteArrayOf(1))
+        fs.createDirectories("$home/Empty.autoflow")
+        phone.refresh()
+        assertEquals(listOf("Restored", "Rain"), phone.state.value.rows.map { it.entry.name })
+        assertNull(phone.state.value.message)
+        phone.refresh() // already listed: no duplicates
+        assertEquals(2, phone.state.value.rows.size)
+    }
+
+    @Test
+    fun withoutAHomeNothingIsAdopted() {
+        store.create("/ext/files/projects/Restored.autoflow", "Restored", Mode.MUSIC_VIDEO)
+        model.refresh()
+        assertTrue(model.state.value.rows.isEmpty())
+        assertNull(model.projectsHome)
+    }
 }

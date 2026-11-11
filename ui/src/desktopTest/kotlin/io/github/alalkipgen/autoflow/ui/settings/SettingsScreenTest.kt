@@ -9,19 +9,26 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.Usage
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
+import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.platform.BackupResult
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.SecretNames
+import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 @OptIn(ExperimentalTestApi::class)
 class SettingsScreenTest {
@@ -107,5 +114,28 @@ class SettingsScreenTest {
     fun withoutAppInfoThereIsNoAboutCard() = runComposeUiTest {
         setContent { SettingsScreen(model) }
         onNodeWithText("About").assertDoesNotExist()
+        onNodeWithText("Backup").assertDoesNotExist()
+    }
+
+    @Test
+    fun backupRunsShowsProgressAndShares() = runComposeUiTest {
+        val index = ProjectIndex(fs, "/a/projects.json")
+        val store = ProjectStore(fs)
+        index.record("/ext/Rain.autoflow", store.create("/ext/Rain.autoflow", "Rain", Mode.MUSIC_VIDEO).getOrNull()!!)
+        val fake = FakeBackup()
+        val backup = BackupModel(fake, index, fs, CoroutineScope(Dispatchers.Unconfined))
+        setContent { SettingsScreen(model, backup = backup) }
+        onNodeWithText("1 project").performScrollTo().assertExists()
+        onNodeWithText("Share…").assertDoesNotExist()
+        onNodeWithText("Back up all projects").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("backup-progress").assertExists()
+        onNodeWithText("Backing up… 25 %").assertExists()
+        fake.gate.complete(PlatformResult.Ok(BackupResult("Download/AutoFlow/AutoFlow-backup-1.zip", 2_000_000, 1, 4, "content://x")))
+        waitForIdle()
+        onNodeWithText("Saved Download/AutoFlow/AutoFlow-backup-1.zip (2.0 MB, 1 project)").performScrollTo().assertExists()
+        onNodeWithText("Share…").performScrollTo().performClick()
+        waitForIdle()
+        assertEquals(1, fake.shared.size)
     }
 }

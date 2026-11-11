@@ -10,6 +10,7 @@ import io.github.alalkipgen.autoflow.ui.projects.DashboardModel
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.settings.AppAiHost
+import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.settings.LoadedModelConfig
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
@@ -26,7 +27,8 @@ import org.koin.dsl.module
 /**
  * App bindings shared by desktop and Android. The app module must bind the platform: [AppDirs],
  * `core.io.FileSystem`, `SecureStorage`, `Clipboard`, `UrlOpener`, `FilePicker`, `ToolLocator` and `BundledConfig`; then load
- * `aiModule` too, which takes [AiHost] and `ModelConfig` from here.
+ * `aiModule` too, which takes [AiHost] and `ModelConfig` from here. Optional: `ProjectBackup` (Settings → Backup, D-27)
+ * and `AppInfo` (Settings → About).
  */
 val uiModule = module {
     single { SettingsStore(get(), get<AppDirs>().settings) }
@@ -38,7 +40,8 @@ val uiModule = module {
     single { ProjectStore(get()) }
     single { ProjectIndex(get(), get<AppDirs>().projectsIndex) }
     single { CurrentProject() }
-    factory { DashboardModel(get(), get(), get(), get(), get(), get()) }
+    factory { DashboardModel(get(), get(), get(), get(), get(), get(), get<AppDirs>().projectsHome) }
+    single { BackupModel(getOrNull(), get(), get(), MainScope()) }
     single { ProjectSession(get(), get(), get(), get()) }
     single { StoryboardService(get(), get()) }
     single { StoryboardJobs(get(), MainScope()) }

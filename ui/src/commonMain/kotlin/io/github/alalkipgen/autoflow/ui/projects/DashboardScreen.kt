@@ -55,7 +55,8 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("Projects", size = 18.sp, bold = true)
             Spacer(Modifier.weight(1f))
-            AfButton("Open folder…", { scope.launch { if (model.openFolder()) onOpened() } })
+            // With a projects home (Android, D-27) every project lives there; there is no folder to open.
+            if (model.projectsHome == null) AfButton("Open folder…", { scope.launch { if (model.openFolder()) onOpened() } })
             AfButton("New Movie Recap (Phase 4)", {}, enabled = false)
             AfButton("New Music Video", { creating = true }, kind = ButtonKind.Primary, enabled = !creating)
         }
@@ -64,7 +65,11 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             NewProjectCard(model, onCancel = { creating = false }, onCreated = { creating = false; onOpened() })
         }
         if (state.rows.isEmpty()) {
-            AfText("No projects yet. Create a music video, or open an existing .autoflow folder.", muted = true)
+            AfText(
+                if (model.projectsHome == null) "No projects yet. Create a music video, or open an existing .autoflow folder."
+                else "No projects yet. Create a music video.",
+                muted = true,
+            )
         }
         val now = clock.now()
         state.rows.forEach { row -> ProjectRow(row, now, onOpen = { if (model.open(row.entry.path)) onOpened() }, onRemove = { model.remove(row.entry.path) }) }
@@ -76,13 +81,18 @@ private fun NewProjectCard(model: DashboardModel, onCancel: () -> Unit, onCreate
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var parent by remember { mutableStateOf(model.lastParent.orEmpty()) }
+    val home = model.projectsHome
     AfCard("New Music Video") {
         AfTextField(name, { name = it }, "Project name")
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfTextField(parent, { parent = it }, "Folder to save it in", Modifier.weight(1f))
-            AfButton("Browse…", { scope.launch { model.pickParent()?.let { parent = it } } })
+        if (home == null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfTextField(parent, { parent = it }, "Folder to save it in", Modifier.weight(1f))
+                AfButton("Browse…", { scope.launch { model.pickParent()?.let { parent = it } } })
+            }
+        } else {
+            AfText("Saved in this app's storage. Back it up in Settings → Backup before uninstalling.", muted = true, size = 12.sp)
         }
-        if (name.isNotBlank() && parent.isNotBlank()) {
+        if (home == null && name.isNotBlank() && parent.isNotBlank()) {
             AfText("Creates ${joinPath(parent.trimEnd('/'), projectFolderName(name))}", muted = true, size = 12.sp, mono = true)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
