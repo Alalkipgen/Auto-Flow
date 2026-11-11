@@ -1,51 +1,27 @@
-Big release — installs over v0.1.9 (tap **Update**), no data lost.
+Installs over v0.1.10 (tap **Update**), no data lost.
 
-## What's new in v0.1.10
+## What's new in v0.1.11 — export your music video
 
-### ExoPlayer video preview (Shots screen)
-- After you accept a video from Flow Handoff, open that shot in the **Shots** tab → the video now plays in a 16:9 player inside the detail panel
-- Use the standard play/pause/seek controls
+### Input → song file
+- Song card → **သီချင်းဖိုင် ထည့်မယ်** → pick the mp3 / m4a / wav
+- The song is copied into the project (`source/song.mp3`) and the **duration is filled in from the file**
 
-### Storyboard approve gate fixed
-- **Compile Prompt** now requires the storyboard to be approved first
-- If not approved you'll see: _"Approve the storyboard first"_ instead of a silently compiled (wrong) prompt
+### More → Export (new screen)
+- Shows what goes into the video: shots, accepted videos (missing ones become "#NN — pending" cards), song, lyrics font
+- **Preview 540p** (fast) or **Export 1080p** (full quality) — renders in the background, also with the screen off
+- Progress % + **Cancel**; when done: **Open** (plays the video) and **Share…** (Telegram, Drive, Gallery apps…)
+- Lyrics (each shot's Burmese line) are drawn at the bottom with the Settings font (Pyidaungsu or Noto Sans Myanmar)
+- Low-battery warning below 20 % when not charging
 
-### Android FilePicker + Restore from backup (from PR #67)
-- Settings → Backup → **Restore from backup…** → pick a `.zip` made by "Back up all projects"
-- Project is extracted back into the projects folder; it appears on the Dashboard on next open
+### Also since v0.1.10
+- Flow Handoff: one "✓ Accepted" badge (was shown twice)
+- UI text uses the Burmese Settings font
+- Settings → Tools: ffmpeg version line (libass / libx264 / aac)
 
----
-
-## Full end-to-end checklist (please test all steps)
-
-**A. Create project & storyboard**
-1. Dashboard → **New project** → give it a name
-2. Input tab → paste Burmese lyrics, set duration (m:ss) and clip length → **Generate Storyboard**
-3. Storyboard tab → review shots → **Approve storyboard**
-
-**B. Shots / prompts**
-4. Shots tab → tap a shot → spec fields visible
-5. **Compile Prompt** → prompt text appears
-6. **✓ Approve Prompt**
-7. Try tapping a shot _before_ approving storyboard → should see "Approve the storyboard first"
-
-**C. References**
-8. References tab → **Copy image prompt** for a shot → paste in Gemini / Imagen → download PNG
-9. **Import image** → select the PNG → **Approve**
-
-**D. Flow Handoff**
-10. Flow Handoff tab → pick a shot with approved prompt + ref → **Copy prompt** → open Flow
-11. In Flow: paste prompt, run generation → download the video → bring it back to the phone
-12. **Import video** → select the `.mp4` → **Accept**
-13. Back on Shots tab → tap that shot → video player should appear and play
-
-**E. Backup & Restore**
-14. Settings → Backup → **Back up all projects** → check Download/AutoFlow zip
-15. Settings → Backup → **Restore from backup…** → pick the zip → project re-appears on Dashboard
-
-**F. Export** (if time allows)
-16. Export tab → **Start export** → check the mp4 in Files / Gallery
-
-Send screenshots or a short screen-record of any step that fails.
+## Test (Phase 1 exit)
+1. Settings → Fonts: add Noto Sans Myanmar or Pyidaungsu (if not added yet)
+2. Open a project with at least 1 accepted video → Input → **သီချင်းဖိုင် ထည့်မယ်** → pick the song
+3. More → Export → **Preview 540p** → wait for "done ✓" → **Open**: music + Burmese lyrics?
+4. **Export 1080p** → **Share…**
 
 The Android APK bundles a GPL ffmpeg build (see the README).
