@@ -10,7 +10,7 @@ data class Overlay(val text: String, val startMs: Long, val endMs: Long, val fon
 data class Output(val ratio: Ratio, val width: Int, val height: Int, val fps: Int, val quality: Quality /* PREVIEW|EXPORT */, val preset: String /* yt1080|tiktok540|ig1x1-1080… */)
 ```
 Output length = sum of clip lengths minus crossfade overlaps. `RenderPresets`: Preview short side 540 px, Export 1080 px (16:9, 9:16, 1:1, 4:5, 21:9; even sizes), 24 fps.
-Compiler produces a single `ffmpeg -filter_complex` command: scale/pad each clip to output, `xfade` for crossfades, text overlays as below, `amix`/`adelay` for audio, `-shortest`. Placeholder clip (dark card with "#NN — pending") for shots without accepted video.
+Compiler produces a single `ffmpeg -filter_complex` command: scale/pad each clip to output, `xfade` for crossfades, text overlays as below, `amix`/`adelay` for audio, `-t` = graph length (`RenderCompiler`; the ffmpeg build needs `tpad`, `apad=whole_dur`, `amix normalize`: FFmpeg ≥ 5). Placeholder clip (dark card with "#NN — pending") for shots without accepted video.
 
 ### Text overlays (S4, Q-02)
 - **Primary — libass.** The compiler writes `exports/<name>.ass` (`PlayResX/Y` = output size; one `Style` per font/size/colour; one `Dialogue` per overlay with `\an`/`\pos` from `position`, `\fad(ms,ms)` for `FADE`, `\k` for karaoke later) and applies `ass=<name>.ass:fontsdir=<fonts dir>` after scale/xfade. Fonts always come from the app/project fonts dir, never system fonts. ASS `Fontsize = sizePx × (usWinAscent + usWinDescent) / unitsPerEm` of that font (`FontInfo` reads it from the font file), so export matches the Compose preview (Noto Sans Myanmar ×2.184, Pyidaungsu ×1.724).
