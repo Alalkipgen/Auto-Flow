@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.core.model.Pass
 import io.github.alalkipgen.autoflow.core.workflow.ShotStatus
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
@@ -159,8 +161,10 @@ private fun ShotDetailPanel(detail: ShotDetail, model: ShotsModel) {
         }
         detail.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 13.sp) }
 
-        // Accepted video preview
-        detail.acceptedVideoPath?.let { VideoPreview(it) }
+        AfText("Pass: ${passLabel(detail.pass)}", muted = true, size = 12.sp)
+
+        // Video versions (version browser, Draft / Final)
+        if (detail.versions.isNotEmpty()) VersionBrowser(detail, model)
 
         // Storyboard spec summary
         if (detail.spec != null) {
@@ -217,6 +221,46 @@ private fun ShotDetailPanel(detail: ShotDetail, model: ShotsModel) {
         }
     }
 }
+
+@Composable
+private fun VersionBrowser(detail: ShotDetail, model: ShotsModel) {
+    SectionLabel(versionsTitle(detail.versions.size))
+    detail.versions.firstOrNull { it.id == detail.previewing }?.path?.let { path -> key(path) { VideoPreview(path) } }
+    detail.versions.asReversed().forEach { v ->
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            AfText(versionLine(v), size = 12.sp, bold = v.id == detail.previewing,
+                color = if (v.accepted) AutoFlowColors.Green else AutoFlowColors.Text)
+            WrapRow {
+                if (v.id != detail.previewing && v.path != null) {
+                    AfButton(PREVIEW_VERSION_BUTTON, { model.preview(detail.number, v.id) }, kind = ButtonKind.Secondary)
+                }
+                if (!v.accepted) {
+                    AfButton(USE_VERSION_BUTTON, { model.acceptVersion(detail.number, v.id) }, kind = ButtonKind.Primary)
+                }
+            }
+        }
+    }
+    if (detail.versions.firstOrNull { it.accepted }?.pass == Pass.DRAFT) {
+        AfText(DRAFT_ACCEPTED_HINT, color = AutoFlowColors.Amber, size = 12.sp)
+    }
+}
+
+internal fun passLabel(pass: Pass): String = if (pass == Pass.FINAL) "Final (Quality)" else "Draft (Fast)"
+
+internal fun versionsTitle(n: Int): String = if (n == 1) "Video (1 version)" else "Videos ($n versions)"
+
+/** `v2 · Final (Quality) · 2026-11-12 10:00 · ✓ Accepted`. */
+internal fun versionLine(v: VideoVersion): String = buildList {
+    add("v${v.version}")
+    v.pass?.let { add(passLabel(it)) }
+    if (v.importedAt.isNotBlank()) add(v.importedAt)
+    if (v.accepted) add("✓ Accepted")
+}.joinToString(" · ")
+
+internal const val PREVIEW_VERSION_BUTTON = "▶ Preview"
+internal const val USE_VERSION_BUTTON = "Use this version"
+internal const val DRAFT_ACCEPTED_HINT =
+    "The accepted video is a Draft (Fast). For the final cut: Flow Handoff → Pass: Final (Quality), import the new video, then use it here."
 
 @Composable
 private fun SectionLabel(text: String) {
