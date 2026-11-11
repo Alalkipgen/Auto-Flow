@@ -43,6 +43,9 @@ data class ExportUiState(
     val unavailable: String? = null,
     val run: ExportRun? = null,
     val message: String? = null,
+    /** [message] is good news (green), e.g. where Save to Gallery put the copy. */
+    val messageOk: Boolean = false,
+    val savingToGallery: Boolean = false,
 ) {
     val busy: Boolean get() = run != null && !run.state.finished
     val canRender: Boolean get() = projectName != null && shots > 0 && unavailable == null && !busy
@@ -151,6 +154,27 @@ class ExportModel(
         result(share?.share(file, MP4, "Share the video") ?: PlatformResult.Unsupported(NO_SHARE))
     }
 
+    /**
+     * Copies the finished mp4 into the phone's gallery (Movies/AutoFlow) as `<project>-export-<n>.mp4`, so it shows
+     * in the Gallery without Share…; the file in `exports/` stays. The name carries the render's finish count so a
+     * newer render does not replace an older copy the user may already have sent.
+     */
+    fun saveToGallery() {
+        val run = _state.value.run ?: return
+        val file = finished() ?: return
+        val fs = share ?: return say(NO_SHARE)
+        if (_state.value.savingToGallery) return
+        _state.value = _state.value.copy(savingToGallery = true, message = null)
+        scope.launch {
+            val r = fs.saveToGallery(file, MP4, galleryName(_state.value.projectName ?: "AutoFlow", run))
+            _state.value = when (r) {
+                is PlatformResult.Ok -> _state.value.copy(savingToGallery = false, message = "Saved to Gallery ✓ · ${r.value}", messageOk = true)
+                is PlatformResult.Failed -> _state.value.copy(savingToGallery = false, message = r.reason, messageOk = false)
+                is PlatformResult.Unsupported -> _state.value.copy(savingToGallery = false, message = r.reason, messageOk = false)
+            }
+        }
+    }
+
     private fun finished(): String? = (_state.value.run?.state as? RenderState.Done)?.output
 
     private fun result(r: PlatformResult<Unit>) {
@@ -162,7 +186,7 @@ class ExportModel(
     }
 
     private fun say(message: String?) {
-        _state.value = _state.value.copy(message = message)
+        _state.value = _state.value.copy(message = message, messageOk = false)
     }
 
     private class LyricFont(val family: String, val fileName: String, val bytes: ByteArray)
@@ -196,6 +220,18 @@ class ExportModel(
         const val MP4 = "video/mp4"
         const val NO_QUEUE = "Rendering is not available in this version on this computer yet (Android renders in the background)."
         const val NO_SHARE = "Opening and sharing files is not available here; the video is in the project's exports folder."
+
+        /**
+         * Gallery file name: the project name (letters, digits, Burmese kept; others → "-"), the kind and the render
+         * id, e.g. `ဟယ်လို-export-job3.mp4`. MediaStore adds " (1)" itself if the name is taken.
+         */
+        fun galleryName(project: String, run: ExportRun): String {
+            val safe = project.map { if (it.isLetterOrDigit() || it.code in 0x1000..0x109F) it else '-' }.joinToString("")
+                .trim('-').ifEmpty { "AutoFlow" }.take(60)
+            val kind = if (run.quality == Quality.PREVIEW) PREVIEW_NAME else EXPORT_NAME
+            val id = run.id.filter { it.isLetterOrDigit() }.takeLast(12)
+            return "$safe-$kind-$id.mp4"
+        }
 
         fun label(quality: Quality) = if (quality == Quality.PREVIEW) "Preview 540p" else "Export 1080p"
     }
