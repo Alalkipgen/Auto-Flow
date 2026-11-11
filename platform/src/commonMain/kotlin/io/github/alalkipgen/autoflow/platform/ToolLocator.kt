@@ -11,6 +11,9 @@ interface ToolLocator {
     /** The ffmpeg executable on `PATH`, or null. */
     fun findFfmpeg(): String?
 
+    /** The ffprobe executable when this platform knows it (Android: bundled); null = look next to ffmpeg. */
+    fun findFfprobe(): String? = null
+
     /** A VLC folder containing `libvlc`, or null. The default install is `C:\Program Files\VideoLAN\VLC`. */
     fun findVlc(): String?
 

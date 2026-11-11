@@ -19,6 +19,7 @@ import io.github.alalkipgen.autoflow.ui.settings.loadModelConfig
 import io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffModel
 import io.github.alalkipgen.autoflow.ui.inbox.InboxModel
 import io.github.alalkipgen.autoflow.ui.input.InputModel
+import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
 import io.github.alalkipgen.autoflow.ui.shell.ShellModel
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
@@ -49,7 +50,8 @@ val uiModule = module {
     single { ProjectSession(get(), get(), get(), get()) }
     single { StoryboardService(get(), get()) }
     single { StoryboardJobs(get(), MainScope()) }
-    factory { InputModel(get(), get()) }
+    single { MediaTools(get(), get(), getOrNull()) }
+    factory { InputModel(get(), get(), picker = getOrNull(), media = get()) }
     factory { StoryboardModel(get(), get(), get()) }
     factory { ShotsModel(get()) }
     factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get()) }

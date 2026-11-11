@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 extensions.any { it in setOf("mp4", "mov") } && extensions.any { it in setOf("png", "jpg", "jpeg") } -> "*/*"
                 extensions.any { it in setOf("mp4", "mov") } -> "video/*"
                 extensions.any { it in setOf("png", "jpg", "jpeg") } -> "image/*"
+                extensions.any { it in setOf("mp3", "m4a", "wav") } -> "audio/*"
                 else -> "*/*"
             }
             if (multiple) multiPick.launch(mime) else singlePick.launch(mime)
