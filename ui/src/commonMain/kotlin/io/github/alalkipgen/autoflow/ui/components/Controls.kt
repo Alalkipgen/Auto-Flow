@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 
 /*
  * Small foundation-only controls in the DESIGN.md §1 style. `:ui` has no Material dependency, so every screen builds
@@ -64,7 +65,7 @@ fun AfText(
             color = color ?: if (muted) AutoFlowColors.Muted else AutoFlowColors.Text,
             fontSize = size,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-            fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default,
+            fontFamily = if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
         ),
     )
 }
@@ -179,7 +180,7 @@ fun AfTextField(
             textStyle = TextStyle(
                 color = if (enabled) AutoFlowColors.Text else AutoFlowColors.Muted,
                 fontSize = 13.sp,
-                fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default,
+                fontFamily = if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
             ),
             cursorBrush = SolidColor(AutoFlowColors.Cyan),
             visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
