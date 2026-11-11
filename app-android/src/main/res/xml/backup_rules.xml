@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. D-25: the API key file is sealed with a Keystore key that never leaves this phone, so a
+     restored copy could not be read; leave it out. Everything else keeps the default Auto Backup. -->
+<full-backup-content>
+    <exclude domain="file" path="autoflow/secrets.bin" />
+    <exclude domain="file" path="autoflow/secrets.bin.tmp" />
+</full-backup-content>
