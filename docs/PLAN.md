@@ -182,3 +182,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 Release v0.1.10: ExoPlayer video preview in Shots detail panel (D-25), storyboard approve gate enforced before Compile Prompt, Android FilePicker + Restore from backup (PR #67); comprehensive end-to-end checklist in release notes; versionName 0.1.10.
 - 2026-11-11 CI: `tools/ci-apt-install.sh` (each apt-get try capped at 4 min, apt download retries, 3 tries) for libgl1 and ffmpeg, plus 15-min step timeouts — an apt mirror hang had stalled the android job until its 90-min timeout.
 - 2026-11-11 CI: the apt mirror still hangs, so `tools/ci-ffmpeg.sh` (D-28) fetches a pinned static ffmpeg 7.0.2 first and uses bounded apt only as the fallback.
+- 2026-11-11 Fix: Flow Handoff showed two "✓ Accepted" badges on an accepted shot (state pill + accepted pill) — `handoffBadges(state, accepted)` adds the accepted badge only when the state pill is not already ACCEPTED; `HandoffBadgesTest`.
