@@ -126,10 +126,14 @@ class BackupModelTest {
     }
 
     @Test
-    fun megabytesLikeTheFilesApp() {
-        assertEquals("0.0 MB", BackupModel.megabytes(10))
-        assertEquals("0.4 MB", BackupModel.megabytes(420_000))
-        assertEquals("14.5 MB", BackupModel.megabytes(14_480_000))
-        assertEquals("1203 MB", BackupModel.megabytes(1_203_400_000))
+    fun sizesLikeTheFilesApp() {
+        assertEquals("899 B", BackupModel.fileSize(899))
+        assertEquals("1 KB", BackupModel.fileSize(1_000))
+        assertEquals("12 KB", BackupModel.fileSize(12_400))
+        assertEquals("100 KB", BackupModel.fileSize(99_900))
+        assertEquals("0.1 MB", BackupModel.fileSize(100_000))
+        assertEquals("0.4 MB", BackupModel.fileSize(420_000))
+        assertEquals("14.5 MB", BackupModel.fileSize(14_480_000))
+        assertEquals("1203 MB", BackupModel.fileSize(1_203_400_000))
     }
 }

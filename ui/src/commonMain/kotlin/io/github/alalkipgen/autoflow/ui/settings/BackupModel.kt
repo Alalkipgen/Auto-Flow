@@ -101,10 +101,15 @@ class BackupModel(
 
     companion object {
         fun saved(r: BackupResult): String =
-            "Saved ${r.location} (${megabytes(r.zipBytes)}, ${r.projects} project${if (r.projects == 1) "" else "s"})"
+            "Saved ${r.location} (${fileSize(r.zipBytes)}, ${r.projects} project${if (r.projects == 1) "" else "s"})"
 
-        /** `0.4 MB`, `14.5 MB`, `1203 MB`: decimal megabytes like the phone's Files app. */
-        fun megabytes(bytes: Long): String {
+        /**
+         * `899 B`, `12 KB`, `0.4 MB`, `14.5 MB`, `1203 MB`: decimal units like the phone's Files app, so a backup of
+         * projects without media does not read "0.0 MB" (owner's v0.1.6 check).
+         */
+        fun fileSize(bytes: Long): String {
+            if (bytes < 1_000) return "$bytes B"
+            if (bytes < 100_000) return "${(bytes + 500) / 1_000} KB"
             val tenths = (bytes + 50_000) / 100_000
             return if (tenths >= 1000) "${tenths / 10} MB" else "${tenths / 10}.${tenths % 10} MB"
         }
