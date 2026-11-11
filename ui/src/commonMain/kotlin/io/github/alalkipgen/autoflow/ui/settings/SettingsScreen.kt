@@ -141,9 +141,9 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
         AfText("Test sends one short request to Gemini, even in fake mode.", muted = true, size = 12.sp)
         val total = state.usageToday.values.sum()
         AfText(
-            "Today: $total request" + (if (total == 1) "" else "s") +
-                state.usageToday.entries.joinToString(prefix = if (total > 0) " (" else "", postfix = if (total > 0) ")" else "") {
-                    "${it.key} ${it.value}"
+            "Today: $total API call" + (if (total == 1) "" else "s") + " (includes retries)" +
+                state.usageToday.entries.joinToString(prefix = if (total > 0) ": " else "") {
+                    "${it.key} ×${it.value}"
                 },
             muted = true,
         )

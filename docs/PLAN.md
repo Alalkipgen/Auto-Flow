@@ -46,8 +46,7 @@ Goal: full MV pipeline end-to-end with manual Flow handoff — on the owner's An
 - [x] Shell: sidebar (pipeline order), stepper, title-bar provider status — `:core` `Pipeline` → `ShellModel`; locked entries dimmed with 🔒 and the reason on hover/click; stepper on pipeline screens; running AI job + Cancel in a shell-level `JobBanner`
 - [x] Input screen (lyrics, duration, song style, video style, ratio, clip length, mood)
 - [x] Storyboard screen (Burmese cards, edit, regenerate, approve all / per shot)
-- [~] Shots screen (grid, badges: Accepted / Needs Flow / Stale / Draft) — `:core` `ShotStatus` badge done
-- [ ] Shot detail panel: PromptIR view, Ref A/B: Copy image prompt · Import image (file/inbox), handoff buttons
+- [x] Shots screen (grid, badges: Accepted / Needs Flow / Stale / Draft) + Shot detail panel (spec fields, compile prompt, approve prompt) — `ShotsModel` + `ShotsScreen`; Ref A/B import and handoff buttons deferred to Reference-image handoff item below
 - [ ] Flow Handoff screen: copy prompt, open Flow, export shot package, import video, draft/final
 - [ ] Reference-image handoff (D-14): copy ImageDialect prompt, open AI Studio, import image as Ref A/B
 - [ ] Inbox: folder watcher → "attach to shot" dialog (video → `vd`, png/jpg → Ref A/B `im`)
@@ -172,3 +171,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 Owner checked v0.1.6 on the phone: phone layout, project creation and Settings → Backup (zip in Download/AutoFlow, share sheet) work. Follow-ups: tab labels shrink with a large font size (autoSize), backup size in B / KB below 0.1 MB.
 - 2026-11-11 1F Android SecureStorage (D-25): Keystore AES-256-GCM key sealing `secrets.bin`, left out of Android backups; Real AI mode can now keep a Gemini key on the phone.
 - 2026-11-11 Release v0.1.7 (D-24): Gemini key saved with the Android Keystore (D-25), tab labels shrink to fit, backup sizes in B / KB, so the owner can check Real AI mode on the phone (Save, Test, restart, first real storyboard); versionName 0.1.7.
+- 2026-11-11 Retry tuning + Shots screen: `RetryPolicy.maxTries` 5→3 (reduces wasted free-tier API calls on transient errors; test updated); usage label now says "API calls (includes retries)"; `ShotsModel` + `ShotsScreen` — shot grid with status badges (Draft / Prompt Ready / Needs Flow / Imported / Accepted / Stale), detail panel with spec fields, Compile Prompt (deterministic, no AI call), Approve Prompt; wired into `AppShell` routing and `uiModule`.

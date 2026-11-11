@@ -9,7 +9,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** D-15 resilience knobs. Defaults are the decision values; tests may shrink them. */
 data class RetryPolicy(
-    val maxTries: Int = 5,
+    val maxTries: Int = 3,
     val baseDelayMs: Long = 1_000,
     val maxRetryAfterMs: Long = 60_000,
     val attemptTimeoutMs: Long = 120_000,

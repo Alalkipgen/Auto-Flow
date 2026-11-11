@@ -103,6 +103,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
+                "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
                 "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
                 MORE -> MoreScreen(shellState.locks, onSelect = { screen = it })
                 else -> ScreenPlaceholder(current)
