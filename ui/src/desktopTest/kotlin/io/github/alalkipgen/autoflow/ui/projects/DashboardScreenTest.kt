@@ -69,6 +69,24 @@ class DashboardScreenTest {
     }
 
     @Test
+    fun onThePhoneProjectsGoToTheProjectsHomeWithoutAFolderChoice() = runComposeUiTest {
+        val phone = DashboardModel(fs, store, index, SettingsStore(fs, "/h/.autoflow/settings.json"), picker, current, projectsHome = "/ext/projects")
+        var opened = 0
+        setContent { DashboardScreen(phone, onOpened = { opened++ }) }
+        onNodeWithText("No projects yet. Create a music video.").assertExists()
+        onNodeWithText("Open folder…").assertDoesNotExist()
+        onNodeWithText("New Music Video").performClick()
+        onNodeWithContentDescription("Folder to save it in").assertDoesNotExist()
+        onNodeWithText("Browse…").assertDoesNotExist()
+        onNodeWithText("Saved in this app's storage", substring = true).assertExists()
+        onNodeWithContentDescription("Project name").performTextInput("Rain")
+        onNodeWithText("Create").performClick()
+        waitForIdle()
+        assertEquals(1, opened)
+        assertTrue(fs.exists("/ext/projects/Rain.autoflow/project.json"))
+    }
+
+    @Test
     fun relativeTimes() {
         val now = Instant.fromEpochSeconds(100_000_000)
         assertEquals("just now", relativeTime(now - 20.seconds, now))

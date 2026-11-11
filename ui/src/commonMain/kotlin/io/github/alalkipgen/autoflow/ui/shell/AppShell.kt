@@ -47,6 +47,7 @@ import io.github.alalkipgen.autoflow.ui.input.InputScreen
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.settings.AppInfo
+import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
@@ -77,6 +78,7 @@ fun App() {
     var screen by remember { mutableStateOf("Dashboard") }
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
+    val backup = remember(koin) { koin.get<BackupModel>().takeIf { it.available } }
     AppShell(
         status,
         selected = screen,
@@ -92,7 +94,7 @@ fun App() {
             "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
             "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
             "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
-            "Settings" -> SettingsScreen(koinInject(), info = appInfo)
+            "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
             else -> ScreenPlaceholder(screen)
         }
     }

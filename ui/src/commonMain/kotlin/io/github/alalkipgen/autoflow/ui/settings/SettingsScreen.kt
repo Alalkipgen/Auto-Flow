@@ -40,12 +40,16 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** Settings (DESIGN.md §3, PLAN 1C): AI key and mode, defaults, ffmpeg / VLC, fonts, model config; [info] adds About. */
+/**
+ * Settings (DESIGN.md §3, PLAN 1C): AI key and mode, defaults, ffmpeg / VLC, fonts, model config; [backup] adds
+ * "Back up all projects" (Android, D-27), [info] adds About.
+ */
 @Composable
-fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null) {
+fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null, backup: BackupModel? = null) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(model) { model.refreshUsage() }
+    LaunchedEffect(backup) { backup?.refresh() }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 760.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -57,7 +61,33 @@ fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: Ap
         ToolsCard(state, model, scope)
         FontsCard(state.settings.fontPaths, model, scope)
         ModelsCard(state, model, scope)
+        backup?.let { BackupCard(it) }
         info?.let { AboutCard(it) }
+    }
+}
+
+/** D-27: the projects live in app storage that an uninstall deletes, so the zip goes to Download/AutoFlow. */
+@Composable
+private fun BackupCard(model: BackupModel) {
+    val state by model.state.collectAsState()
+    AfCard("Backup") {
+        AfText(
+            "Projects are saved in this app's storage. Uninstalling Auto Flow deletes them, so back up first: " +
+                "the zip goes to Download/AutoFlow and stays there after an uninstall.",
+            muted = true,
+        )
+        AfText(if (state.projects == 1) "1 project" else "${state.projects} projects", muted = true, size = 12.sp)
+        val progress = state.progress
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (progress != null) {
+                AfText("Backing up… ${(progress.fraction * 100).toInt()} %", Modifier.testTag("backup-progress"))
+                AfButton("Cancel", model::cancel, kind = ButtonKind.Danger)
+            } else {
+                AfButton("Back up all projects", model::start, kind = ButtonKind.Primary, enabled = state.projects > 0)
+                if (state.last != null) AfButton("Share…", model::share)
+            }
+        }
+        state.message?.let { AfText(it, color = AutoFlowColors.Cyan, size = 12.sp) }
     }
 }
 

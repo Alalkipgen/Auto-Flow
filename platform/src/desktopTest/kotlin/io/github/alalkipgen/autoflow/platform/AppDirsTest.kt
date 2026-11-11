@@ -19,4 +19,12 @@ class AppDirsTest {
         assertEquals("D:/af-home", AppDirs.desktop(userHome = "/home/a", override = "D:\\af-home\\").root)
         assertEquals("/home/a/.autoflow", AppDirs.desktop(userHome = "/home/a", override = " ").root)
     }
+
+    @Test
+    fun projectsHomeIsOnlySetWhereThePlatformChoosesIt() {
+        assertEquals(null, AppDirs.desktop(userHome = "/home/a", override = null).projectsHome)
+        val android = AppDirs("/data/user/0/app/files/autoflow", "/storage/emulated/0/Android/data/app/files/projects/")
+        assertEquals("/storage/emulated/0/Android/data/app/files/projects", android.projectsHome)
+        assertEquals(false, android == AppDirs("/data/user/0/app/files/autoflow"))
+    }
 }
