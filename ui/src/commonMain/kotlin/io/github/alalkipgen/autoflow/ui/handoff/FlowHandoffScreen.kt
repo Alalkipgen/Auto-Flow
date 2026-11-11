@@ -106,8 +106,7 @@ private fun HandoffCard(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("Shot ${row.number}", bold = true, size = 14.sp)
             AfText(row.timecode, muted = true, size = 12.sp)
-            StatePill(row.state)
-            if (row.accepted) StatePill(HandoffState.ACCEPTED, override = "✓ Accepted")
+            handoffBadges(row.state, row.accepted).forEach { StatePill(it) }
         }
         row.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 12.sp) }
 
@@ -211,9 +210,15 @@ private fun HandoffActions(
     }
 }
 
+/** Badges for a shot row: its handoff state, plus "✓ Accepted" once — never twice. */
+internal fun handoffBadges(state: HandoffState, accepted: Boolean): List<HandoffState> = buildList {
+    if (state != HandoffState.NONE) add(state)
+    if (accepted && state != HandoffState.ACCEPTED) add(HandoffState.ACCEPTED)
+}
+
 @Composable
-private fun StatePill(state: HandoffState, override: String? = null) {
-    val (label, color) = override?.let { it to AutoFlowColors.Green } ?: when (state) {
+private fun StatePill(state: HandoffState) {
+    val (label, color) = when (state) {
         HandoffState.NONE -> return
         HandoffState.SENT_TO_FLOW -> "→ Flow" to AutoFlowColors.Purple
         HandoffState.IMPORTED -> "Imported" to AutoFlowColors.Cyan
