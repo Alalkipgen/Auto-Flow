@@ -1,10 +1,11 @@
 package io.github.alalkipgen.autoflow.android.selftest
 
 import android.content.Context
-import android.os.SystemClock
 import androidx.work.WorkManager
 import io.github.alalkipgen.autoflow.android.render.Battery
 import io.github.alalkipgen.autoflow.android.render.ProcessToolRunner
+import io.github.alalkipgen.autoflow.android.render.RenderData
+import io.github.alalkipgen.autoflow.android.render.RenderExecution
 import io.github.alalkipgen.autoflow.android.render.RenderWorker
 import io.github.alalkipgen.autoflow.android.render.WorkManagerRenderQueue
 import io.github.alalkipgen.autoflow.android.selftest.SelfTestState.Status
@@ -38,12 +39,14 @@ import kotlinx.coroutines.withContext
  * Self-test "Render job (WorkManager)" (PLAN 1F): the real render path end to end on the phone — a [RenderGraph]
  * with crossfades, a cut, a placeholder card, the song over the clips' sound and Burmese overlays, compiled by
  * `:media` and run by [RenderWorker] through [WorkManagerRenderQueue], queued from the visible screen. The result
- * becomes the last section of the report.
+ * becomes the last section of the report. The queued render is remembered in a file, so when the app process is
+ * restarted during the render, reopening the Self-test screen follows the same render again ([resume]).
  */
 object SelfTestJob {
     private const val TITLE = "Self-test job"
     private const val FONT = "Noto Sans Myanmar"
     private const val OUTPUT = "exports/selftest-job"
+    private const val MARK = "selftest-job.txt"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Volatile private var current: String? = null
@@ -52,51 +55,89 @@ object SelfTestJob {
 
     @Volatile private var queue: WorkManagerRenderQueue? = null
 
+    private sealed interface Prepared
+
+    /** The check ended before a render was queued (no test media, cancelled). */
+    private data class Ended(val section: String) : Prepared
+
+    /** The queued render, as remembered in [MARK]. */
+    private data class Queued(val id: String, val dir: File, val startedAt: Long, val battery: String, val lowBattery: Boolean) : Prepared
+
     fun start(context: Context) {
         val app = context.applicationContext
         if (SelfTestState.ui.value.jobRunning) return
         cancelRequested = false
         SelfTestState.jobBegin()
+        report(app) {
+            when (val r = prepare(app)) {
+                is Ended -> r.section
+                is Queued -> follow(app, r, reattached = false)
+            }
+        }
+    }
+
+    /** After the app was restarted during a self-test render: follow that render again and finish the report. */
+    fun resume(context: Context) {
+        val app = context.applicationContext
+        if (SelfTestState.ui.value.jobRunning || current != null) return
+        val queued = readMark(app) ?: return
+        cancelRequested = false
+        current = queued.id
+        SelfTestState.jobBegin()
+        report(app) { follow(app, queued, reattached = true) }
+    }
+
+    fun cancel() {
+        cancelRequested = true
+        current?.let { id -> (queue ?: return).cancel(id) }
+    }
+
+    private fun report(app: Context, body: suspend () -> String) {
         scope.launch {
             val section = try {
-                run(app)
+                body()
             } catch (e: Exception) {
                 SelfTestState.step(SelfTestState.JOB_SECTION.removePrefix("## "), Status.FAILED, "${e::class.simpleName}: ${e.message}")
                 section(listOf("- Result: **CRASHED** — ${e::class.simpleName}: ${e.message}"), e.stackTraceToString().lines().take(30))
             }
             val report = SelfTestState.withJobSection(SelfTestState.currentReport(), section)
             runCatching { File(publicDir(app), SelfTestRunner.REPORT).apply { parentFile?.mkdirs() }.writeText(report) }
+            runCatching { File(app.filesDir, MARK).delete() }
             current = null
             SelfTestState.jobFinish(report)
         }
     }
 
-    fun cancel() {
-        cancelRequested = true
-        current?.let { queue?.cancel(it) }
-    }
-
-    private suspend fun run(app: Context): String {
+    /** Extracts the test media and queues the render. */
+    private suspend fun prepare(app: Context): Prepared {
         val step = SelfTestState.JOB_SECTION.removePrefix("## ")
         SelfTestState.step(step, Status.RUNNING, "preparing the test media")
         val dir = File(app.getExternalFilesDir(null) ?: app.filesDir, "selftest-job/${UUID.randomUUID()}")
         val ready = withContext(Dispatchers.IO) { SelfTestRunner.extractFixtures(app, File(dir, "in")) }
         if (!ready) {
             SelfTestState.step(step, Status.FAILED, "no test media in this APK (CI generates it)")
-            return section(listOf("- Result: **SKIPPED** — the test media (assets/selftest) is not in this APK"))
+            return Ended(section(listOf("- Result: **SKIPPED** — the test media (assets/selftest) is not in this APK")))
         }
         if (cancelRequested) {
             SelfTestState.step(step, Status.FAILED, "cancelled")
-            return section(listOf("- Result: **CANCELLED** during preparation"))
+            return Ended(section(listOf("- Result: **CANCELLED** during preparation")))
         }
-        val job = job(dir)
         val battery = Battery.read(app)
-        val q = WorkManagerRenderQueue(app, SelfTestActivity::class.java.name).also { queue = it }
-        val t0 = SystemClock.elapsedRealtime()
-        val id = q.enqueue(job).also { current = it }
+        val q = queue(app)
+        val startedAt = System.currentTimeMillis()
+        val id = q.enqueue(job(dir)).also { current = it }
+        val queued = Queued(id, dir, startedAt, battery.toString(), battery.lowWarning)
+        withContext(Dispatchers.IO) { writeMark(app, queued) }
         if (cancelRequested) q.cancel(id)
+        return queued
+    }
+
+    private suspend fun follow(app: Context, queued: Queued, reattached: Boolean): String {
+        val step = SelfTestState.JOB_SECTION.removePrefix("## ")
+        val job = job(queued.dir)
+        val q = queue(app)
         var screenOff = false
-        val final = q.observe(id).onEach { s ->
+        val final = q.observe(queued.id).onEach { s ->
             if (!DeviceInfo.interactive(app)) screenOff = true
             val detail = when (s) {
                 RenderState.Queued -> "queued"
@@ -106,21 +147,21 @@ object SelfTestJob {
             SelfTestState.step(step, Status.RUNNING, detail)
             SelfTestState.progress("$step: $detail")
         }.first { it.finished }
-        val totalMs = SystemClock.elapsedRealtime() - t0
-        val info = WorkManager.getInstance(app).getWorkInfoByIdFlow(UUID.fromString(id)).first()
+        val totalMs = System.currentTimeMillis() - queued.startedAt
+        val info = runCatching { WorkManager.getInstance(app).getWorkInfoByIdFlow(UUID.fromString(queued.id)).first() }.getOrNull()
         val lines = mutableListOf(
             "- Graph: 4 clips (8 s · placeholder card 3 s, crossfade 0.5 s · 8 s, cut · 4 s, crossfade 1 s), song over the " +
                 "clips' sound (fade in 0.5 s, out 2 s), 2 Burmese overlays (fade); ${job.graph.output.width}×${job.graph.output.height} " +
                 "Export (x264 ${job.graph.output.quality.x264Preset}, crf ${job.graph.output.quality.crf}); expected ${SelfTestReport.seconds(job.graph.durationMs)}",
         )
         var tail = emptyList<String>()
-        val partLeft = File(RenderWorker.partPath(job)).exists()
+        val partLeft = File(RenderExecution.partPath(job)).exists()
         when (final) {
             is RenderState.Done -> {
                 SelfTestState.step(step, Status.OK, "${SelfTestReport.seconds(final.wallMs)}, ${final.maxRssKb?.let { "${it / 1024} MB" } ?: "RSS n/a"}")
                 lines += "- Result: **OK** — render ${SelfTestReport.seconds(final.wallMs)} (tap → done ${SelfTestReport.seconds(totalMs)}), " +
                     "ffmpeg peak RSS ${final.maxRssKb?.let { "${it / 1024} MB" } ?: "n/a"}"
-                lines += inspect(app, dir, final, job.graph.durationMs)
+                lines += inspect(app, queued.dir, final, job.graph.durationMs)
             }
             is RenderState.Failed -> {
                 SelfTestState.step(step, Status.FAILED, final.reason)
@@ -132,12 +173,27 @@ object SelfTestJob {
                 lines += "- Result: **CANCELLED** (after ${SelfTestReport.seconds(totalMs)})"
             }
         }
-        lines += "- Half-written ${File(RenderWorker.partPath(job)).name} left behind: ${if (partLeft) "YES (bug)" else "no"}"
-        lines += "- Foreground: ${WorkManagerRenderQueue.foregroundNote(info) ?: "unknown"}"
-        lines += "- Battery at start: $battery" + if (battery.lowWarning) " — below 20 %; warning shown before this test" else ""
-        lines += "- Screen off during the render: " + if (screenOff) "yes, and it kept going" else "no"
+        lines += "- Half-written ${File(RenderExecution.partPath(job)).name} left behind: ${if (partLeft) "YES (bug)" else "no"}"
+        lines += "- Foreground: ${RenderData.foregroundNote(info) ?: "unknown"}"
+        lines += "- Battery at start: ${queued.battery}" + if (queued.lowBattery) " — below 20 %; warning shown before this test" else ""
+        lines += "- Screen off during the render: " + when {
+            reattached -> "not watched (the app was restarted; this report was picked up again when the screen reopened)"
+            screenOff -> "yes, and it kept going"
+            else -> "no"
+        }
         return section(lines, tail)
     }
+
+    private fun queue(app: Context) = queue ?: WorkManagerRenderQueue(app, SelfTestActivity::class.java.name).also { queue = it }
+
+    private fun writeMark(app: Context, q: Queued) = runCatching {
+        File(app.filesDir, MARK).writeText(listOf(q.id, q.dir.path, q.startedAt, q.battery, q.lowBattery).joinToString("\n"))
+    }
+
+    private fun readMark(app: Context): Queued? = runCatching {
+        val l = File(app.filesDir, MARK).takeIf { it.isFile }?.readLines() ?: return null
+        Queued(l[0], File(l[1]), l[2].toLong(), l[3], l[4].toBoolean())
+    }.getOrNull()
 
     /** ffprobe the export, check the side files, grab frames for the screen (Burmese text, the placeholder card). */
     private suspend fun inspect(app: Context, dir: File, done: RenderState.Done, expectedMs: Long): List<String> = withContext(Dispatchers.IO) {

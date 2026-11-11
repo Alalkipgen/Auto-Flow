@@ -52,6 +52,9 @@ android {
 
     buildFeatures { buildConfig = true }
 
+    // JVM unit tests of the render queue/worker logic with fakes (D-26); Android stubs return defaults.
+    testOptions { unitTests.isReturnDefaultValues = true }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -71,4 +74,6 @@ dependencies {
     implementation(libs.media3.common)
     // D-26: renders run one at a time in a WorkManager foreground worker.
     implementation(libs.androidx.work.runtime)
+    testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

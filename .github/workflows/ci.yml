@@ -60,6 +60,8 @@ jobs:
           else
             echo "::warning::ANDROID_KEYSTORE_B64 is not set: the APK is signed with this runner's debug key and will not install over a previous build"
           fi
+      - name: Android unit tests (render queue/worker with fakes, D-26)
+        run: chmod +x gradlew && ./gradlew :app-android:testDebugUnitTest
       - name: ffmpeg for Android (D-23) — restore the cached build
         id: ffmpeg-cache
         uses: actions/cache/restore@v4

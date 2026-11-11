@@ -57,6 +57,8 @@ class SelfTestActivity : ComponentActivity() {
         // Show the last report after the app was closed (the service may have finished in the background).
         val saved = File(File(getExternalFilesDir(null) ?: filesDir, "selftest"), SelfTestRunner.REPORT)
         runCatching { saved.takeIf { it.isFile }?.readText() }.getOrNull()?.let(SelfTestState::showSaved)
+        // A render-job check queued before the app process was restarted: follow it again.
+        SelfTestJob.resume(this)
         setContent { Screen() }
     }
 

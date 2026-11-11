@@ -11,11 +11,8 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.SystemClock
 import androidx.work.CoroutineWorker
-import androidx.work.Data
 import androidx.work.ForegroundInfo
-import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
 import io.github.alalkipgen.autoflow.media.render.FfmpegProgress
 import io.github.alalkipgen.autoflow.media.render.FfmpegRunner
@@ -31,57 +28,46 @@ import kotlinx.coroutines.delay
 /**
  * Runs one [RenderJob] (PLAN 1F) as a WorkManager foreground worker (D-26): a progress notification with Cancel,
  * keeps going with the screen off or the app in the background. The unique "render" chain in
- * [WorkManagerRenderQueue] keeps renders to one at a time. Results go back as output [Data] (≤ 10 KB).
+ * [WorkManagerRenderQueue] keeps renders to one at a time; [RenderExecution] holds the rules (cancel stops only this
+ * render, every outcome is a succeeded work so the chain goes on). The job file is the work id in [RenderJobs].
  */
 class RenderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     private val nm = context.getSystemService(NotificationManager::class.java)
     private var lastProgress = 0L
     private var lastNotify = 0L
+    private var title = ""
 
     override suspend fun doWork(): Result {
-        val jobFile = inputData.getString(KEY_JOB)?.let(::File) ?: return failure("the render job is missing", "")
-        val job = try {
-            CoreJson.decodeFromString(RenderJob.serializer(), jobFile.readText())
-        } catch (e: Exception) {
-            return failure("cannot read the render job: ${e.message}", "")
+        var foreground: String? = null
+        val outcome = try {
+            RenderExecution(RenderJobs.of(applicationContext), ::render).run(
+                id.toString(),
+                foreground = { job ->
+                    title = job.title
+                    val (note, ok) = startForeground(job.title)
+                    foreground = note
+                    ok
+                },
+                onProgress = ::onProgress,
+            )
+        } catch (e: CancellationException) {
+            throw e // stopped by WorkManager: it retries this work, the job file stays
+        } catch (e: Throwable) {
+            RenderExecution.Outcome(RenderState.Failed("the render crashed: ${e::class.simpleName}: ${e.message}"), null)
         }
-        val title = job.title
-        val foreground = startForeground(title)
-        if (!foreground.second) {
-            return failure("could not start foreground service", foreground.first)
-        }
+        nm?.cancel(ID_PROGRESS)
+        outcome.job?.let { notifyFinished(it.title, outcome.state) }
+        return Result.success(RenderData.output(outcome.state, foreground))
+    }
+
+    private suspend fun render(job: RenderJob, onProgress: (FfmpegProgress.Progress) -> Unit): RenderState {
         val tools = AndroidToolLocator(applicationContext.applicationInfo.nativeLibraryDir)
         val ffmpeg = tools.findFfmpeg()
         val ffprobe = tools.findFfprobe()
-        var state: RenderState = RenderState.Cancelled
-        try {
-            state = if (ffmpeg == null || ffprobe == null) {
-                RenderState.Failed("the bundled ffmpeg/ffprobe is not in this app (nativeLibraryDir)")
-            } else {
-                val runner = ProcessToolRunner()
-                RenderJobRunner(JvmFs(), FfmpegRunner(runner, ffmpeg), MediaProbe(runner, ffprobe)).run(job) { onProgress(title, it) }
-            }
-        } finally {
-            // A stopped or failed render must not leave a half-written file behind (the good export stays as it was).
-            if (state !is RenderState.Done) File(partPath(job)).delete()
-            nm?.cancel(ID_PROGRESS)
-        }
-        notifyFinished(title, state)
-        return when (val s = state) {
-            is RenderState.Done -> Result.success(
-                Data.Builder().putString(KEY_FOREGROUND, foreground.first).putString(KEY_OUTPUT, s.output).putLong(KEY_WALL_MS, s.wallMs)
-                    .putLong(KEY_DURATION_MS, s.durationMs).putLong(KEY_RSS_KB, s.maxRssKb ?: -1).build(),
-            )
-            is RenderState.Failed -> failure(s.reason, foreground.first, s.tail)
-            else -> failure("cancelled", foreground.first)
-        }
+        if (ffmpeg == null || ffprobe == null) return RenderState.Failed("the bundled ffmpeg/ffprobe is not in this app (nativeLibraryDir)")
+        val runner = ProcessToolRunner()
+        return RenderJobRunner(JvmFs(), FfmpegRunner(runner, ffmpeg), MediaProbe(runner, ffprobe)).run(job, onProgress)
     }
-
-    // A failed render is an application-level result: completing WorkManager work lets later queued jobs proceed.
-    private fun failure(reason: String, foreground: String, tail: List<String> = emptyList()): Result = Result.success(
-        Data.Builder().putString(KEY_REASON, reason.take(MAX_LINE * 4)).putString(KEY_FOREGROUND, foreground.take(MAX_LINE * 2))
-            .putStringArray(KEY_TAIL, tail.takeLast(MAX_TAIL).map { it.take(MAX_LINE) }.toTypedArray()).build(),
-    )
 
     /**
      * Asks WorkManager to run this worker in its foreground service (mediaProcessing on Android 15+, else dataSync)
@@ -114,12 +100,12 @@ class RenderWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             .any { it.service.className == FOREGROUND_SERVICE && it.foreground }
     }.getOrDefault(false)
 
-    private fun onProgress(title: String, p: FfmpegProgress.Progress) {
+    private fun onProgress(p: FfmpegProgress.Progress) {
         if (isStopped) return
         val now = SystemClock.elapsedRealtime()
         if (now - lastProgress >= PROGRESS_EVERY_MS || p.done) {
             lastProgress = now
-            setProgressAsync(Data.Builder().putDouble(KEY_FRACTION, p.fraction).putDouble(KEY_SPEED, p.speed ?: -1.0).build())
+            setProgressAsync(RenderData.progress(p))
         }
         if (now - lastNotify >= NOTIFY_EVERY_MS) {
             lastNotify = now
@@ -138,7 +124,8 @@ class RenderWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setProgress(100, percent ?: 0, percent == null)
-            .addAction(Notification.Action.Builder(null, "Cancel", WorkManager.getInstance(applicationContext).createCancelPendingIntent(id)).build())
+            // Not WorkManager's cancel intent: that would also cancel every render queued behind this one.
+            .addAction(Notification.Action.Builder(null, "Cancel", RenderCancelReceiver.intent(applicationContext, id.toString())).build())
             .build()
     }
 
@@ -158,43 +145,24 @@ class RenderWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         nm?.notify(ID_DONE, n)
     }
 
-    /** Opens the screen that queued the render ([KEY_OPEN]), else the app. */
+    /** Opens the screen that queued the render ([RenderData.KEY_OPEN]), else the app. */
     private fun openIntent(): PendingIntent? {
         val ctx = applicationContext
-        val intent = inputData.getString(KEY_OPEN)?.let { Intent().setClassName(ctx, it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP) }
+        val intent = inputData.getString(RenderData.KEY_OPEN)?.let { Intent().setClassName(ctx, it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP) }
             ?: ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
             ?: return null
         return PendingIntent.getActivity(ctx, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     companion object {
-        const val KEY_JOB = "job"
-        const val KEY_OPEN = "open"
-        const val KEY_FRACTION = "fraction"
-        const val KEY_SPEED = "speed"
-        const val KEY_OUTPUT = "output"
-        const val KEY_WALL_MS = "wallMs"
-        const val KEY_DURATION_MS = "durationMs"
-        const val KEY_RSS_KB = "maxRssKb"
-        const val KEY_REASON = "reason"
-        const val KEY_TAIL = "tail"
-        const val KEY_FOREGROUND = "foreground"
         private const val CHANNEL = "render"
         private const val FOREGROUND_SERVICE = "androidx.work.impl.foreground.SystemForegroundService"
         private const val ID_PROGRESS = 21
         private const val ID_DONE = 22
-        private const val MAX_TAIL = 15
-        private const val MAX_LINE = 120
         private const val MAX_SERVICES = 50
         private const val PROGRESS_EVERY_MS = 500L
         private const val NOTIFY_EVERY_MS = 1_000L
         private const val FOREGROUND_CHECK_MS = 1_500L
-
-        /** Where [RenderJobRunner] writes before the rename (`<outputName>.part.mp4`). */
-        fun partPath(job: RenderJob): String {
-            val out = if (job.outputName.startsWith("/")) job.outputName else File(job.workDir, job.outputName).path
-            return "$out.part.mp4"
-        }
 
         fun ensureChannel(context: Context) {
             val nm = context.getSystemService(NotificationManager::class.java) ?: return

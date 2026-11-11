@@ -39,6 +39,10 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync|mediaProcessing"
             tools:node="merge" />
+        <!-- D-26: the render notification's Cancel (stops that render only; the queue goes on). -->
+        <receiver
+            android:name=".android.render.RenderCancelReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>
