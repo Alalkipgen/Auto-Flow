@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
@@ -34,13 +35,15 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
 /** Inbox screen: lists `<project>/inbox/` files; lets the user attach a video or image to a shot. */
 @Composable
-fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier) {
+fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: SharedInbox? = null) {
     val state by model.state.collectAsState(model.current())
     var items by remember { mutableStateOf(emptyList<InboxItem>()) }
     var localMsg by remember { mutableStateOf<String?>(null) }
+    val sharedState = shared?.state?.collectAsState()?.value
 
-    // Refresh on first composition and when project changes
-    LaunchedEffect(state.projectName) {
+    // Refresh on first composition, when the project changes and when a share arrives (share-sheet import).
+    LaunchedEffect(state.projectName, sharedState?.arrivals) {
+        shared?.refresh()
         val refreshed = model.refresh()
         items = refreshed.items
         localMsg = refreshed.message
@@ -57,13 +60,16 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier) {
             }, kind = ButtonKind.Secondary)
         }
         state.inboxDir?.let { AfText("Folder: $it", muted = true, size = 11.sp) }
-        AfText("Drop MP4/MOV videos or PNG/JPG images here, then attach them to a shot.", muted = true, size = 12.sp)
+        AfText("Share MP4/MOV videos or PNG/JPG images to Auto Flow from another app (or copy them into this folder), then attach them to a shot.", muted = true, size = 12.sp)
 
         localMsg?.let { AfText(it, color = AutoFlowColors.Amber) }
+        if (shared != null && sharedState != null) SharedCard(shared, sharedState, projectOpen = state.projectName != null) {
+            val r = model.refresh(); items = r.items; localMsg = r.message
+        }
 
         when {
             state.projectName == null -> AfText(NO_PROJECT_TEXT, muted = true)
-            items.isEmpty() -> AfText("Inbox is empty. Copy files into the inbox folder shown above.", muted = true)
+            items.isEmpty() -> AfText("Inbox is empty. Share a video or image to Auto Flow, or copy files into the inbox folder shown above.", muted = true)
             else -> {
                 items.forEach { item ->
                     InboxItemRow(item, state.shotNumbers) { shotNumber ->
@@ -116,13 +122,38 @@ private fun InboxItemRow(
         }
         if (expanded && shotNumbers.isNotEmpty()) {
             AfText("Choose shot:", muted = true, size = 12.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            WrapRow(spacing = 6.dp) {
                 shotNumbers.forEach { n ->
                     AfButton("Shot $n", { expanded = false; onAttach(n) }, kind = ButtonKind.Secondary)
                 }
             }
         } else if (expanded) {
             AfText("No shots yet — generate a storyboard first.", muted = true, size = 12.sp)
+        }
+    }
+}
+
+/** Files shared to Auto Flow from another app: what happened, and "Move here" for files still waiting. */
+@Composable
+private fun SharedCard(shared: SharedInbox, st: SharedInboxState, projectOpen: Boolean, onMoved: () -> Unit) {
+    if (st.waiting.isEmpty() && st.message == null) return
+    Column(
+        Modifier.fillMaxWidth().clip(AutoFlowShapes.Card)
+            .border(AutoFlowShapes.Border, AutoFlowColors.Cyan, AutoFlowShapes.Card)
+            .background(AutoFlowColors.Card).padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        AfText("📥 Shared to Auto Flow", size = 13.sp, bold = true)
+        st.message?.let { AfText(it, size = 12.sp) }
+        if (st.waiting.isNotEmpty()) {
+            AfText(st.waiting.joinToString(" · "), muted = true, size = 11.sp)
+            if (projectOpen) {
+                AfButton("${SharedInbox.MOVE_BUTTON} (${st.waiting.size})", { shared.moveHere(); onMoved() }, kind = ButtonKind.Primary)
+            } else {
+                AfText(NO_PROJECT_TEXT, muted = true, size = 12.sp)
+            }
+        } else {
+            AfButton("OK", shared::dismissMessage, kind = ButtonKind.Secondary)
         }
     }
 }

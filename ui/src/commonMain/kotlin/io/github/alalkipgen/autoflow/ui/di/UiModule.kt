@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.di
 import io.github.alalkipgen.autoflow.ai.registry.AiHost
 import io.github.alalkipgen.autoflow.ai.registry.ProviderRegistry
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
@@ -19,6 +20,7 @@ import io.github.alalkipgen.autoflow.ui.settings.loadModelConfig
 import io.github.alalkipgen.autoflow.ui.export.ExportModel
 import io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffModel
 import io.github.alalkipgen.autoflow.ui.inbox.InboxModel
+import io.github.alalkipgen.autoflow.ui.inbox.SharedInbox
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
@@ -57,6 +59,7 @@ val uiModule = module {
     factory { ShotsModel(get()) }
     factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get()) }
     factory { InboxModel(session = get(), fs = get()) }
+    single { SharedInbox(get(), get(), joinPath(get<AppDirs>().projectsHome ?: get<AppDirs>().root, SharedInbox.DIR_NAME)) }
     factory {
         val cfg = get<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()
         FlowHandoffModel(

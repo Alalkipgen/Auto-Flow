@@ -23,6 +23,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -89,6 +90,10 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val shellState by shell.state.collectAsState(shell.current())
     val jobs = koinInject<StoryboardJobs>()
     var screen by remember { mutableStateOf("Dashboard") }
+    // A share from another app (Android share sheet) lands in the Inbox: open it.
+    val shared = koinInject<io.github.alalkipgen.autoflow.ui.inbox.SharedInbox>()
+    val arrivals = shared.state.collectAsState().value.arrivals
+    LaunchedEffect(arrivals) { if (arrivals > 0) screen = "Inbox" }
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
     val backup = koinInject<BackupModel>().takeIf { it.available }
@@ -126,7 +131,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                         readBytes = { path -> try { fs.read(path) } catch (e: Exception) { null } },
                     )
                 }
-                "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject())
+                "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
                 "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
                 "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
                 MORE -> MoreScreen(shellState.locks, onSelect = { screen = it })
