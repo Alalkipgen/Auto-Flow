@@ -193,3 +193,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 Q-09 (a) song import: Input → "သီချင်းဖိုင် ထည့်မယ်" copies the song to `source/song.<ext>` and sets the duration from ffprobe; `SongImportTest`.
 - 2026-11-11 Q-09 (b) project → RenderGraph: `:media` `ProjectRender` builds the Export graph/job from the shots, the song and the lyrics; `ProjectRenderTest`.
 - 2026-11-11 Q-09 (c) Export screen: Preview 540p / Export 1080p through the render queue with progress, Cancel, Open and Share…, battery warning; `FileShare` + Android `FileProvider`; `ExportModelTest`.
+- 2026-11-11 Release v0.1.11: song import, Export screen (Preview 540p / Export 1080p, Open / Share), Q-09 phone test; versionName 0.1.11.
