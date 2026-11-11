@@ -36,6 +36,9 @@ class FakeBackup : ProjectBackup {
         shared += result
         return shareResult
     }
+
+    override fun restore(zipPath: String, destDir: String): PlatformResult<List<String>> =
+        PlatformResult.Ok(listOf("Test.autoflow"))
 }
 
 class BackupModelTest {
