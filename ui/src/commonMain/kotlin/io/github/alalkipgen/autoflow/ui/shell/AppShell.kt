@@ -78,7 +78,7 @@ fun App() {
     var screen by remember { mutableStateOf("Dashboard") }
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
-    val backup = remember(koin) { koin.get<BackupModel>().takeIf { it.available } }
+    val backup = koinInject<BackupModel>().takeIf { it.available }
     AppShell(
         status,
         selected = screen,
