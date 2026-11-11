@@ -2,10 +2,12 @@ package io.github.alalkipgen.autoflow.platform
 
 import java.io.File
 import java.io.FilterOutputStream
+import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Files
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -86,6 +88,41 @@ object ProjectZip {
         zip.finish()
         zip.flush()
         return counted.count
+    }
+
+    /**
+     * Extracts a backup zip from [input] into [destDir] (the projects home folder).
+     * Returns the list of project folder names that were restored.
+     * Skips the manifest entry and `.cache/` entries.
+     * Throws on I/O error; caller is responsible for cleanup on exception.
+     */
+    fun restore(input: InputStream, destDir: File): List<String> {
+        val restored = mutableSetOf<String>()
+        val zip = ZipInputStream(input)
+        val buffer = ByteArray(CHUNK)
+        var entry = zip.nextEntry
+        while (entry != null) {
+            if (!entry.isDirectory && entry.name != MANIFEST && !entry.name.contains("/$CACHE_DIR/")) {
+                val parts = entry.name.split('/', limit = 2)
+                val projectFolder = parts[0]
+                val relativePath = parts.getOrElse(1) { "" }
+                if (projectFolder.isNotBlank() && relativePath.isNotBlank()) {
+                    val dest = File(destDir, entry.name)
+                    dest.parentFile?.mkdirs()
+                    dest.outputStream().use { out ->
+                        while (true) {
+                            val n = zip.read(buffer)
+                            if (n < 0) break
+                            out.write(buffer, 0, n)
+                        }
+                    }
+                    restored += projectFolder
+                }
+            }
+            zip.closeEntry()
+            entry = zip.nextEntry
+        }
+        return restored.sorted()
     }
 
     fun manifest(plan: Plan, createdAt: String): String = buildJsonObject {

@@ -68,6 +68,7 @@ dependencies {
     implementation(project(":platform"))
     implementation(project(":ui"))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.koin.android)
     // D-23: Self-test fallback when exec of the bundled ffmpeg is blocked on a device.
     implementation(libs.media3.transformer)
     implementation(libs.media3.effect)

@@ -45,7 +45,7 @@ val uiModule = module {
     single { ProjectIndex(get(), get<AppDirs>().projectsIndex) }
     single { CurrentProject() }
     factory { DashboardModel(get(), get(), get(), get(), get(), get(), get<AppDirs>().projectsHome) }
-    single { BackupModel(getOrNull(), get(), get(), MainScope()) }
+    single { BackupModel(getOrNull(), get(), get(), MainScope(), filePicker = getOrNull(), appDirs = getOrNull()) }
     single { ProjectSession(get(), get(), get(), get()) }
     single { StoryboardService(get(), get()) }
     single { StoryboardJobs(get(), MainScope()) }

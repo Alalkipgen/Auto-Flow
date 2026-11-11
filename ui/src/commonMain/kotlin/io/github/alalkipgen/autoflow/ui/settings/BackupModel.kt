@@ -3,9 +3,11 @@ package io.github.alalkipgen.autoflow.ui.settings
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.platform.BackupProgress
 import io.github.alalkipgen.autoflow.platform.BackupProject
 import io.github.alalkipgen.autoflow.platform.BackupResult
+import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.ProjectBackup
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
@@ -38,6 +40,8 @@ class BackupModel(
     private val index: ProjectIndex,
     private val fs: FileSystem,
     private val scope: CoroutineScope,
+    private val filePicker: FilePicker? = null,
+    private val appDirs: AppDirs? = null,
 ) {
     val available: Boolean get() = backup != null
 
@@ -81,6 +85,33 @@ class BackupModel(
 
     fun cancel() {
         job?.cancel()
+    }
+
+    /** Restore = pick a zip → extract into projectsHome. The Dashboard auto-discovers restored folders on next open. */
+    fun restore() {
+        val b = backup ?: run { _state.update { it.copy(message = "Restore not available on this platform") }; return }
+        val picker = filePicker ?: run { _state.update { it.copy(message = "File picker not available") }; return }
+        val dest = appDirs?.projectsHome ?: run { _state.update { it.copy(message = "Projects folder not set") }; return }
+        if (job?.isActive == true) return
+        job = scope.launch {
+            _state.update { it.copy(progress = BackupProgress(0, 1), message = null) }
+            val paths = when (val r = picker.pickFiles("Restore from backup", extensions = setOf("zip"))) {
+                is PlatformResult.Ok -> r.value
+                is PlatformResult.Failed -> { _state.update { it.copy(progress = null, message = r.reason) }; return@launch }
+                is PlatformResult.Unsupported -> { _state.update { it.copy(progress = null, message = r.reason) }; return@launch }
+            }
+            val path = paths.firstOrNull() ?: run { _state.update { it.copy(progress = null) }; return@launch }
+            when (val r = b.restore(path, dest)) {
+                is PlatformResult.Ok -> {
+                    val names = r.value
+                    val msg = if (names.isEmpty()) "No projects found in the zip"
+                              else "Restored: ${names.joinToString(", ")}. Go to Projects to open them."
+                    _state.update { it.copy(progress = null, message = msg) }
+                }
+                is PlatformResult.Failed -> _state.update { it.copy(progress = null, message = r.reason) }
+                is PlatformResult.Unsupported -> _state.update { it.copy(progress = null, message = r.reason) }
+            }
+        }
     }
 
     fun share() {

@@ -87,6 +87,7 @@ private fun BackupCard(model: BackupModel) {
             } else {
                 AfButton("Back up all projects", model::start, kind = ButtonKind.Primary, enabled = state.projects > 0)
                 if (state.last != null) AfButton("Share…", model::share)
+                AfButton("Restore from backup…", model::restore, kind = ButtonKind.Secondary)
             }
         }
         state.message?.let { AfText(it, color = AutoFlowColors.Cyan, size = 12.sp) }

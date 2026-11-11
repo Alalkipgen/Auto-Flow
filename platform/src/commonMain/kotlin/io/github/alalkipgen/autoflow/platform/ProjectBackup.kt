@@ -24,4 +24,10 @@ interface ProjectBackup {
 
     /** Opens the share sheet for [result] (Drive, Gmail, Telegram, Quick Share…). */
     fun share(result: BackupResult): PlatformResult<Unit>
+
+    /**
+     * Restores a backup zip at [zipPath] into [destDir]. Returns the list of restored project folder names.
+     * [zipPath] is a plain file path (already copied from the content URI by the file picker).
+     */
+    fun restore(zipPath: String, destDir: String): PlatformResult<List<String>>
 }
