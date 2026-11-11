@@ -70,6 +70,8 @@ val uiModule = module {
             flowUrl = cfg.flow.url,
             creditHintFast = cfg.flow.creditsHint["fast"] ?: 20,
             creditHintQuality = cfg.flow.creditsHint["quality"] ?: 100,
+            fs = get(),
+            fileShare = getOrNull(),
         )
     }
     single { ShellModel(get()) }

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.HandoffState
 import io.github.alalkipgen.autoflow.core.model.Pass
 import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
@@ -68,6 +69,7 @@ fun FlowHandoffScreen(
             state.rows.isEmpty() -> AfText("No shots yet — generate a storyboard first.", muted = true)
             else -> {
                 CreditCounter(state, model)
+                BatchPanel(state, model)
                 state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
                 state.rows.forEach { row ->
                     HandoffCard(row, compact, model, importVideo = {
@@ -150,6 +152,10 @@ private fun HandoffCard(
                     AfText(label, color = if (on) AutoFlowColors.Purple else AutoFlowColors.Muted, size = 11.sp)
                 }
             }
+        }
+
+        if (row.batchable) {
+            AfChip((if (row.inBatch) "☑ " else "☐ ") + IN_BATCH_CHIP, row.inBatch, { model.toggleBatch(row.number) })
         }
 
         // Actions
@@ -246,6 +252,38 @@ private fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
         }
     }
 }
+
+/** Batch handoff sheet (DESIGN.md §6): ticked pending shots → one offline HTML page with prompts, refs, Copy buttons. */
+@Composable
+private fun BatchPanel(state: FlowHandoffUiState, model: FlowHandoffModel) {
+    val pending = state.rows.count { it.batchable }
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(AutoFlowShapes.Card)
+            .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+            .background(AutoFlowColors.Panel)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        AfText(batchSummary(state.batchCount, pending), size = 13.sp, bold = true)
+        WrapRow {
+            AfButton(EXPORT_BATCH_BUTTON, { model.exportBatch() }, kind = ButtonKind.Primary, enabled = state.batchCount > 0)
+            if (state.lastBatch != null) {
+                AfButton(OPEN_BATCH_BUTTON, { model.openBatch() }, kind = ButtonKind.Flow)
+                AfButton(SHARE_BATCH_BUTTON, { model.shareBatch() }, kind = ButtonKind.Secondary)
+            }
+        }
+    }
+}
+
+internal fun batchSummary(ticked: Int, pending: Int): String =
+    if (pending == 0) "Batch sheet — no pending shots (compile prompts and approve refs first)"
+    else "Batch sheet — $ticked of $pending pending shot${if (pending == 1) "" else "s"} ticked"
+
+internal const val EXPORT_BATCH_BUTTON = "Export batch sheet (HTML)"
+internal const val OPEN_BATCH_BUTTON = "Open sheet ↗"
+internal const val SHARE_BATCH_BUTTON = "Share sheet"
+internal const val IN_BATCH_CHIP = "In batch sheet"
 
 internal fun creditSummary(today: Int, month: Int): String = "Flow credits — today $today · this month $month"
 

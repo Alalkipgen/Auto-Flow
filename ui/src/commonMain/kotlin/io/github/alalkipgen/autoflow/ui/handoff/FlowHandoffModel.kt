@@ -15,7 +15,10 @@ import io.github.alalkipgen.autoflow.core.prompt.VeoFlowDialect
 import io.github.alalkipgen.autoflow.core.workflow.Inputs
 import io.github.alalkipgen.autoflow.core.workflow.ShotStatus
 import io.github.alalkipgen.autoflow.core.workflow.WorkflowRules
+import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.platform.Clipboard
+import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.UrlOpener
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
@@ -48,6 +51,10 @@ data class HandoffRow(
     val askCredits: Boolean = false,
     /** The suggested value for this shot's pass: Draft → Fast hint, Final → Quality hint. */
     val creditDefault: Int = 20,
+    /** Pending for the batch sheet: compiled prompt, handoff gate passed, no accepted video yet. */
+    val batchable: Boolean = false,
+    /** Ticked for the next batch sheet (pending shots start ticked). */
+    val inBatch: Boolean = false,
 )
 
 /** One line of the manual credit log, newest first; [index] is its position in `flowCredits.manualLog`. */
@@ -67,6 +74,10 @@ data class FlowHandoffUiState(
     val creditsMonth: Int = 0,
     /** This month's log, newest first. */
     val creditLog: List<CreditLogRow> = emptyList(),
+    /** Shots ticked for the batch sheet. */
+    val batchCount: Int = 0,
+    /** The last batch sheet written, relative to the project folder (`packages/batch-….html`). */
+    val lastBatch: String? = null,
 )
 
 /**
@@ -82,14 +93,18 @@ class FlowHandoffModel(
     private val creditHintFast: Int = 20,
     private val creditHintQuality: Int = 100,
     private val nowMs: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    private val fs: FileSystem? = null,
+    private val fileShare: FileShare? = null,
 ) {
+    private data class BatchLocal(val unticked: Set<Int> = emptySet(), val last: String? = null)
+    private val _batch = MutableStateFlow(BatchLocal())
     private val _selected = MutableStateFlow<Int?>(null)
     private val _message = MutableStateFlow<String?>(null)
     /** Shot number → video count when the user chose Skip; the question comes back after the next import. */
     private val _skipped = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val message = _message.asStateFlow()
     val state: Flow<FlowHandoffUiState> =
-        combine(session.state, _selected, _message, _skipped) { open, _, _, _ -> build(open?.project) }
+        combine(session.state, _selected, _message, _skipped, _batch) { open, _, _, _, _ -> build(open?.project) }
 
     fun current(): FlowHandoffUiState = build(session.open?.project)
 
@@ -217,6 +232,70 @@ class FlowHandoffModel(
         }
     }
 
+    /** Tick / untick shot [number] for the batch sheet. */
+    fun toggleBatch(number: Int) {
+        val b = _batch.value
+        _batch.value = b.copy(unticked = if (number in b.unticked) b.unticked - number else b.unticked + number)
+    }
+
+    /**
+     * Write the batch sheet (specs/flow-handoff.md): `packages/batch-<date>.html` with every ticked pending shot —
+     * prompt, chosen reference image inline, Copy buttons. Handoff states do not change (Copy Prompt does that).
+     */
+    fun exportBatch() {
+        val open = session.open ?: run { _message.value = "No project open"; return }
+        val disk = fs ?: run { _message.value = "Saving files is not available here"; return }
+        val project = open.project
+        val artifacts = session.artifacts() ?: return
+        val ticked = build(project).rows.filter { it.inBatch }.map { it.number }.toSet()
+        if (ticked.isEmpty()) { _message.value = "Tick at least one pending shot for the batch sheet"; return }
+        val shots = project.shots.filter { it.number in ticked }.mapNotNull { shot ->
+            val ir = readPromptIr(shot) ?: return@mapNotNull null
+            val ref = shot.chosenRef?.let { id -> (artifacts.get(id) as? CoreResult.Ok)?.value }
+            val bytes = shot.chosenRef?.let { (artifacts.readBytes(it) as? CoreResult.Ok)?.value }
+            BatchShot(
+                number = shot.number,
+                timecode = ShotsModel.formatMs(shot.startMs),
+                durationMs = shot.durationMs,
+                pass = if (shot.handoff.pass == Pass.FINAL) "Final (Quality)" else "Draft (Fast)",
+                lyric = shot.lyricsMy,
+                prompt = VeoFlowDialect.render(ir),
+                image = bytes,
+                imageExt = ref?.file?.substringAfterLast('.') ?: "png",
+            )
+        }
+        val date = today()
+        val folder = joinPath(open.dir, PACKAGES_DIR)
+        val html = BatchSheet.html(project.name, project.settings.ratio.label, date, shots)
+        val name = BatchSheet.fileName(date) { disk.exists(joinPath(folder, it)) }
+        try {
+            disk.createDirectories(folder)
+            disk.writeDurably(joinPath(folder, name), html.encodeToByteArray())
+        } catch (e: Exception) {
+            _message.value = "Could not save the batch sheet: ${e.message}"
+            return
+        }
+        _batch.value = _batch.value.copy(last = "$PACKAGES_DIR/$name")
+        _message.value = "Batch sheet saved: $PACKAGES_DIR/$name (${shots.size} shot${if (shots.size == 1) "" else "s"}). Open it in a browser next to Flow."
+    }
+
+    /** Open the last batch sheet in a browser. */
+    fun openBatch() = withBatch { path, share -> share.open(path, HTML_MIME) }
+
+    /** Send the last batch sheet to another app or device (share sheet). */
+    fun shareBatch() = withBatch { path, share -> share.share(path, HTML_MIME, "Batch sheet") }
+
+    private fun withBatch(action: (String, FileShare) -> io.github.alalkipgen.autoflow.platform.PlatformResult<Unit>) {
+        val dir = session.open?.dir ?: return
+        val last = _batch.value.last ?: return
+        val share = fileShare ?: run { _message.value = "Opening files is not available here"; return }
+        when (val r = action(joinPath(dir, last), share)) {
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> Unit
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> _message.value = r.reason
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> _message.value = r.reason
+        }
+    }
+
     private fun today(): String = io.github.alalkipgen.autoflow.ai.usage.UsageCounter.quotaDay(nowMs())
 
     private fun readPromptIr(shot: Shot): PromptIR? =
@@ -227,6 +306,7 @@ class FlowHandoffModel(
         val lookup = session.lookup()
         val log = project.flowCredits.manualLog
         val skipped = _skipped.value
+        val batch = _batch.value
         val rows = project.shots.map { shot ->
             val entries = log.count { it.shot == shot.number }
             val ir = readPromptIr(shot)
@@ -249,7 +329,8 @@ class FlowHandoffModel(
                 askCredits = shot.videos.isNotEmpty() && entries < shot.videos.size &&
                     (skipped[shot.number] ?: -1) < shot.videos.size,
                 creditDefault = if (shot.handoff.pass == Pass.FINAL) creditHintQuality else creditHintFast,
-            )
+                batchable = ir != null && gate.allowed && shot.acceptedVideo == null,
+            ).let { it.copy(inBatch = it.batchable && shot.number !in batch.unticked) }
         }
         val day = today()
         val month = day.take(7)
@@ -265,12 +346,16 @@ class FlowHandoffModel(
             creditsMonth = log.filter { it.date.startsWith(month) }.sumOf { it.credits },
             creditLog = log.mapIndexed { i, e -> CreditLogRow(i, e.date, e.shot, e.credits) }
                 .filter { it.date.startsWith(month) }.asReversed(),
+            batchCount = rows.count { it.inBatch },
+            lastBatch = batch.last,
         )
     }
 
     companion object {
         /** Sanity limit for one entry (a Quality generation is about 100). */
         const val MAX_CREDITS = 10_000
+        const val PACKAGES_DIR = "packages"
+        const val HTML_MIME = "text/html"
     }
 
     private fun io.github.alalkipgen.autoflow.core.workflow.Blocker.handoffMsg(): String = when (this) {
