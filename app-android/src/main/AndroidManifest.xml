@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Self-test (PLAN S6): renders keep running with the screen off, with a progress notification. -->
@@ -33,6 +34,11 @@
             android:name=".android.selftest.SelfTestService"
             android:exported="false"
             android:foregroundServiceType="dataSync|mediaProcessing" />
+        <!-- D-26: the render worker's foreground service (WorkManager declares it without a type). -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync|mediaProcessing"
+            tools:node="merge" />
     </application>
 
 </manifest>

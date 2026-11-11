@@ -206,15 +206,7 @@ class SelfTestRunner(
 
     /** Copies assets/selftest/ (CI fixtures, tools/selftest-fixtures.sh) to the cache; null when the APK has none. */
     private fun extractFixtures(): SelfTestRenders.Inputs? {
-        fun copy(path: String, to: File): Boolean {
-            val children = context.assets.list(path).orEmpty()
-            if (children.isEmpty()) {
-                return runCatching { context.assets.open(path).use { i -> to.outputStream().use { i.copyTo(it) } }; true }.getOrDefault(false)
-            }
-            to.mkdirs()
-            return children.all { copy("$path/$it", File(to, it)) }
-        }
-        if (!copy(FIXTURES, inDir)) return null
+        if (!extractFixtures(context, inDir)) return null
         val i = SelfTestRenders.Inputs(
             clip1 = File(inDir, "clip1.mp4").path,
             clip2 = File(inDir, "clip2.mp4").path,
@@ -233,6 +225,19 @@ class SelfTestRunner(
         private const val RENDER_TIMEOUT_MS = 20 * 60_000L
         private const val SHORT_TIMEOUT_MS = 60_000L
         private val TIME = Regex("""time=(\d+):(\d+):(\d+(?:\.\d+)?)""")
+
+        /** Copies assets/selftest/ (clip1.mp4, clip2.mp4, song.mp3, lyrics.ass, fonts/) into [to]; false when missing. */
+        fun extractFixtures(context: Context, to: File): Boolean {
+            fun copy(path: String, to: File): Boolean {
+                val children = context.assets.list(path).orEmpty()
+                if (children.isEmpty()) {
+                    return runCatching { context.assets.open(path).use { i -> to.outputStream().use { i.copyTo(it) } }; true }.getOrDefault(false)
+                }
+                to.mkdirs()
+                return children.all { copy("$path/$it", File(to, it)) }
+            }
+            return copy(FIXTURES, to)
+        }
 
         /** Decodes a frame PNG for the on-screen thumbnail. */
         fun thumbnail(path: String) = runCatching { BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = 2 }) }.getOrNull()

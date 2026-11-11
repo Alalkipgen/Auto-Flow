@@ -2,8 +2,10 @@ package io.github.alalkipgen.autoflow.android
 
 import android.app.Application
 import io.github.alalkipgen.autoflow.BuildConfig
+import io.github.alalkipgen.autoflow.android.render.WorkManagerRenderQueue
 import io.github.alalkipgen.autoflow.android.selftest.SelfTestActivity
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.media.render.RenderQueue
 import io.github.alalkipgen.autoflow.platform.AndroidClipboard
 import io.github.alalkipgen.autoflow.platform.AndroidToolLocator
 import io.github.alalkipgen.autoflow.platform.AndroidUrlOpener
@@ -31,6 +33,8 @@ fun androidModule(app: Application) = module {
     single<UrlOpener> { AndroidUrlOpener(app) }
     single<FilePicker> { UnsupportedFilePicker() }
     single<ToolLocator> { AndroidToolLocator(app.applicationInfo.nativeLibraryDir) }
+    // PLAN 1F / D-26: renders run one at a time in a WorkManager foreground worker.
+    single<RenderQueue> { WorkManagerRenderQueue(app) }
     single { BundledConfig { app.assets.open("models.json").use { it.readBytes().decodeToString() } } }
     single { AppInfo("${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_SHA})") { SelfTestActivity.open(app) } }
 }

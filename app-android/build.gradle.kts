@@ -69,4 +69,6 @@ dependencies {
     implementation(libs.media3.transformer)
     implementation(libs.media3.effect)
     implementation(libs.media3.common)
+    // D-26: renders run one at a time in a WorkManager foreground worker.
+    implementation(libs.androidx.work.runtime)
 }
