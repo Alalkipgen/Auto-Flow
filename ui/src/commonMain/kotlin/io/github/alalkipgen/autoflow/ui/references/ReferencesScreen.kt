@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
@@ -123,7 +124,8 @@ private fun RefCard(
             }
         } ?: AfText("No compiled prompt — compile it on the Shots screen.", muted = true, size = 12.sp)
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Wraps: three buttons do not fit a phone row, and a squeezed last button grew tall and invisible.
+        WrapRow {
             AfButton("📋 Copy Image Prompt", { model.copyImagePrompt(row.number) },
                 kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null)
             AfButton("📂 Import Image", importRef, kind = ButtonKind.Secondary)
