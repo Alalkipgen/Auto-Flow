@@ -58,3 +58,13 @@ object BatteryGuard {
 
     fun shouldWarn(percent: Int?, charging: Boolean): Boolean = percent != null && percent < LOW_PERCENT && !charging
 }
+
+/** Battery level and charger state; [percent] null = unknown. */
+data class BatteryReading(val percent: Int?, val charging: Boolean) {
+    val lowWarning: Boolean get() = BatteryGuard.shouldWarn(percent, charging)
+}
+
+/** Reads the battery for the Export screen's [BatteryGuard] warning (Android binds it; desktop has none). */
+fun interface BatteryReader {
+    fun read(): BatteryReading
+}

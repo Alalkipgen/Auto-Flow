@@ -127,6 +127,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                     )
                 }
                 "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject())
+                "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
                 "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
                 MORE -> MoreScreen(shellState.locks, onSelect = { screen = it })
                 else -> ScreenPlaceholder(current)
