@@ -29,6 +29,7 @@ import io.github.alalkipgen.autoflow.core.workflow.ShotStatus
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.VideoPreview
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
@@ -189,7 +190,7 @@ private fun ShotDetailPanel(detail: ShotDetail, model: ShotsModel) {
                     AfText(detail.promptText, size = 12.sp)
                 }
                 val approveLabel = if (detail.approvedPrompt) "✓ Approved" else "✓ Approve Prompt"
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WrapRow {
                     AfButton(approveLabel,
                         { model.approvePrompt(detail.number, !detail.approvedPrompt) },
                         kind = if (detail.approvedPrompt) ButtonKind.Primary else ButtonKind.Secondary,

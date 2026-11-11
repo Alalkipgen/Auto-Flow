@@ -104,7 +104,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
         backHandler(back != null) { back?.let { screen = it } }
         val top: @Composable () -> Unit = {
             JobBanner(jobs)
-            if (current in ShellModel.SCREEN_STEPS && shellState.steps.isNotEmpty()) Stepper(shellState.steps)
+            if (current in ShellModel.SCREEN_STEPS && shellState.steps.isNotEmpty()) Stepper(shellState.steps, viewing = ShellModel.SCREEN_STEPS[current])
         }
         val content: @Composable () -> Unit = {
             when (current) {

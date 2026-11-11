@@ -50,7 +50,7 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             AfText("${state.shots} shots · ${InputModel.formatDuration(state.durationMs)}")
             val pending = state.shots - state.accepted
             AfText(
-                "${state.accepted} accepted videos" + if (pending > 0) " · $pending show as \"pending\" cards" else "",
+                "${state.accepted} accepted video" + (if (state.accepted == 1) "" else "s") + if (pending > 0) " · $pending show as \"pending\" cards" else "",
                 color = if (pending > 0) AutoFlowColors.Amber else null,
             )
             AfText(

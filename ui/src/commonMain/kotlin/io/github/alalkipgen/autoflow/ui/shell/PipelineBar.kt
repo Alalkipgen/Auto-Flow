@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.core.workflow.PipelineStep
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
@@ -47,11 +48,15 @@ fun JobBanner(jobs: StoryboardJobs, modifier: Modifier = Modifier) {
     }
 }
 
-/** Pipeline stepper (mockup `.steps`): ✓ for done steps, the current step highlighted, the rest numbered. */
+/**
+ * Pipeline stepper (mockup `.steps`): ✓ for done steps, the current step highlighted, the rest numbered.
+ * [viewing] is the step of the open screen: the phone stepper names it (DESIGN.md §2: the selected step is
+ * highlighted), so Export no longer reads "Step 3 of 6: Prompts" while some shots still wait for a prompt.
+ */
 @Composable
-fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier) {
+fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier, viewing: PipelineStep? = null) {
     if (LocalCompact.current) {
-        CompactStepper(steps, modifier)
+        CompactStepper(steps, modifier, viewing)
         return
     }
     val cell = RoundedCornerShape(8.dp)
@@ -91,10 +96,13 @@ fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier) {
     }
 }
 
-/** Phone stepper: "Step 2 of 6: Storyboard" over one bar per step (green done, purple current) — six cells do not fit. */
+/**
+ * Phone stepper: "Step 2 of 6: Storyboard" (the open screen's step, else the project's current one) over one bar
+ * per step (green done, purple the named step) — six cells do not fit.
+ */
 @Composable
-private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier) {
-    val at = steps.indexOfFirst { it.current }
+private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier, viewing: PipelineStep? = null) {
+    val at = steps.indexOfFirst { it.step == viewing }.takeIf { it >= 0 } ?: steps.indexOfFirst { it.current }
     Column(
         modifier
             .padding(start = 14.dp, end = 14.dp, top = 10.dp)
@@ -111,9 +119,9 @@ private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier)
             bold = true,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            steps.forEach { s ->
+            steps.forEachIndexed { i, s ->
                 val color = when {
-                    s.current -> AutoFlowColors.Purple
+                    i == at -> AutoFlowColors.Purple
                     s.done -> AutoFlowColors.Green
                     else -> AutoFlowColors.Line
                 }
@@ -122,7 +130,7 @@ private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier)
                         .weight(1f)
                         .height(4.dp)
                         .background(color, RoundedCornerShape(2.dp))
-                        .semantics { stateDescription = "${s.label} " + if (s.current) "current" else if (s.done) "done" else "to do" },
+                        .semantics { stateDescription = "${s.label} " + if (i == at) "current" else if (s.done) "done" else "to do" },
                 )
             }
         }
