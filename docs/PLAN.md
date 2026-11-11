@@ -84,7 +84,7 @@ Phone run (v0.1.11, 2026-11-12, project "ဟယ်လို"): create → storyb
 - [ ] Lyrics timing via Gemini transcription (fallback: manual tap-to-sync)
 - [ ] Draft (Fast) / Final (Quality) two-pass per shot
 - [ ] Batch handoff sheet (HTML export of all pending shots)
-- [ ] Flow credit manual counter
+- [x] Flow credit manual counter — Flow Handoff: "Flow credits — today N · this month M" panel (quota day = Pacific midnight, same as `UsageCounter`) with the month's log, newest first, and ✕ to remove a wrong line; after each video import the shot asks "Credits used in Flow for this video?" with `[20] (Fast)` / `[100] (Quality)` (from `config/models.json` `flow.creditsHint`; the shot's pass picks the highlighted one) / custom / Skip; "Log Credits…" adds more later; entries go to `flowCredits.manualLog` (1–10 000 per line); `FlowCreditsTest`, `FlowHandoffScreenTest`.
 - [ ] Version browser per shot (artifact history)
 - [ ] Beat detection → snap cut points (optional)
 
@@ -204,3 +204,4 @@ Phone run (v0.1.11, 2026-11-12, project "ဟယ်လို"): create → storyb
 - 2026-11-12 1F share-sheet import → Inbox: share videos/images to Auto Flow from another app; they land in the open project's inbox (`SharedInbox`, Android `SharedReceiver`); `SharedInboxTest`.
 - 2026-11-12 Desktop Export: `InProcessRenderQueue` renders in the app process (one at a time), `DesktopFileShare` opens the result; `InProcessRenderQueueTest`.
 - 2026-11-12 Phase 2 Character Bible: Input → Characters card (token, Burmese name, English description) saved into `project.characters`; `CharacterBible` rules; Q-10 opened (prompts are not marked stale when a character changes).
+- 2026-11-12 Phase 2 Flow credit counter: today / this month panel, editable log, "Credits used?" after each import (Fast / Quality / custom / Skip).

@@ -29,7 +29,9 @@ import io.github.alalkipgen.autoflow.core.model.HandoffState
 import io.github.alalkipgen.autoflow.core.model.Pass
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
@@ -65,11 +67,12 @@ fun FlowHandoffScreen(
             state.projectName == null -> AfText(NO_PROJECT_TEXT, muted = true)
             state.rows.isEmpty() -> AfText("No shots yet — generate a storyboard first.", muted = true)
             else -> {
+                CreditCounter(state, model)
                 state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
                 state.rows.forEach { row ->
                     HandoffCard(row, compact, model, importVideo = {
                         scope.launch { model.pickAndImportVideo(row.number) { readBytes(it) } }
-                    })
+                    }, fast = state.creditHintFast, quality = state.creditHintQuality)
                 }
             }
         }
@@ -82,6 +85,8 @@ private fun HandoffCard(
     compact: Boolean,
     model: FlowHandoffModel,
     importVideo: () -> Unit,
+    fast: Int,
+    quality: Int,
 ) {
     var showCredits by remember(row.number) { mutableStateOf(false) }
     var creditInput by remember(row.number) { mutableStateOf("") }
@@ -148,30 +153,16 @@ private fun HandoffCard(
         }
 
         // Actions
-        if (compact) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                HandoffActions(row, model, importVideo, showCredits, creditInput,
-                    onShowCredits = { showCredits = true },
-                    onCreditChange = { creditInput = it },
-                    onCreditSave = { credits ->
-                        credits.toIntOrNull()?.let { model.logCredits(row.number, it) }
-                        showCredits = false
-                        creditInput = ""
-                    },
-                )
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                HandoffActions(row, model, importVideo, showCredits, creditInput,
-                    onShowCredits = { showCredits = true },
-                    onCreditChange = { creditInput = it },
-                    onCreditSave = { credits ->
-                        credits.toIntOrNull()?.let { model.logCredits(row.number, it) }
-                        showCredits = false
-                        creditInput = ""
-                    },
-                )
-            }
+        WrapRow {
+            HandoffActions(row, model, importVideo, showCredits = showCredits, onShowCredits = { showCredits = true })
+        }
+        if (row.askCredits || showCredits) {
+            CreditQuestion(row, model, creditInput, onCreditChange = { creditInput = it }, fast, quality, onDone = {
+                showCredits = false
+                creditInput = ""
+            })
+        } else if (row.creditsLogged > 0) {
+            AfText("Credits logged: ${row.creditsLogged}", muted = true, size = 11.sp)
         }
     }
 }
@@ -182,10 +173,7 @@ private fun HandoffActions(
     model: FlowHandoffModel,
     importVideo: () -> Unit,
     showCredits: Boolean,
-    creditInput: String,
     onShowCredits: () -> Unit,
-    onCreditChange: (String) -> Unit,
-    onCreditSave: (String) -> Unit,
 ) {
     val hasPrompt = row.promptText != null
     AfButton("📋 Copy Prompt", { model.copyPrompt(row.number) },
@@ -196,19 +184,74 @@ private fun HandoffActions(
     if (row.videoCount > 0 && !row.accepted) {
         AfButton("✓ Accept Video", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
     }
-    if (row.state == HandoffState.IMPORTED && !showCredits) {
-        AfButton("Log Credits…", onShowCredits, kind = ButtonKind.Secondary)
-    }
-    if (showCredits) {
-        io.github.alalkipgen.autoflow.ui.components.AfTextField(
-            value = creditInput,
-            onChange = onCreditChange,
-            placeholder = "Credits used",
-            modifier = Modifier.widthIn(max = 100.dp),
-        )
-        AfButton("Save", { onCreditSave(creditInput) }, kind = ButtonKind.Primary)
+    if (row.videoCount > 0 && !row.askCredits && !showCredits) {
+        AfButton(LOG_CREDITS_BUTTON, onShowCredits, kind = ButtonKind.Secondary)
     }
 }
+
+/** "Credits used? [20] (Fast) / [100] (Quality) / custom / skip" (specs/flow-handoff.md §Credit log). */
+@Composable
+private fun CreditQuestion(
+    row: HandoffRow,
+    model: FlowHandoffModel,
+    creditInput: String,
+    onCreditChange: (String) -> Unit,
+    fast: Int,
+    quality: Int,
+    onDone: () -> Unit,
+) {
+    AfText(CREDITS_QUESTION, size = 12.sp)
+    WrapRow {
+        AfButton("$fast (Fast)", { model.logCredits(row.number, fast); onDone() },
+            kind = if (row.creditDefault == fast) ButtonKind.Primary else ButtonKind.Secondary)
+        AfButton("$quality (Quality)", { model.logCredits(row.number, quality); onDone() },
+            kind = if (row.creditDefault == quality && fast != quality) ButtonKind.Primary else ButtonKind.Secondary)
+        AfTextField(
+            value = creditInput,
+            onChange = { v -> onCreditChange(v.filter { it.isDigit() }.take(5)) },
+            placeholder = "Custom",
+            modifier = Modifier.widthIn(max = 100.dp),
+        )
+        AfButton("Save", { creditInput.toIntOrNull()?.let { model.logCredits(row.number, it) }; onDone() },
+            kind = ButtonKind.Secondary, enabled = creditInput.toIntOrNull() != null)
+        AfButton(SKIP_CREDITS_BUTTON, { model.skipCredits(row.number); onDone() }, kind = ButtonKind.Secondary)
+    }
+}
+
+/** Manual Flow credit counter (DESIGN.md §6): today / this month, and the month's log with ✕ to fix a wrong line. */
+@Composable
+private fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
+    var open by remember { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(AutoFlowShapes.Card)
+            .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+            .background(AutoFlowColors.Panel)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        WrapRow {
+            AfText(creditSummary(state.creditsToday, state.creditsMonth), size = 13.sp, bold = true)
+            if (state.creditLog.isNotEmpty()) {
+                AfButton(if (open) "Hide log" else "Log (${state.creditLog.size})", { open = !open }, kind = ButtonKind.Secondary)
+            }
+        }
+        if (open) {
+            state.creditLog.forEach { e ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AfText("${e.date} · ${e.shot?.let { "Shot $it" } ?: "—"} · ${e.credits}", size = 12.sp)
+                    AfButton("✕", { model.removeCredit(e.index) }, kind = ButtonKind.Danger)
+                }
+            }
+        }
+    }
+}
+
+internal fun creditSummary(today: Int, month: Int): String = "Flow credits — today $today · this month $month"
+
+internal const val LOG_CREDITS_BUTTON = "Log Credits…"
+internal const val SKIP_CREDITS_BUTTON = "Skip"
+internal const val CREDITS_QUESTION = "Credits used in Flow for this video?"
 
 /** Badges for a shot row: its handoff state, plus "✓ Accepted" once — never twice. */
 internal fun handoffBadges(state: HandoffState, accepted: Boolean): List<HandoffState> = buildList {
