@@ -210,3 +210,4 @@ Phone run (v0.1.11, 2026-11-12, project "ဟယ်လို"): create → storyb
 - 2026-11-12 Phase 2 batch handoff sheet: ticked pending shots → offline `packages/batch-<date>.html` (prompt + ref inline + Copy), Open / Share.
 - 2026-11-12 Phase 2 version browser + Draft/Final: Shot detail lists every video version with its pass, Preview / Use this version; Draft-accepted hint.
 - 2026-11-12 Phase 2 Open Questions: Q-11 lyrics timing (scope, storage, S7 spike, tap-to-sync), Q-12 beat detection.
+- 2026-11-12 Release v0.1.12: Save to Gallery, share → Inbox, Character Bible, Flow credit counter, batch sheet, version browser, desktop render.

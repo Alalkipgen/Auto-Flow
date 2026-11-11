@@ -1,27 +1,31 @@
-Installs over v0.1.10 (tap **Update**), no data lost.
+Installs over v0.1.11 (tap **Update**), no data lost.
 
-## What's new in v0.1.11 — export your music video
+## What's new in v0.1.12 — Phase 2 first part
 
-### Input → song file
-- Song card → **သီချင်းဖိုင် ထည့်မယ်** → pick the mp3 / m4a / wav
-- The song is copied into the project (`source/song.mp3`) and the **duration is filled in from the file**
+### Export → Save to Gallery
+- After a render is done: **Save to Gallery** copies the mp4 to `Movies/AutoFlow` (Gallery / Photos see it; it stays even if Auto Flow is uninstalled)
 
-### More → Export (new screen)
-- Shows what goes into the video: shots, accepted videos (missing ones become "#NN — pending" cards), song, lyrics font
-- **Preview 540p** (fast) or **Export 1080p** (full quality) — renders in the background, also with the screen off
-- Progress % + **Cancel**; when done: **Open** (plays the video) and **Share…** (Telegram, Drive, Gallery apps…)
-- Lyrics (each shot's Burmese line) are drawn at the bottom with the Settings font (Pyidaungsu or Noto Sans Myanmar)
-- Low-battery warning below 20 % when not charging
+### Share to Auto Flow → Inbox
+- In Gallery, Files or Telegram: **Share** a video or image → **Auto Flow** → it lands in the open project's **Inbox**, ready to attach to a shot
 
-### Also since v0.1.10
-- Flow Handoff: one "✓ Accepted" badge (was shown twice)
-- UI text uses the Burmese Settings font
-- Settings → Tools: ffmpeg version line (libass / libx264 / aac)
+### Input → Characters (Character Bible)
+- **+ Add character**: token (CHAR1…), Burmese name, English description
+- Write `{{CHAR1}}` in a scene → the prompt gets the English description. After changing a description, **↻ Recompile** the shots that use it
 
-## Test (Phase 1 exit)
-1. Settings → Fonts: add Noto Sans Myanmar or Pyidaungsu (if not added yet)
-2. Open a project with at least 1 accepted video → Input → **သီချင်းဖိုင် ထည့်မယ်** → pick the song
-3. More → Export → **Preview 540p** → wait for "done ✓" → **Open**: music + Burmese lyrics?
-4. **Export 1080p** → **Share…**
+### Flow Handoff
+- **Flow credits — today / this month** panel, with the log (✕ removes a wrong line)
+- After each video import: "Credits used?" → **20 (Fast)** / **100 (Quality)** / custom / Skip
+- **Batch sheet**: tick shots → **Export batch sheet (HTML)** → one page with every prompt + reference image + **Copy prompt** buttons → **Open sheet ↗** / **Share sheet**
+
+### Shots → video versions
+- Shot detail lists every imported video (v1, v2… with Draft / Final) → **▶ Preview** / **Use this version**
+
+### Also
+- References / Shots buttons wrap on the phone (Approve is always visible)
+- The phone stepper names the screen you are on
+- Desktop: Export renders on Windows too
+
+## Not done yet (questions in PLAN.md)
+- Lyrics timing (Q-11), beat detection (Q-12), prompt ⚠ Stale after a character change (Q-10)
 
 The Android APK bundles a GPL ffmpeg build (see the README).
