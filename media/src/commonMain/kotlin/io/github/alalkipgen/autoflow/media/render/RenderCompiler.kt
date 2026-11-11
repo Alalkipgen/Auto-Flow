@@ -4,7 +4,8 @@ import io.github.alalkipgen.autoflow.core.model.ArtifactId
 
 /**
  * RenderGraph → one `ffmpeg -filter_complex` command (specs/render-graph.md), the only filtergraph code for desktop
- * and Android (D-23). Per clip: input seek/length (or a dark placeholder card), scale/pad to the output, fps, exact
+ * and Android (D-23). Per clip: input seek/length (or a dark placeholder card / silence made by `color` / `anullsrc`
+ * source filters in the graph — no `-f lavfi` inputs), scale/pad to the output, fps, exact
  * length; clips joined with `concat` (cuts) and `xfade` (crossfades); `.ass` overlays (libass, fonts only from
  * `fontsdir`); song with offset / fades, alone or mixed over the clips' sound; `-t` = graph length.
  * The caller writes [Compiled.Ok.ass] to [Env.assPath] before running ffmpeg and adds progress flags itself.
@@ -53,18 +54,16 @@ object RenderCompiler {
         graph.clips.forEachIndexed { k, clip ->
             val d = sec(clip.durationMs)
             val media = clip.artifact?.let(env.resolve)
-            val v = if (media != null) {
-                input(*(if (clip.trimInMs > 0) arrayOf("-ss", sec(clip.trimInMs)) else emptyArray()), "-t", d, "-i", media.path)
-            } else {
-                input("-f", "lavfi", "-t", d, "-i", "color=c=$PLACEHOLDER_COLOR:s=${out.width}x${out.height}:r=${out.fps}")
-            }
-            chains += "[$v:v]scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease," +
+            val v = media?.let { input(*(if (clip.trimInMs > 0) arrayOf("-ss", sec(clip.trimInMs)) else emptyArray()), "-t", d, "-i", it.path) }
+            // Generated sources are filters inside the graph, never `-f lavfi` inputs: the Android build has no input devices.
+            val videoSource = if (v != null) "[$v:v]" else "color=c=$PLACEHOLDER_COLOR:s=${out.width}x${out.height}:r=${out.fps}:d=$d,"
+            chains += "${videoSource}scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease," +
                 "pad=${out.width}:${out.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p," +
                 // fps last: setpts clears the constant frame rate that xfade requires.
                 "tpad=stop_mode=clone:stop_duration=$d,trim=duration=$d,setpts=PTS-STARTPTS,fps=${out.fps}[v$k]"
             if (useClipAudio) {
-                val a = if (media?.hasAudio == true) v else input("-f", "lavfi", "-t", d, "-i", "anullsrc=r=48000:cl=stereo")
-                chains += "[$a:a]$AUDIO_FORMAT,apad=whole_dur=$d,atrim=duration=$d,asetpts=PTS-STARTPTS[a$k]"
+                val audioSource = if (media?.hasAudio == true) "[$v:a]" else "anullsrc=r=48000:cl=stereo:d=$d,"
+                chains += "$audioSource$AUDIO_FORMAT,apad=whole_dur=$d,atrim=duration=$d,asetpts=PTS-STARTPTS[a$k]"
             }
             starts += if (k == 0) 0 else starts.last() + graph.clips[k - 1].durationMs - clip.crossfadeMs
         }
