@@ -104,6 +104,21 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
+                "References" -> {
+                    val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+                    io.github.alalkipgen.autoflow.ui.references.ReferencesScreen(
+                        model = koinInject(),
+                        readBytes = { path -> try { fs.read(path) } catch (e: Exception) { null } },
+                    )
+                }
+                "Flow Handoff" -> {
+                    val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+                    io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffScreen(
+                        model = koinInject(),
+                        readBytes = { path -> try { fs.read(path) } catch (e: Exception) { null } },
+                    )
+                }
+                "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject())
                 "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
                 MORE -> MoreScreen(shellState.locks, onSelect = { screen = it })
                 else -> ScreenPlaceholder(current)

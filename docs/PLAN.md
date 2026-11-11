@@ -47,9 +47,9 @@ Goal: full MV pipeline end-to-end with manual Flow handoff — on the owner's An
 - [x] Input screen (lyrics, duration, song style, video style, ratio, clip length, mood)
 - [x] Storyboard screen (Burmese cards, edit, regenerate, approve all / per shot)
 - [x] Shots screen (grid, badges: Accepted / Needs Flow / Stale / Draft) + Shot detail panel (spec fields, compile prompt, approve prompt) — `ShotsModel` + `ShotsScreen`; Ref A/B import and handoff buttons deferred to Reference-image handoff item below
-- [ ] Flow Handoff screen: copy prompt, open Flow, export shot package, import video, draft/final
-- [ ] Reference-image handoff (D-14): copy ImageDialect prompt, open AI Studio, import image as Ref A/B
-- [ ] Inbox: folder watcher → "attach to shot" dialog (video → `vd`, png/jpg → Ref A/B `im`)
+- [x] Flow Handoff screen: copy prompt (→ SENT_TO_FLOW), open Flow, import video (→ IMPORTED), accept (→ ACCEPTED), pass toggle (Draft/Final), credit log — `FlowHandoffModel` + `FlowHandoffScreen`
+- [x] Reference-image handoff (D-14): copy ImageDialect prompt, open AI Studio, import PNG/JPG as ref, set chosenRef, approve — `ReferencesModel` + `ReferencesScreen`
+- [x] Inbox: `<project>/inbox/` folder scan (refresh-on-open, no live watcher), attach video → `vd` (IMPORTED) or image → `im` (chosenRef), done files → `.cache/inbox-done/` — `InboxModel` + `InboxScreen`
 - [x] Settings: API key (secure storage), Fake/Real AI providers toggle (`AiHost.useFakeProviders`), ffmpeg path, VLC path (auto-detect; "Install VLC" link + playback disabled when missing, D-16), fonts, model config — `SettingsScreen` + `SettingsModel`; `SettingsUiState.vlcDir` is what playback (1D) checks
 
 ### 1D :media (desktop; the compiler is shared with Android, D-23)
@@ -172,3 +172,4 @@ Exit criteria: create project → storyboard → approve → prompts → ref ima
 - 2026-11-11 1F Android SecureStorage (D-25): Keystore AES-256-GCM key sealing `secrets.bin`, left out of Android backups; Real AI mode can now keep a Gemini key on the phone.
 - 2026-11-11 Release v0.1.7 (D-24): Gemini key saved with the Android Keystore (D-25), tab labels shrink to fit, backup sizes in B / KB, so the owner can check Real AI mode on the phone (Save, Test, restart, first real storyboard); versionName 0.1.7.
 - 2026-11-11 Retry tuning + Shots screen: `RetryPolicy.maxTries` 5→3 (reduces wasted free-tier API calls on transient errors; test updated); usage label now says "API calls (includes retries)"; `ShotsModel` + `ShotsScreen` — shot grid with status badges (Draft / Prompt Ready / Needs Flow / Imported / Accepted / Stale), detail panel with spec fields, Compile Prompt (deterministic, no AI call), Approve Prompt; wired into `AppShell` routing and `uiModule`.
+- 2026-11-11 Flow Handoff + References + Inbox screens: `FlowHandoffModel`/`Screen` (copy prompt→SENT_TO_FLOW, open Flow, import video→IMPORTED, accept→ACCEPTED, pass toggle, credit log), `ReferencesModel`/`Screen` (copy ImageDialect prompt, import PNG/JPG as ref, approve; Approve All), `InboxModel`/`Screen` (`<project>/inbox/` scan, attach video or image to a shot, done→`.cache/inbox-done/`); all wired into `AppShell` routing and `uiModule`.

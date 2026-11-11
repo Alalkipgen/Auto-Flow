@@ -16,7 +16,10 @@ import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.settings.loadModelConfig
+import io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffModel
+import io.github.alalkipgen.autoflow.ui.inbox.InboxModel
 import io.github.alalkipgen.autoflow.ui.input.InputModel
+import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
 import io.github.alalkipgen.autoflow.ui.shell.ShellModel
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
@@ -49,6 +52,20 @@ val uiModule = module {
     factory { InputModel(get(), get()) }
     factory { StoryboardModel(get(), get(), get()) }
     factory { ShotsModel(get()) }
+    factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get()) }
+    factory { InboxModel(session = get(), fs = get()) }
+    factory {
+        val cfg = get<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()
+        FlowHandoffModel(
+            session = get(),
+            clipboard = get(),
+            urlOpener = get(),
+            filePicker = get(),
+            flowUrl = cfg.flow.url,
+            creditHintFast = cfg.flow.creditsHint["fast"] ?: 20,
+            creditHintQuality = cfg.flow.creditsHint["quality"] ?: 100,
+        )
+    }
     single { ShellModel(get()) }
     factory {
         val registry = get<ProviderRegistry>()
