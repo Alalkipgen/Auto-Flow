@@ -6,7 +6,11 @@ import io.github.alalkipgen.autoflow.android.render.ProcessToolRunner
 import io.github.alalkipgen.autoflow.android.render.WorkManagerRenderQueue
 import io.github.alalkipgen.autoflow.android.selftest.SelfTestActivity
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.android.render.Battery
+import io.github.alalkipgen.autoflow.media.render.BatteryReader
+import io.github.alalkipgen.autoflow.media.render.BatteryReading
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
+import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import io.github.alalkipgen.autoflow.platform.AndroidClipboard
 import io.github.alalkipgen.autoflow.platform.AndroidProjectBackup
@@ -45,6 +49,9 @@ fun androidModule(app: Application) = module {
     // PLAN 1F / D-26: renders run one at a time in a WorkManager foreground worker.
     single<RenderQueue> { WorkManagerRenderQueue(app) }
     single<ProjectBackup> { AndroidProjectBackup(app) }
+    // Export screen (Q-09 c): open / share the mp4, battery warning before a render.
+    single<FileShare> { AndroidFileShare(app) }
+    single<BatteryReader> { BatteryReader { Battery.read(app).let { BatteryReading(it.percent, it.charging) } } }
     single { BundledConfig { app.assets.open("models.json").use { it.readBytes().decodeToString() } } }
     single { AppInfo("${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_SHA})") { SelfTestActivity.open(app) } }
 }

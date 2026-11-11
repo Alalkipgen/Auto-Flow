@@ -1,0 +1,202 @@
+package io.github.alalkipgen.autoflow.ui.export
+
+import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.model.CoreJson
+import io.github.alalkipgen.autoflow.core.store.ArtifactStore
+import io.github.alalkipgen.autoflow.media.render.BatteryReader
+import io.github.alalkipgen.autoflow.media.render.FontInfo
+import io.github.alalkipgen.autoflow.media.render.ProjectRender
+import io.github.alalkipgen.autoflow.media.render.Quality
+import io.github.alalkipgen.autoflow.media.render.RenderGraph
+import io.github.alalkipgen.autoflow.media.render.RenderQueue
+import io.github.alalkipgen.autoflow.media.render.RenderState
+import io.github.alalkipgen.autoflow.platform.FileShare
+import io.github.alalkipgen.autoflow.platform.PlatformResult
+import io.github.alalkipgen.autoflow.ui.projects.OpenProject
+import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
+import io.github.alalkipgen.autoflow.ui.theme.UiFont
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.transformWhile
+import kotlinx.coroutines.launch
+
+/** One render started from this screen; [output] is the mp4 it writes (absolute). */
+data class ExportRun(val projectDir: String, val quality: Quality, val id: String, val output: String, val state: RenderState)
+
+/** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
+data class ExportUiState(
+    val projectName: String? = null,
+    val shots: Int = 0,
+    val accepted: Int = 0,
+    val durationMs: Long = 0,
+    val songFile: String? = null,
+    val font: String? = null,
+    val lyricShots: Int = 0,
+    val lowBattery: Boolean = false,
+    val unavailable: String? = null,
+    val run: ExportRun? = null,
+    val message: String? = null,
+) {
+    val busy: Boolean get() = run != null && !run.state.finished
+    val canRender: Boolean get() = projectName != null && shots > 0 && unavailable == null && !busy
+}
+
+/**
+ * Export screen logic (PLAN Q-09 c): builds the job with [ProjectRender] (accepted videos, song, lyrics in the
+ * Burmese Settings font), keeps the graph as `project.timeline`, queues it on [queue] (Android: the WorkManager
+ * worker, which keeps going with the screen off) and follows its progress. A Koin single, so a render started here
+ * is still shown after the user leaves and comes back. Preview = 540p `exports/preview.mp4`, Export = 1080p
+ * `exports/export.mp4`; each render replaces the previous file of its kind only when it succeeds.
+ */
+class ExportModel(
+    private val session: ProjectSession,
+    private val settings: SettingsStore,
+    private val fs: FileSystem,
+    private val queue: RenderQueue?,
+    private val share: FileShare?,
+    private val battery: BatteryReader?,
+    private val scope: CoroutineScope,
+) {
+    private val _state = MutableStateFlow(ExportUiState())
+    val state: StateFlow<ExportUiState> = _state.asStateFlow()
+    private var watching: Job? = null
+
+    init {
+        refresh()
+    }
+
+    /** Re-reads the open project, the song, the font and the battery (the screen calls it when it opens). */
+    fun refresh() {
+        val open = session.open
+        val run = _state.value.run?.takeIf { it.projectDir == open?.dir }
+        if (open == null) {
+            _state.value = ExportUiState(run = null)
+            return
+        }
+        val p = open.project
+        val font = font()
+        _state.value = ExportUiState(
+            projectName = p.name,
+            shots = p.shots.count { it.durationMs > 0 },
+            accepted = p.shots.count { it.durationMs > 0 && it.acceptedVideo != null && videoFile(open, it.acceptedVideo) != null },
+            durationMs = p.shots.filter { it.durationMs > 0 }.sumOf { it.durationMs },
+            songFile = session.songPath()?.substringAfterLast('/'),
+            font = font?.family,
+            lyricShots = p.shots.count { it.durationMs > 0 && it.lyricsMy.isNotBlank() },
+            lowBattery = battery?.read()?.lowWarning == true,
+            unavailable = if (queue == null) NO_QUEUE else null,
+            run = run,
+        )
+    }
+
+    /** Queues a Preview (540p) or Export (1080p) render of the open project. */
+    fun render(quality: Quality) {
+        refresh()
+        val q = queue ?: return
+        val open = session.open ?: return
+        if (!_state.value.canRender) return
+        val font = font()
+        val fontsDir = joinPath(ProjectSession.CACHE_DIR, "fonts")
+        if (font != null) {
+            val copied = runCatching {
+                fs.createDirectories(joinPath(open.dir, fontsDir))
+                val target = joinPath(joinPath(open.dir, fontsDir), font.fileName)
+                fs.writeDurably("$target.tmp", font.bytes)
+                fs.atomicMove("$target.tmp", target)
+            }
+            if (copied.isFailure) return say("Cannot copy the font into the project: ${copied.exceptionOrNull()?.message}")
+        }
+        val song = session.songPath()?.let { relative(open.dir, it) }
+        val name = if (quality == Quality.PREVIEW) PREVIEW_NAME else EXPORT_NAME
+        val job = ProjectRender.job(
+            open.project, open.dir, quality, song, { videoFile(open, it) }, font?.family, fontsDir,
+            outputName = joinPath(EXPORTS_DIR, name),
+            title = "${open.project.name} · ${label(quality)}",
+        )
+        val timeline = CoreJson.encodeToJsonElement(RenderGraph.serializer(), job.graph)
+        (session.save(open.project.copy(timeline = timeline)) as? CoreResult.Err)?.let { return say(it.error.message) }
+        val id = q.enqueue(job)
+        val run = ExportRun(open.dir, quality, id, joinPath(joinPath(open.dir, EXPORTS_DIR), "$name.mp4"), RenderState.Queued)
+        _state.value = _state.value.copy(run = run, message = null)
+        watching?.cancel()
+        watching = scope.launch {
+            q.observe(id).transformWhile { emit(it); !it.finished }.collect { st ->
+                val cur = _state.value.run
+                if (cur?.id == id) _state.value = _state.value.copy(run = cur.copy(state = st))
+            }
+        }
+    }
+
+    fun cancel() {
+        val run = _state.value.run?.takeIf { !it.state.finished } ?: return
+        queue?.cancel(run.id)
+    }
+
+    /** Plays the finished mp4 in another app. */
+    fun open() {
+        val file = finished() ?: return
+        result(share?.open(file, MP4) ?: PlatformResult.Unsupported(NO_SHARE))
+    }
+
+    /** Share sheet for the finished mp4. */
+    fun share() {
+        val file = finished() ?: return
+        result(share?.share(file, MP4, "Share the video") ?: PlatformResult.Unsupported(NO_SHARE))
+    }
+
+    private fun finished(): String? = (_state.value.run?.state as? RenderState.Done)?.output
+
+    private fun result(r: PlatformResult<Unit>) {
+        when (r) {
+            is PlatformResult.Ok -> say(null)
+            is PlatformResult.Failed -> say(r.reason)
+            is PlatformResult.Unsupported -> say(r.reason)
+        }
+    }
+
+    private fun say(message: String?) {
+        _state.value = _state.value.copy(message = message)
+    }
+
+    private class LyricFont(val family: String, val fileName: String, val bytes: ByteArray)
+
+    /** The Burmese Settings font (Pyidaungsu, else Noto Sans Myanmar; regular weight first), or null. */
+    private fun font(): LyricFont? {
+        val read = settings.state.value.fontPaths.mapNotNull { path ->
+            val bytes = runCatching { fs.read(path) }.getOrNull() ?: return@mapNotNull null
+            val info = FontInfo.parse(bytes) ?: return@mapNotNull null
+            Triple(path, bytes, UiFont.Candidate(path, info.family, FontInfo.weightClass(bytes) ?: 400))
+        }
+        val best = UiFont.pick(read.map { it.third }).firstOrNull() ?: return null
+        val (path, bytes, _) = read.first { it.first == best.path }
+        val ext = path.substringAfterLast('.', "ttf").lowercase().takeIf { it == "ttf" || it == "otf" } ?: "ttf"
+        val safe = best.family.filter { it.isLetterOrDigit() }.ifEmpty { "lyrics" }
+        return LyricFont(best.family, "$safe.$ext", bytes)
+    }
+
+    private fun videoFile(open: OpenProject, id: ArtifactId): String? {
+        val artifact = (session.artifacts()?.get(id) as? CoreResult.Ok)?.value ?: return null
+        val rel = joinPath(ArtifactStore.ARTIFACTS_DIR, artifact.file)
+        return rel.takeIf { fs.exists(joinPath(open.dir, it)) }
+    }
+
+    private fun relative(dir: String, path: String): String = path.removePrefix(dir.trimEnd('/') + "/")
+
+    companion object {
+        const val EXPORTS_DIR = "exports"
+        const val PREVIEW_NAME = "preview"
+        const val EXPORT_NAME = "export"
+        const val MP4 = "video/mp4"
+        const val NO_QUEUE = "Rendering is not available in this version on this computer yet (Android renders in the background)."
+        const val NO_SHARE = "Opening and sharing files is not available here; the video is in the project's exports folder."
+
+        fun label(quality: Quality) = if (quality == Quality.PREVIEW) "Preview 540p" else "Export 1080p"
+    }
+}

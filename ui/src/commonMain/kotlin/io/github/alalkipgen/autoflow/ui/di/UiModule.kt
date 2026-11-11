@@ -16,6 +16,7 @@ import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.settings.loadModelConfig
+import io.github.alalkipgen.autoflow.ui.export.ExportModel
 import io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffModel
 import io.github.alalkipgen.autoflow.ui.inbox.InboxModel
 import io.github.alalkipgen.autoflow.ui.input.InputModel
@@ -69,6 +70,7 @@ val uiModule = module {
         )
     }
     single { ShellModel(get()) }
+    single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope()) }
     factory {
         val registry = get<ProviderRegistry>()
         SettingsModel(get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey, ffmpegRunner = getOrNull())

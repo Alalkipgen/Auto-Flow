@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AndroidFileShare: other apps may read files under the projects folder (D-27: <external files dir>/projects),
+     e.g. the Export screen's exports/*.mp4, through read-only content URIs granted per share. -->
+<paths>
+    <external-files-path name="projects" path="projects/" />
+</paths>
