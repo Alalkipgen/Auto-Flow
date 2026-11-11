@@ -7,12 +7,17 @@ import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.model.StoryboardMode
 import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.core.workflow.WorkflowRules
+import io.github.alalkipgen.autoflow.platform.FilePicker
+import io.github.alalkipgen.autoflow.platform.PlatformResult
+import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 /** The Input form (DESIGN.md §3). [settings] and [lyrics] are the draft; [saved] is what project.json holds. */
 data class InputUiState(
@@ -21,6 +26,12 @@ data class InputUiState(
     val durationText: String = "",
     val settings: ProjectSettings = ProjectSettings(),
     val hasStoryboard: Boolean = false,
+    /** File name of the imported song in `source/` (e.g. `song.mp3`), or null. */
+    val songFile: String? = null,
+    val importingSong: Boolean = false,
+    /** Result of the last song import, shown in the Song card. */
+    val songMessage: String? = null,
+    val songMessageOk: Boolean = false,
     val blockers: List<Blocker> = emptyList(),
     val message: String? = null,
 )
@@ -29,7 +40,12 @@ data class InputUiState(
  * Input screen logic. Chips save at once; text fields save on [save] (the screen calls it when it closes and before
  * generating), so typing does not rewrite project.json on every key.
  */
-class InputModel(private val session: ProjectSession, private val jobs: StoryboardJobs) {
+class InputModel(
+    private val session: ProjectSession,
+    private val jobs: StoryboardJobs,
+    private val picker: FilePicker? = null,
+    private val media: MediaTools? = null,
+) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<InputUiState> = _state.asStateFlow()
 
@@ -49,6 +65,38 @@ class InputModel(private val session: ProjectSession, private val jobs: Storyboa
     fun setClipMs(ms: Long) = chip { it.copy(clipMs = ms) }
     fun setMode(mode: StoryboardMode) = chip { it.copy(storyboardMode = mode) }
     fun pickVideoStyle(style: String) = chip { it.copy(videoStyle = style) }
+
+    /** "Import song": pick an audio file, then [importSongFile]. */
+    suspend fun importSong() {
+        if (jobs.busy || session.open == null || _state.value.importingSong) return
+        val picked = picker?.pickFiles(PICK_SONG_TITLE, ProjectSession.SONG_EXTENSIONS) ?: return say(NO_PICKER)
+        val path = when (picked) {
+            is PlatformResult.Ok -> picked.value.firstOrNull() ?: return
+            is PlatformResult.Failed -> return say("File pick failed: ${picked.reason}")
+            is PlatformResult.Unsupported -> return say(NO_PICKER)
+        }
+        importSongFile(path)
+    }
+
+    /**
+     * Copies [path] to `source/song.<ext>`; when ffprobe reads its length, that becomes the duration (saved at once),
+     * otherwise the typed duration stays and the message asks for it.
+     */
+    suspend fun importSongFile(path: String) {
+        _state.value = _state.value.copy(importingSong = true, songMessage = null)
+        val saved = when (val r = withContext(Dispatchers.Default) { session.importSong(path) }) {
+            is CoreResult.Ok -> r.value
+            is CoreResult.Err -> {
+                _state.value = _state.value.copy(importingSong = false)
+                return say(r.error.message)
+            }
+        }
+        val ms = media?.audioDurationMs(saved)
+        _state.value = _state.value.copy(importingSong = false, songFile = saved.substringAfterLast('/'))
+        if (ms == null) return say(SONG_NO_LENGTH)
+        draft { it.copy(durationText = formatDuration(ms), settings = it.settings.copy(durationMs = ms)) }
+        if (save()) say("Song imported · ${formatDuration(ms)}", ok = true)
+    }
 
     /** Writes the draft (lyrics file + project.json) if it differs from what is saved. */
     fun save(): Boolean {
@@ -85,6 +133,10 @@ class InputModel(private val session: ProjectSession, private val jobs: Storyboa
         _state.value = withGate(edit(_state.value)).copy(message = null)
     }
 
+    private fun say(message: String, ok: Boolean = false) {
+        _state.value = _state.value.copy(songMessage = message, songMessageOk = ok)
+    }
+
     private fun fail(message: String): Boolean {
         _state.value = _state.value.copy(message = message)
         return false
@@ -99,6 +151,7 @@ class InputModel(private val session: ProjectSession, private val jobs: Storyboa
                 durationText = if (p.settings.durationMs > 0) formatDuration(p.settings.durationMs) else "",
                 settings = p.settings,
                 hasStoryboard = p.currentStoryboard != null,
+                songFile = session.songPath()?.substringAfterLast('/'),
             ),
         )
     }
@@ -110,6 +163,9 @@ class InputModel(private val session: ProjectSession, private val jobs: Storyboa
 
     companion object {
         const val GENERATE_LABEL = "Generating the storyboard"
+        const val PICK_SONG_TITLE = "Import song"
+        const val NO_PICKER = "File picker not available on this platform yet"
+        const val SONG_NO_LENGTH = "Song imported, but its length could not be read. Type the duration (m:ss)."
         val VIDEO_STYLES = listOf("Cinematic", "Anime", "3D animation", "Watercolor", "Documentary", "Retro film")
 
         fun parseDuration(text: String): Long? {

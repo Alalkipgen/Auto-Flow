@@ -49,7 +49,7 @@ class AndroidToolLocator(private val nativeLibraryDir: String) : ToolLocator {
     override fun findFfmpeg(): String? = File(nativeLibraryDir, FFMPEG).takeIf { it.isFile }?.path?.toPortablePath()
 
     /** The bundled ffprobe next to ffmpeg, or null. */
-    fun findFfprobe(): String? = File(nativeLibraryDir, FFPROBE).takeIf { it.isFile }?.path?.toPortablePath()
+    override fun findFfprobe(): String? = File(nativeLibraryDir, FFPROBE).takeIf { it.isFile }?.path?.toPortablePath()
 
     override fun findVlc(): String? = null
 

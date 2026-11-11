@@ -15,11 +15,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.model.StoryboardMode
@@ -42,6 +44,8 @@ import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 const val GENERATE_BUTTON = "Storyboard ထုတ်မယ်"
+const val IMPORT_SONG_BUTTON = "သီချင်းဖိုင် ထည့်မယ်"
+const val REPLACE_SONG_BUTTON = "သီချင်းဖိုင် ပြောင်းမယ်"
 const val NO_PROJECT_TEXT = "Dashboard မှာ project တစ်ခု အရင်ဖွင့်ပါ။ (Open a project on the Dashboard first.)"
 
 /**
@@ -84,7 +88,24 @@ fun InputScreen(model: InputModel, jobs: StoryboardJobs, onGenerated: () -> Unit
 
 @Composable
 private fun SongCard(state: InputUiState, model: InputModel, locked: Boolean) {
+    val scope = rememberCoroutineScope()
     AfCard("Song") {
+        WrapRow {
+            AfButton(
+                if (state.songFile == null) IMPORT_SONG_BUTTON else REPLACE_SONG_BUTTON,
+                { scope.launch { model.importSong() } },
+                enabled = !locked && !state.importingSong,
+            )
+            AfText(
+                when {
+                    state.importingSong -> "Importing…"
+                    state.songFile != null -> "♪ ${state.songFile}"
+                    else -> "No song file yet (mp3, m4a, wav…)"
+                },
+                muted = state.songFile == null || state.importingSong,
+            )
+        }
+        state.songMessage?.let { AfText(it, color = if (state.songMessageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         if (LocalCompact.current) {
             AfTextField(state.durationText, model::setDuration, "Duration (m:ss)", Modifier.widthIn(max = 160.dp), enabled = !locked)
             AfTextField(state.settings.songStyle, model::setSongStyle, "Song style (e.g. Burmese pop ballad)", mono = false, enabled = !locked)
