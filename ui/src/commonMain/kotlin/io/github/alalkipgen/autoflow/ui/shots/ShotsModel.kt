@@ -6,6 +6,8 @@ import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
+import io.github.alalkipgen.autoflow.core.workflow.WorkflowRules
+import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.Shot
 import io.github.alalkipgen.autoflow.core.model.ShotSpec
@@ -72,6 +74,8 @@ class ShotsModel(private val session: ProjectSession) {
     fun compilePrompt(number: Int): String? {
         val project = session.open?.project ?: return "No project open"
         val shot = project.shots.firstOrNull { it.number == number } ?: return "Shot $number not found"
+        val gate = WorkflowRules.canCompilePrompt(shot)
+        if (!gate.allowed) return gate.blockers.joinToString("; ") { it.text() }.also { _actionError.value = it }
         val spec = readSpec(shot) ?: return "No storyboard for shot $number — generate storyboard first"
         val ratio = project.settings.ratio
         return when (val r = PromptCompiler.compile(spec, project.globalStyle, project.characters, ratio, shot.durationMs)) {
@@ -136,10 +140,15 @@ class ShotsModel(private val session: ProjectSession) {
             val spec = readSpec(shot)
             val ir = readPromptIr(shot)
             val promptText = ir?.let { VeoFlowDialect.render(it) }
-            val compileError = if (spec != null && ir == null) {
-                when (val r = PromptCompiler.compile(spec, project.globalStyle, project.characters, project.settings.ratio, shot.durationMs)) {
-                    is CoreResult.Ok -> null
-                    is CoreResult.Err -> r.error.message
+            val compileError = if (ir == null) {
+                val gate = WorkflowRules.canCompilePrompt(shot)
+                when {
+                    !gate.allowed -> gate.blockers.joinToString("; ") { it.text() }
+                    spec != null -> when (val r = PromptCompiler.compile(spec, project.globalStyle, project.characters, project.settings.ratio, shot.durationMs)) {
+                        is CoreResult.Ok -> null
+                        is CoreResult.Err -> r.error.message
+                    }
+                    else -> null
                 }
             } else null
             ShotDetail(
