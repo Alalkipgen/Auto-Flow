@@ -1,7 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.input
 
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.model.Character
 import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.prompt.CharacterBible
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.model.StoryboardMode
@@ -34,7 +36,11 @@ data class InputUiState(
     val songMessageOk: Boolean = false,
     val blockers: List<Blocker> = emptyList(),
     val message: String? = null,
-)
+    /** Character Bible draft (PLAN Phase 2), saved with the text fields; see [CharacterBible]. */
+    val characters: List<Character> = emptyList(),
+) {
+    val characterProblems: List<String> get() = CharacterBible.problems(characters)
+}
 
 /**
  * Input screen logic. Chips save at once; text fields save on [save] (the screen calls it when it closes and before
@@ -65,6 +71,25 @@ class InputModel(
     fun setClipMs(ms: Long) = chip { it.copy(clipMs = ms) }
     fun setMode(mode: StoryboardMode) = chip { it.copy(storyboardMode = mode) }
     fun pickVideoStyle(style: String) = chip { it.copy(videoStyle = style) }
+
+    /** Character Bible: a new row with a free token (CHAR1, CHAR2…) for the owner to rename. */
+    fun addCharacter() = draft { it.copy(characters = it.characters + Character(CharacterBible.nextToken(it.characters))) }
+
+    /** Typed token: upper case, other signs become `_` (trimmed when saved). */
+    fun setCharacterToken(index: Int, text: String) = character(index) {
+        it.copy(token = text.uppercase().map { c -> if (c in 'A'..'Z' || c in '0'..'9') c else '_' }.joinToString("").take(CharacterBible.MAX_TOKEN))
+    }
+
+    fun setCharacterName(index: Int, text: String) = character(index) { it.copy(nameMy = text) }
+    fun setCharacterDescription(index: Int, text: String) = character(index) { it.copy(descriptionEn = text) }
+
+    fun removeCharacter(index: Int) {
+        draft { s -> s.copy(characters = s.characters.filterIndexed { i, _ -> i != index }) }
+        save()
+    }
+
+    private fun character(index: Int, edit: (Character) -> Character) =
+        draft { s -> s.copy(characters = s.characters.mapIndexed { i, c -> if (i == index) edit(c) else c }) }
 
     /** "Import song": pick an audio file, then [importSongFile]. */
     suspend fun importSong() {
@@ -105,8 +130,9 @@ class InputModel(
         if (s.lyrics != session.readLyrics()) {
             (session.writeLyrics(s.lyrics) as? CoreResult.Err)?.let { return fail(it.error.message) }
         }
-        if (s.settings != open.project.settings) {
-            (session.save(open.project.copy(settings = s.settings)) as? CoreResult.Err)?.let { return fail(it.error.message) }
+        val characters = CharacterBible.clean(s.characters)
+        if (s.settings != open.project.settings || characters != open.project.characters) {
+            (session.save(open.project.copy(settings = s.settings, characters = characters)) as? CoreResult.Err)?.let { return fail(it.error.message) }
         }
         return true
     }
@@ -152,6 +178,7 @@ class InputModel(
                 settings = p.settings,
                 hasStoryboard = p.currentStoryboard != null,
                 songFile = session.songPath()?.substringAfterLast('/'),
+                characters = p.characters,
             ),
         )
     }
