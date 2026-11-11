@@ -78,8 +78,12 @@ class RenderCompilerTest {
         val r = ok(g)
         assertEquals(8_000L + 3_500 + 8_000 + 3_000, r.durationMs)
         val chains = graphOf(r.args)
-        assertEquals("[1:v]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=4.000,trim=duration=4.000,setpts=PTS-STARTPTS,fps=24[v1]", chains[2])
-        assertEquals("[2:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=4.000,atrim=duration=4.000,asetpts=PTS-STARTPTS[a1]", chains[3])
+        // The pending card and the silence are source filters in the graph, not `-f lavfi` inputs (no input devices on Android).
+        assertEquals("color=c=0x1A1A1A:s=540x960:r=24:d=4.000,scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=4.000,trim=duration=4.000,setpts=PTS-STARTPTS,fps=24[v1]", chains[2])
+        assertEquals("anullsrc=r=48000:cl=stereo:d=4.000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=4.000,atrim=duration=4.000,asetpts=PTS-STARTPTS[a1]", chains[3])
+        assertEquals("[1:v]", chains[4].take(5))
+        assertEquals("anullsrc=r=48000:cl=stereo:d=8.000,aformat", chains[5].substringBefore("=sample_fmts"))
+        assertEquals(listOf("[2:v]", "[2:a]"), chains.subList(6, 8).map { it.take(5) })
         assertEquals(
             listOf(
                 "[v0][v1]xfade=transition=fade:duration=0.500:offset=7.500[vj1]",
@@ -97,14 +101,12 @@ class RenderCompilerTest {
         assertEquals(
             listOf(
                 "-t", "8.000", "-i", "artifacts/vd_aaaaaaaaaaaa.mp4",
-                "-f", "lavfi", "-t", "4.000", "-i", "color=c=0x1A1A1A:s=540x960:r=24",
-                "-f", "lavfi", "-t", "4.000", "-i", "anullsrc=r=48000:cl=stereo",
                 "-t", "8.000", "-i", "artifacts/vd_bbbbbbbbbbbb.mp4",
-                "-f", "lavfi", "-t", "8.000", "-i", "anullsrc=r=48000:cl=stereo",
                 "-ss", "1.000", "-t", "4.000", "-i", "artifacts/vd_aaaaaaaaaaaa.mp4",
             ),
             inputs,
         )
+        check("lavfi" !in r.args) { r.args.toString() }
         // The pending card's label starts where the crossfade into it starts.
         check("Dialogue: 0,0:00:07.50,0:00:11.50,s1,,0,0,0,,{\\an5\\pos(270,480)}#02 — pending" in r.ass!!) { r.ass }
         assEqualsPreset(r.args, "ultrafast", "23", "128k")
