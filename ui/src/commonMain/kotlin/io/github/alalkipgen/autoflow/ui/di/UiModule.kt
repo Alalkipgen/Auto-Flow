@@ -69,6 +69,6 @@ val uiModule = module {
     single { ShellModel(get()) }
     factory {
         val registry = get<ProviderRegistry>()
-        SettingsModel(get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey)
+        SettingsModel(get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey, ffmpegRunner = getOrNull())
     }
 }

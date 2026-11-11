@@ -21,6 +21,7 @@ dependencies {
     // The app module binds the platform implementations for :ui and :ai (ARCHITECTURE §2: app-* → ui → …).
     implementation(project(":core"))
     implementation(project(":ai"))
+    implementation(project(":media"))
     implementation(project(":platform"))
     implementation(compose.desktop.currentOs)
     testImplementation(libs.kotlin.test)

@@ -2,10 +2,12 @@ package io.github.alalkipgen.autoflow.android
 
 import android.app.Application
 import io.github.alalkipgen.autoflow.BuildConfig
+import io.github.alalkipgen.autoflow.android.render.ProcessToolRunner
 import io.github.alalkipgen.autoflow.android.render.WorkManagerRenderQueue
 import io.github.alalkipgen.autoflow.android.selftest.SelfTestActivity
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
+import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import io.github.alalkipgen.autoflow.platform.AndroidClipboard
 import io.github.alalkipgen.autoflow.platform.AndroidProjectBackup
 import io.github.alalkipgen.autoflow.platform.AndroidToolLocator
@@ -38,6 +40,8 @@ fun androidModule(app: Application) = module {
     single<FilePicker> { AndroidFilePicker(app) }
     single { get<FilePicker>() as AndroidFilePicker }
     single<ToolLocator> { AndroidToolLocator(app.applicationInfo.nativeLibraryDir) }
+    // Settings → Tools version check of the bundled ffmpeg (PLAN 1D).
+    single<ToolRunner> { ProcessToolRunner() }
     // PLAN 1F / D-26: renders run one at a time in a WorkManager foreground worker.
     single<RenderQueue> { WorkManagerRenderQueue(app) }
     single<ProjectBackup> { AndroidProjectBackup(app) }
