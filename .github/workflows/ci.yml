@@ -89,7 +89,8 @@ jobs:
       - name: Self-test media (PLAN S6) — generated, not committed
         timeout-minutes: 15
         run: |
-          bash tools/ci-apt-install.sh ffmpeg
+          bash tools/ci-ffmpeg.sh
+          export PATH="$RUNNER_TEMP/ffmpeg-static:$PATH"
           bash tools/selftest-fixtures.sh app-android/build/generated/bundled
       - name: Assemble debug APK
         env:
