@@ -218,3 +218,4 @@ Phone run (v0.1.11, 2026-11-12, project "ဟယ်လို"): create → storyb
 - 2026-11-12 Phase 2 lyrics timing steps 2–3 (D-31): Gemini "Suggest timings" (`GeminiTranscribeProvider`, audio inline), S7 moved to the owner's phone.
 - 2026-11-12 Phase 2 beat detection (Q-12, D-32): Storyboard "♩ Snap cuts to beat", `BeatDetector`, `BeatSnap`, beats cache.
 - 2026-11-12 Phase 4 Open Question: Q-13 Movie Recap scope (source/rights, script input, voice, slices).
+- 2026-11-12 Release v0.1.13: lyrics timing (tap + Gemini), per-line lyrics on Export, Snap cuts to beat, character ⚠ Stale.
