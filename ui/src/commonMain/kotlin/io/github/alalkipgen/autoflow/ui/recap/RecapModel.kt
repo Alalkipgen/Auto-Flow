@@ -1,6 +1,13 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ai.AiResult
+import io.github.alalkipgen.autoflow.ai.recap.RecapBrief
+import io.github.alalkipgen.autoflow.ai.recap.RecapPrompts
+import io.github.alalkipgen.autoflow.ai.recap.RecapScriptGenerator
+import io.github.alalkipgen.autoflow.ai.recap.SceneBrief
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.model.ArtifactKind
+import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Project
@@ -8,6 +15,10 @@ import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
+import io.github.alalkipgen.autoflow.core.recap.RecapScript
+import io.github.alalkipgen.autoflow.core.recap.RecapSegment
+import io.github.alalkipgen.autoflow.core.recap.RecapStyle
+import io.github.alalkipgen.autoflow.core.recap.Srt
 import io.github.alalkipgen.autoflow.core.recap.Scenes
 import io.github.alalkipgen.autoflow.media.probe.FrameGrab
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
@@ -37,6 +48,10 @@ data class RecapUiState(
     val progress: Double? = null,
     val message: String? = null,
     val messageOk: Boolean = false,
+    /** The current `rs` artifact, null when none or unreadable. */
+    val script: RecapScript? = null,
+    /** `source/summary.txt`. */
+    val summary: String = "",
 ) {
     val busy: Boolean get() = job != null
 }
@@ -52,10 +67,12 @@ class RecapModel(
     private val media: MediaTools?,
     private val picker: FilePicker?,
     private val scope: CoroutineScope,
+    private val generator: RecapScriptGenerator? = null,
 ) {
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
     private val thumbs = Mutex()
+    private var scriptJob: Job? = null
 
     init {
         refresh()
@@ -65,9 +82,12 @@ class RecapModel(
     fun refresh() {
         val open = session.open
         val keep = _state.value.takeIf { it.projectDir == open?.dir }
+        val recap = open?.project?.recap
         _state.value = RecapUiState(
             projectDir = open?.dir,
-            recap = open?.project?.recap,
+            recap = recap,
+            script = recap?.script?.let { id -> (session.readJson(id, RecapScript.serializer()) as? CoreResult.Ok)?.value },
+            summary = if (open == null) "" else session.readSource(SUMMARY_FILE),
             movieName = session.moviePath()?.substringAfterLast('/'),
             job = keep?.job,
             progress = keep?.progress,
@@ -170,6 +190,118 @@ class RecapModel(
         }
     }
 
+    // --- 3 · Script (spec §4) ------------------------------------------------------------------------------------
+
+    /** Saves the typed story summary (`source/summary.txt`) at once. */
+    fun setSummary(text: String) {
+        if (session.open == null) return
+        _state.value = _state.value.copy(summary = text)
+        (session.writeSource(SUMMARY_FILE, text) as? CoreResult.Err)?.let { say(it.error.message) }
+    }
+
+    /** Picks a `.srt` file and keeps it as `source/subtitles.srt` (UTF-8). */
+    fun importSubtitles(): Job? {
+        recap() ?: return null
+        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        if (_state.value.busy) return null
+        return scope.launch {
+            val from = when (val r = p.pickFiles("Choose the subtitles (.srt)", setOf("srt"))) {
+                is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
+                is PlatformResult.Failed -> return@launch say(r.reason)
+                is PlatformResult.Unsupported -> return@launch say(r.reason)
+            }
+            val text = withContext(Dispatchers.Default) { session.readFile(from)?.decodeToString()?.removePrefix("\uFEFF") }
+                ?: return@launch say("Cannot read this file")
+            val cues = Srt.parse(text)
+            if (cues.isEmpty()) return@launch say("No subtitle lines were found in this file. Is it an .srt file?")
+            (session.writeSource(SUBTITLES_FILE, text) as? CoreResult.Err)?.let { return@launch say(it.error.message) }
+            if (update { it.copy(subtitles = "${ProjectSession.SOURCE_DIR}/$SUBTITLES_FILE") }) {
+                done("Subtitles ready: ${cues.size} lines.", ok = true)
+            }
+        }
+    }
+
+    fun removeSubtitles() {
+        update { it.copy(subtitles = null) }
+    }
+
+    fun setStyle(style: RecapStyle) {
+        update { it.copy(style = style) }
+    }
+
+    /** ✨ Write script (Gemini): one narration text per picked scene; the new `rs` replaces the current one, not approved. */
+    fun writeScript(): Job? {
+        val recap = recap() ?: return null
+        val summary = _state.value.summary
+        val cues = recap.subtitles?.let { Srt.parse(session.readSource(SUBTITLES_FILE)) }.orEmpty()
+        val gate = RecapRules.canGenerateScript(recap, summary, if (cues.isEmpty()) "" else "srt")
+        gate.blockers.firstOrNull()?.let { say(it.text()); return null }
+        val gen = generator ?: run { say("Gemini is not available here"); return null }
+        if (_state.value.busy) return null
+        val brief = RecapBrief(
+            title = project()?.name.orEmpty(),
+            summary = summary,
+            style = recap.style,
+            scenes = recap.picked.map { SceneBrief(it.startMs, it.endMs, Srt.textIn(cues, it.startMs, it.endMs, RecapPrompts.DIALOGUE_CHARS)) },
+        )
+        busy(WRITING)
+        return scope.launch {
+            try {
+                when (val r = gen.write(brief)) {
+                    is AiResult.Ok -> {
+                        val segments = recap.picked.zip(r.value) { scene, text -> RecapSegment(scene.startMs, scene.endMs, text) }
+                        val saved = saveScript(RecapScript(source = RecapScript.SOURCE_GEMINI, style = recap.style, segments = segments))
+                        done(if (saved) "✨ Script written: ${segments.size} segments. Read and fix them, then ✓ Approve." else null, ok = saved)
+                    }
+                    is AiResult.RateLimited -> done(RATE_LIMITED)
+                    is AiResult.Failed -> done("Gemini: ${r.msg}")
+                    is AiResult.Deferred -> done(r.instruction)
+                }
+            } finally {
+                if (_state.value.job == WRITING) done(null)
+            }
+        }.also { scriptJob = it }
+    }
+
+    /** Stops ✨ Write script; nothing changes. */
+    fun cancelScript() {
+        scriptJob?.cancel()
+        scriptJob = null
+        done("Stopped. The script did not change.")
+    }
+
+    /** ✎ Write it myself: a script with one empty segment per picked scene. */
+    fun writeManually(): Boolean {
+        val recap = recap() ?: return false
+        RecapRules.canWriteManually(recap).blockers.firstOrNull()?.let { say(it.text()); return false }
+        val segments = recap.picked.map { RecapSegment(it.startMs, it.endMs) }
+        return saveScript(RecapScript(source = RecapScript.SOURCE_MANUAL, style = recap.style, segments = segments))
+    }
+
+    /** Saves segment [index] with [text] as a new `rs`; approval is cleared. */
+    fun saveSegment(index: Int, text: String): Boolean {
+        val script = _state.value.script ?: return false
+        if (index !in script.segments.indices) return false
+        val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(textMy = text.trim()) else s }
+        return saveScript(script.copy(segments = segments))
+    }
+
+    /** ✓ Approve script ([RecapRules.canApproveScript]). */
+    fun approveScript(): Boolean {
+        val recap = recap() ?: return false
+        RecapRules.canApproveScript(recap, _state.value.script).blockers.firstOrNull()?.let { say(it.text()); return false }
+        return update { it.copy(scriptApproved = true) }
+    }
+
+    private fun saveScript(script: RecapScript): Boolean {
+        val store = session.artifacts() ?: return false
+        val bytes = CoreJson.encodeToString(RecapScript.serializer(), script).encodeToByteArray()
+        return when (val r = store.put(bytes, ArtifactKind.RECAP_SCRIPT, "json", provider = script.source)) {
+            is CoreResult.Ok -> update { it.copy(script = r.value.id, scriptApproved = false) }
+            is CoreResult.Err -> { say(r.error.message); false }
+        }
+    }
+
     fun dismissMessage() = say(null)
 
     // --- helpers -----------------------------------------------------------------------------------------------
@@ -211,6 +343,10 @@ class RecapModel(
 
     companion object {
         const val NO_FFMPEG = "ffmpeg is not available, so the movie cannot be read."
+        const val SUMMARY_FILE = "summary.txt"
+        const val SUBTITLES_FILE = "subtitles.srt"
+        const val WRITING = "Gemini is writing the script…"
+        const val RATE_LIMITED = "The free-tier limit is reached; try again later"
 
         /** `1:05:09` / `4:05`. */
         fun clock(ms: Long): String {
