@@ -21,6 +21,8 @@ data class RenderJob(
     val fontsDir: String,
     val outputName: String,
     val placeholderFont: String? = null,
+    /** Subtitles written as `<outputName>.srt` after a successful render (Movie Recap captions). */
+    val srt: String? = null,
 ) {
     companion object {
         const val SCHEMA_VERSION = 1

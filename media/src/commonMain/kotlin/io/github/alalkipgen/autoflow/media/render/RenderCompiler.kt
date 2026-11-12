@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.recap.Look
 
 /**
  * RenderGraph → one `ffmpeg -filter_complex` command (specs/render-graph.md), the only filtergraph code for desktop
@@ -27,6 +28,10 @@ object RenderCompiler {
         val outputPath: String,
         val assScale: (String) -> Double? = { null },
         val placeholderFont: String? = null,
+        /** [Clip.source] → its file (resolved and probed by the runner). */
+        val resolveSource: (String) -> ClipMedia? = { null },
+        /** [VoiceCue.file] → an existing file, else null. */
+        val voicePath: (String) -> String? = { null },
     )
 
     sealed interface Compiled {
@@ -44,7 +49,8 @@ object RenderCompiler {
         val out = graph.output
         val total = graph.durationMs
         val audio = graph.audio
-        val useClipAudio = audio == null || !audio.muteClips
+        val voice = graph.voice
+        val useClipAudio = if (voice != null) voice.clipsVolume > 0 else audio == null || !audio.muteClips
         val inputs = mutableListOf<String>()
         val chains = mutableListOf<String>()
         var index = 0
@@ -53,12 +59,22 @@ object RenderCompiler {
         val starts = mutableListOf<Long>()
         graph.clips.forEachIndexed { k, clip ->
             val d = sec(clip.durationMs)
-            val media = clip.artifact?.let(env.resolve)
-            val v = media?.let { input(*(if (clip.trimInMs > 0) arrayOf("-ss", sec(clip.trimInMs)) else emptyArray()), "-t", d, "-i", it.path) }
+            val fromSource = clip.artifact == null && clip.source != null
+            val media = clip.artifact?.let(env.resolve) ?: clip.source?.takeIf { fromSource }?.let(env.resolveSource)
+            // A long movie is opened once per clip: fewer decoder threads keep the memory down on the phone.
+            val threads = if (fromSource) arrayOf("-threads", "2") else emptyArray()
+            val v = media?.let { input(*threads, *(if (clip.trimInMs > 0) arrayOf("-ss", sec(clip.trimInMs)) else emptyArray()), "-t", d, "-i", it.path) }
             // Generated sources are filters inside the graph, never `-f lavfi` inputs: the Android build has no input devices.
             val videoSource = if (v != null) "[$v:v]" else "color=c=$PLACEHOLDER_COLOR:s=${out.width}x${out.height}:r=${out.fps}:d=$d,"
-            chains += "${videoSource}scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease," +
-                "pad=${out.width}:${out.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p," +
+            val looks = if (fromSource) graph.looks.toSet() else emptySet()
+            val pre = (if (Look.MIRROR in looks) "hflip," else "") + (if (Look.ZOOM in looks) "crop=iw*0.9:ih*0.9," else "")
+            val fit = if (Look.FILL in looks) {
+                "scale=${out.width}:${out.height}:force_original_aspect_ratio=increase,crop=${out.width}:${out.height},"
+            } else {
+                "scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease,pad=${out.width}:${out.height}:(ow-iw)/2:(oh-ih)/2,"
+            }
+            val warm = if (Look.WARM in looks) "eq=saturation=1.15:contrast=1.05," else ""
+            chains += "$videoSource$pre${fit}setsar=1,format=yuv420p,$warm" +
                 // fps last: setpts clears the constant frame rate that xfade requires.
                 "tpad=stop_mode=clone:stop_duration=$d,trim=duration=$d,setpts=PTS-STARTPTS,fps=${out.fps}[v$k]"
             if (useClipAudio) {
@@ -71,7 +87,7 @@ object RenderCompiler {
         if (useClipAudio) chains += join(graph, "a", "aseq") { x, _ -> "acrossfade=d=${sec(x)}" }
 
         val labels = env.placeholderFont?.let { font ->
-            graph.clips.withIndex().filter { it.value.artifact == null && it.value.label.isNotBlank() }.map { (k, c) ->
+            graph.clips.withIndex().filter { it.value.artifact == null && it.value.source == null && it.value.label.isNotBlank() }.map { (k, c) ->
                 Overlay(c.label, starts[k], starts[k] + c.durationMs, font, out.height / 24, "#B0FFFFFF", Pos.CENTER)
             }
         }.orEmpty()
@@ -86,7 +102,14 @@ object RenderCompiler {
             val fadeOut = if (a.fadeOutMs > 0) ",afade=t=out:st=${sec(maxOf(0, total - a.fadeOutMs))}:d=${sec(a.fadeOutMs.toLong())}" else ""
             "[$s:a]$AUDIO_FORMAT$delay$fadeIn$fadeOut,apad=whole_dur=${sec(total)},atrim=duration=${sec(total)}"
         }
+        val cues = voice?.cues.orEmpty().map { c -> input("-i", env.voicePath(c.file) ?: "") to c.startMs }
         chains += when {
+            voice != null -> {
+                val base = if (useClipAudio) "[aseq]volume=${voice.clipsVolume}[base]" else "anullsrc=r=48000:cl=stereo:d=${sec(total)},$AUDIO_FORMAT[base]"
+                val delayed = cues.mapIndexed { k, (i, at) -> "[$i:a]$AUDIO_FORMAT,adelay=$at|$at[c$k]" }
+                (listOf(base) + delayed).joinToString(";") + ";[base]" + cues.indices.joinToString("") { "[c$it]" } +
+                    "amix=inputs=${cues.size + 1}:duration=first:normalize=0,atrim=duration=${sec(total)}[aout]"
+            }
             song == null -> "[aseq]anull[aout]"
             !useClipAudio -> "$song[aout]"
             else -> "$song[song];[aseq]volume=${audio.clipsVolume}[clips];[clips][song]amix=inputs=2:duration=first:normalize=0[aout]"
@@ -132,6 +155,7 @@ object RenderCompiler {
             val n = "clip ${k + 1}"
             if (c.durationMs < frameMs) return "$n is shorter than one frame"
             if (c.artifact != null && env.resolve(c.artifact) == null) return "$n: the video ${c.artifact} is missing"
+            if (c.artifact == null && c.source != null && env.resolveSource(c.source) == null) return "$n: the file ${c.source} is missing"
             if (c.transition == Transition.CROSSFADE && k > 0) {
                 if (c.transitionMs <= 0) return "$n: the crossfade needs a length"
                 if (c.crossfadeMs >= minOf(c.durationMs, graph.clips[k - 1].durationMs)) return "$n: the crossfade is longer than a clip"
@@ -139,6 +163,10 @@ object RenderCompiler {
         }
         graph.overlays.forEachIndexed { k, o -> if (o.endMs <= o.startMs) return "overlay ${k + 1} ends before it starts" }
         if (graph.audio != null && env.songPath == null) return "the song file is missing"
+        graph.voice?.let { v ->
+            if (graph.audio != null) return "a song and a narration cannot be mixed in one render"
+            v.cues.forEachIndexed { k, c -> if (env.voicePath(c.file) == null) return "narration ${k + 1}: the file ${c.file} is missing" }
+        }
         return null
     }
 

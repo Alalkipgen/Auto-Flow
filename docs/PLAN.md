@@ -100,8 +100,8 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 - [x] Import video, scene detect (ffmpeg scdet), scene picker, target duration — slice (a): New Movie Recap with the rights tick, `source/movie.<ext>`, `SceneDetect`, Movie Recap screen cards 1–2
 - [x] Recap script (Burmese, commentary-style option) + approval — slice (b): summary / `.srt`, `RecapScriptGenerator`, write it myself, edit, approve
 - [x] VoiceSource: Recorded | Tts | Replicated(optional, capability-gated) — slice (c): recorder, import, `GeminiTtsProvider`, takes; Replicated hidden (D-34)
-- [ ] Narration-to-scene fit check, captions (SRT + burn-in), visual transform presets — slice (d): `RecapRender`, Export screen
-- [ ] Rights/usage disclaimer in UI — with slice (a) (Dashboard, Movie Recap; done) and (d) (Export)
+- [x] Narration-to-scene fit check, captions (SRT + burn-in), visual transform presets — slice (d): `RecapRender` (movie clips via `Clip.source`, `VoiceTrack`, looks, `.srt`), Movie Recap card 5 Fit check (rows, footer, movie sound, looks, burn captions, Go to Export), Export screen recap summary + render; `RecapRenderTest`, `RecapExportTest`. Phone test pending
+- [x] Rights/usage disclaimer in UI — Dashboard (New Movie Recap), Movie Recap screen, Export screen (recap projects)
 
 ## Open Questions
 - ~~Q-02 S4: supported approach for Burmese text in exports?~~ Resolved → libass primary, Skia PNG overlay fallback (S4 README); specs updated (render-graph.md overlays, flow-handoff.md image inbox, ai-providers.md ManualImageProvider).
@@ -225,3 +225,4 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 - 2026-11-12 Phase 4 slice (b): Movie Recap card 3 Script — summary (`source/summary.txt`), `.srt` import, Plain/Commentary, ✨ Write script (`RecapScriptGenerator`, one text per picked scene, retry once), ✎ Write it myself, per-segment edit (new `rs`), ✓ Approve, outdated warning.
 
 - 2026-11-12 Phase 4 slice (c): Movie Recap card 4 Voice — ● Record / ■ Stop (`VoiceRecorder`: Android MediaRecorder m4a + RECORD_AUDIO, desktop javax.sound WAV), Import file, 🔊 Gemini TTS per scene / Speak all (`GeminiTtsProvider`, `tts.candidates`, voice chips), takes as `au` artifacts, ⚠ Stale after an edit, ▶ play; Settings → Test Gemini TTS (S5).
+- 2026-11-12 Phase 4 slice (d): fit check card, looks, movie sound, captions (.srt + burn-in), recap render from the Export screen with the rights notice.

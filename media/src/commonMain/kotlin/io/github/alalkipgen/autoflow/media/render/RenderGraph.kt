@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.Look
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -18,6 +19,10 @@ data class RenderGraph(
     val audio: AudioTrack? = null,
     val overlays: List<Overlay> = emptyList(),
     val output: Output,
+    /** Narration takes over the clips' own sound (Movie Recap, D-33); not used together with [audio]. */
+    val voice: VoiceTrack? = null,
+    /** Picture changes for every [Clip.source] clip (Movie Recap looks, docs/specs/recap.md §6). */
+    val looks: List<Look> = emptyList(),
 ) {
     /** Output length: the clip strip minus crossfade overlaps. */
     val durationMs: Long
@@ -31,6 +36,7 @@ data class RenderGraph(
 /**
  * One shot on the strip. [artifact] null = placeholder card ("#NN — pending", [label]) for a shot without an
  * accepted video, shown for [trimOutMs] − [trimInMs]. [transition] is the change from the previous clip into this one.
+ * [source] (used when [artifact] is null) is a project file such as the recap movie; past its end the last frame holds.
  */
 @Serializable
 @SerialName("Clip")
@@ -41,6 +47,7 @@ data class Clip(
     val transition: Transition = Transition.CUT,
     val transitionMs: Int = 0,
     val label: String = "",
+    val source: String? = null,
 ) {
     val durationMs: Long get() = trimOutMs - trimInMs
     val crossfadeMs: Long get() = if (transition == Transition.CROSSFADE) transitionMs.toLong() else 0
@@ -67,6 +74,19 @@ data class AudioTrack(
     val muteClips: Boolean = true,
     val clipsVolume: Double = 0.3,
 )
+
+/**
+ * Narration: each cue's file starts at [VoiceCue.startMs] of the output; the clips' own sound plays under it at
+ * [clipsVolume] (0 = off).
+ */
+@Serializable
+@SerialName("VoiceTrack")
+data class VoiceTrack(val cues: List<VoiceCue>, val clipsVolume: Double = 0.2)
+
+/** [file] is relative to the project folder (an `au` artifact) or absolute. */
+@Serializable
+@SerialName("VoiceCue")
+data class VoiceCue(val file: String, val startMs: Long)
 
 /**
  * A text overlay (lyrics, title card), drawn by libass from the fonts dir (S4). [font] is the family name inside a

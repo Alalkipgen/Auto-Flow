@@ -7,11 +7,19 @@ import io.github.alalkipgen.autoflow.core.lyrics.LyricLine
 import io.github.alalkipgen.autoflow.core.lyrics.LyricSync
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.CoreJson
+import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.recap.RecapFit
+import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.RecapScript
+import io.github.alalkipgen.autoflow.core.recap.VoiceTake
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.render.BatteryReader
 import io.github.alalkipgen.autoflow.media.render.FontInfo
 import io.github.alalkipgen.autoflow.media.render.ProjectRender
 import io.github.alalkipgen.autoflow.media.render.Quality
+import io.github.alalkipgen.autoflow.media.render.RecapRender
+import io.github.alalkipgen.autoflow.media.render.RenderJob
 import io.github.alalkipgen.autoflow.media.render.RenderGraph
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
 import io.github.alalkipgen.autoflow.media.render.RenderState
@@ -20,6 +28,7 @@ import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
+import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.theme.UiFont
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -31,6 +40,21 @@ import kotlinx.coroutines.launch
 
 /** One render started from this screen; [output] is the mp4 it writes (absolute). */
 data class ExportRun(val projectDir: String, val quality: Quality, val id: String, val output: String, val state: RenderState)
+
+/**
+ * A Movie Recap project on the Export screen (docs/specs/recap.md §6): [segments] scenes, [voiced] with a current
+ * take, [durationMs] of output, captions burned in or not, [blocker] = why it cannot render yet (null = it can).
+ */
+data class RecapExport(
+    val segments: Int,
+    val voiced: Int,
+    val durationMs: Long,
+    val movieFile: String?,
+    val burnCaptions: Boolean,
+    val looks: Int,
+    val movieVolume: Double,
+    val blocker: String?,
+)
 
 /** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
 data class ExportUiState(
@@ -52,9 +76,12 @@ data class ExportUiState(
     /** [message] is good news (green), e.g. where Save to Gallery put the copy. */
     val messageOk: Boolean = false,
     val savingToGallery: Boolean = false,
+    /** Set in a Movie Recap project; then the music-video fields above stay empty. */
+    val recap: RecapExport? = null,
 ) {
     val busy: Boolean get() = run != null && !run.state.finished
-    val canRender: Boolean get() = projectName != null && shots > 0 && unavailable == null && !busy
+    val canRender: Boolean
+        get() = projectName != null && unavailable == null && !busy && (recap?.let { it.blocker == null } ?: (shots > 0))
 }
 
 /**
@@ -91,6 +118,17 @@ class ExportModel(
         }
         val p = open.project
         val font = font()
+        recapExport(open)?.let { r ->
+            _state.value = ExportUiState(
+                projectName = p.name,
+                font = font?.family,
+                lowBattery = battery?.read()?.lowWarning == true,
+                unavailable = if (queue == null) NO_QUEUE else null,
+                run = run,
+                recap = r,
+            )
+            return
+        }
         val saved = session.readLyricTimings()
         val synced = timings()
         _state.value = ExportUiState(
@@ -126,8 +164,12 @@ class ExportModel(
             }
             if (copied.isFailure) return say("Cannot copy the font into the project: ${copied.exceptionOrNull()?.message}")
         }
-        val song = session.songPath()?.let { relative(open.dir, it) }
         val name = if (quality == Quality.PREVIEW) PREVIEW_NAME else EXPORT_NAME
+        if (isRecap(open.project)) {
+            val job = recapJob(open, quality, font?.family, fontsDir, name) ?: return say("The recap script cannot be read.")
+            return start(q, job, open, quality, name)
+        }
+        val song = session.songPath()?.let { relative(open.dir, it) }
         val job = ProjectRender.job(
             open.project, open.dir, quality, song, { videoFile(open, it) }, font?.family, fontsDir,
             outputName = joinPath(EXPORTS_DIR, name),
@@ -136,6 +178,10 @@ class ExportModel(
         )
         val timeline = CoreJson.encodeToJsonElement(RenderGraph.serializer(), job.graph)
         (session.save(open.project.copy(timeline = timeline)) as? CoreResult.Err)?.let { return say(it.error.message) }
+        start(q, job, open, quality, name)
+    }
+
+    private fun start(q: RenderQueue, job: RenderJob, open: OpenProject, quality: Quality, name: String) {
         val id = q.enqueue(job)
         val run = ExportRun(open.dir, quality, id, joinPath(joinPath(open.dir, EXPORTS_DIR), "$name.mp4"), RenderState.Queued)
         _state.value = _state.value.copy(run = run, message = null)
@@ -146,6 +192,46 @@ class ExportModel(
                 if (cur?.id == id) _state.value = _state.value.copy(run = cur.copy(state = st))
             }
         }
+    }
+
+    private fun isRecap(p: Project) = p.mode == Mode.MOVIE_RECAP && p.recap != null
+
+    private fun recapScript(): RecapScript? =
+        session.open?.project?.recap?.script?.let { (session.readJson(it, RecapScript.serializer()) as? CoreResult.Ok)?.value }
+
+    /** The take's audio, `artifacts/<file>`, when the file is there. */
+    private fun takeFile(open: OpenProject, take: VoiceTake): String? {
+        val artifact = (session.artifacts()?.get(take.audio) as? CoreResult.Ok)?.value ?: return null
+        return joinPath(ArtifactStore.ARTIFACTS_DIR, artifact.file).takeIf { fs.exists(joinPath(open.dir, it)) }
+    }
+
+    private fun recapExport(open: OpenProject): RecapExport? {
+        if (!isRecap(open.project)) return null
+        val recap = open.project.recap!!
+        val script = recapScript()
+        val gate = RecapRules.canRender(recap, script)
+        val rows = script?.takeIf { RecapRules.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it) }.orEmpty()
+        return RecapExport(
+            segments = rows.size,
+            voiced = rows.count { it.takeMs != null },
+            durationMs = RecapFit.totalMs(rows),
+            movieFile = session.moviePath()?.substringAfterLast('/'),
+            burnCaptions = recap.burnCaptions,
+            looks = recap.looks.size,
+            movieVolume = recap.movieVolume,
+            blocker = gate.blockers.firstOrNull()?.text() ?: if (recap.movie == null) "Import the movie first (Movie Recap → 1 · Movie)." else null,
+        )
+    }
+
+    /** The recap render (spec §6): movie clips, takes, looks, captions (burned in when wanted and a font is set) + `.srt`. */
+    private fun recapJob(open: OpenProject, quality: Quality, font: String?, fontsDir: String, name: String): RenderJob? {
+        val recap = open.project.recap ?: return null
+        val script = recapScript() ?: return null
+        return RecapRender.job(
+            recap, script, open.project.settings.ratio, open.dir, quality, { takeFile(open, it) }, font, fontsDir,
+            outputName = joinPath(EXPORTS_DIR, name),
+            title = "${open.project.name} · ${label(quality)}",
+        )
     }
 
     /** The saved line timings when they still match the lyrics, else null (per-shot lyrics). */

@@ -19,7 +19,7 @@ class RenderJobRunner(
     suspend fun run(job: RenderJob, onProgress: (FfmpegProgress.Progress) -> Unit = {}): RenderState {
         val abs = { p: String -> if (isAbsolute(p)) p else joinPath(job.workDir, p) }
         val graph = job.graph
-        val clipSound = graph.audio == null || !graph.audio.muteClips
+        val clipSound = graph.voice?.let { it.clipsVolume > 0 } ?: (graph.audio == null || !graph.audio.muteClips)
         val media = mutableMapOf<ArtifactId, RenderCompiler.ClipMedia>()
         for (id in graph.clips.mapNotNull { it.artifact }.distinct()) {
             val path = job.files[id.value]?.let(abs) ?: continue
@@ -33,6 +33,20 @@ class RenderJobRunner(
             }
             media[id] = RenderCompiler.ClipMedia(path, hasAudio)
         }
+        val sources = mutableMapOf<String, RenderCompiler.ClipMedia>()
+        for (src in graph.clips.filter { it.artifact == null }.mapNotNull { it.source }.distinct()) {
+            val path = abs(src)
+            if (!fs.exists(path)) continue
+            val hasAudio = if (clipSound) {
+                when (val r = probe.probe(path, job.workDir)) {
+                    is MediaProbe.Result.Ok -> r.info.hasAudio
+                    is MediaProbe.Result.Failed -> return RenderState.Failed("cannot read $src: ${r.reason}")
+                }
+            } else {
+                false
+            }
+            sources[src] = RenderCompiler.ClipMedia(path, hasAudio)
+        }
         val fontsDir = abs(job.fontsDir)
         val scales = fontScales(fontsDir)
         val out = abs(job.outputName)
@@ -44,6 +58,8 @@ class RenderJobRunner(
             outputPath = "$out.part.mp4",
             assScale = { scales[it] },
             placeholderFont = job.placeholderFont,
+            resolveSource = { sources[it] },
+            voicePath = { f -> abs(f).takeIf { fs.exists(it) } },
         )
         val compiled = when (val c = RenderCompiler.compile(graph, env)) {
             is RenderCompiler.Compiled.Invalid -> return RenderState.Failed(c.reason)
@@ -62,6 +78,7 @@ class RenderJobRunner(
                 RenderState.Failed(if (r.timedOut) "ffmpeg took too long and was stopped" else "ffmpeg failed (exit ${r.exitCode})", r.tail)
             is FfmpegRunner.Outcome.Rendered -> try {
                 fs.atomicMove(env.outputPath, "$out.mp4")
+                job.srt?.let { fs.writeDurably("$out.srt", it.encodeToByteArray()) }
                 RenderState.Done("$out.mp4", r.wallMs, compiled.durationMs, r.maxRssKb)
             } catch (e: Exception) {
                 RenderState.Failed("cannot save $out.mp4: ${e.message}")
