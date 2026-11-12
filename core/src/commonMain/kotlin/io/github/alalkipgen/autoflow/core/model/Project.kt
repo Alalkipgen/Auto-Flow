@@ -49,6 +49,8 @@ data class ProjectSettings(
     val mood: String = "",
     val textModel: String = "ref:models.text.default",
     val imageModel: String = "ref:models.image.default",
+    /** Storyboard "Snap cuts to beat" (Q-12, D-32): cuts move onto the nearest beat within ±250 ms. */
+    val snapToBeat: Boolean = false,
 )
 
 /** Model-bound visual style. [hash] (`gs_…`) is derived from the other fields when the project is saved. */

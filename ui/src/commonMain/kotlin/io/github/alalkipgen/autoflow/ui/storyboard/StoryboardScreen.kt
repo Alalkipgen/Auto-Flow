@@ -43,6 +43,7 @@ const val APPROVE = "✓ အတည်ပြုမယ်"
 const val EDIT = "✎ ပြင်မယ်"
 const val REGENERATE = "↻ ပြန်ထုတ်မယ်"
 const val STALE = "⚠ ပြန်ထုတ်ရန် လိုသည်"
+const val SNAP_TO_BEAT = "♩ Snap cuts to beat"
 const val NO_STORYBOARD_TEXT = "Storyboard မရှိသေးပါ။ Input မှာ \"Storyboard ထုတ်မယ်\" ကို နှိပ်ပါ။"
 
 /**
@@ -87,6 +88,7 @@ private fun Header(state: StoryboardUiState, model: StoryboardModel, busy: Boole
     val actions: @Composable () -> Unit = {
         AfButton("Approve all", { model.approveAll() }, kind = ButtonKind.Primary, enabled = !busy && state.approvedCount < state.cards.size)
         AfButton("↻ Regenerate all", { confirming = true }, enabled = !busy)
+        AfSwitch(SNAP_TO_BEAT, state.snapToBeat, { if (!busy) model.setSnapToBeat(it) })
     }
     if (LocalCompact.current) {
         count()

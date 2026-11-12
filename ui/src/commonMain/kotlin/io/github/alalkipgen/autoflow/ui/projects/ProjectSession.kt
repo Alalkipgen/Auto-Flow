@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.projects
 import io.github.alalkipgen.autoflow.core.CoreError
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.getOrNull
+import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
@@ -13,6 +14,7 @@ import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.core.workflow.ArtifactLookup
+import io.github.alalkipgen.autoflow.core.workflow.SongBeats
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
@@ -147,6 +149,32 @@ class ProjectSession(
         }
     }
 
+    /** SHA-256 hex of the song file, or null without a readable song. */
+    fun songSha256(): String? = songPath()?.let(::readFile)?.takeIf { it.isNotEmpty() }?.let { Sha256.hex(it) }
+
+    /** Cached beats (`.cache/beats.json`, D-32) when they were found for the current song, else null. */
+    fun readBeats(): SongBeats? {
+        val path = cacheFile(BEATS_FILE) ?: return null
+        val bytes = readFile(path) ?: return null
+        val beats = try {
+            CoreJson.decodeFromString(SongBeats.serializer(), bytes.decodeToString())
+        } catch (e: IllegalArgumentException) {
+            return null
+        }
+        return beats.takeIf { it.songSha256 == songSha256() }
+    }
+
+    fun writeBeats(beats: SongBeats): CoreResult<Unit> {
+        val path = cacheFile(BEATS_FILE) ?: return noProject()
+        return try {
+            fs.writeDurably("$path.tmp", CoreJson.encodeToString(SongBeats.serializer(), beats).encodeToByteArray())
+            fs.atomicMove("$path.tmp", path)
+            CoreResult.Ok(Unit)
+        } catch (e: Exception) {
+            CoreResult.Err(CoreError.Io(path, e.message ?: e.toString()))
+        }
+    }
+
     /** The saved line timings (`project.lyricTiming`), or null when there are none or they cannot be read. */
     fun readLyricTimings(): LyricTimings? {
         val id = open?.project?.lyricTiming ?: return null
@@ -171,6 +199,7 @@ class ProjectSession(
         const val SOURCE_DIR = "source"
         const val CACHE_DIR = ".cache"
         const val SONG_NAME = "song"
+        const val BEATS_FILE = "beats.json"
         val SONG_EXTENSIONS = setOf("mp3", "m4a", "aac", "wav", "ogg", "opus", "flac")
 
         fun isSongName(name: String) =

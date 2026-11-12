@@ -7,6 +7,7 @@ import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.core.workflow.SongBeats
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
@@ -101,5 +102,35 @@ class StoryboardModelTest {
         runCurrent()
         assertTrue(m.approveAll())
         assertNull(m.message.value)
+    }
+
+    @Test
+    fun snapToBeatMovesCutsOntoTheBeatsAndOffRestoresThem() = runTest {
+        val (m, jobs) = model()
+        fs.createDirectories("/c")
+        fs.writeDurably("/c/s.mp3", byteArrayOf(1, 2, 3))
+        session.importSong("/c/s.mp3")
+        val starts = { session.open!!.project.shots.map { it.startMs } }
+
+        assertTrue(m.setSnapToBeat(true))
+        jobs.state.first { it.running == null }
+        assertEquals(StoryboardResult.Failed(BeatFinder.NO_FFMPEG), jobs.state.value.last, "no ffmpeg in this test and nothing cached")
+        assertFalse(m.current().snapToBeat)
+
+        session.writeBeats(SongBeats(session.songSha256()!!, 119.6, listOf(7_800, 16_100, 24_400)))
+        assertTrue(m.setSnapToBeat(true))
+        jobs.state.first { it.running == null }
+        assertEquals(StoryboardResult.Done, jobs.state.value.last)
+        assertEquals(listOf(0L, 7_800L, 16_100L, 24_000L), starts(), "24 400 is outside ±250 ms")
+        assertEquals(30_000, session.open!!.project.shots.last().let { it.startMs + it.durationMs })
+        assertTrue(m.current().snapToBeat)
+        assertEquals("♩ Cuts snapped to the beat: 2 of 3 moved · about 120 BPM.", m.message.value)
+
+        service.generateAll()
+        assertEquals(listOf(0L, 7_800L, 16_100L, 24_000L), starts(), "a new version snaps too while the switch is on")
+
+        assertTrue(m.setSnapToBeat(false))
+        assertEquals(listOf(0L, 8_000L, 16_000L, 24_000L), starts())
+        assertFalse(m.current().snapToBeat)
     }
 }

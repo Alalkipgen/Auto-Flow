@@ -14,7 +14,8 @@
     "videoStyle": "cinematic",
     "mood": "melancholic, hopeful",
     "textModel": "ref:models.text.default",
-    "imageModel": "ref:models.image.default"
+    "imageModel": "ref:models.image.default",
+    "snapToBeat": false
   },
   "globalStyle": {
     "visual": "35mm film still",
