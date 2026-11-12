@@ -54,11 +54,11 @@ const val FIND_SCENES = "🔍 Find scenes"
 const val SCENES_PER_PAGE = 30
 
 /**
- * Movie Recap screen (docs/specs/recap.md §7): numbered cards 1 Movie · 2 Scenes, then the script, voice and fit
- * cards ([extraCards], later slices). Locked cards say what to do first ([RecapRules]).
+ * Movie Recap screen (docs/specs/recap.md §7): numbered cards 1 Movie · 2 Scenes · 3 Script · 4 Voice · 5 Fit check,
+ * whose button calls [onGoToExport]. Locked cards say what to do first ([RecapRules]).
  */
 @Composable
-fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, extraCards: @Composable (Recap) -> Unit = {}) {
+fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: () -> Unit = {}) {
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.refresh() }
     Column(
@@ -86,7 +86,7 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, extraCards: @C
         ScenesCard(model, state, recap)
         ScriptCard(model, state, recap)
         VoiceCard(model, state, recap)
-        extraCards(recap)
+        FitCard(model, state, recap, onGoToExport)
     }
 }
 

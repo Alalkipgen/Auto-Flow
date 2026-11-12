@@ -24,6 +24,8 @@ import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.InputModel
+import io.github.alalkipgen.autoflow.ui.projects.RIGHTS_NOTICE
+import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 const val PREVIEW_BUTTON = "Preview 540p"
@@ -47,7 +49,8 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             AfText("Dashboard မှာ project တစ်ခု အရင်ဖွင့်ပါ။ (Open a project on the Dashboard first.)", muted = true)
             return@Column
         }
-        AfCard("Video") {
+        val recap = state.recap
+        if (recap != null) RecapSummary(recap, state.font) else AfCard("Video") {
             AfText("${state.shots} shots · ${InputModel.formatDuration(state.durationMs)}")
             val pending = state.shots - state.accepted
             AfText(
@@ -82,6 +85,31 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             state.run?.let { RunStatus(it, model, state.savingToGallery) }
             state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
+    }
+}
+
+/** Movie Recap project (docs/specs/recap.md §6): scenes, voice, sound, looks, captions and the rights reminder. */
+@Composable
+private fun RecapSummary(recap: RecapExport, font: String?) {
+    AfCard("Movie Recap") {
+        AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
+        AfText("${recap.segments} scenes · ${InputModel.formatDuration(recap.durationMs)}" + (recap.movieFile?.let { " · 🎬 $it" } ?: ""))
+        val silent = recap.segments - recap.voiced
+        AfText(
+            "${recap.voiced} of ${recap.segments} voiced" + if (silent > 0) " · $silent play with movie sound only" else "",
+            color = if (silent > 0) AutoFlowColors.Amber else null,
+        )
+        val sound = RecapModel.MOVIE_VOLUMES.firstOrNull { it.second == recap.movieVolume }?.first ?: "${(recap.movieVolume * 100).toInt()} %"
+        AfText("Movie sound: $sound · Looks: ${if (recap.looks == 0) "none" else recap.looks.toString()}")
+        AfText(
+            when {
+                !recap.burnCaptions -> "Captions: .srt file only (not burned in)."
+                font == null -> "No Burmese font: captions are not burned in, .srt only (Settings → Fonts)."
+                else -> "Captions burned in · $font · and saved as .srt"
+            },
+            color = if (recap.burnCaptions && font == null) AutoFlowColors.Amber else null,
+        )
+        recap.blocker?.let { AfText(it, color = AutoFlowColors.Amber) }
     }
 }
 

@@ -13,6 +13,7 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
@@ -468,6 +469,25 @@ class RecapModel(
         }
     }
 
+    // --- fit check (card 5, spec §6) --------------------------------------------------------------------------
+
+    /** The movie's sound under the narration: [MOVIE_VOLUMES] (Off 0 · Low 0.2 · Full 1.0). */
+    fun setMovieVolume(volume: Double) {
+        if (_state.value.busy) return
+        update { it.copy(movieVolume = volume.coerceIn(0.0, 1.0)) }
+    }
+
+    /** Turns one look on or off; the order stays Mirror, Zoom, Fill, Warm. */
+    fun toggleLook(look: Look) {
+        if (_state.value.busy) return
+        update { r -> r.copy(looks = Look.entries.filter { if (it == look) it !in r.looks else it in r.looks }) }
+    }
+
+    fun setBurnCaptions(on: Boolean) {
+        if (_state.value.busy) return
+        update { it.copy(burnCaptions = on) }
+    }
+
     private suspend fun durationOf(path: String, bytes: ByteArray): Long? =
         PcmWav.parse(bytes)?.durationMs ?: probe(path)?.takeIf { it.hasAudio && it.durationMs > 0 }?.durationMs
 
@@ -528,6 +548,11 @@ class RecapModel(
         const val SUBTITLES_FILE = "subtitles.srt"
         const val WRITING = "Gemini is writing the script…"
         const val RATE_LIMITED = "The free-tier limit is reached; try again later"
+        /** Movie sound chips (spec §6). */
+        val MOVIE_VOLUMES = listOf("Off" to 0.0, "Low" to Recap.MOVIE_VOLUME_LOW, "Full" to 1.0)
+
+        /** Look chips (spec §6). */
+        val LOOKS = listOf(Look.MIRROR to "Mirror", Look.ZOOM to "Zoom 10 %", Look.FILL to "Fill frame", Look.WARM to "Warm")
         val AUDIO_EXTENSIONS = setOf("m4a", "mp3", "wav", "aac", "ogg", "opus")
 
         /** Gemini prebuilt voices offered as chips (name to Gemini's own description). */
