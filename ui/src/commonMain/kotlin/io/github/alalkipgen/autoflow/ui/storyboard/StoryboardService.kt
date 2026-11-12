@@ -16,6 +16,7 @@ import io.github.alalkipgen.autoflow.core.model.StoryboardShot
 import io.github.alalkipgen.autoflow.core.model.StoryboardVersion
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.workflow.ApprovalStep
+import io.github.alalkipgen.autoflow.core.workflow.BeatSnap
 import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.core.workflow.Inputs
 import io.github.alalkipgen.autoflow.core.workflow.ShotSplitter
@@ -125,6 +126,22 @@ class StoryboardService(private val session: ProjectSession, private val generat
         return save(next.copy(analysis = version.analysis ?: project.analysis))
     }
 
+    /**
+     * "Snap cuts to beat" on / off (D-32): the shots take the current storyboard version's timings, with the cuts on
+     * the cached beats when [snap]. Fails (nothing saved) when snapping but no beats were found for this song.
+     */
+    fun retime(snap: Boolean): StoryboardResult {
+        val project = session.open?.project ?: return noProject
+        val id = project.currentStoryboard ?: return StoryboardResult.Failed("Generate the storyboard first")
+        val version = when (val r = session.readJson(id, StoryboardVersion.serializer())) {
+            is CoreResult.Ok -> r.value
+            is CoreResult.Err -> return StoryboardResult.Failed(r.error.message)
+        }
+        val beats = if (snap) session.readBeats() ?: return StoryboardResult.Failed(NO_BEATS) else null
+        val shots = BeatSnap.retime(project.shots, timings(version), beats?.beatsMs)
+        return save(project.copy(settings = project.settings.copy(snapToBeat = snap), shots = shots))
+    }
+
     /** The spec a shot points at, or `null` (none yet, or unreadable). */
     fun spec(shot: Shot): ShotSpec? = shot.spec?.let { (session.readJson(it, ShotSpec.serializer()) as? CoreResult.Ok)?.value }
 
@@ -141,8 +158,13 @@ class StoryboardService(private val session: ProjectSession, private val generat
             val base = old[s.number] ?: Shot(number = s.number, startMs = s.startMs, durationMs = s.durationMs)
             withSpec(base.copy(startMs = s.startMs, durationMs = s.durationMs, section = s.section), spec, sp.id)
         }
-        return project.copy(storyboards = (project.storyboards + sb).distinct(), currentStoryboard = sb, shots = shots)
+        // D-32: with "Snap cuts to beat" on, the new timings snap too (when the beats of this song are cached).
+        val beats = if (project.settings.snapToBeat) session.readBeats()?.beatsMs else null
+        val timed = if (beats == null) shots else BeatSnap.retime(shots, timings(version), beats)
+        return project.copy(storyboards = (project.storyboards + sb).distinct(), currentStoryboard = sb, shots = timed)
     }
+
+    private fun timings(version: StoryboardVersion) = version.shots.associate { it.number to (it.startMs to it.durationMs) }
 
     private fun replaceSpec(project: Project, shot: Shot, spec: ShotSpec, provider: String, model: String?): StoryboardResult {
         val artifacts = session.artifacts() ?: return noProject
@@ -186,5 +208,6 @@ class StoryboardService(private val session: ProjectSession, private val generat
         const val PROVIDER_USER = "user"
         val noProject = StoryboardResult.Failed("No project is open")
         val writeFailed = StoryboardResult.Failed("Could not write to the project's artifacts folder")
+        const val NO_BEATS = "No beats found for this song yet"
     }
 }

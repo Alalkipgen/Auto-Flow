@@ -6,8 +6,10 @@ import io.github.alalkipgen.autoflow.core.model.Shot
 import io.github.alalkipgen.autoflow.core.model.ShotSpec
 import io.github.alalkipgen.autoflow.core.workflow.Stale
 import io.github.alalkipgen.autoflow.ui.input.InputModel
+import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import kotlin.math.round
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +35,8 @@ data class StoryboardUiState(
     val projectName: String? = null,
     val cards: List<StoryCard> = emptyList(),
     val versions: List<StoryVersion> = emptyList(),
+    /** "Snap cuts to beat" (D-32). */
+    val snapToBeat: Boolean = false,
 ) {
     val approvedCount: Int get() = cards.count { it.approved }
 }
@@ -42,7 +46,14 @@ data class StoryboardUiState(
  * switch version) run at once; AI actions go through [jobs]. Nothing runs while a job is busy, because the job saves
  * the project when it ends and would overwrite the change.
  */
-class StoryboardModel(private val session: ProjectSession, private val service: StoryboardService, private val jobs: StoryboardJobs) {
+class StoryboardModel(
+    private val session: ProjectSession,
+    private val service: StoryboardService,
+    private val jobs: StoryboardJobs,
+    media: MediaTools? = null,
+) {
+    private val beats = BeatFinder(session, media)
+
     val state: Flow<StoryboardUiState> = session.state.map(::build)
     private val _message = MutableStateFlow<String?>(null)
 
@@ -54,6 +65,30 @@ class StoryboardModel(private val session: ProjectSession, private val service: 
     fun approve(number: Int, approved: Boolean = true) = quick { service.approve(number, approved) }
     fun approveAll() = quick { service.approveAll() }
     fun switchVersion(id: ArtifactId) = quick { service.switchVersion(id) }
+
+    /**
+     * "♩ Snap cuts to beat" (Q-12, D-32): on = find the song's beats (cached after the first time) and move every cut
+     * to the nearest beat within ±250 ms; off = the storyboard's own cuts again. Approvals and prompts stay.
+     */
+    fun setSnapToBeat(on: Boolean): Boolean {
+        _message.value = null
+        if (!on) return quick { service.retime(false) }
+        val before = session.open?.project?.shots.orEmpty()
+        return jobs.run(BEAT_LABEL, onDone = { r -> if (r == StoryboardResult.Done) _message.value = snapSummary(before) }) {
+            when (val found = beats.find()) {
+                is BeatFinder.Found.Failed -> StoryboardResult.Failed(found.message)
+                is BeatFinder.Found.Ok -> retime(true)
+            }
+        }
+    }
+
+    private fun snapSummary(before: List<Shot>): String {
+        val p = session.open?.project ?: return ""
+        val bpm = session.readBeats()?.bpm?.let { " · about ${round(it).toInt()} BPM" } ?: ""
+        val old = before.associate { it.number to it.startMs }
+        val moved = p.shots.count { s -> s.number != p.shots.first().number && old[s.number]?.let { it != s.startMs } == true }
+        return "♩ Cuts snapped to the beat: $moved of ${p.shots.size - 1} moved$bpm."
+    }
 
     /** ✎ ပြင်မယ်: saves the edited Burmese scene and English fields of shot [number]. */
     fun edit(number: Int, edit: (ShotSpec) -> ShotSpec) = quick {
@@ -105,11 +140,13 @@ class StoryboardModel(private val session: ProjectSession, private val service: 
             )
         }
         val versions = p.storyboards.mapIndexed { i, id -> StoryVersion(id, "v${i + 1}", id == p.currentStoryboard) }
-        return StoryboardUiState(p.name, cards, versions)
+        return StoryboardUiState(p.name, cards, versions, snapToBeat = p.settings.snapToBeat)
     }
 
     companion object {
         private const val PROVIDER_USER = "user"
+
+        const val BEAT_LABEL = "Finding the beat"
 
         fun regenerateLabel(number: Int) = "Regenerating shot #${number.toString().padStart(2, '0')}"
 

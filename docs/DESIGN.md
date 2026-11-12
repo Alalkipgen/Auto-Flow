@@ -24,10 +24,10 @@ Title bar right side always shows provider status: `Gemini API ● Free tier` ·
 Project list (name, mode, ratio, progress x/y, last opened), New Music Video, New Movie Recap, Open folder.
 
 ### Input
-Form: lyrics (multiline, section markers `[Verse]`, `[Chorus]` optional), duration mm:ss (auto-read from mp3 if attached), song style, video style (chips + custom), mood/colour, ratio chips **16:9 / 9:16 / 1:1 / 4:5 / 21:9**, clip length **8s / 10s / 5s**, storyboard mode **Narrative / Performance / Abstract / Mixed**, character quick-add. Primary button: "Storyboard ထုတ်မယ်".
+Form: lyrics (multiline, section markers `[Verse]`, `[Chorus]` optional), duration mm:ss (auto-read from mp3 if attached), song style, video style (chips + custom), mood/colour, ratio chips **16:9 / 9:16 / 1:1 / 4:5 / 21:9**, clip length **8s / 10s / 5s**, storyboard mode **Narrative / Performance / Abstract / Mixed**, character quick-add. Primary button: "Storyboard ထုတ်မယ်". After a song is imported, a "Lyrics timing" card: "Sync lyrics (tap)" (song plays; current line big, next line muted; "⤵ Line starts" / "⏹ Last line ends", Undo, Restart, Save) and "✨ Suggest timings (Gemini)" (confirm first); Export then shows each line when it is sung (D-30, D-31).
 
 ### Storyboard
-Vertical list of cards: timecode (cyan, tabular), lyric line (muted), Burmese scene text (editable inline), camera · mood chips, version tag. Card actions: ✎ ပြင် · ↻ ပြန်ထုတ် · ✓ Approve. Header: "Approve all", storyboard version dropdown, regenerate-all (confirm dialog shows what becomes stale).
+Vertical list of cards: timecode (cyan, tabular), lyric line (muted), Burmese scene text (editable inline), camera · mood chips, version tag. Card actions: ✎ ပြင် · ↻ ပြန်ထုတ် · ✓ Approve. Header: "Approve all", storyboard version dropdown, regenerate-all (confirm dialog shows what becomes stale), "♩ Snap cuts to beat" switch (D-32).
 
 ### Shots
 Grid of shot cards: thumbnail (ref or video frame), `#NN`, timecode, badge. Badges:

@@ -27,7 +27,8 @@ Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recor
   "createdAt": "...", "updatedAt": "...",
   "settings": { "ratio": "9:16", "clipMs": 8000, "durationMs": 200000, "storyboardMode": "NARRATIVE",
                 "songStyle": "ballad", "videoStyle": "cinematic", "mood": "melancholic, hopeful",
-                "textModel": "ref:models.text.default", "imageModel": "ref:models.image.default" },
+                "textModel": "ref:models.text.default", "imageModel": "ref:models.image.default",
+                "snapToBeat": false },
   "globalStyle": { "visual": "...", "palette": "...", "lighting": "...", "camera": "...", "negative": "...", "hash": "gs_..." },
   "characters": [ { "token": "HERO", "nameMy": "...", "descriptionEn": "...", "refImages": ["im_..."] } ],
   "analysis": "an_...",
@@ -44,6 +45,7 @@ Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recor
 }
 ```
 `lyricTiming` (optional, D-30): the `tx` artifact with the song's lyric line timings, `{"schemaVersion":1,"source":"tap","lines":[{"text":"...","startMs":1200,"endMs":4000}]}`; used only while its line texts equal the lyrics' non-blank, non-`[Section]` lines.
+`settings.snapToBeat` (D-32): shot cuts sit on the nearest detected beat (±250 ms, shots ≥ 2 s); the storyboard version keeps the unsnapped timings, and the beats are cached in `.cache/beats.json` (keyed by the song's SHA-256, safe to delete).
 Writes: serialize → `project.json.tmp` → fsync → rename over `project.json`. Keep `project.json.bak` (previous version).
 
 ## 3. Migration
