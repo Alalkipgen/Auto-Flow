@@ -102,4 +102,17 @@ class ArtifactStoreTest {
         assertIs<CoreError.Corrupt>(store.get(missing).err())
         assertIs<CoreError.Corrupt>(store.listByShot(1).err())
     }
+
+    @Test
+    fun recordInputsRewritesOnlyTheSidecarInputs() {
+        val a = store.put(byteArrayOf(1, 2), ArtifactKind.PROMPT_IR, "json", 1, mapOf("spec" to "sp_old")).ok()
+        val again = store.put(byteArrayOf(1, 2), ArtifactKind.PROMPT_IR, "json", 1, mapOf("spec" to "sp_new")).ok()
+        assertEquals(mapOf("spec" to "sp_old"), again.inputs, "dedupe keeps the first record")
+        val updated = store.recordInputs(a.id, mapOf("spec" to "sp_new")).ok()
+        assertEquals(mapOf("spec" to "sp_new"), updated.inputs)
+        assertEquals(updated, store.get(a.id).ok())
+        assertEquals(a.copy(inputs = updated.inputs), updated, "id, file, createdAt, provider unchanged")
+        assertTrue(store.readBytes(a.id).ok().contentEquals(byteArrayOf(1, 2)))
+        assertIs<CoreError.NotFound>(store.recordInputs(ArtifactId("pr_000000000000"), emptyMap()).err())
+    }
 }

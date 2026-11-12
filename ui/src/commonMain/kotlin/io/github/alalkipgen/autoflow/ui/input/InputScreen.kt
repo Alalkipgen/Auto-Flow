@@ -169,8 +169,8 @@ private fun CharactersCard(state: InputUiState, model: InputModel, locked: Boole
 const val ADD_CHARACTER_BUTTON = "+ Add character"
 const val CHARACTERS_HELP = "ဇာတ်ကောင်တစ်ယောက်ကို တစ်ခါပဲ ရေးပါ — shot တိုင်းမှာ အဲဒီ English description အတိုင်း ထည့်ပေးမယ်၊ " +
     "ဒါကြောင့် ရုပ်တူနေမယ်။ (Write each character once: every shot that uses its token gets the same description.)"
-const val CHARACTERS_AFTER_STORYBOARD = "The storyboard uses the characters when it is generated (again); a changed description " +
-    "reaches a shot's prompt when it is recompiled on Shots (↻ Recompile)."
+const val CHARACTERS_AFTER_STORYBOARD = "The storyboard uses the characters when it is generated (again); after a description " +
+    "changes, the shots that use it show ⚠ Stale on Shots — ↻ Recompile them."
 
 @Composable
 private fun <T> ChipRow(items: List<T>, label: (T) -> String, selected: (T) -> Boolean, onPick: (T) -> Unit, locked: Boolean) {

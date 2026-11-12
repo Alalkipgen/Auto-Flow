@@ -58,6 +58,20 @@ class ArtifactStore(
         }
     }
 
+    /**
+     * D-29: re-record the [inputs] of an existing artifact when identical bytes were produced again from newer inputs
+     * (a recompile that gives the same prompt). Only the sidecar's `inputs` change (atomic rewrite); the data file
+     * stays write-once. Without this, a deduplicated artifact would keep its first inputs and stay ⚠ Stale forever.
+     */
+    fun recordInputs(id: ArtifactId, inputs: Map<String, String>): CoreResult<Artifact> = when (val r = get(id)) {
+        is CoreResult.Err -> r
+        is CoreResult.Ok -> if (r.value.inputs == inputs) r else io(metaPath(id)) {
+            val updated = r.value.copy(inputs = inputs)
+            writeNew(metaPath(id), CoreJson.encodeToString(updated).encodeToByteArray())
+            CoreResult.Ok(updated)
+        }
+    }
+
     fun get(id: ArtifactId): CoreResult<Artifact> = io(metaPath(id)) {
         val path = metaPath(id)
         if (!fs.exists(path)) CoreResult.Err(CoreError.NotFound(path)) else decodeMeta(path, id)

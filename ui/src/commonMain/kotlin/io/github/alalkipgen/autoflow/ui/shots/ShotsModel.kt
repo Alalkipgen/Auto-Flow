@@ -102,7 +102,7 @@ class ShotsModel(private val session: ProjectSession) {
         val spec = readSpec(shot) ?: return "No storyboard for shot $number — generate storyboard first"
         val ratio = project.settings.ratio
         return when (val r = PromptCompiler.compile(spec, project.globalStyle, project.characters, ratio, shot.durationMs)) {
-            is CoreResult.Ok -> savePrompt(project, shot, r.value).also { _actionError.value = it }
+            is CoreResult.Ok -> savePrompt(project, shot, spec, r.value).also { _actionError.value = it }
             is CoreResult.Err -> r.error.message.also { _actionError.value = it }
         }
     }
@@ -166,11 +166,14 @@ class ShotsModel(private val session: ProjectSession) {
         }
     }
 
-    private fun savePrompt(project: Project, shot: Shot, ir: PromptIR): String? {
+    private fun savePrompt(project: Project, shot: Shot, spec: ShotSpec, ir: PromptIR): String? {
         val artifacts = session.artifacts() ?: return "No project open"
         val json = CoreJson.encodeToString(PromptIR.serializer(), ir)
-        val artifact = (artifacts.put(json.encodeToByteArray(), ArtifactKind.PROMPT_IR, "json", shot.number) as? CoreResult.Ok)?.value
+        val inputs = PromptCompiler.inputsFor(project, shot, spec)
+        val put = (artifacts.put(json.encodeToByteArray(), ArtifactKind.PROMPT_IR, "json", shot.number, inputs) as? CoreResult.Ok)?.value
             ?: return "Failed to save prompt artifact"
+        // Same prompt from newer inputs (e.g. only the Burmese scene text changed): refresh them, D-29.
+        val artifact = (artifacts.recordInputs(put.id, inputs) as? CoreResult.Ok)?.value ?: return "Failed to save prompt artifact"
         val shots = project.shots.map { s ->
             if (s.number == shot.number) s.copy(promptIr = artifact.id, approvals = s.approvals.copy(prompt = false)) else s
         }
