@@ -36,6 +36,26 @@ object LyricSync {
 
     /** True when [timings] were made for exactly the current [lyrics] lines (else the lyrics changed after sync). */
     fun matches(timings: LyricTimings, lyrics: String): Boolean = timings.lines.map { it.text } == lines(lyrics)
+
+    /**
+     * Suggested (AI) times for [lines], one `start to end` per line in order, made usable: starts only increase (at
+     * least [TapSync.MIN_GAP_MS] apart), a line ends by the next start and after at most [TapSync.MAX_LINE_MS], a
+     * missing end becomes the next start (last line: [TapSync.LAST_LINE_MS]), all cut at [songMs]. Null when the
+     * counts differ.
+     */
+    fun suggested(lines: List<String>, times: List<Pair<Long, Long>>, songMs: Long? = null): List<LyricLine>? {
+        if (lines.isEmpty() || times.size != lines.size) return null
+        val starts = mutableListOf<Long>()
+        times.forEach { (start, _) -> starts += maxOf(start, 0, (starts.lastOrNull() ?: -TapSync.MIN_GAP_MS) + TapSync.MIN_GAP_MS) }
+        val limit = songMs ?: Long.MAX_VALUE
+        return lines.indices.map { i ->
+            val start = starts[i]
+            val next = starts.getOrNull(i + 1)
+            val wanted = times[i].second.takeIf { it > start } ?: next ?: (start + TapSync.LAST_LINE_MS)
+            val end = minOf(wanted, next ?: Long.MAX_VALUE, start + TapSync.MAX_LINE_MS, limit)
+            LyricLine(lines[i], start, maxOf(end, minOf(start + 1, limit)))
+        }
+    }
 }
 
 /**

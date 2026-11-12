@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.Character
 import io.github.alalkipgen.autoflow.core.model.Project
@@ -51,12 +52,16 @@ class InputModel(
     private val jobs: StoryboardJobs,
     private val picker: FilePicker? = null,
     private val media: MediaTools? = null,
+    transcribe: TranscribeProvider? = null,
 ) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<InputUiState> = _state.asStateFlow()
 
     /** Tap-to-sync of the lyric lines (PLAN Q-11). */
-    val sync = LyricSyncModel(session)
+    val sync = LyricSyncModel(session, transcribe, media)
+
+    /** "✨ Suggest timings": saves the draft, then asks Gemini (D-31). */
+    suspend fun suggestTimings(): Boolean = !jobs.busy && save() && sync.suggest()
 
     /** "Sync lyrics": saves the draft (the timings belong to the saved lyrics), then opens the tap panel. */
     fun startSync(): Boolean = !jobs.busy && save() && sync.start(_state.value.lyrics)

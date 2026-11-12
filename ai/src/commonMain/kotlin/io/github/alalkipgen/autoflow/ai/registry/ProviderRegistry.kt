@@ -18,6 +18,7 @@ import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTranscribeProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider
 import io.github.alalkipgen.autoflow.ai.gemini.GeminiTextProvider
+import io.github.alalkipgen.autoflow.ai.gemini.GeminiTranscribeProvider
 import io.github.alalkipgen.autoflow.ai.manual.ManualImageProvider
 import io.github.alalkipgen.autoflow.ai.retry.ModelChain
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
@@ -41,8 +42,8 @@ interface AiHost {
 
 /**
  * Picks fake or real providers per call from [AiHost.useFakeProviders], so switching the setting takes effect
- * without restarting. Real = [GeminiTextProvider] + [ManualImageProvider] (D-14); TTS and transcription have no
- * real implementation yet and answer `Failed("unavailable")`. The HTTP client is created on first real call.
+ * without restarting. Real = [GeminiTextProvider] + [ManualImageProvider] (D-14) + [GeminiTranscribeProvider]
+ * (audio input on the text models, D-31); TTS has no real implementation yet and answers `Failed("unavailable")`. The HTTP client is created on first real call.
  */
 class ProviderRegistry(
     private val host: AiHost,
@@ -59,6 +60,9 @@ class ProviderRegistry(
     private val fakeTranscribe = FakeTranscribeProvider(fakeDelayMs)
     private val gemini by lazy {
         GeminiTextProvider(http.value, { host.apiKey() }, config.text.candidates, ModelChain(usage = usage))
+    }
+    private val geminiTranscribe by lazy {
+        GeminiTranscribeProvider(http.value, { host.apiKey() }, config.text.candidates, ModelChain(usage = usage))
     }
     private val manualImage = ManualImageProvider(host::copyToClipboard, host::openUrl, config.image.manualUrl)
 
@@ -81,8 +85,8 @@ class ProviderRegistry(
     }
 
     val transcribe: TranscribeProvider = object : TranscribeProvider {
-        override suspend fun transcribe(audio: ByteArray, lang: String): AiResult<Transcript> =
-            if (usingFakes) fakeTranscribe.transcribe(audio, lang) else unavailable("Transcription")
+        override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> =
+            (if (usingFakes) fakeTranscribe else geminiTranscribe).transcribe(audio, lang, mime, lines)
     }
 
     /** What the UI may offer right now. Fakes can do everything offline. */

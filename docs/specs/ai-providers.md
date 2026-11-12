@@ -5,7 +5,7 @@ interface TextProvider  { suspend fun json(prompt: String, schema: JsonSchema, s
 interface ImageProvider { suspend fun image(prompt: String, ratio: Ratio, refImages: List<ByteArray> = emptyList()): AiResult<ByteArray> }
 interface TtsProvider   { suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?): AiResult<ByteArray>
                           val capabilities: TtsCapabilities /* replication, burmese, designedVoices */ }
-interface TranscribeProvider { suspend fun transcribe(audio: ByteArray, lang: String): AiResult<Transcript> }
+interface TranscribeProvider { suspend fun transcribe(audio: ByteArray, lang: String, mime: String = "audio/wav", lines: List<String> = emptyList()): AiResult<Transcript> } // lines = known lyrics to align (D-31)
 
 sealed interface AiResult<T> { data class Ok<T>(val value:T, val usage:Usage?):AiResult<T>
   data class RateLimited(val retryAfterMs:Long?):AiResult<Nothing>; data class Failed(val code:String,val msg:String):AiResult<Nothing>

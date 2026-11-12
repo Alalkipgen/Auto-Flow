@@ -129,6 +129,24 @@ class ProjectSession(
         }
     }
 
+    /** Bytes of a file in or outside the project (e.g. the song); null when it cannot be read. */
+    fun readFile(path: String): ByteArray? = try {
+        fs.read(path)
+    } catch (e: Exception) {
+        null
+    }
+
+    /** `<project>/.cache/<name>` with the folder created; null without a project or when it cannot be made. */
+    fun cacheFile(name: String): String? {
+        val cache = joinPath(open?.dir ?: return null, CACHE_DIR)
+        return try {
+            fs.createDirectories(cache)
+            joinPath(cache, name)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /** The saved line timings (`project.lyricTiming`), or null when there are none or they cannot be read. */
     fun readLyricTimings(): LyricTimings? {
         val id = open?.project?.lyricTiming ?: return null

@@ -6,16 +6,6 @@ import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.retry.Attempt
 import io.github.alalkipgen.autoflow.ai.retry.ModelChain
 import io.ktor.client.HttpClient
-import io.ktor.client.network.sockets.ConnectTimeoutException
-import io.ktor.client.network.sockets.SocketTimeoutException
-import io.ktor.client.plugins.HttpRequestTimeoutException
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -38,27 +28,8 @@ class GeminiTextProvider(
         return chain.run(candidates) { model -> attempt(model, key, body) }
     }
 
-    private suspend fun attempt(model: String, key: String, body: String): Attempt<JsonElement> {
-        val (status, text) = try {
-            val response = http.post("${baseUrl.trimEnd('/')}/models/$model:generateContent") {
-                header("x-goog-api-key", key)
-                contentType(ContentType.Application.Json)
-                setBody(body)
-            }
-            response.status.value to response.bodyAsText()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: HttpRequestTimeoutException) {
-            return Attempt.Unavailable("timeout", "$model timed out")
-        } catch (e: SocketTimeoutException) {
-            return Attempt.Unavailable("timeout", "$model timed out")
-        } catch (e: ConnectTimeoutException) {
-            return Attempt.Fatal("network", "Cannot reach the Gemini API (connect timeout)")
-        } catch (e: Exception) {
-            return Attempt.Fatal("network", "Cannot reach the Gemini API: ${e.message ?: e::class.simpleName}")
-        }
-        return GeminiWire.classify(status, text)
-    }
+    private suspend fun attempt(model: String, key: String, body: String): Attempt<JsonElement> =
+        GeminiWire.post(http, baseUrl, model, key, body)
 
     companion object {
         const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"

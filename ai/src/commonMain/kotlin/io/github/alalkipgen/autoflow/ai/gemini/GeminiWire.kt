@@ -2,6 +2,18 @@ package io.github.alalkipgen.autoflow.ai.gemini
 
 import io.github.alalkipgen.autoflow.ai.JsonSchema
 import io.github.alalkipgen.autoflow.ai.retry.Attempt
+import io.ktor.client.HttpClient
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.network.sockets.SocketTimeoutException
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.io.encoding.Base64
 import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -19,14 +31,25 @@ import kotlinx.serialization.json.Json
 
 /** Gemini `generateContent` REST shapes: request building and response/error classification for [Attempt]. */
 internal object GeminiWire {
-    fun request(prompt: String, schema: JsonSchema, system: String?, temperature: Double?): JsonObject = buildJsonObject {
+    /** [media] (mime type to bytes) goes inline before the prompt text (base64 `inlineData`). */
+    fun request(prompt: String, schema: JsonSchema, system: String?, temperature: Double?, media: Pair<String, ByteArray>? = null): JsonObject = buildJsonObject {
         if (!system.isNullOrBlank()) {
             putJsonObject("systemInstruction") { putJsonArray("parts") { addJsonObject { put("text", system) } } }
         }
         putJsonArray("contents") {
             addJsonObject {
                 put("role", "user")
-                putJsonArray("parts") { addJsonObject { put("text", prompt) } }
+                putJsonArray("parts") {
+                    if (media != null) {
+                        addJsonObject {
+                            putJsonObject("inlineData") {
+                                put("mimeType", media.first)
+                                put("data", Base64.encode(media.second))
+                            }
+                        }
+                    }
+                    addJsonObject { put("text", prompt) }
+                }
             }
         }
         putJsonObject("generationConfig") {
@@ -34,6 +57,29 @@ internal object GeminiWire {
             put("responseJsonSchema", schema.json)
             if (temperature != null) put("temperature", temperature)
         }
+    }
+
+    /** One `generateContent` call; network failures are classified like HTTP errors (no exceptions escape). */
+    suspend fun post(http: HttpClient, baseUrl: String, model: String, key: String, body: String): Attempt<JsonElement> {
+        val (status, text) = try {
+            val response = http.post("${baseUrl.trimEnd('/')}/models/$model:generateContent") {
+                header("x-goog-api-key", key)
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+            response.status.value to response.bodyAsText()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: HttpRequestTimeoutException) {
+            return Attempt.Unavailable("timeout", "$model timed out")
+        } catch (e: SocketTimeoutException) {
+            return Attempt.Unavailable("timeout", "$model timed out")
+        } catch (e: ConnectTimeoutException) {
+            return Attempt.Fatal("network", "Cannot reach the Gemini API (connect timeout)")
+        } catch (e: Exception) {
+            return Attempt.Fatal("network", "Cannot reach the Gemini API: ${e.message ?: e::class.simpleName}")
+        }
+        return classify(status, text)
     }
 
     fun classify(status: Int, body: String): Attempt<JsonElement> {
