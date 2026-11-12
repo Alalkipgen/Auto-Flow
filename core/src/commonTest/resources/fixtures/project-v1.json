@@ -55,5 +55,6 @@
     }
   ],
   "timeline": null,
-  "flowCredits": { "manualLog": [ { "date": "2026-11-10", "credits": 20, "shot": 1 } ] }
+  "flowCredits": { "manualLog": [ { "date": "2026-11-10", "credits": 20, "shot": 1 } ] },
+  "recap": null
 }

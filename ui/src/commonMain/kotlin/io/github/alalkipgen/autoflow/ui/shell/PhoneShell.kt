@@ -44,8 +44,8 @@ val PhoneTabs: List<Pair<String, String>> = listOf(
     "Dashboard" to "Projects", "Storyboard" to "Storyboard", "Shots" to "Shots", "Inbox" to "Inbox", MORE to MORE,
 )
 
-/** The "More" list: the pipeline screens without a tab (Input first, it starts every project), then Settings. */
-val MoreScreens: List<String> = listOf("Input", "References", "Flow Handoff", "Timeline", "Export", "Settings")
+/** The "More" list: Movie Recap (D-33), the pipeline screens without a tab (Input starts every music video), then Settings. */
+val MoreScreens: List<String> = listOf("Movie Recap", "Input", "References", "Flow Handoff", "Timeline", "Export", "Settings")
 
 const val MORE = "More"
 

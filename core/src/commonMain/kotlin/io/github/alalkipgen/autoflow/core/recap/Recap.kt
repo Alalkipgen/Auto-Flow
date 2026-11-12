@@ -1,0 +1,133 @@
+package io.github.alalkipgen.autoflow.core.recap
+
+import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+/** Movie Recap state in `project.recap` (docs/specs/recap.md §2, D-33). Only `MOVIE_RECAP` projects have one. */
+@Serializable
+@SerialName("Recap")
+data class Recap(
+    /** The rights tick of New Movie Recap (spec §1). */
+    val rightsConfirmed: Boolean = false,
+    val movie: RecapMovie? = null,
+    /** The length the owner aims for; a guide for picking scenes. */
+    val targetMs: Long = DEFAULT_TARGET_MS,
+    val scenes: List<RecapScene> = emptyList(),
+    /** `scdet` threshold the scenes were found with. */
+    val sceneThreshold: Int = Scenes.THRESHOLD_NORMAL,
+    /** `source/subtitles.srt` when imported. */
+    val subtitles: String? = null,
+    val style: RecapStyle = RecapStyle.PLAIN,
+    /** Current `rs` artifact ([RecapScript]). */
+    val script: ArtifactId? = null,
+    val scriptApproved: Boolean = false,
+    val voiceSource: VoiceSource = VoiceSource.RECORDED,
+    val ttsVoice: String = DEFAULT_TTS_VOICE,
+    /** Newest narration per segment. */
+    val takes: List<VoiceTake> = emptyList(),
+    val looks: List<Look> = emptyList(),
+    /** The movie's own sound under the narration: 0 (off) … 1 (full). */
+    val movieVolume: Double = MOVIE_VOLUME_LOW,
+    val burnCaptions: Boolean = true,
+) {
+    val picked: List<RecapScene> get() = scenes.filter { it.picked }
+    val pickedMs: Long get() = picked.sumOf { it.durationMs }
+
+    companion object {
+        const val DEFAULT_TARGET_MS = 300_000L
+        const val DEFAULT_TTS_VOICE = "Charon"
+        const val MOVIE_VOLUME_LOW = 0.2
+        val TARGETS_MS = listOf(60_000L, 180_000L, 300_000L, 600_000L)
+    }
+}
+
+/** The imported movie, `source/movie.<ext>` relative to the project folder (not an artifact: too large to hash). */
+@Serializable
+@SerialName("RecapMovie")
+data class RecapMovie(
+    val file: String,
+    val sizeBytes: Long,
+    val durationMs: Long,
+    val width: Int = 0,
+    val height: Int = 0,
+    val hasAudio: Boolean = true,
+)
+
+/** A scene in movie time, `[startMs, endMs)`. */
+@Serializable
+@SerialName("RecapScene")
+data class RecapScene(
+    val startMs: Long,
+    val endMs: Long,
+    val picked: Boolean = false,
+) {
+    val durationMs: Long get() = endMs - startMs
+}
+
+@Serializable
+@SerialName("RecapStyle")
+enum class RecapStyle {
+    /** Neutral storytelling. */
+    @SerialName("PLAIN") PLAIN,
+
+    /** Adds short reactions and opinions, recap-channel style. */
+    @SerialName("COMMENTARY") COMMENTARY,
+}
+
+/** Where the narration comes from (D-34). [REPLICATED] is hidden unless models.json says it is available. */
+@Serializable
+@SerialName("VoiceSource")
+enum class VoiceSource {
+    @SerialName("RECORDED") RECORDED,
+    @SerialName("TTS") TTS,
+    @SerialName("REPLICATED") REPLICATED,
+}
+
+/** Picture changes for the movie clips (spec §6); any combination. */
+@Serializable
+@SerialName("Look")
+enum class Look {
+    @SerialName("MIRROR") MIRROR,
+    @SerialName("ZOOM") ZOOM,
+    @SerialName("FILL") FILL,
+    @SerialName("WARM") WARM,
+}
+
+/** The narration of segment [segment] (0-based): an `au` artifact. Stale when [textHash] ≠ the segment's text hash. */
+@Serializable
+@SerialName("VoiceTake")
+data class VoiceTake(
+    val segment: Int,
+    val audio: ArtifactId,
+    val source: VoiceSource,
+    val durationMs: Long,
+    val textHash: String,
+)
+
+/** The narration script, an `rs` artifact (spec §4): one segment per picked scene, in movie order. */
+@Serializable
+@SerialName("RecapScript")
+data class RecapScript(
+    val schemaVersion: Int = SCHEMA_VERSION,
+    /** `gemini` or `manual`. */
+    val source: String,
+    val style: RecapStyle = RecapStyle.PLAIN,
+    val segments: List<RecapSegment>,
+) {
+    companion object {
+        const val SCHEMA_VERSION = 1
+        const val SOURCE_GEMINI = "gemini"
+        const val SOURCE_MANUAL = "manual"
+    }
+}
+
+@Serializable
+@SerialName("RecapSegment")
+data class RecapSegment(
+    val startMs: Long,
+    val endMs: Long,
+    val textMy: String = "",
+) {
+    val durationMs: Long get() = endMs - startMs
+}

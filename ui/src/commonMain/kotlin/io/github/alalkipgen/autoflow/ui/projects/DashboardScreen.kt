@@ -31,6 +31,7 @@ import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
+import io.github.alalkipgen.autoflow.ui.components.AfSwitch
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
@@ -45,12 +46,17 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.coroutines.launch
 
-/** Dashboard (DESIGN.md §3): project list, New Music Video, New Movie Recap (Phase 4), Open folder. */
+/** Rights notice of New Movie Recap (docs/specs/recap.md §1); repeated on Movie Recap and Export. */
+const val RIGHTS_NOTICE = "Use only footage you own or have permission to use. Recaps of other people's movies can be " +
+    "blocked, muted or demonetized by YouTube / Facebook / TikTok."
+const val RIGHTS_TICK = "I own this footage or have permission to use it"
+
+/** Dashboard (DESIGN.md §3): project list, New Music Video, New Movie Recap, Open folder. */
 @Composable
 fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modifier = Modifier, clock: Clock = Clock.System) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
-    var creating by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf<Mode?>(null) }
     val compact = LocalCompact.current
     LaunchedEffect(model) { model.refresh() }
     Column(
@@ -62,9 +68,9 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             if (model.projectsHome == null) AfButton("Open folder…", { scope.launch { if (model.openFolder()) onOpened() } })
         }
         val newMusicVideo: @Composable () -> Unit = {
-            AfButton("New Music Video", { creating = true }, kind = ButtonKind.Primary, enabled = !creating)
+            AfButton("New Music Video", { creating = Mode.MUSIC_VIDEO }, kind = ButtonKind.Primary, enabled = creating == null)
         }
-        val newMovieRecap: @Composable () -> Unit = { AfButton("New Movie Recap (Phase 4)", {}, enabled = false) }
+        val newMovieRecap: @Composable () -> Unit = { AfButton("New Movie Recap", { creating = Mode.MOVIE_RECAP }, enabled = creating == null) }
         if (compact) {
             // Phone: the title on its own line, the main action first, the rest wrapping below it.
             AfText("Projects", size = 18.sp, bold = true)
@@ -79,8 +85,8 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             }
         }
         state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
-        if (creating) {
-            NewProjectCard(model, onCancel = { creating = false }, onCreated = { creating = false; onOpened() })
+        creating?.let { mode ->
+            NewProjectCard(model, mode, onCancel = { creating = null }, onCreated = { creating = null; onOpened() })
         }
         if (state.rows.isEmpty()) {
             AfText(
@@ -95,13 +101,19 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
 }
 
 @Composable
-private fun NewProjectCard(model: DashboardModel, onCancel: () -> Unit, onCreated: () -> Unit) {
+private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Unit, onCreated: () -> Unit) {
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var parent by remember { mutableStateOf(model.lastParent.orEmpty()) }
+    var rights by remember { mutableStateOf(false) }
     val home = model.projectsHome
-    AfCard("New Music Video") {
+    val recap = mode == Mode.MOVIE_RECAP
+    AfCard(if (recap) "New Movie Recap" else "New Music Video") {
         AfTextField(name, { name = it }, "Project name")
+        if (recap) {
+            AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
+            AfSwitch(RIGHTS_TICK, rights, { rights = it })
+        }
         if (home == null) {
             FieldRow(
                 field = { AfTextField(parent, { parent = it }, "Folder to save it in", it) },
@@ -114,8 +126,10 @@ private fun NewProjectCard(model: DashboardModel, onCancel: () -> Unit, onCreate
             AfText("Creates ${joinPath(parent.trimEnd('/'), projectFolderName(name))}", muted = true, size = 12.sp, mono = true)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfButton("Create", { if (model.createMusicVideo(parent, name)) onCreated() }, kind = ButtonKind.Primary,
-                enabled = name.isNotBlank() && parent.isNotBlank())
+            AfButton("Create", {
+                val ok = if (recap) model.createMovieRecap(parent, name, rights) else model.createMusicVideo(parent, name)
+                if (ok) onCreated()
+            }, kind = ButtonKind.Primary, enabled = name.isNotBlank() && parent.isNotBlank() && (!recap || rights))
             AfButton("Cancel", onCancel)
         }
     }

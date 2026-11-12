@@ -7,6 +7,7 @@ import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
+import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -54,18 +55,33 @@ class DashboardModel(
     val lastParent: String? get() = projectsHome ?: settings.state.value.projectsDir
 
     /** Creates `<parent>/<name>.autoflow` with the default ratio / clip length from Settings, then opens it. */
-    fun createMusicVideo(parent: String, name: String): Boolean {
+    fun createMusicVideo(parent: String, name: String): Boolean = create(parent, name, Mode.MUSIC_VIDEO)
+
+    /**
+     * New Movie Recap (docs/specs/recap.md §1): like [createMusicVideo], but only with the rights tick, which is
+     * kept in `recap.rightsConfirmed`.
+     */
+    fun createMovieRecap(parent: String, name: String, rightsConfirmed: Boolean): Boolean {
+        if (!rightsConfirmed) return fail(RIGHTS_REQUIRED)
+        return create(parent, name, Mode.MOVIE_RECAP) { it.copy(recap = Recap(rightsConfirmed = true)) }
+    }
+
+    private fun create(parent: String, name: String, mode: Mode, init: (Project) -> Project = { it }): Boolean {
         if (name.isBlank()) return fail("Enter a project name")
         if (parent.isBlank()) return fail("Choose where to save the project")
         val dir = joinPath(parent.trimEnd('/'), projectFolderName(name))
         val defaults = settings.state.value
-        val created = store.create(dir, name, Mode.MUSIC_VIDEO, ProjectSettings(ratio = defaults.defaultRatio, clipMs = defaults.defaultClipMs))
-        return when (created) {
+        val created = store.create(dir, name, mode, ProjectSettings(ratio = defaults.defaultRatio, clipMs = defaults.defaultClipMs))
+        val project = when (created) {
+            is CoreResult.Ok -> init(created.value).let { p -> if (p == created.value) created else store.save(dir, p) }
+            is CoreResult.Err -> created
+        }
+        return when (project) {
             is CoreResult.Ok -> {
                 if (projectsHome == null) settings.update { it.copy(projectsDir = parent) }
-                opened(dir, created.value)
+                opened(dir, project.value)
             }
-            is CoreResult.Err -> fail(created.error.toText())
+            is CoreResult.Err -> fail(project.error.toText())
         }
     }
 
@@ -137,6 +153,10 @@ class DashboardModel(
         fs.exists(path)
     } catch (e: Exception) {
         false
+    }
+
+    companion object {
+        const val RIGHTS_REQUIRED = "Tick the rights box first: use only footage you own or have permission to use."
     }
 
     private fun CoreError.toText(): String = when (this) {

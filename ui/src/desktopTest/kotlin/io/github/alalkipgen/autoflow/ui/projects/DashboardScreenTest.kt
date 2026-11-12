@@ -35,7 +35,6 @@ class DashboardScreenTest {
         var opened = 0
         setContent { DashboardScreen(model, onOpened = { opened++ }) }
         onNodeWithText("No projects yet", substring = true).assertExists()
-        onNodeWithText("New Movie Recap (Phase 4)").assertIsNotEnabled()
         onNodeWithText("New Music Video").performClick()
         onNodeWithContentDescription("Project name").performTextInput("Rain")
         onNodeWithText("Browse…").performClick()
@@ -46,6 +45,27 @@ class DashboardScreenTest {
         assertEquals(1, opened)
         assertEquals("/videos/Rain.autoflow", current.state.value?.dir)
         assertTrue(fs.exists("/videos/Rain.autoflow/project.json"))
+    }
+
+    @Test
+    fun newMovieRecapNeedsTheRightsTick() = runComposeUiTest {
+        var opened = 0
+        setContent { DashboardScreen(model, onOpened = { opened++ }) }
+        onNodeWithText("New Movie Recap").performClick()
+        onNodeWithContentDescription("Project name").performTextInput("Recap")
+        onNodeWithText("Browse…").performClick()
+        waitForIdle()
+        onNodeWithText(RIGHTS_NOTICE).assertExists()
+        onNodeWithText("Create").assertIsNotEnabled()
+        onNodeWithText(RIGHTS_TICK).performClick()
+        onNodeWithText("Create").performClick()
+        waitForIdle()
+        assertEquals(1, opened)
+        val p = current.state.value!!.project
+        assertEquals(Mode.MOVIE_RECAP, p.mode)
+        assertEquals(true, p.recap?.rightsConfirmed)
+        assertEquals(false, model.createMovieRecap("/videos", "Other", rightsConfirmed = false))
+        assertEquals(DashboardModel.RIGHTS_REQUIRED, model.state.value.message)
     }
 
     @Test
