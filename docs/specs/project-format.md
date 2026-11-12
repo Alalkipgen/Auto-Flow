@@ -14,7 +14,7 @@
 
 ## 1. Artifact naming
 `<kind>_<first 12 hex of sha256(bytes)>.<ext>` with a sidecar `<kind>_<hash12>.meta.json` (Artifact record; no data extension in the sidecar name, so the id alone locates it). The artifact list is always rebuildable by scanning `artifacts/` for sidecars; no index file is authoritative.
-Kinds: `an` analysis · `sb` storyboard · `sp` shotspec · `pr` promptIR · `im` image · `vd` video · `au` audio · `tx` transcript · `rg` rendergraph.
+Kinds: `an` analysis · `sb` storyboard · `sp` shotspec · `pr` promptIR · `im` image · `vd` video · `au` audio · `tx` transcript · `rg` rendergraph · `rs` recap script (D-33).
 Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recordInputs` may then refresh that sidecar's `inputs` (D-29). Deleting is never done by the app; a "Clean unreferenced" tool may list them for the user (phase 2+).
 
 ## 2. project.json
@@ -46,6 +46,7 @@ Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recor
 ```
 `lyricTiming` (optional, D-30): the `tx` artifact with the song's lyric line timings, `{"schemaVersion":1,"source":"tap","lines":[{"text":"...","startMs":1200,"endMs":4000}]}`; used only while its line texts equal the lyrics' non-blank, non-`[Section]` lines.
 `settings.snapToBeat` (D-32): shot cuts sit on the nearest detected beat (±250 ms, shots ≥ 2 s); the storyboard version keeps the unsnapped timings, and the beats are cached in `.cache/beats.json` (keyed by the song's SHA-256, safe to delete).
+`recap` (D-33, only in `MOVIE_RECAP` projects, optional): the Movie Recap state — movie file, scenes and picks, script pointer and approval, voice takes, looks; see docs/specs/recap.md §2.
 Writes: serialize → `project.json.tmp` → fsync → rename over `project.json`. Keep `project.json.bak` (previous version).
 
 ## 3. Migration
