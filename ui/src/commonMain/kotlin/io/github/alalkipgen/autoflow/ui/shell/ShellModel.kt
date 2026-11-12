@@ -1,5 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.core.getOrNull
+import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.core.workflow.Pipeline
 import io.github.alalkipgen.autoflow.core.workflow.PipelineStep
@@ -22,18 +28,30 @@ class ShellModel(private val session: ProjectSession) {
     fun current(): ShellUiState = build(session.open)
 
     private fun build(open: OpenProject?): ShellUiState {
-        val p = open?.project ?: return ShellUiState(locks = SCREEN_STEPS.keys.associateWith { NO_PROJECT_LOCK })
+        val p = open?.project ?: return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { NO_PROJECT_LOCK })
+        if (p.mode == Mode.MOVIE_RECAP) return recapShell(p)
         val lookup = session.lookup()
         val locks = SCREEN_STEPS.mapNotNull { (screen, step) ->
             Pipeline.gate(p, step, lookup).blockers.firstOrNull()?.let { screen to lockText(it) }
         }.toMap()
         val current = Pipeline.current(p, lookup)
         val steps = PipelineStep.entries.map { StepView(it, STEP_LABELS.getValue(it), Pipeline.done(p, it, lookup), it == current) }
-        return ShellUiState(locks, steps)
+        return ShellUiState(locks + (RECAP_SCREEN to MUSIC_VIDEO_LOCK), steps)
+    }
+
+    /** A Movie Recap project (D-33): the music-video screens are locked, Export opens when [RecapRules] allows a render; no stepper. */
+    private fun recapShell(p: Project): ShellUiState {
+        val recap = p.recap ?: Recap()
+        val script = recap.script?.let { session.readJson(it, RecapScript.serializer()).getOrNull() }
+        val export = RecapRules.canRender(recap, script).blockers.firstOrNull()?.text()
+        val locks = SCREEN_STEPS.keys.filter { it != "Export" }.associateWith { RECAP_LOCK } + listOfNotNull(export?.let { "Export" to it })
+        return ShellUiState(locks)
     }
 
     companion object {
         const val NO_PROJECT_LOCK = "Open a project on the Dashboard first"
+        const val RECAP_LOCK = "This is a Movie Recap project — use Movie Recap"
+        const val MUSIC_VIDEO_LOCK = "This is a Music Video project — create a Movie Recap on the Dashboard"
 
         /** Sidebar entries that belong to a pipeline step; the others never lock. */
         val SCREEN_STEPS: Map<String, PipelineStep> = linkedMapOf(

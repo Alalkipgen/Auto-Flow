@@ -21,6 +21,15 @@ interface FileSystem {
 
     /** Renames [from] to [to] atomically, replacing [to] if it exists. */
     fun atomicMove(from: String, to: String)
+
+    /** Size of the file at [path] in bytes. Implementations should not read the file for this. */
+    fun size(path: String): Long = read(path).size.toLong()
+
+    /**
+     * Copies [from] to [to] (created or truncated) and forces it to storage. Implementations should stream: this is
+     * used for files too large for memory (a movie, D-33).
+     */
+    fun copyDurably(from: String, to: String) = writeDurably(to, read(from))
 }
 
 /** Joins a directory and a child name with `/`. */

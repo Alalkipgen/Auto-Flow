@@ -18,6 +18,7 @@ enum class ArtifactKind(val code: String) {
     @SerialName("au") AUDIO("au"),
     @SerialName("tx") TRANSCRIPT("tx"),
     @SerialName("rg") RENDER_GRAPH("rg"),
+    @SerialName("rs") RECAP_SCRIPT("rs"),
     ;
 
     companion object {

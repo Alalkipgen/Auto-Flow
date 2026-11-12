@@ -10,6 +10,9 @@ enum class Blocker {
     NO_PROMPT, PROMPT_NOT_APPROVED, PROMPT_STALE,
     NO_CHOSEN_REF, REF_NOT_APPROVED,
     NO_VIDEOS, NO_ACCEPTED_VIDEOS,
+    // Movie Recap (RecapRules, D-33)
+    NO_RIGHTS, NO_MOVIE, NO_PICKED_SCENES, NO_SCRIPT_SOURCE, NO_SCRIPT, SCRIPT_OUTDATED, BLANK_SEGMENT,
+    SCRIPT_NOT_APPROVED, NO_VOICE,
 }
 
 /** Result of a gate check: allowed when there are no [blockers]. */

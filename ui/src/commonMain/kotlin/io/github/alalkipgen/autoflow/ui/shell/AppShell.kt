@@ -67,6 +67,9 @@ import io.github.alalkipgen.autoflow.ui.theme.UiFont
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 
+/** The Movie Recap workspace (docs/specs/recap.md §7): sidebar "Mode → Movie Recap", phone More. */
+const val RECAP_SCREEN = "Movie Recap"
+
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
 val SidebarSections: List<Pair<String, List<String>>> = listOf(
     "Project" to listOf(
@@ -96,6 +99,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     LaunchedEffect(arrivals) { if (arrivals > 0) screen = "Inbox" }
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
+    val currentProject = koinInject<CurrentProject>()
     val backup = koinInject<BackupModel>().takeIf { it.available }
     val settings by koinInject<SettingsStore>().state.collectAsState()
     val fontPaths = settings.fontPaths
@@ -113,7 +117,11 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
         }
         val content: @Composable () -> Unit = {
             when (current) {
-                "Dashboard" -> DashboardScreen(koinInject(), onOpened = { screen = "Input" })
+                "Dashboard" -> DashboardScreen(koinInject(), onOpened = {
+                    val mode = currentProject.state.value?.project?.mode
+                    screen = if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) RECAP_SCREEN else "Input"
+                })
+                RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject())
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())

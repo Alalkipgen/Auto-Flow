@@ -18,6 +18,9 @@ class FrameGrab(private val tools: ToolRunner, private val ffmpeg: String) {
 
     suspend fun at(video: String, ms: Long, png: String, workDir: String): Result = grab(atArgs(video, ms, png), workDir)
 
+    /** A small JPEG ([width] px wide) of the frame at [ms], for scene thumbnails. */
+    suspend fun thumb(video: String, ms: Long, jpg: String, workDir: String, width: Int = 240): Result = grab(thumbArgs(video, ms, jpg, width), workDir)
+
     private suspend fun grab(args: List<String>, workDir: String): Result =
         when (val r = tools.run(listOf(ffmpeg) + args, workDir, TIMEOUT_MS, keepOutput = false) {}) {
             is ToolExec.CannotStart -> Result.Failed("ffmpeg cannot start: ${r.message}")
@@ -30,6 +33,9 @@ class FrameGrab(private val tools: ToolRunner, private val ffmpeg: String) {
         /** Decode the last second and keep overwriting one PNG, so the file ends as the very last frame. */
         fun lastArgs(video: String, png: String) =
             listOf("-hide_banner", "-y", "-nostdin", "-sseof", "-1", "-i", video, "-map", "0:v:0", "-fps_mode", "passthrough", "-update", "1", png)
+
+        fun thumbArgs(video: String, ms: Long, jpg: String, width: Int) =
+            listOf("-hide_banner", "-y", "-nostdin", "-ss", "${ms / 1000}.${(ms % 1000).toString().padStart(3, '0')}", "-i", video, "-map", "0:v:0", "-frames:v", "1", "-vf", "scale=$width:-2", "-q:v", "5", jpg)
 
         fun atArgs(video: String, ms: Long, png: String) =
             listOf("-hide_banner", "-y", "-nostdin", "-ss", "${ms / 1000}.${(ms % 1000).toString().padStart(3, '0')}", "-i", video, "-map", "0:v:0", "-frames:v", "1", png)

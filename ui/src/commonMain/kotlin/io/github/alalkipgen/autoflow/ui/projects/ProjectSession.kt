@@ -106,6 +106,69 @@ class ProjectSession(
         }
     }
 
+    /** The imported movie (`source/movie.<ext>`, Movie Recap), or null. */
+    fun moviePath(): String? {
+        val src = joinPath(open?.dir ?: return null, SOURCE_DIR)
+        return try {
+            fs.list(src).firstOrNull(::isMovieName)?.let { joinPath(src, it) }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Streams the movie at [from] into `source/movie.<ext>` (temp file + atomic rename; D-33: never in memory). Like
+     * [importSong], a movie with another extension moves to `.cache/replaced/`. Answers the new path.
+     */
+    fun importMovie(from: String): CoreResult<String> {
+        val dir = open?.dir ?: return noProject()
+        val ext = from.substringAfterLast('.', "").lowercase()
+        if (ext !in MOVIE_EXTENSIONS) {
+            return CoreResult.Err(CoreError.InvalidInput("Not a movie file (use ${MOVIE_EXTENSIONS.joinToString(", ")})"))
+        }
+        val src = joinPath(dir, SOURCE_DIR)
+        val path = joinPath(src, "$MOVIE_NAME.$ext")
+        return try {
+            if (fs.size(from) == 0L) return CoreResult.Err(CoreError.InvalidInput("The movie file is empty"))
+            fs.createDirectories(src)
+            fs.copyDurably(from, "$path.tmp")
+            val others = fs.list(src).filter { isMovieName(it) && it != "$MOVIE_NAME.$ext" }
+            if (others.isNotEmpty()) {
+                val replaced = joinPath(joinPath(dir, CACHE_DIR), "replaced")
+                fs.createDirectories(replaced)
+                others.forEach { fs.atomicMove(joinPath(src, it), joinPath(replaced, it)) }
+            }
+            fs.atomicMove("$path.tmp", path)
+            CoreResult.Ok(path)
+        } catch (e: Exception) {
+            CoreResult.Err(CoreError.Io(path, e.message ?: e.toString()))
+        }
+    }
+
+    /** A text file in `source/` (e.g. `summary.txt`), or "" when missing or unreadable. */
+    fun readSource(name: String): String = open?.let {
+        val path = joinPath(joinPath(it.dir, SOURCE_DIR), name)
+        try {
+            if (fs.exists(path)) fs.read(path).decodeToString() else ""
+        } catch (e: Exception) {
+            ""
+        }
+    } ?: ""
+
+    /** Writes `source/<name>` (temp file + atomic rename). */
+    fun writeSource(name: String, text: String): CoreResult<Unit> {
+        val dir = open?.dir ?: return noProject()
+        val path = joinPath(joinPath(dir, SOURCE_DIR), name)
+        return try {
+            fs.createDirectories(joinPath(dir, SOURCE_DIR))
+            fs.writeDurably("$path.tmp", text.encodeToByteArray())
+            fs.atomicMove("$path.tmp", path)
+            CoreResult.Ok(Unit)
+        } catch (e: Exception) {
+            CoreResult.Err(CoreError.Io(path, e.message ?: e.toString()))
+        }
+    }
+
     /** Saves [project], makes it current and refreshes its Dashboard row (progress) without reordering the list. */
     fun save(project: Project): CoreResult<Project> {
         val dir = open?.dir ?: return noProject()
@@ -201,6 +264,11 @@ class ProjectSession(
         const val SONG_NAME = "song"
         const val BEATS_FILE = "beats.json"
         val SONG_EXTENSIONS = setOf("mp3", "m4a", "aac", "wav", "ogg", "opus", "flac")
+        const val MOVIE_NAME = "movie"
+        val MOVIE_EXTENSIONS = setOf("mp4", "mkv", "mov", "webm", "m4v")
+
+        fun isMovieName(name: String) =
+            name.substringBeforeLast('.', "") == MOVIE_NAME && name.substringAfterLast('.').lowercase() in MOVIE_EXTENSIONS
 
         fun isSongName(name: String) =
             name.substringBeforeLast('.', "") == SONG_NAME && name.substringAfterLast('.').lowercase() in SONG_EXTENSIONS

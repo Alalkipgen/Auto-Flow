@@ -48,6 +48,24 @@ class JvmFs internal constructor(
         }
     }
 
+    override fun size(path: String): Long = Files.size(p(path))
+
+    /** Streams with a 1 MiB buffer, then fsyncs (a movie of several GB never sits in memory). */
+    override fun copyDurably(from: String, to: String) {
+        val opts = arrayOf(StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)
+        FileChannel.open(p(from), StandardOpenOption.READ).use { src ->
+            FileChannel.open(p(to), *opts).use { dst ->
+                val buf = ByteBuffer.allocate(1 shl 20)
+                while (src.read(buf) >= 0) {
+                    buf.flip()
+                    while (buf.hasRemaining()) dst.write(buf)
+                    buf.clear()
+                }
+                dst.force(true)
+            }
+        }
+    }
+
     override fun atomicMove(from: String, to: String) {
         val src = p(from)
         val dst = p(to)

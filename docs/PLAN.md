@@ -42,7 +42,7 @@ Goal: full MV pipeline end-to-end with manual Flow handoff — on the owner's An
 ### 1C :ui (desktop)
 - [x] `:platform`: `JvmFs` (shared `jvmShared` source set, desktop + Android), AppDirs, Clipboard, UrlOpener, FilePicker (desktop) (D-18) — `PlatformResult`; one contract test for `InMemoryFileSystem` and `JvmFs`
 - [x] `:platform` SecureStorage: Windows DPAPI via JNA, `~/.autoflow/secrets.bin` (D-19); Windows CI job — `FileSecureStorage` + `DpapiCipher`, `desktopSecureStorage(appDirs)`
-- [x] Dashboard: project list from `~/.autoflow/projects.json` (D-20), New Music Video, Open folder — `DashboardScreen` + `DashboardModel`; New Movie Recap shown disabled until Phase 4
+- [x] Dashboard: project list from `~/.autoflow/projects.json` (D-20), New Music Video, Open folder — `DashboardScreen` + `DashboardModel`; New Movie Recap (Phase 4, with the rights tick)
 - [x] UI Burmese font (DESIGN.md §1): Pyidaungsu → Noto Sans Myanmar from the Settings fonts for UI text, else the system fallback (Windows: Myanmar Text); screenshot test with a bundled test font — `UiFont` (matched on the family name inside the file, so Android's numeric cache copies work; every weight of the family), `LocalUiFontFamily` provided by `App`, used by `AfText` / `AfTextField` / the phone title; `UiFontScreenshotTest` with a Noto Sans Myanmar subset. Open: Android picks fonts into the app cache, which the system may clear (then the UI falls back to the system font)
 - [x] Shell: sidebar (pipeline order), stepper, title-bar provider status — `:core` `Pipeline` → `ShellModel`; locked entries dimmed with 🔒 and the reason on hover/click; stepper on pipeline screens; running AI job + Cancel in a shell-level `JobBanner`
 - [x] Input screen (lyrics, duration, song style, video style, ratio, clip length, mood)
@@ -97,11 +97,11 @@ Phone run (v0.1.11, 2026-11-12, project "ဟယ်လို"): create → storyb
 
 ## Phase 4 — Movie Recap mode
 Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
-- [ ] Import video, scene detect (ffmpeg scdet), scene picker, target duration — slice (a): New Movie Recap with the rights tick, `source/movie.<ext>`, `SceneDetect`, Movie Recap screen cards 1–2
+- [x] Import video, scene detect (ffmpeg scdet), scene picker, target duration — slice (a): New Movie Recap with the rights tick, `source/movie.<ext>`, `SceneDetect`, Movie Recap screen cards 1–2
 - [ ] Recap script (Burmese, commentary-style option) + approval — slice (b): summary / `.srt`, `RecapScriptGenerator`, write it myself, edit, approve
 - [ ] VoiceSource: Recorded | Tts | Replicated(optional, capability-gated) — slice (c): recorder, import, `GeminiTtsProvider`, takes; Replicated hidden (D-34)
 - [ ] Narration-to-scene fit check, captions (SRT + burn-in), visual transform presets — slice (d): `RecapRender`, Export screen
-- [ ] Rights/usage disclaimer in UI — with slice (a) (Dashboard, Movie Recap) and (d) (Export)
+- [ ] Rights/usage disclaimer in UI — with slice (a) (Dashboard, Movie Recap; done) and (d) (Export)
 
 ## Open Questions
 - ~~Q-02 S4: supported approach for Burmese text in exports?~~ Resolved → libass primary, Skia PNG overlay fallback (S4 README); specs updated (render-graph.md overlays, flow-handoff.md image inbox, ai-providers.md ManualImageProvider).
@@ -221,3 +221,4 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 - 2026-11-12 Phase 4 Open Question: Q-13 Movie Recap scope (source/rights, script input, voice, slices).
 - 2026-11-12 Release v0.1.13: lyrics timing (tap + Gemini), per-line lyrics on Export, Snap cuts to beat, character ⚠ Stale.
 - 2026-11-12 Phase 4 spec: docs/specs/recap.md (Q-13 → D-33), voice sources (D-34, replication needs a paid tier), tasks split into slices a–d.
+- 2026-11-12 Phase 4 slice (a): New Movie Recap with the rights tick, movie import into `source/`, `SceneDetect` (ffmpeg scdet), Movie Recap screen (movie, scenes with thumbnails, picks, target length), `rs` kind and `project.recap`.

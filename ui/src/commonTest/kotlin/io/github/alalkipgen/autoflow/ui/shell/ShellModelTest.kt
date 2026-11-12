@@ -37,7 +37,7 @@ class ShellModelTest {
     @Test
     fun withoutAProjectEveryPipelineScreenIsLocked() {
         val s = model.current()
-        assertEquals(ShellModel.SCREEN_STEPS.keys, s.locks.keys)
+        assertEquals(ShellModel.SCREEN_STEPS.keys + RECAP_SCREEN, s.locks.keys)
         assertTrue(s.locks.values.all { it == ShellModel.NO_PROJECT_LOCK })
         assertTrue(s.steps.isEmpty())
     }
@@ -46,7 +46,8 @@ class ShellModelTest {
     fun aNewProjectOpensInputAndStoryboardOnly() = runTest {
         open()
         val s = model.state.first()
-        assertEquals(setOf("Shots", "References", "Flow Handoff", "Timeline", "Export"), s.locks.keys)
+        assertEquals(setOf("Shots", "References", "Flow Handoff", "Timeline", "Export", RECAP_SCREEN), s.locks.keys)
+        assertEquals(ShellModel.MUSIC_VIDEO_LOCK, s.locks[RECAP_SCREEN])
         assertEquals("Generate the storyboard on Input first", s.locks["Shots"])
         assertEquals("Compile a shot's prompt on Shots first", s.locks["References"])
         assertEquals(PipelineStep.INPUT, s.steps.single { it.current }.step)
@@ -58,7 +59,7 @@ class ShellModelTest {
         open()
         service.generateAll()
         var s = model.state.first()
-        assertEquals(setOf("References", "Flow Handoff", "Timeline", "Export"), s.locks.keys)
+        assertEquals(setOf("References", "Flow Handoff", "Timeline", "Export", RECAP_SCREEN), s.locks.keys)
         assertTrue(s.steps.first { it.step == PipelineStep.INPUT }.done)
         assertEquals(PipelineStep.STORYBOARD, s.steps.single { it.current }.step)
 
