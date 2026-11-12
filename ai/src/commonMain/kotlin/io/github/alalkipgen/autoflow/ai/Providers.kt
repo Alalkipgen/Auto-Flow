@@ -25,9 +25,12 @@ interface TtsProvider {
     val capabilities: TtsCapabilities
 }
 
-/** Speech-to-text with segment timings (used to align lyrics to the song). */
+/**
+ * Speech-to-text with segment timings (used to align lyrics to the song). [mime] is the type of [audio]. With known
+ * [lines] (lyric alignment, D-31) the answer has exactly one segment per line, in the same order, `text` = the line.
+ */
 interface TranscribeProvider {
-    suspend fun transcribe(audio: ByteArray, lang: String): AiResult<Transcript>
+    suspend fun transcribe(audio: ByteArray, lang: String, mime: String = "audio/wav", lines: List<String> = emptyList()): AiResult<Transcript>
 }
 
 /** Provider-specific voice id (a designed voice name, or a replicated voice id when available). */

@@ -91,7 +91,9 @@ class ProviderRegistryTest {
         assertEquals(listOf("Shot 1 prompt"), host.clipboard)
         assertEquals(listOf(config.image.manualUrl), host.opened)
         assertEquals("unavailable", assertIs<AiResult.Failed>(registry.tts.speak("x", VoiceRef("v"), "my")).code)
-        assertEquals("unavailable", assertIs<AiResult.Failed>(registry.transcribe.transcribe(byteArrayOf(1), "my")).code)
+        val before = httpCalls
+        assertIs<AiResult.Failed>(registry.transcribe.transcribe(byteArrayOf(1), "my"), "real transcription asks Gemini (this mock answer has no segments)")
+        assertTrue(httpCalls > before)
         assertEquals(ImageMode.MANUAL, registry.capability(imageApiProbe = Availability.AVAILABLE).imageMode)
 
         host.fake = true

@@ -54,7 +54,7 @@ val uiModule = module {
     single { StoryboardService(get(), get()) }
     single { StoryboardJobs(get(), MainScope()) }
     single { MediaTools(get(), get(), getOrNull()) }
-    factory { InputModel(get(), get(), picker = getOrNull(), media = get()) }
+    factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull()) }
     factory { StoryboardModel(get(), get(), get()) }
     factory { ShotsModel(get()) }
     factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get()) }

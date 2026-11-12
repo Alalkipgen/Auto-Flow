@@ -57,7 +57,8 @@ class FakeTtsProvider(
 
 /**
  * Offline [TranscribeProvider]: contiguous [segmentMs] segments covering the audio (WAV duration, else
- * [fallbackDurationMs]); text cycles through [lines], or fixture lines in Burmese for `lang = "my"`.
+ * [fallbackDurationMs]); text cycles through [lines], or fixture lines in Burmese for `lang = "my"`. Given lyric lines
+ * to align, it spreads them evenly over the audio.
  */
 class FakeTranscribeProvider(
     private val delayMs: Long = 0,
@@ -68,14 +69,20 @@ class FakeTranscribeProvider(
     var calls: Int = 0
         private set
 
-    override suspend fun transcribe(audio: ByteArray, lang: String): AiResult<Transcript> {
+    override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> {
         calls++
         if (delayMs > 0) delay(delayMs)
         if (audio.isEmpty()) return AiResult.Failed("empty_audio", "Audio is empty")
         val duration = (Wav.parse(audio)?.durationMs ?: fallbackDurationMs).coerceAtLeast(1)
+        if (lines.isNotEmpty()) {
+            // Alignment: the known lines spread evenly over the audio, in order.
+            val each = duration / lines.size
+            val segments = lines.mapIndexed { i, line -> TranscriptSegment(i * each, if (i == lines.lastIndex) duration else (i + 1) * each, line) }
+            return AiResult.Ok(Transcript(lang, segments), Usage(model = MODEL, latencyMs = delayMs))
+        }
         val step = segmentMs.coerceAtLeast(1)
-        val pool = lines.ifEmpty { FakeFixtures.pool(lang) }
-        val offset = if (lines.isNotEmpty()) 0 else {
+        val pool = this.lines.ifEmpty { FakeFixtures.pool(lang) }
+        val offset = if (this.lines.isNotEmpty()) 0 else {
             ((fakeSeed(lang, audio.size.toString(), audio.take(64).joinToString(",")) ushr 1) % pool.size).toInt()
         }
         val segments = (0 until ((duration + step - 1) / step).toInt()).map { i ->

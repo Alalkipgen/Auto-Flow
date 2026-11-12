@@ -1,6 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ai.AiResult
+import io.github.alalkipgen.autoflow.ai.Transcript
+import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
+import io.github.alalkipgen.autoflow.ai.fake.FakeTranscribeProvider
+import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
 import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
@@ -31,11 +36,11 @@ class LyricSyncModelTest {
     private val session = ProjectSession(fs, store, ProjectIndex(fs, "/h/projects.json"), current)
     private val dir = "/p/Rain.autoflow"
 
-    private fun TestScope.model(): InputModel {
+    private fun TestScope.model(transcribe: TranscribeProvider? = null): InputModel {
         val p = (store.create(dir, "Rain", Mode.MUSIC_VIDEO, ProjectSettings()) as CoreResult.Ok).value
         current.set(OpenProject(dir, p))
         val jobs = StoryboardJobs(StoryboardService(session, StoryboardGenerator(FakeTextProvider())), backgroundScope)
-        return InputModel(session, jobs)
+        return InputModel(session, jobs, transcribe = transcribe)
     }
 
     private fun song(name: String = "s.mp3") {
@@ -104,5 +109,55 @@ class LyricSyncModelTest {
         m.sync.clear()
         assertNull(session.open!!.project.lyricTiming)
         assertEquals(TimingStatus.NONE, m.sync.state.value.status)
+    }
+
+    @Test
+    fun suggestAsksTheProviderWithTheLinesAndSavesGeminiTimings() = runTest {
+        val fake = FakeTranscribeProvider()
+        val m = model(fake)
+        m.setLyrics("[Verse]\nမိုးတွေ\nရွာနေတယ်")
+        song()
+        m.importSongFile("/c/s.mp3")
+        assertTrue(m.suggestTimings())
+        assertEquals(1, fake.calls)
+        val saved = session.readLyricTimings()!!
+        assertEquals(LyricTimings.SOURCE_GEMINI, saved.source)
+        assertEquals(
+            listOf(LyricLine("မိုးတွေ", 0, 10_000), LyricLine("ရွာနေတယ်", 15_000, 25_000)),
+            saved.lines,
+            "the fake spreads 2 lines over 30 s; each is capped at 10 s",
+        )
+        assertEquals(TimingStatus.SYNCED, m.sync.state.value.status)
+        assertFalse(m.sync.state.value.suggesting)
+        assertEquals("my", LyricSyncModel.langOf("မိုး"))
+        assertEquals("en", LyricSyncModel.langOf("rain"))
+    }
+
+    @Test
+    fun suggestFailuresKeepTheOldTimings() = runTest {
+        var answer: AiResult<Transcript> = AiResult.RateLimited(null)
+        var sent: Pair<String, List<String>>? = null
+        val provider = object : TranscribeProvider {
+            override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> {
+                sent = mime to lines
+                return answer
+            }
+        }
+        val m = model(provider)
+        assertFalse(m.suggestTimings())
+        assertEquals(LyricSyncModel.NO_LINES, m.sync.state.value.message)
+        m.setLyrics("one\ntwo")
+        song()
+        m.importSongFile("/c/s.mp3")
+        assertFalse(m.suggestTimings())
+        assertEquals("audio/mp3" to listOf("one", "two"), sent, "no ffmpeg here: the mp3 itself is sent")
+        assertEquals(LyricSyncModel.RATE_LIMITED, m.sync.state.value.message)
+        answer = AiResult.Failed("bad_request", "nope")
+        assertFalse(m.suggestTimings())
+        assertEquals("Gemini: nope", m.sync.state.value.message)
+        answer = AiResult.Ok(Transcript("en", emptyList()))
+        assertFalse(m.suggestTimings())
+        assertEquals(LyricSyncModel.INCOMPLETE, m.sync.state.value.message)
+        assertNull(session.open!!.project.lyricTiming)
     }
 }

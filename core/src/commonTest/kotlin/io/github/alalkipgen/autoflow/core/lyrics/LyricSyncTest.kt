@@ -57,6 +57,18 @@ class LyricSyncTest {
     }
 
     @Test
+    fun suggestedTimesAreMadeUsable() {
+        val lines = listOf("a", "b", "c", "d")
+        val times = listOf(1_000L to 3_000L, 900L to 0L, 5_000L to 30_000L, 20_000L to 0L)
+        assertEquals(
+            listOf(LyricLine("a", 1_000, 1_150), LyricLine("b", 1_150, 5_000), LyricLine("c", 5_000, 15_000), LyricLine("d", 20_000, 24_000)),
+            LyricSync.suggested(lines, times, songMs = 24_000),
+            "starts increase; a line ends by the next start; no end → next start; 10 s cap; last line 6 s cut at the song end",
+        )
+        assertNull(LyricSync.suggested(lines, times.drop(1)))
+    }
+
+    @Test
     fun timingsJsonShape() {
         val t = LyricTimings(lines = listOf(LyricLine("a", 0, 1_000)))
         val json = CoreJson.encodeToString(LyricTimings.serializer(), t)

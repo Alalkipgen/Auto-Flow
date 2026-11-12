@@ -91,4 +91,12 @@ class FakeMediaTest {
         assertEquals(12_000, t.segments.last().endMs)
         assertEquals("empty_audio", assertIs<AiResult.Failed>(p.transcribe(ByteArray(0), "en")).code)
     }
+
+    @Test
+    fun alignmentSpreadsTheGivenLyricLines() = runTest {
+        val p = FakeTranscribeProvider(fallbackDurationMs = 9_000)
+        val t = assertIs<AiResult.Ok<Transcript>>(p.transcribe(byteArrayOf(1), "my", "audio/mp3", listOf("a", "b", "c"))).value
+        assertEquals(listOf(0L to 3_000L, 3_000L to 6_000L, 6_000L to 9_000L), t.segments.map { it.startMs to it.endMs })
+        assertEquals(listOf("a", "b", "c"), t.segments.map { it.text })
+    }
 }

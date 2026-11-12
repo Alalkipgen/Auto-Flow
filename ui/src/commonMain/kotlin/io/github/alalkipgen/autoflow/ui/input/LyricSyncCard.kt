@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,21 +26,35 @@ import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.rememberSongPlayer
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 const val SYNC_BUTTON = "Sync lyrics (tap)"
 const val SYNC_TAP_BUTTON = "⤵ Line starts"
 const val SYNC_END_BUTTON = "⏹ Last line ends"
 const val SYNC_HELP = "သီချင်းဖွင့်ပြီး စာကြောင်းတစ်ကြောင်း စဆိုတိုင်း \"$SYNC_TAP_BUTTON\" ကို နှိပ်ပါ။ နောက်ဆုံးစာကြောင်း " +
     "ဆိုပြီးရင် \"$SYNC_END_BUTTON\" ကို နှိပ်ပါ။ (Play the song; tap when each line starts, then once when the last ends.)"
+const val SUGGEST_BUTTON = "✨ Suggest timings (Gemini)"
+const val SUGGEST_CONFIRM = "The song (as small 16 kHz mono audio) and the lyric lines go to Gemini: 1 AI request, more " +
+    "if it retries. It can take a minute or two — stay on this screen. Afterwards check the times on Export → Preview."
 const val SYNC_NO_PLAYER = "Playing the song needs the Android app — desktop has no audio player yet."
 
 /** Lyrics timing (PLAN Q-11): status of the saved line timings and the tap-to-sync panel. */
 @Composable
 internal fun LyricSyncCard(model: InputModel, songFile: String, locked: Boolean) {
     val state by model.sync.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var confirming by remember { mutableStateOf(false) }
     AfCard("Lyrics timing") {
         val sync = state.sync
-        if (sync == null) {
+        if (state.suggesting) {
+            AfText("✨ Gemini is listening to the song… (up to 2 minutes)", muted = true)
+        } else if (confirming) {
+            AfText(SUGGEST_CONFIRM, muted = true)
+            WrapRow {
+                AfButton("Send", { confirming = false; scope.launch { model.suggestTimings() } }, kind = ButtonKind.Primary)
+                AfButton("Back", { confirming = false })
+            }
+        } else if (sync == null) {
             AfText(statusText(state), color = if (state.status == TimingStatus.OUTDATED) AutoFlowColors.Amber else null, muted = state.status == TimingStatus.NONE)
             WrapRow {
                 AfButton(
@@ -48,6 +63,7 @@ internal fun LyricSyncCard(model: InputModel, songFile: String, locked: Boolean)
                     kind = if (state.status == TimingStatus.SYNCED) ButtonKind.Secondary else ButtonKind.Primary,
                     enabled = !locked,
                 )
+                AfButton(SUGGEST_BUTTON, { confirming = true }, enabled = !locked)
                 if (state.status != TimingStatus.NONE) AfButton("Clear timings", { model.sync.clear() }, kind = ButtonKind.Danger, enabled = !locked)
             }
         } else {
