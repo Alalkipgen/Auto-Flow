@@ -23,4 +23,5 @@ val aiModule = module {
     single<TtsProvider> { get<ProviderRegistry>().tts }
     single<TranscribeProvider> { get<ProviderRegistry>().transcribe }
     single { StoryboardGenerator(get()) }
+    single { io.github.alalkipgen.autoflow.ai.recap.RecapScriptGenerator(get()) }
 }
