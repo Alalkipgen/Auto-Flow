@@ -226,3 +226,4 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 
 - 2026-11-12 Phase 4 slice (c): Movie Recap card 4 Voice — ● Record / ■ Stop (`VoiceRecorder`: Android MediaRecorder m4a + RECORD_AUDIO, desktop javax.sound WAV), Import file, 🔊 Gemini TTS per scene / Speak all (`GeminiTtsProvider`, `tts.candidates`, voice chips), takes as `au` artifacts, ⚠ Stale after an edit, ▶ play; Settings → Test Gemini TTS (S5).
 - 2026-11-12 Phase 4 slice (d): fit check card, looks, movie sound, captions (.srt + burn-in), recap render from the Export screen with the rights notice.
+- 2026-11-12 release v0.1.14: Phase 4 Movie Recap (slices a–d) and Settings → Test Gemini TTS (S5); phone tests pending.
