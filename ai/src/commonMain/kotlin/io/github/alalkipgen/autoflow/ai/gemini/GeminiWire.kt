@@ -59,8 +59,35 @@ internal object GeminiWire {
         }
     }
 
+    /**
+     * Single-speaker speech request (D-34). Gemini 3.8 TTS takes `voiceConfig.voice` and a per-part
+     * `speech_metadata.style`; older TTS models take `prebuiltVoiceConfig.voiceName` and no style.
+     */
+    fun speechRequest(model: String, text: String, voice: String, style: String?): JsonObject = buildJsonObject {
+        val v38 = !model.startsWith("gemini-2.")
+        putJsonArray("contents") {
+            addJsonObject {
+                put("role", "user")
+                putJsonArray("parts") {
+                    addJsonObject {
+                        put("text", text)
+                        if (v38 && !style.isNullOrBlank()) putJsonObject("speech_metadata") { put("style", style) }
+                    }
+                }
+            }
+        }
+        putJsonObject("generationConfig") {
+            putJsonArray("responseModalities") { add(JsonPrimitive("AUDIO")) }
+            putJsonObject("speechConfig") {
+                putJsonObject("voiceConfig") {
+                    if (v38) put("voice", voice) else putJsonObject("prebuiltVoiceConfig") { put("voiceName", voice) }
+                }
+            }
+        }
+    }
+
     /** One `generateContent` call; network failures are classified like HTTP errors (no exceptions escape). */
-    suspend fun post(http: HttpClient, baseUrl: String, model: String, key: String, body: String): Attempt<JsonElement> {
+    suspend fun post(http: HttpClient, baseUrl: String, model: String, key: String, body: String, audio: Boolean = false): Attempt<JsonElement> {
         val (status, text) = try {
             val response = http.post("${baseUrl.trimEnd('/')}/models/$model:generateContent") {
                 header("x-goog-api-key", key)
@@ -79,11 +106,12 @@ internal object GeminiWire {
         } catch (e: Exception) {
             return Attempt.Fatal("network", "Cannot reach the Gemini API: ${e.message ?: e::class.simpleName}")
         }
-        return classify(status, text)
+        return classify(status, text, audio)
     }
 
-    fun classify(status: Int, body: String): Attempt<JsonElement> {
-        if (status == 200) return success(body)
+    /** [audio]: the answer is the first `inlineData` part (`{mimeType, data}`), not JSON text. */
+    fun classify(status: Int, body: String, audio: Boolean = false): Attempt<JsonElement> {
+        if (status == 200) return if (audio) audioSuccess(body) else success(body)
         val error = parse(body)?.obj("error")
         val message = error?.str("message")?.takeIf { it.isNotBlank() } ?: "HTTP $status from Gemini"
         return when (status) {
@@ -100,6 +128,26 @@ internal object GeminiWire {
             }
             else -> Attempt.Fatal("http_$status", message)
         }
+    }
+
+    private fun audioSuccess(body: String): Attempt<JsonElement> {
+        val root = parse(body) ?: return Attempt.Transient("invalid_response", "Gemini answer is not JSON")
+        val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject
+        val blocked = root.obj("promptFeedback")?.str("blockReason")
+        if (candidate == null) {
+            return if (blocked != null) Attempt.Fatal("blocked", "Prompt blocked: $blocked")
+            else Attempt.Transient("empty_response", "Gemini returned no candidates")
+        }
+        val data = (candidate.obj("content")?.get("parts") as? JsonArray).orEmpty()
+            .mapNotNull { (it as? JsonObject)?.obj("inlineData") }
+            .firstOrNull { !it.str("data").isNullOrEmpty() }
+        val finish = candidate.str("finishReason")
+        if (data == null) {
+            return if (finish in BLOCKING_FINISH) Attempt.Fatal("blocked", "Answer blocked: $finish")
+            else Attempt.Transient("empty_response", "Gemini returned no audio (finishReason=$finish)")
+        }
+        val usage = root.obj("usageMetadata")
+        return Attempt.Success(data, usage?.int("promptTokenCount"), usage?.int("candidatesTokenCount"))
     }
 
     private fun success(body: String): Attempt<JsonElement> {

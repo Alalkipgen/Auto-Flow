@@ -43,6 +43,8 @@ fun androidModule(app: Application) = module {
     // SAF file picker; MainActivity registers the launcher and calls onResult().
     single<FilePicker> { AndroidFilePicker(app) }
     single { get<FilePicker>() as AndroidFilePicker }
+    single { io.github.alalkipgen.autoflow.platform.AndroidVoiceRecorder(app) }
+    single<io.github.alalkipgen.autoflow.platform.VoiceRecorder> { get<io.github.alalkipgen.autoflow.platform.AndroidVoiceRecorder>() }
     single<ToolLocator> { AndroidToolLocator(app.applicationInfo.nativeLibraryDir) }
     // Settings → Tools version check of the bundled ffmpeg (PLAN 1D).
     single<ToolRunner> { ProcessToolRunner() }

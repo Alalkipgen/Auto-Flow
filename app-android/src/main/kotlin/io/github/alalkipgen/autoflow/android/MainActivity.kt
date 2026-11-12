@@ -39,6 +39,12 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 class MainActivity : ComponentActivity() {
     private val filePicker: AndroidFilePicker by inject()
     private val sharedInbox: SharedInbox by inject()
+    private val voiceRecorder: io.github.alalkipgen.autoflow.platform.AndroidVoiceRecorder by inject()
+
+    // Microphone permission for Movie Recap narration (D-34)
+    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        voiceRecorder.onPermissionResult(granted)
+    }
 
     // Single-file picker (image/video import)
     private val singlePick = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -59,11 +65,12 @@ class MainActivity : ComponentActivity() {
                 extensions.any { it in setOf("mp4", "mov") } && extensions.any { it in setOf("png", "jpg", "jpeg") } -> "*/*"
                 extensions.any { it in setOf("mp4", "mov") } -> "video/*"
                 extensions.any { it in setOf("png", "jpg", "jpeg") } -> "image/*"
-                extensions.any { it in setOf("mp3", "m4a", "wav") } -> "audio/*"
+                extensions.any { it in setOf("mp3", "m4a", "wav", "aac", "ogg", "opus") } -> "audio/*"
                 else -> "*/*"
             }
             if (multiple) multiPick.launch(mime) else singlePick.launch(mime)
         }
+        voiceRecorder.requestPermission = { micPermission.launch(android.Manifest.permission.RECORD_AUDIO) }
         // A share from another app (share sheet → Inbox); a restored activity already took its intent.
         if (savedInstanceState == null) takeShare(intent)
         val crash = CrashLog.pending(this)

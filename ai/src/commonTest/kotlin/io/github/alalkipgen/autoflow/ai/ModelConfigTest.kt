@@ -26,6 +26,15 @@ class ModelConfigTest {
         assertEquals(listOf(Ratio.R16_9, Ratio.R9_16), c.image.supportedRatios)
         assertEquals(20, c.flow.creditsHint["fast"])
         assertEquals(Availability.UNKNOWN, c.tts.replicationAvailability)
+        assertTrue(c.tts.chain.isEmpty())
+    }
+
+    @Test
+    fun ttsCandidatesWinOverTheOldDefault() {
+        val c = parse("""{ "tts": { "default": "old-tts", "candidates": ["new-tts", " "], "replication": "unavailable" } }""")
+        assertEquals(listOf("new-tts"), c.tts.chain)
+        assertEquals(Availability.UNAVAILABLE, c.tts.replicationAvailability)
+        assertEquals(listOf("old-tts"), parse("""{ "tts": { "default": "old-tts" } }""").tts.chain)
     }
 
     @Test

@@ -83,14 +83,14 @@ class ProviderRegistryTest {
     }
 
     @Test
-    fun realImagesAreManualAndRealSpeechIsUnavailable() = runTest {
+    fun realImagesAreManualAndRealSpeechUsesGeminiTts() = runTest {
         val host = Host(fake = false)
         val registry = ProviderRegistry(host, config, http = http(), fakeDelayMs = 0)
         val deferred = assertIs<AiResult.Deferred>(registry.image.image("Shot 1 prompt", Ratio.R9_16))
         assertEquals(ManualImageProvider.INSTRUCTION, deferred.instruction)
         assertEquals(listOf("Shot 1 prompt"), host.clipboard)
         assertEquals(listOf(config.image.manualUrl), host.opened)
-        assertEquals("unavailable", assertIs<AiResult.Failed>(registry.tts.speak("x", VoiceRef("v"), "my")).code)
+        assertIs<AiResult.Failed>(registry.tts.speak("x", VoiceRef("v"), "my"), "real speech asks Gemini TTS (no audio in this mock answer)")
         val before = httpCalls
         assertIs<AiResult.Failed>(registry.transcribe.transcribe(byteArrayOf(1), "my"), "real transcription asks Gemini (this mock answer has no segments)")
         assertTrue(httpCalls > before)

@@ -19,6 +19,7 @@ import io.github.alalkipgen.autoflow.ai.fake.FakeTranscribeProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider
 import io.github.alalkipgen.autoflow.ai.gemini.GeminiTextProvider
 import io.github.alalkipgen.autoflow.ai.gemini.GeminiTranscribeProvider
+import io.github.alalkipgen.autoflow.ai.gemini.GeminiTtsProvider
 import io.github.alalkipgen.autoflow.ai.manual.ManualImageProvider
 import io.github.alalkipgen.autoflow.ai.retry.ModelChain
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
@@ -43,7 +44,7 @@ interface AiHost {
 /**
  * Picks fake or real providers per call from [AiHost.useFakeProviders], so switching the setting takes effect
  * without restarting. Real = [GeminiTextProvider] + [ManualImageProvider] (D-14) + [GeminiTranscribeProvider]
- * (audio input on the text models, D-31); TTS has no real implementation yet and answers `Failed("unavailable")`. The HTTP client is created on first real call.
+ * (audio input on the text models, D-31) + [GeminiTtsProvider] (D-34). The HTTP client is created on first real call.
  */
 class ProviderRegistry(
     private val host: AiHost,
@@ -64,6 +65,13 @@ class ProviderRegistry(
     private val geminiTranscribe by lazy {
         GeminiTranscribeProvider(http.value, { host.apiKey() }, config.text.candidates, ModelChain(usage = usage))
     }
+    private val geminiTts by lazy {
+        GeminiTtsProvider(
+            http.value, { host.apiKey() }, config.tts.chain,
+            TtsCapabilities(replication = config.tts.replicationAvailability, burmese = config.tts.burmese),
+            ModelChain(usage = usage),
+        )
+    }
     private val manualImage = ManualImageProvider(host::copyToClipboard, host::openUrl, config.image.manualUrl)
 
     val text: TextProvider = object : TextProvider {
@@ -78,10 +86,10 @@ class ProviderRegistry(
 
     val tts: TtsProvider = object : TtsProvider {
         override val capabilities: TtsCapabilities
-            get() = if (usingFakes) fakeTts.capabilities else TtsCapabilities(replication = Availability.UNAVAILABLE)
+            get() = if (usingFakes) fakeTts.capabilities else TtsCapabilities(replication = config.tts.replicationAvailability, burmese = config.tts.burmese)
 
         override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?): AiResult<ByteArray> =
-            if (usingFakes) fakeTts.speak(text, voice, lang, style) else unavailable("Speech")
+            (if (usingFakes) fakeTts else geminiTts).speak(text, voice, lang, style)
     }
 
     val transcribe: TranscribeProvider = object : TranscribeProvider {
@@ -114,12 +122,23 @@ class ProviderRegistry(
         is AiResult.Deferred -> r
     }
 
+    /**
+     * Settings → "Test Gemini TTS (S5)": speaks [TTS_TEST_TEXT] with the real Gemini TTS chain, whatever the
+     * Fake/Real setting. Ok = WAV bytes; `usage.model` names the model that answered.
+     */
+    suspend fun testGeminiTts(voice: String = TTS_TEST_VOICE): AiResult<ByteArray> =
+        geminiTts.speak(TTS_TEST_TEXT, VoiceRef(voice), "my", TTS_TEST_STYLE)
+
     fun close() {
         if (http.isInitialized()) http.value.close()
     }
 
-    private fun unavailable(what: String) =
-        AiResult.Failed("unavailable", "$what is not available with real providers in this version")
+    companion object {
+        /** S5 sentence: "Hello, this is a test of the Auto Flow movie recap voice." */
+        const val TTS_TEST_TEXT = "မင်္ဂလာပါ။ ဒါက Auto Flow ရဲ့ ရုပ်ရှင်အကျဉ်းချုပ် အသံ စမ်းသပ်မှု ဖြစ်ပါတယ်။"
+        const val TTS_TEST_VOICE = "Charon"
+        const val TTS_TEST_STYLE = "calm, clear movie recap narrator"
+    }
 }
 
 private const val KEY_TEST_PROMPT = "Connection test. Reply with ok = true."

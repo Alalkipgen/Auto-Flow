@@ -21,7 +21,11 @@ sealed interface AiResult<T> { data class Ok<T>(val value:T, val usage:Usage?):A
 ```json
 { "text":  { "candidates": ["gemini-3.5-flash", "..."] },
   "image": { "provider": "manual", "ratios": ["16:9","9:16","1:1","4:5"] },
-  "tts":   { "default": "...", "burmese": true, "replication": "unknown" },
+  "tts":   { "candidates": ["gemini-3.8-flash-tts", "..."], "burmese": true, "replication": "unavailable" },
   "flow":  { "creditsHint": { "fast": 20, "quality": 100 }, "url": "https://labs.google/fx/tools/flow" } }
 ```
 Values are hints; the app must behave correctly if they are wrong.
+- `GeminiTtsProvider` (D-34): `generateContent` with `responseModalities: ["AUDIO"]`, one prebuilt voice
+  (`speechConfig.voiceConfig.voice` on Gemini 3.8 TTS with `speech_metadata.style`; `prebuiltVoiceConfig.voiceName`
+  on older models), `tts.candidates` tried in order (old `tts.default` when there is no list). The answer is always
+  a WAV: 3.8 returns one (RIFF, 24 kHz mono 16-bit); headerless `audio/L16` PCM from older models is wrapped.

@@ -74,6 +74,27 @@ class SettingsModelTest {
     }
 
     @Test
+    fun testTtsNamesTheModelAndKeepsTheSample() = runTest {
+        var reply: io.github.alalkipgen.autoflow.ai.AiResult<ByteArray> =
+            io.github.alalkipgen.autoflow.ai.AiResult.Ok(byteArrayOf(1, 2), io.github.alalkipgen.autoflow.ai.Usage("gemini-3.8-flash-tts"))
+        val saved = mutableListOf<ByteArray>()
+        val m = SettingsModel(
+            settings, secrets, ProviderStatusModel(settings, secrets), usage, loadModelConfig(fs, null) { TEST_MODELS_JSON },
+            tools, picker, { PlatformResult.Ok(Unit) }, { testResult },
+            testTtsCall = { reply }, saveTtsSample = { saved += it; "/h/tts-test.wav" },
+        )
+        assertTrue(m.canTestTts)
+        m.testTts()
+        assertEquals("Gemini TTS works (gemini-3.8-flash-tts). Tap ▶ to hear the Burmese sentence.", m.state.value.message)
+        assertEquals("/h/tts-test.wav", m.state.value.ttsSample)
+        assertEquals(1, saved.size)
+        reply = io.github.alalkipgen.autoflow.ai.AiResult.Failed("model_unavailable", "no TTS model answered")
+        m.testTts()
+        assertEquals("Gemini TTS: no TTS model answered", m.state.value.message)
+        assertEquals(null, m.state.value.ttsSample)
+    }
+
+    @Test
     fun testKeyReportsEachOutcomeAndRefreshesUsage() = runTest {
         val m = model()
         usage.record("gemini-x")

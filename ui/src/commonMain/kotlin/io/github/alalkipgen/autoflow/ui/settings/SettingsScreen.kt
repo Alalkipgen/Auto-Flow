@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.AudioPlayButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
@@ -41,6 +42,8 @@ import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+
+const val TEST_TTS = "🔊 Test Gemini TTS (S5)"
 
 /**
  * Settings (DESIGN.md §3, PLAN 1C): AI key and mode, defaults, ffmpeg / VLC, fonts, model config; [backup] adds
@@ -140,6 +143,14 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
             },
         )
         AfText("Test sends one short request to Gemini, even in fake mode.", muted = true, size = 12.sp)
+        if (model.canTestTts) {
+            var playing by remember { mutableStateOf(false) }
+            WrapRow {
+                AfButton(TEST_TTS, { scope.launch { model.testTts() } }, enabled = hasKey && !state.testing)
+                state.ttsSample?.let { AudioPlayButton(it, playing, { playing = !playing }) }
+            }
+            AfText("Speaks one Burmese sentence with Gemini TTS (voice Charon) — even in fake mode.", muted = true, size = 12.sp)
+        }
         val total = state.usageToday.values.sum()
         AfText(
             "Today: $total API call" + (if (total == 1) "" else "s") + " (includes retries)" +
