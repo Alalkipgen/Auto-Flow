@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.media.render
 
+import io.github.alalkipgen.autoflow.core.lyrics.LyricLine
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
@@ -54,6 +55,29 @@ class ProjectRenderTest {
             ),
             g.overlays,
         )
+    }
+
+    @Test
+    fun syncedTimingsGiveOneOverlayPerLineCutAtTheEnd() {
+        val timings = listOf(
+            LyricLine("မိုးတွေ", 1_200, 4_000),
+            LyricLine("ရွာနေတယ်", 4_000, 4_000),
+            LyricLine("ည", 9_500, 15_000),
+            LyricLine("နောက်ဆုံး", 19_000, 25_000),
+            LyricLine("after the video", 21_000, 23_000),
+        )
+        val g = ProjectRender.graph(project(), Quality.EXPORT, null, { onDisk[it] }, font, timings)
+        assertEquals(
+            listOf(
+                Overlay("မိုးတွေ", 1_200, 4_000, font, 72, anim = Anim.FADE),
+                Overlay("ည", 9_500, 15_000, font, 72, anim = Anim.FADE),
+                Overlay("နောက်ဆုံး", 19_000, 21_000, font, 72, anim = Anim.FADE),
+            ),
+            g.overlays,
+            "per-line times replace per-shot lyrics; empty spans and lines after the end are dropped",
+        )
+        assertEquals(emptyList(), ProjectRender.graph(project(), Quality.EXPORT, null, { onDisk[it] }, null, timings).overlays)
+        assertEquals(2, ProjectRender.graph(project(), Quality.EXPORT, null, { onDisk[it] }, font, emptyList()).overlays.size, "no lines → per shot")
     }
 
     @Test

@@ -84,6 +84,7 @@ fun InputScreen(model: InputModel, jobs: StoryboardJobs, onGenerated: () -> Unit
             )
         }
         SongCard(state, model, locked)
+        state.songFile?.let { LyricSyncCard(model, it, locked) }
         VideoCard(state, model, locked)
         CharactersCard(state, model, locked)
         GenerateCard(state, job, jobs, onStart = { model.generate { if (open.value) goOn() } })

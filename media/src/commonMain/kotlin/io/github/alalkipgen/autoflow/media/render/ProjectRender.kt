@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.media.render
 
+import io.github.alalkipgen.autoflow.core.lyrics.LyricLine
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Project
 
@@ -8,14 +9,23 @@ import io.github.alalkipgen.autoflow.core.model.Project
  * accepted video, cut or held to the shot length; else a "#NN — pending" card), the song from 0:00 replacing the
  * clips' sound, each shot's `lyricsMy` at the bottom for that shot's time, and the ratio preset. Shots are joined
  * with cuts only, so the lyrics stay on their shots. No font = no lyric overlays (libass must not fall back to a
- * system font for Burmese, specs/render-graph.md).
+ * system font for Burmese, specs/render-graph.md). With synced line timings (PLAN Q-11, D-30) each line shows at its
+ * own time instead.
  */
 object ProjectRender {
     /**
      * [videoFile] gives the file of an accepted video (absolute, or relative to the project folder) or null when it
      * is missing on disk; [songFile] likewise for the song; [font] is the font family for lyrics and cards.
+     * [timings] (song time) replace the per-shot lyrics: one overlay per line, cut at the video's end.
      */
-    fun graph(project: Project, quality: Quality, songFile: String?, videoFile: (ArtifactId) -> String?, font: String?): RenderGraph {
+    fun graph(
+        project: Project,
+        quality: Quality,
+        songFile: String?,
+        videoFile: (ArtifactId) -> String?,
+        font: String?,
+        timings: List<LyricLine>? = null,
+    ): RenderGraph {
         val output = RenderPresets.of(project.settings.ratio, quality)
         val shots = project.shots.filter { it.durationMs > 0 }.sortedBy { it.number }
         val clips = shots.map { shot ->
@@ -24,12 +34,23 @@ object ProjectRender {
         }
         val size = lyricSizePx(output)
         val perLine = lineChars(output)
-        var start = 0L
-        val overlays = shots.mapNotNull { shot ->
-            val from = start
-            start += shot.durationMs
-            val text = wrap(shot.lyricsMy, perLine)
-            if (font == null || text.isEmpty()) null else Overlay(text, from, from + shot.durationMs, font, size, anim = Anim.FADE)
+        val total = shots.sumOf { it.durationMs }
+        val overlays = when {
+            font == null -> emptyList()
+            !timings.isNullOrEmpty() -> timings.mapNotNull { line ->
+                val text = wrap(line.text, perLine)
+                val end = minOf(line.endMs, total)
+                if (text.isEmpty() || line.startMs < 0 || end <= line.startMs) null else Overlay(text, line.startMs, end, font, size, anim = Anim.FADE)
+            }
+            else -> {
+                var start = 0L
+                shots.mapNotNull { shot ->
+                    val from = start
+                    start += shot.durationMs
+                    val text = wrap(shot.lyricsMy, perLine)
+                    if (text.isEmpty()) null else Overlay(text, from, from + shot.durationMs, font, size, anim = Anim.FADE)
+                }
+            }
         }
         return RenderGraph(clips = clips, audio = songFile?.let { AudioTrack(it) }, overlays = overlays, output = output)
     }
@@ -45,9 +66,10 @@ object ProjectRender {
         fontsDir: String,
         outputName: String,
         title: String,
+        timings: List<LyricLine>? = null,
     ): RenderJob {
         val found = mutableMapOf<ArtifactId, String>()
-        val graph = graph(project, quality, songFile, { id -> videoFile(id)?.also { found[id] = it } }, font)
+        val graph = graph(project, quality, songFile, { id -> videoFile(id)?.also { found[id] = it } }, font, timings)
         val files = graph.clips.mapNotNull { it.artifact }.distinct().mapNotNull { id -> found[id]?.let { id.value to it } }.toMap()
         return RenderJob(
             title = title,

@@ -55,6 +55,15 @@ class InputModel(
     private val _state = MutableStateFlow(load())
     val state: StateFlow<InputUiState> = _state.asStateFlow()
 
+    /** Tap-to-sync of the lyric lines (PLAN Q-11). */
+    val sync = LyricSyncModel(session)
+
+    /** "Sync lyrics": saves the draft (the timings belong to the saved lyrics), then opens the tap panel. */
+    fun startSync(): Boolean = !jobs.busy && save() && sync.start(_state.value.lyrics)
+
+    /** The imported song file for the sync player. */
+    fun songPath(): String? = session.songPath()
+
     fun setLyrics(text: String) = draft { it.copy(lyrics = text) }
 
     /** `m:ss`, `mm:ss` or plain seconds. Unparseable text clears the duration, so the NO_DURATION blocker shows. */
@@ -117,6 +126,7 @@ class InputModel(
             }
         }
         val ms = media?.audioDurationMs(saved)
+        sync.clear(LyricSyncModel.CLEARED_NEW_SONG)
         _state.value = _state.value.copy(importingSong = false, songFile = saved.substringAfterLast('/'))
         if (ms == null) return say(SONG_NO_LENGTH)
         draft { it.copy(durationText = formatDuration(ms), settings = it.settings.copy(durationMs = ms)) }
@@ -129,6 +139,7 @@ class InputModel(
         val s = _state.value
         if (s.lyrics != session.readLyrics()) {
             (session.writeLyrics(s.lyrics) as? CoreResult.Err)?.let { return fail(it.error.message) }
+            sync.refresh(s.lyrics)
         }
         val characters = CharacterBible.clean(s.characters)
         if (s.settings != open.project.settings || characters != open.project.characters) {

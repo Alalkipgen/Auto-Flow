@@ -33,6 +33,7 @@
     }
   ],
   "analysis": "an_0123456789ab",
+  "lyricTiming": null,
   "storyboards": ["sb_111111111111", "sb_222222222222"],
   "currentStoryboard": "sb_222222222222",
   "shots": [
