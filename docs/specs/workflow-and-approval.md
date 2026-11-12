@@ -18,6 +18,7 @@ Per shot: `storyboard`, `prompt`, `ref`, `video` (booleans) + artifact pointers.
 ```
 staleSpec     = artifact(spec).inputs.storyboard != currentStoryboard
 stalePrompt   = artifact(promptIr).inputs.spec != shot.spec || inputs.globalStyle != globalStyle.hash
+                || inputs.characters != CharacterHash(tokens recorded in inputs.characters, project.characters)   (D-29)
 staleRef      = artifact(ref).inputs.promptIr != shot.promptIr
 staleVideo    = artifact(video).inputs.promptIr != shot.promptIr || inputs.ref != shot.chosenRef
 ```

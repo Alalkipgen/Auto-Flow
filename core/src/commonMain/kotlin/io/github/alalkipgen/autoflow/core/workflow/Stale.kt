@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.core.workflow
 
+import io.github.alalkipgen.autoflow.core.hash.CharacterHash
 import io.github.alalkipgen.autoflow.core.model.Artifact
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Project
@@ -17,6 +18,7 @@ object Inputs {
     const val GLOBAL_STYLE = "globalStyle"
     const val PROMPT_IR = "promptIr"
     const val REF = "ref"
+    const val CHARACTERS = "characters"
 }
 
 /**
@@ -30,9 +32,14 @@ object Stale {
     fun spec(project: Project, shot: Shot, lookup: ArtifactLookup): Boolean =
         mismatch(shot.spec, lookup, Inputs.STORYBOARD to project.currentStoryboard?.value)
 
-    fun prompt(project: Project, shot: Shot, lookup: ArtifactLookup): Boolean = mismatch(
-        shot.promptIr, lookup, Inputs.SPEC to shot.spec?.value, Inputs.GLOBAL_STYLE to project.globalStyle.hash,
-    )
+    fun prompt(project: Project, shot: Shot, lookup: ArtifactLookup): Boolean {
+        val recorded = shot.promptIr?.let { lookup(it) }?.inputs?.get(Inputs.CHARACTERS)
+        val characters = recorded?.let { CharacterHash.input(project.characters, CharacterHash.tokens(it)) }
+        return mismatch(
+            shot.promptIr, lookup, Inputs.SPEC to shot.spec?.value, Inputs.GLOBAL_STYLE to project.globalStyle.hash,
+            Inputs.CHARACTERS to characters,
+        )
+    }
 
     /** [ref] defaults to the chosen reference; any entry of [Shot.refImages] can be checked. */
     fun ref(shot: Shot, lookup: ArtifactLookup, ref: ArtifactId? = shot.chosenRef): Boolean =

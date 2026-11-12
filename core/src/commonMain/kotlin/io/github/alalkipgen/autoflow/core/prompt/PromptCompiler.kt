@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.core.prompt
 
 import io.github.alalkipgen.autoflow.core.CoreError
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.hash.CharacterHash
 import io.github.alalkipgen.autoflow.core.model.Character
 import io.github.alalkipgen.autoflow.core.model.GlobalStyle
 import io.github.alalkipgen.autoflow.core.model.Project
@@ -59,10 +60,20 @@ object PromptCompiler {
         )
     }
 
-    /** `inputs` to record on the `pr` artifact, so `Stale.prompt` can detect later changes. */
-    fun inputsFor(project: Project, shot: Shot): Map<String, String> = buildMap {
+    /** Character tokens a prompt from [spec] uses: `{{TOKEN}}`s in the `*En` fields plus `spec.characters`. */
+    fun usedTokens(spec: ShotSpec): Set<String> {
+        val texts = listOf(spec.subjectEn, spec.actionEn, spec.settingEn, spec.cameraEn, spec.moodEn, spec.lightingEn)
+        return texts.flatMap { text -> TOKEN.findAll(text).map { it.groupValues[1] } }.toSet() + spec.characters
+    }
+
+    /**
+     * `inputs` to record on the `pr` artifact, so `Stale.prompt` can detect later changes. With the shot's [spec], the
+     * characters it uses are recorded too (Q-10: a changed description marks the prompt stale).
+     */
+    fun inputsFor(project: Project, shot: Shot, spec: ShotSpec? = null): Map<String, String> = buildMap {
         shot.spec?.let { put(Inputs.SPEC, it.value) }
         put(Inputs.GLOBAL_STYLE, project.globalStyle.hash)
+        spec?.let { CharacterHash.input(project.characters, usedTokens(it)) }?.let { put(Inputs.CHARACTERS, it) }
     }
 }
 
