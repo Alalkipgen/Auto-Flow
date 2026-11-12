@@ -31,6 +31,7 @@ Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recor
   "globalStyle": { "visual": "...", "palette": "...", "lighting": "...", "camera": "...", "negative": "...", "hash": "gs_..." },
   "characters": [ { "token": "HERO", "nameMy": "...", "descriptionEn": "...", "refImages": ["im_..."] } ],
   "analysis": "an_...",
+  "lyricTiming": "tx_...",
   "storyboards": ["sb_...", "sb_..."],
   "currentStoryboard": "sb_...",
   "shots": [ { "number": 1, "startMs": 0, "durationMs": 8000, "section": "INTRO", "lyricsMy": "...",
@@ -42,6 +43,7 @@ Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recor
   "flowCredits": { "manualLog": [ { "date": "2026-11-10", "credits": 20, "shot": 3 } ] }
 }
 ```
+`lyricTiming` (optional, D-30): the `tx` artifact with the song's lyric line timings, `{"schemaVersion":1,"source":"tap","lines":[{"text":"...","startMs":1200,"endMs":4000}]}`; used only while its line texts equal the lyrics' non-blank, non-`[Section]` lines.
 Writes: serialize → `project.json.tmp` → fsync → rename over `project.json`. Keep `project.json.bak` (previous version).
 
 ## 3. Migration

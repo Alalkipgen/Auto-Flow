@@ -5,6 +5,8 @@ import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
+import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Project
@@ -125,6 +127,24 @@ class ProjectSession(
         } catch (e: IllegalArgumentException) {
             CoreResult.Err(CoreError.Corrupt(id.value, e.message ?: "invalid JSON"))
         }
+    }
+
+    /** The saved line timings (`project.lyricTiming`), or null when there are none or they cannot be read. */
+    fun readLyricTimings(): LyricTimings? {
+        val id = open?.project?.lyricTiming ?: return null
+        return readJson(id, LyricTimings.serializer()).getOrNull()
+    }
+
+    /** Stores [timings] as a `tx` artifact and points `project.lyricTiming` at it (D-30); null clears the pointer. */
+    fun saveLyricTimings(timings: LyricTimings?): CoreResult<Project> {
+        val project = open?.project ?: return noProject()
+        if (timings == null) return if (project.lyricTiming == null) CoreResult.Ok(project) else save(project.copy(lyricTiming = null))
+        val bytes = CoreJson.encodeToString(LyricTimings.serializer(), timings).encodeToByteArray()
+        val artifact = when (val r = artifacts()!!.put(bytes, ArtifactKind.TRANSCRIPT, "json", provider = timings.source)) {
+            is CoreResult.Ok -> r.value
+            is CoreResult.Err -> return r
+        }
+        return save(project.copy(lyricTiming = artifact.id))
     }
 
     private fun noProject() = CoreResult.Err(CoreError.InvalidInput("No project is open"))

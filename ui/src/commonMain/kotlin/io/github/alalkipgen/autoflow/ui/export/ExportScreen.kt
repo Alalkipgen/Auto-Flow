@@ -61,11 +61,15 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             AfText(
                 when {
                     state.font == null -> "No Burmese font: lyrics are left out (Settings → Fonts: Pyidaungsu or Noto Sans Myanmar)."
+                    state.syncedLines > 0 -> "Lyrics: ${state.syncedLines} synced lines · ${state.font}"
                     state.lyricShots == 0 -> "No lyrics on the shots."
                     else -> "Lyrics on ${state.lyricShots} shots · ${state.font}"
                 },
                 color = if (state.font == null) AutoFlowColors.Amber else null,
             )
+            if (state.timingOutdated) {
+                AfText("⚠ The lyrics changed after the sync: each shot's lyrics are used (Input → Lyrics timing → Sync again).", color = AutoFlowColors.Amber)
+            }
         }
         AfCard("Render") {
             state.unavailable?.let { AfText(it, color = AutoFlowColors.Amber) }

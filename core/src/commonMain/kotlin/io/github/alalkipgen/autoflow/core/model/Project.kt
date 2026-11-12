@@ -19,6 +19,8 @@ data class Project(
     val globalStyle: GlobalStyle = GlobalStyle(),
     val characters: List<Character> = emptyList(),
     val analysis: ArtifactId? = null,
+    /** Line timings of the song (`tx`, [io.github.alalkipgen.autoflow.core.lyrics.LyricTimings]; D-30). */
+    val lyricTiming: ArtifactId? = null,
     val storyboards: List<ArtifactId> = emptyList(),
     val currentStoryboard: ArtifactId? = null,
     val shots: List<Shot> = emptyList(),

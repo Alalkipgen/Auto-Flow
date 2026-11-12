@@ -2,6 +2,8 @@ package io.github.alalkipgen.autoflow.ui.export
 
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
+import io.github.alalkipgen.autoflow.core.lyrics.LyricLine
+import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
@@ -180,6 +182,25 @@ class ExportModelTest {
 
         m.refresh()
         assertNotNull(m.state.value.run, "the finished run stays on screen after a refresh")
+    }
+
+    @Test
+    fun syncedTimingsReplaceShotLyricsUntilTheLyricsChange() = runTest {
+        open()
+        withSongAndFont()
+        session.writeLyrics("[Verse]\nမိုးတွေ\nရွာနေတယ်")
+        val lines = listOf(LyricLine("မိုးတွေ", 500, 3_000), LyricLine("ရွာနေတယ်", 3_000, 9_000))
+        session.saveLyricTimings(LyricTimings(lines = lines))
+        val m = model(backgroundScope)
+        assertEquals(2, m.state.value.syncedLines)
+        assertFalse(m.state.value.timingOutdated)
+        m.render(Quality.PREVIEW)
+        assertEquals(listOf(500L to 3_000L, 3_000L to 9_000L), queue.jobs.single().graph.overlays.map { it.startMs to it.endMs })
+
+        session.writeLyrics("မိုးတွေ\nရွာနေတယ်\nnew line")
+        m.refresh()
+        assertEquals(0, m.state.value.syncedLines)
+        assertTrue(m.state.value.timingOutdated)
     }
 
     @Test

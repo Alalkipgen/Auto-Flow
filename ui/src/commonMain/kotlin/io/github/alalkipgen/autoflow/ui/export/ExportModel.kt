@@ -3,6 +3,8 @@ package io.github.alalkipgen.autoflow.ui.export
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.lyrics.LyricLine
+import io.github.alalkipgen.autoflow.core.lyrics.LyricSync
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
@@ -39,6 +41,10 @@ data class ExportUiState(
     val songFile: String? = null,
     val font: String? = null,
     val lyricShots: Int = 0,
+    /** Lines of the saved lyric timings that match the lyrics (PLAN Q-11); they replace the per-shot lyrics. */
+    val syncedLines: Int = 0,
+    /** Timings exist but the lyrics changed since: per-shot lyrics are used. */
+    val timingOutdated: Boolean = false,
     val lowBattery: Boolean = false,
     val unavailable: String? = null,
     val run: ExportRun? = null,
@@ -85,6 +91,8 @@ class ExportModel(
         }
         val p = open.project
         val font = font()
+        val saved = session.readLyricTimings()
+        val synced = timings()
         _state.value = ExportUiState(
             projectName = p.name,
             shots = p.shots.count { it.durationMs > 0 },
@@ -93,6 +101,8 @@ class ExportModel(
             songFile = session.songPath()?.substringAfterLast('/'),
             font = font?.family,
             lyricShots = p.shots.count { it.durationMs > 0 && it.lyricsMy.isNotBlank() },
+            syncedLines = synced?.size ?: 0,
+            timingOutdated = saved != null && synced == null,
             lowBattery = battery?.read()?.lowWarning == true,
             unavailable = if (queue == null) NO_QUEUE else null,
             run = run,
@@ -122,6 +132,7 @@ class ExportModel(
             open.project, open.dir, quality, song, { videoFile(open, it) }, font?.family, fontsDir,
             outputName = joinPath(EXPORTS_DIR, name),
             title = "${open.project.name} · ${label(quality)}",
+            timings = timings(),
         )
         val timeline = CoreJson.encodeToJsonElement(RenderGraph.serializer(), job.graph)
         (session.save(open.project.copy(timeline = timeline)) as? CoreResult.Err)?.let { return say(it.error.message) }
@@ -136,6 +147,10 @@ class ExportModel(
             }
         }
     }
+
+    /** The saved line timings when they still match the lyrics, else null (per-shot lyrics). */
+    private fun timings(): List<LyricLine>? =
+        session.readLyricTimings()?.takeIf { LyricSync.matches(it, session.readLyrics()) }?.lines?.takeIf { it.isNotEmpty() }
 
     fun cancel() {
         val run = _state.value.run?.takeIf { !it.state.finished } ?: return
