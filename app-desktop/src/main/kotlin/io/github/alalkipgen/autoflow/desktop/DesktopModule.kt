@@ -33,6 +33,7 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     single<Clipboard> { AwtClipboard() }
     single<UrlOpener> { DesktopUrlOpener() }
     single<FilePicker> { SwingFilePicker(owner = window) }
+    single<io.github.alalkipgen.autoflow.platform.VoiceRecorder> { io.github.alalkipgen.autoflow.platform.DesktopVoiceRecorder() }
     single<ToolLocator> { DesktopToolLocator(get()) }
     single<ToolRunner> { DesktopToolRunner() }
     single { BundledConfig { readResource("/config/models.json") } }

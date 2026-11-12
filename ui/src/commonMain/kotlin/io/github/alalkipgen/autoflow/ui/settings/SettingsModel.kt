@@ -37,6 +37,8 @@ data class SettingsUiState(
     val ffmpegCheckWarn: Boolean = false,
     val models: LoadedModelConfig,
     val message: String? = null,
+    /** WAV of the last "Test Gemini TTS (S5)", for ▶. */
+    val ttsSample: String? = null,
 )
 
 /** Settings screen logic. Actions return quickly except the `suspend` ones, which the screen launches. */
@@ -52,7 +54,13 @@ class SettingsModel(
     private val testKeyCall: suspend () -> AiResult<Unit>,
     /** Runs ffmpeg for the version check; null = no check (tests, previews). */
     private val ffmpegRunner: ToolRunner? = null,
+    /** S5 (D-34): one real Gemini TTS request; Ok = WAV bytes. Null = no button. */
+    private val testTtsCall: (suspend () -> AiResult<ByteArray>)? = null,
+    /** Keeps the S5 sample for ▶; returns its path or null. */
+    private val saveTtsSample: (ByteArray) -> String? = { null },
 ) {
+    val canTestTts: Boolean get() = testTtsCall != null
+
     private val _state = MutableStateFlow(snapshot(message = settings.problem ?: models.problem))
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
@@ -72,6 +80,25 @@ class SettingsModel(
         }
         refreshUsage()
         done(text)
+    }
+
+    /** Settings → Test Gemini TTS (S5): speaks one Burmese sentence and names the model that answered. */
+    suspend fun testTts() {
+        val call = testTtsCall ?: return
+        _state.value = _state.value.copy(testing = true, message = null)
+        var sample: String? = null
+        val text = when (val r = call()) {
+            is AiResult.Ok -> {
+                sample = saveTtsSample(r.value)
+                "Gemini TTS works" + (r.usage?.model?.let { " ($it)" } ?: "") + (if (sample != null) ". Tap ▶ to hear the Burmese sentence." else "")
+            }
+            is AiResult.RateLimited -> "Gemini TTS: the free-tier limit is reached for now" + (r.message.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "")
+            is AiResult.Failed -> "Gemini TTS: ${r.msg}"
+            is AiResult.Deferred -> r.instruction
+        }
+        refreshUsage()
+        done(text)
+        _state.value = _state.value.copy(ttsSample = sample)
     }
 
     suspend fun refreshUsage() {

@@ -85,6 +85,7 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, extraCards: @C
         MovieCard(model, state, recap)
         ScenesCard(model, state, recap)
         ScriptCard(model, state, recap)
+        VoiceCard(model, state, recap)
         extraCards(recap)
     }
 }

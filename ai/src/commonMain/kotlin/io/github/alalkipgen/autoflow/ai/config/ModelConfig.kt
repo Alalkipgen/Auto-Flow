@@ -29,6 +29,10 @@ data class ModelConfig(
                 config.copy(
                     text = config.text.copy(candidates = clean(config.text.candidates)),
                     image = config.image.copy(candidates = clean(config.image.candidates)),
+                    tts = config.tts.copy(
+                        default = config.tts.default?.let { clean(listOf(it)).firstOrNull() },
+                        candidates = clean(config.tts.candidates),
+                    ),
                 ),
             )
         } catch (e: IllegalArgumentException) { // includes SerializationException
@@ -66,10 +70,15 @@ data class ImageModels(
 @Serializable
 @SerialName("TtsModels")
 data class TtsModels(
+    /** Old single-model field; used when [candidates] is empty. */
     val default: String? = null,
+    /** Tried in order (D-15 style chain, D-34). */
+    val candidates: List<String> = emptyList(),
     val burmese: Boolean = false,
     val replication: String = "unknown",
 ) {
+    val chain: List<String> get() = candidates.ifEmpty { listOfNotNull(default) }
+
     val replicationAvailability: Availability
         get() = when (replication.lowercase()) {
             "yes", "true", "available" -> Availability.AVAILABLE

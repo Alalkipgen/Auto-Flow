@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.di
 import io.github.alalkipgen.autoflow.ai.registry.AiHost
 import io.github.alalkipgen.autoflow.ai.registry.ProviderRegistry
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.AppDirs
@@ -76,10 +77,20 @@ val uiModule = module {
     }
     single { ShellModel(get()) }
     // Movie Recap (D-33): a single, so copying / finding scenes keeps going off-screen.
-    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull()) }
+    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull()) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope()) }
     factory {
         val registry = get<ProviderRegistry>()
-        SettingsModel(get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey, ffmpegRunner = getOrNull())
+        val dirs = getOrNull<AppDirs>()
+        val fs = get<FileSystem>()
+        SettingsModel(
+            get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey, ffmpegRunner = getOrNull(),
+            testTtsCall = { registry.testGeminiTts() },
+            saveTtsSample = { bytes ->
+                dirs?.let { d ->
+                    runCatching { joinPath(d.root, "tts-test.wav").also { fs.createDirectories(d.root); fs.writeDurably(it, bytes) } }.getOrNull()
+                }
+            },
+        )
     }
 }
