@@ -32,7 +32,7 @@ data class ModelCapability(
                 imageApiProbe == Availability.AVAILABLE
             ) ImageMode.API else ImageMode.MANUAL,
             imageRatios = config.image.supportedRatios,
-            ttsBurmese = config.tts.burmese,
+            ttsBurmese = config.tts.chainFor("my").isNotEmpty(),
             ttsReplication = config.tts.replicationAvailability,
         )
     }
