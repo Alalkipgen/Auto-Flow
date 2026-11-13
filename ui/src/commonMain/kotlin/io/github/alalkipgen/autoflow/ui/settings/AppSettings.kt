@@ -25,6 +25,8 @@ data class AppSettings(
     val defaultClipMs: Long = 8_000,
     /** Parent folder used for the last new project; the Dashboard suggests it next time. */
     val projectsDir: String? = null,
+    /** Self-test → "Preview features": flag key (`studioV2`, `labs.dubbing`, …) → on / off over `config/features.json` (D-41). */
+    val featureOverrides: Map<String, Boolean> = emptyMap(),
 )
 
 /**

@@ -9,7 +9,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 class RecapTest {
     @Test
@@ -17,7 +21,25 @@ class RecapTest {
         val fixture = readTestResource("fixtures/recap-v1.json")
         val r = CoreJson.decodeFromString(Recap.serializer(), fixture)
         assertEquals(listOf(Look.ZOOM, Look.MIRROR), r.looks)
-        assertEquals(Json.parseToJsonElement(fixture), Json.parseToJsonElement(CoreJson.encodeToString(Recap.serializer(), r)))
+        // Every key of the v1 file survives a save; keys added later (voiceLock, quality, take model / voice) are extra.
+        assertContains(Json.parseToJsonElement(fixture), Json.parseToJsonElement(CoreJson.encodeToString(Recap.serializer(), r)))
+        assertEquals(r, CoreJson.decodeFromString(Recap.serializer(), CoreJson.encodeToString(Recap.serializer(), r)))
+    }
+
+    /** [actual] has everything in [expected]: same values, objects may have extra keys. */
+    private fun assertContains(expected: JsonElement, actual: JsonElement, path: String = "$") {
+        when (expected) {
+            is JsonObject -> {
+                val obj = actual as? JsonObject ?: fail("$path is not an object")
+                for ((k, v) in expected) assertContains(v, obj[k] ?: fail("$path.$k is missing"), "$path.$k")
+            }
+            is JsonArray -> {
+                val arr = actual as? JsonArray ?: fail("$path is not an array")
+                assertEquals(expected.size, arr.size, "$path size differs")
+                expected.forEachIndexed { i, v -> assertContains(v, arr[i], "$path[$i]") }
+            }
+            else -> assertEquals(expected, actual, path)
+        }
     }
 
     @Test

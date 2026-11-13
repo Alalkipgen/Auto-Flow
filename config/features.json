@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "studioV2": false,
+  "quickRecap": false,
+  "labs": {
+    "voiceClone": false,
+    "dubbing": false,
+    "vocalSeparation": false,
+    "smartReframe": false,
+    "autoCaptionPlacement": false,
+    "wordKaraoke": false,
+    "wholeMovieTranscribe": false,
+    "edgeVoices": false
+  }
+}

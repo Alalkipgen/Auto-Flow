@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "6d1e3b2a-9c4f-4e8a-b7d5-1f2a3c4b5d6e",
+  "name": "Night Train",
+  "mode": "MOVIE_RECAP",
+  "createdAt": "2026-11-10T08:00:00Z",
+  "updatedAt": "2026-11-12T09:30:00Z",
+  "recap": {
+    "rightsConfirmed": true,
+    "movie": { "file": "source/movie.mp4", "sizeBytes": 734003200, "durationMs": 6912000,
+               "width": 1280, "height": 720, "hasAudio": true },
+    "targetMs": 300000,
+    "scenes": [ { "startMs": 0, "endMs": 4200, "picked": true }, { "startMs": 4200, "endMs": 9000, "picked": true },
+                { "startMs": 9000, "endMs": 12000, "picked": false } ],
+    "sceneThreshold": 10,
+    "subtitles": "source/subtitles.srt",
+    "style": "COMMENTARY",
+    "script": "rs_0123456789ab",
+    "scriptApproved": true,
+    "voiceSource": "TTS",
+    "ttsVoice": "Kore",
+    "takes": [ { "segment": 0, "audio": "au_0123456789ab", "source": "TTS", "durationMs": 3900, "textHash": "abcdefabcdef" },
+               { "segment": 1, "audio": "au_ba9876543210", "source": "RECORDED", "durationMs": 4100, "textHash": "123456123456" },
+               { "segment": 7, "audio": "au_cccccccccccc", "source": "TTS", "durationMs": 2000, "textHash": "000000000000" } ],
+    "looks": ["ZOOM"],
+    "movieVolume": 0.35,
+    "burnCaptions": false
+  }
+}

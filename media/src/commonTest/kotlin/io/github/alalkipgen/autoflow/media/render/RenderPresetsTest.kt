@@ -29,4 +29,13 @@ class RenderPresetsTest {
         assertEquals(24, p.fps)
         assertEquals(listOf("yt1080", "tiktok540", "ig1x1-1080"), listOf(e.preset, p.preset, RenderPresets.export(Ratio.R1_1).preset))
     }
+
+    @Test
+    fun exportAtUsesTheChosenShortSide() {
+        assertEquals("1280x720", size(RenderPresets.exportAt(Ratio.R16_9, 720)))
+        assertEquals("1440x2560", size(RenderPresets.exportAt(Ratio.R9_16, 1440)))
+        assertEquals("tiktok1440", RenderPresets.exportAt(Ratio.R9_16, 1440).preset)
+        assertEquals(Quality.EXPORT, RenderPresets.exportAt(Ratio.R1_1, 721).quality)
+        assertEquals("720x720", size(RenderPresets.exportAt(Ratio.R1_1, 721))) // even
+    }
 }

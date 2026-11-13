@@ -28,8 +28,10 @@ dependencies {
 }
 
 // Ship config/models.json (D-10) on the classpath as /config/models.json; Settings can point at an override file.
+// config/features.json (D-41) ships the same way, as /config/features.json.
 tasks.named<ProcessResources>("processResources") {
     from(rootProject.layout.projectDirectory.file("config/models.json")) { into("config") }
+    from(rootProject.layout.projectDirectory.file("config/features.json")) { into("config") }
 }
 
 compose.desktop {

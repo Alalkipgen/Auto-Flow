@@ -35,6 +35,8 @@ data class Recap(
     /** The movie's own sound under the narration: 0 (off) … 1 (full). */
     val movieVolume: Double = MOVIE_VOLUME_LOW,
     val burnCaptions: Boolean = true,
+    /** Export size (5B-9, studio-v2 §9). Preview renders stay 540p. */
+    val quality: ExportQuality = ExportQuality.AUTO,
 ) {
     val picked: List<RecapScene> get() = scenes.filter { it.picked }
     val pickedMs: Long get() = picked.sumOf { it.durationMs }
@@ -164,4 +166,35 @@ data class RecapSegment(
     val textMy: String = "",
 ) {
     val durationMs: Long get() = endMs - startMs
+}
+
+/**
+ * Export quality (docs/specs/studio-v2.md §9): [AUTO] = the movie's short side, at most 1080 (1080 when unknown);
+ * [P1440] only when picked. The value is the output's short side in px.
+ */
+@Serializable
+@SerialName("ExportQuality")
+enum class ExportQuality(val label: String) {
+    @SerialName("AUTO") AUTO("Auto"),
+    @SerialName("720") P720("720p"),
+    @SerialName("1080") P1080("1080p"),
+    @SerialName("1440") P1440("1440p"),
+    ;
+
+    /** Short side of the export in px (even, for yuv420p). */
+    fun shortSidePx(movie: RecapMovie?): Int = when (this) {
+        P720 -> 720
+        P1080 -> 1080
+        P1440 -> 1440
+        AUTO -> {
+            val movieShort = movie?.let { minOf(it.width, it.height) } ?: 0
+            if (movieShort <= 0) AUTO_MAX else movieShort.coerceIn(AUTO_MIN, AUTO_MAX).let { it - it % 2 }
+        }
+    }
+
+    companion object {
+        const val AUTO_MAX = 1080
+        /** Below this an AUTO export is still made at 360p, so captions stay readable. */
+        const val AUTO_MIN = 360
+    }
 }

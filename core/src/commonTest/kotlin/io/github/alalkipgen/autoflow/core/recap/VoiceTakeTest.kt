@@ -11,7 +11,7 @@ class VoiceTakeTest {
 
     private fun take(provider: String?, model: String?, voice: String?) = VoiceTake(
         segment = 0,
-        audio = ArtifactId("au", "abc123"),
+        audio = ArtifactId("au_0123456789ab"),
         source = VoiceSource.TTS,
         durationMs = 3_000,
         textHash = "aabbccdd",
