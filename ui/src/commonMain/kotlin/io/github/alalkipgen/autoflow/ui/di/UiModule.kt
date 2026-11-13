@@ -73,6 +73,7 @@ val uiModule = module {
             creditHintQuality = cfg.flow.creditsHint["quality"] ?: 100,
             fs = get(),
             fileShare = getOrNull(),
+            media = get(),
         )
     }
     single { ShellModel(get()) }
