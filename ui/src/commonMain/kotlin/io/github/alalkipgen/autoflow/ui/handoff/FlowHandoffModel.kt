@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.CreditEntry
@@ -17,10 +18,13 @@ import io.github.alalkipgen.autoflow.core.workflow.ShotStatus
 import io.github.alalkipgen.autoflow.core.workflow.WorkflowRules
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.store.ArtifactStore
+import io.github.alalkipgen.autoflow.media.probe.FrameGrab
 import io.github.alalkipgen.autoflow.platform.Clipboard
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.UrlOpener
+import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import kotlin.time.Clock
@@ -29,6 +33,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /** One row on the Flow Handoff screen. */
 data class HandoffRow(
@@ -55,6 +63,10 @@ data class HandoffRow(
     val batchable: Boolean = false,
     /** Ticked for the next batch sheet (pending shots start ticked). */
     val inBatch: Boolean = false,
+    /** The chosen reference image, for the card's image thumbnail; null → "No reference image". */
+    val refImage: ArtifactId? = null,
+    /** The video shown on the card: the accepted one, else the newest import; null → "No video yet". */
+    val shownVideo: ArtifactId? = null,
 )
 
 /** One line of the manual credit log, newest first; [index] is its position in `flowCredits.manualLog`. */
@@ -95,7 +107,9 @@ class FlowHandoffModel(
     private val nowMs: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     private val fs: FileSystem? = null,
     private val fileShare: FileShare? = null,
+    private val media: MediaTools? = null,
 ) {
+    private val thumbs = Mutex()
     private data class BatchLocal(val unticked: Set<Int> = emptySet(), val last: String? = null)
     private val _batch = MutableStateFlow(BatchLocal())
     private val _selected = MutableStateFlow<Int?>(null)
@@ -232,6 +246,74 @@ class FlowHandoffModel(
         }
     }
 
+    /**
+     * Small JPEG of shot [number]'s chosen reference image (`.cache/thumbs/<id>.jpg`, made once by ffmpeg). Without
+     * ffmpeg the image itself is returned when it is small enough to decode safely; null when there is none.
+     */
+    suspend fun refThumbnail(number: Int): ByteArray? {
+        val id = shotOf(number)?.chosenRef ?: return null
+        return thumbnail(id, atMs = 0) ?: withContext(Dispatchers.Default) {
+            (session.artifacts()?.readBytes(id) as? CoreResult.Ok)?.value?.takeIf { it.size <= MAX_RAW_THUMB_BYTES }
+        }
+    }
+
+    /** Small JPEG of a frame near the start of the video shown on shot [number]'s card; null without ffmpeg. */
+    suspend fun videoThumbnail(number: Int): ByteArray? {
+        val shot = shotOf(number) ?: return null
+        val id = shot.acceptedVideo ?: shot.videos.lastOrNull() ?: return null
+        return thumbnail(id, atMs = VIDEO_THUMB_MS) ?: thumbnail(id, atMs = 0)
+    }
+
+    /** Opens the video shown on shot [number]'s card in the phone's / computer's video player. */
+    fun playVideo(number: Int) {
+        val shot = shotOf(number) ?: return
+        val id = shot.acceptedVideo ?: shot.videos.lastOrNull() ?: run { _message.value = "No video imported for Shot $number"; return }
+        openArtifact(id, "video")
+    }
+
+    /** Opens shot [number]'s chosen reference image full size. */
+    fun openRefImage(number: Int) {
+        val id = shotOf(number)?.chosenRef ?: return
+        openArtifact(id, "image")
+    }
+
+    private fun openArtifact(id: ArtifactId, type: String) {
+        val path = artifactPath(id) ?: run { _message.value = "The file for this shot is missing"; return }
+        val share = fileShare ?: run { _message.value = "Opening files is not available here"; return }
+        when (val r = share.open(path, mimeOf(path, type))) {
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> Unit
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> _message.value = r.reason
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> _message.value = r.reason
+        }
+    }
+
+    private fun shotOf(number: Int): Shot? = session.open?.project?.shots?.firstOrNull { it.number == number }
+
+    private fun artifactPath(id: ArtifactId): String? {
+        val dir = session.open?.dir ?: return null
+        val artifact = (session.artifacts()?.get(id) as? CoreResult.Ok)?.value ?: return null
+        return joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), artifact.file)
+    }
+
+    /** `.cache/thumbs/<id>[-<ms>].jpg` from ffmpeg, one at a time; ids are content hashes, so the cache never goes stale. */
+    private suspend fun thumbnail(id: ArtifactId, atMs: Long): ByteArray? = withContext(Dispatchers.Default) {
+        val dir = session.open?.dir ?: return@withContext null
+        val thumbsDir = joinPath(joinPath(dir, ProjectSession.CACHE_DIR), "thumbs")
+        val file = joinPath(thumbsDir, if (atMs == 0L) "${id.value}.jpg" else "${id.value}-$atMs.jpg")
+        session.readFile(file)?.takeIf { it.isNotEmpty() }?.let { return@withContext it }
+        val runner = media?.runner ?: return@withContext null
+        val ffmpeg = media.ffmpeg() ?: return@withContext null
+        val source = artifactPath(id) ?: return@withContext null
+        thumbs.withLock {
+            session.readFile(file)?.takeIf { it.isNotEmpty() }?.let { return@withLock it }
+            runCatching { fs?.createDirectories(thumbsDir) }.getOrElse { return@withLock null }
+            when (FrameGrab(runner, ffmpeg).thumb(source, atMs, file, dir)) {
+                is FrameGrab.Result.Ok -> session.readFile(file)?.takeIf { it.isNotEmpty() }
+                is FrameGrab.Result.Failed -> null
+            }
+        }
+    }
+
     /** Tick / untick shot [number] for the batch sheet. */
     fun toggleBatch(number: Int) {
         val b = _batch.value
@@ -330,6 +412,8 @@ class FlowHandoffModel(
                     (skipped[shot.number] ?: -1) < shot.videos.size,
                 creditDefault = if (shot.handoff.pass == Pass.FINAL) creditHintQuality else creditHintFast,
                 batchable = ir != null && gate.allowed && shot.acceptedVideo == null,
+                refImage = shot.chosenRef,
+                shownVideo = shot.acceptedVideo ?: shot.videos.lastOrNull(),
             ).let { it.copy(inBatch = it.batchable && shot.number !in batch.unticked) }
         }
         val day = today()
@@ -356,6 +440,19 @@ class FlowHandoffModel(
         const val MAX_CREDITS = 10_000
         const val PACKAGES_DIR = "packages"
         const val HTML_MIME = "text/html"
+        /** The video thumbnail is the frame at 1 s (the very first frame of a Flow clip is often dark). */
+        const val VIDEO_THUMB_MS = 1_000L
+        /** Without ffmpeg, a reference image larger than this is not decoded for the thumbnail (phone memory). */
+        const val MAX_RAW_THUMB_BYTES = 4 * 1024 * 1024
+
+        internal fun mimeOf(path: String, type: String): String = when (path.substringAfterLast('.').lowercase()) {
+            "mov" -> "video/quicktime"
+            "mp4", "m4v" -> "video/mp4"
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            "webp" -> "image/webp"
+            else -> "$type/*"
+        }
     }
 
     private fun io.github.alalkipgen.autoflow.core.workflow.Blocker.handoffMsg(): String = when (this) {

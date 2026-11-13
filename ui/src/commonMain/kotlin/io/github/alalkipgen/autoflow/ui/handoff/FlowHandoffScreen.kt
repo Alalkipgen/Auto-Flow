@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,12 +19,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.HandoffState
@@ -33,6 +38,7 @@ import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
@@ -117,6 +123,12 @@ private fun HandoffCard(
         }
         row.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 12.sp) }
 
+        // What is attached: reference image and video thumbnails (phone test v0.1.14, fix 2)
+        WrapRow {
+            RefThumb(row, model)
+            VideoThumb(row, model)
+        }
+
         // Gate warning
         row.gateMsg?.let {
             AfText("⚠ $it", color = AutoFlowColors.Amber, size = 12.sp)
@@ -171,6 +183,92 @@ private fun HandoffCard(
             AfText("Credits logged: ${row.creditsLogged}", muted = true, size = 11.sp)
         }
     }
+}
+
+@Composable
+private fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
+    val image by produceState<ImageBitmap?>(null, row.refImage) {
+        value = row.refImage?.let { model.refThumbnail(row.number)?.let(::decodeImage) }
+    }
+    MediaTile(
+        label = refThumbLabel(row),
+        image = image,
+        present = row.refImage != null,
+        emptyText = "No image",
+        play = false,
+        onClick = if (row.refImage != null) ({ model.openRefImage(row.number) }) else null,
+        description = "Shot ${row.number} reference image",
+    )
+}
+
+@Composable
+private fun VideoThumb(row: HandoffRow, model: FlowHandoffModel) {
+    val image by produceState<ImageBitmap?>(null, row.shownVideo) {
+        value = row.shownVideo?.let { model.videoThumbnail(row.number)?.let(::decodeImage) }
+    }
+    MediaTile(
+        label = videoThumbLabel(row),
+        image = image,
+        present = row.shownVideo != null,
+        emptyText = "No video",
+        play = true,
+        onClick = if (row.shownVideo != null) ({ model.playVideo(row.number) }) else null,
+        description = "Shot ${row.number} video",
+    )
+}
+
+/** One labelled thumbnail: the picture (or a dashed "No …" box), and a ▶ mark on videos; tap opens the file. */
+@Composable
+private fun MediaTile(
+    label: String,
+    image: ImageBitmap?,
+    present: Boolean,
+    emptyText: String,
+    play: Boolean,
+    onClick: (() -> Unit)?,
+    description: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        AfText(label, muted = !present, size = 11.sp)
+        Box(
+            Modifier.size(width = THUMB_W.dp, height = THUMB_H.dp)
+                .clip(AutoFlowShapes.Card)
+                .background(AutoFlowColors.Background)
+                .border(AutoFlowShapes.Border, if (present) AutoFlowColors.Line else AutoFlowColors.Line.copy(alpha = 0.5f), AutoFlowShapes.Card)
+                .let { m -> onClick?.let { m.clickable(onClick = it) } ?: m },
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                image != null -> Image(image, contentDescription = description, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                present -> AfText(if (play) "Video" else "Image", muted = true, size = 11.sp)
+                else -> AfText(emptyText, muted = true, size = 11.sp)
+            }
+            if (play && present) {
+                Box(
+                    Modifier.clip(AutoFlowShapes.Card).background(AutoFlowColors.Background.copy(alpha = 0.7f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) { AfText("▶", size = 16.sp) }
+            }
+        }
+    }
+}
+
+internal const val THUMB_W = 128
+internal const val THUMB_H = 72
+
+/** "Reference image" / "Reference image (not approved)" / "No reference image". */
+internal fun refThumbLabel(row: HandoffRow): String = when {
+    row.refImage == null -> "No reference image"
+    !row.refApproved -> "Reference image (not approved)"
+    else -> "Reference image"
+}
+
+/** "Accepted video" / "Latest video (2 of 2)" / "Imported video" / "No video yet". */
+internal fun videoThumbLabel(row: HandoffRow): String = when {
+    row.shownVideo == null -> "No video yet"
+    row.accepted -> "Accepted video"
+    row.videoCount > 1 -> "Latest video (${row.videoCount} of ${row.videoCount})"
+    else -> "Imported video"
 }
 
 @Composable
