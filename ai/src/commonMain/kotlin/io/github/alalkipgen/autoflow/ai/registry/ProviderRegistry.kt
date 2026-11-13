@@ -66,9 +66,10 @@ class ProviderRegistry(
         GeminiTranscribeProvider(http.value, { host.apiKey() }, config.text.candidates, ModelChain(usage = usage))
     }
     private val geminiTts by lazy {
+        // Pass all TtsCandidate entries; GeminiTtsProvider filters by language on each speak() call (D-35).
         GeminiTtsProvider(
-            http.value, { host.apiKey() }, config.tts.chain,
-            TtsCapabilities(replication = config.tts.replicationAvailability, burmese = config.tts.burmese),
+            http.value, { host.apiKey() }, config.tts.candidates,
+            TtsCapabilities(replication = config.tts.replicationAvailability),
             ModelChain(usage = usage),
         )
     }
@@ -86,7 +87,7 @@ class ProviderRegistry(
 
     val tts: TtsProvider = object : TtsProvider {
         override val capabilities: TtsCapabilities
-            get() = if (usingFakes) fakeTts.capabilities else TtsCapabilities(replication = config.tts.replicationAvailability, burmese = config.tts.burmese)
+            get() = if (usingFakes) fakeTts.capabilities else TtsCapabilities(replication = config.tts.replicationAvailability)
 
         override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?): AiResult<ByteArray> =
             (if (usingFakes) fakeTts else geminiTts).speak(text, voice, lang, style)
@@ -104,7 +105,7 @@ class ProviderRegistry(
                 textModels = listOf(FakeTextProvider.MODEL),
                 imageMode = ImageMode.API,
                 imageRatios = Ratio.entries,
-                ttsBurmese = true,
+                ttsBurmese = true,  // fakes support all languages
                 ttsReplication = Availability.UNAVAILABLE,
             )
         } else {

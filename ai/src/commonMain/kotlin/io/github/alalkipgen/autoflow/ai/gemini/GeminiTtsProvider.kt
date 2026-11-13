@@ -16,15 +16,17 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * Gemini TTS (D-34, docs/specs/recap.md §5): one prebuilt voice, [candidates] tried in order (models.json
- * `tts.candidates`). The answer is always returned as a WAV file: Gemini 3.8 sends a complete WAV, older models sent
- * headerless 16-bit PCM (24 kHz mono), which is wrapped here.
+ * Gemini TTS: one prebuilt voice per request. [allCandidates] = every model entry from `config/models.json`
+ * `tts.candidates`. On each [speak] call, only models that declare the requested language are tried (voice lock
+ * language filter, D-35). The answer is always returned as a WAV file: Gemini 3.8 sends a complete WAV, older
+ * models sent headerless 16-bit PCM (24 kHz mono), which is wrapped here.
  */
 class GeminiTtsProvider(
     private val http: HttpClient,
     private val apiKey: suspend () -> String?,
-    private val candidates: List<String>,
-    override val capabilities: TtsCapabilities = TtsCapabilities(replication = Availability.UNAVAILABLE, burmese = true),
+    /** All TTS candidates from config — language filtering happens per [speak] call. */
+    private val allCandidates: List<io.github.alalkipgen.autoflow.ai.config.TtsCandidate>,
+    override val capabilities: TtsCapabilities = TtsCapabilities(replication = Availability.UNAVAILABLE),
     private val chain: ModelChain = ModelChain(),
     private val baseUrl: String = GeminiTextProvider.DEFAULT_BASE_URL,
 ) : TtsProvider {
@@ -32,7 +34,13 @@ class GeminiTtsProvider(
         val key = apiKey()?.trim().orEmpty()
         if (key.isEmpty()) return AiResult.Failed("no_api_key", "Add a Gemini API key in Settings")
         if (text.isBlank()) return AiResult.Failed("empty_text", "There is no text to speak")
-        return chain.run(candidates) { model ->
+        // Use only models that declare they can speak this language (voice lock language filter, D-35).
+        val eligible = allCandidates.filter { it.speaksLanguage(lang) }.map { it.id }
+        if (eligible.isEmpty()) return AiResult.Failed(
+            "no_tts_model_for_lang",
+            "No TTS model in config/models.json supports language \"$lang\"",
+        )
+        return chain.run(eligible) { model ->
             val body = GeminiWire.speechRequest(model, text.trim(), voice.id, style).toString()
             when (val a: Attempt<JsonElement> = GeminiWire.post(http, baseUrl, model, key, body, audio = true)) {
                 is Attempt.Success -> wav(a.value)?.let { Attempt.Success(it, a.promptTokens, a.outputTokens) }

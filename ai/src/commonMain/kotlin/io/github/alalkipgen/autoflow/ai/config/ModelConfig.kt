@@ -29,10 +29,7 @@ data class ModelConfig(
                 config.copy(
                     text = config.text.copy(candidates = clean(config.text.candidates)),
                     image = config.image.copy(candidates = clean(config.image.candidates)),
-                    tts = config.tts.copy(
-                        default = config.tts.default?.let { clean(listOf(it)).firstOrNull() },
-                        candidates = clean(config.tts.candidates),
-                    ),
+                    tts = config.tts,  // TtsCandidate ids are validated by the JSON deserializer
                 ),
             )
         } catch (e: IllegalArgumentException) { // includes SerializationException
@@ -67,17 +64,32 @@ data class ImageModels(
     }
 }
 
+/**
+ * One TTS model candidate from `config/models.json` `tts.candidates`.
+ * [langs] = BCP-47 language codes this model can speak (voice lock language filter).
+ */
+@Serializable
+@SerialName("TtsCandidate")
+data class TtsCandidate(
+    val id: String,
+    val langs: List<String> = emptyList(),
+) {
+    /** True when this candidate can speak [lang] (BCP-47, e.g. "my", "en"). Empty [langs] = no language declared. */
+    fun speaksLanguage(lang: String): Boolean = langs.any { it.equals(lang, ignoreCase = true) }
+}
+
 @Serializable
 @SerialName("TtsModels")
 data class TtsModels(
-    /** Old single-model field; used when [candidates] is empty. */
-    val default: String? = null,
-    /** Tried in order (D-15 style chain, D-34). */
-    val candidates: List<String> = emptyList(),
-    val burmese: Boolean = false,
+    /** Candidates with per-language declarations; replaces the old bare-string list (voice lock, D-35). */
+    val candidates: List<TtsCandidate> = emptyList(),
     val replication: String = "unknown",
 ) {
-    val chain: List<String> get() = candidates.ifEmpty { listOfNotNull(default) }
+    /** Model ids that can speak [lang]; preserves declaration order. */
+    fun chainFor(lang: String): List<String> = candidates.filter { it.speaksLanguage(lang) }.map { it.id }
+
+    /** All model ids, regardless of language (used when language is unknown). */
+    val allIds: List<String> get() = candidates.map { it.id }
 
     val replicationAvailability: Availability
         get() = when (replication.lowercase()) {
