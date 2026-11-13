@@ -65,6 +65,7 @@ fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: Ap
         DefaultsCard(state.settings, model)
         ToolsCard(state, model, scope)
         FontsCard(state.settings.fontPaths, model, scope)
+        PreviewFeaturesCard(state, model)
         ModelsCard(state, model, scope)
         backup?.let { BackupCard(it) }
         info?.let { AboutCard(it) }
@@ -246,6 +247,22 @@ private fun ModelsCard(state: SettingsUiState, model: SettingsModel, scope: Coro
                 .verticalScroll(rememberScrollState()).padding(10.dp),
         ) {
             AfText(state.models.text, mono = true, size = 12.sp, muted = true)
+        }
+    }
+}
+
+/**
+ * Preview-features toggles (5A-3): one switch per flag in [FeatureFlags.asMap].
+ * Note: the Self-test screen is a separate Android activity; this shared card keeps things simpler.
+ */
+@Composable
+private fun PreviewFeaturesCard(state: SettingsUiState, model: SettingsModel) {
+    val flags = state.features.asMap()
+    if (flags.isEmpty()) return
+    AfCard("Preview features") {
+        AfText("Turn features on or off. Overrides apply immediately; they are stored per-device.", muted = true)
+        flags.forEach { (key, value) ->
+            AfSwitch(key, value, { model.setFeature(key, it) })
         }
     }
 }

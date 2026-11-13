@@ -9,6 +9,7 @@ import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.recap.ExportQuality
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
@@ -54,6 +55,7 @@ data class RecapExport(
     val looks: Int,
     val movieVolume: Double,
     val blocker: String?,
+    val quality: ExportQuality = ExportQuality.AUTO,
 )
 
 /** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
@@ -147,6 +149,13 @@ class ExportModel(
         )
     }
 
+    /** Sets the [ExportQuality] for the current Recap project and refreshes the screen. */
+    fun setRecapQuality(q: ExportQuality) {
+        val open = session.open ?: return
+        session.save(open.project.copy(recap = open.project.recap?.copy(quality = q)))
+        refresh()
+    }
+
     /** Queues a Preview (540p) or Export (1080p) render of the open project. */
     fun render(quality: Quality) {
         refresh()
@@ -220,6 +229,7 @@ class ExportModel(
             looks = recap.looks.size,
             movieVolume = recap.movieVolume,
             blocker = gate.blockers.firstOrNull()?.text() ?: if (recap.movie == null) "Import the movie first (Movie Recap → 1 · Movie)." else null,
+            quality = recap.quality,
         )
     }
 
@@ -335,5 +345,8 @@ class ExportModel(
         }
 
         fun label(quality: Quality) = if (quality == Quality.PREVIEW) "Preview 540p" else "Export 1080p"
+
+        /** Display label for an [ExportQuality] chip. */
+        fun label(exportQuality: ExportQuality): String = exportQuality.label
     }
 }

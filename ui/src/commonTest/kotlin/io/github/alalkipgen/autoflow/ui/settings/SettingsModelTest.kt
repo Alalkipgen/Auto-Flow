@@ -218,3 +218,61 @@ class SettingsModelTest {
         assertEquals(LoadedModelConfig.BUNDLED, m.state.value.models.source)
     }
 }
+
+class SettingsModelFeatureTest {
+    private val fs = io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem()
+    private val settings = SettingsStore(fs, "/a/settings.json")
+    private val secrets = MemorySecureStorage()
+    private val status = ProviderStatusModel(settings, secrets)
+    private val usage = io.github.alalkipgen.autoflow.ai.usage.UsageCounter(fs, "/a/usage.json")
+    private val tools = FakeTools()
+    private val picker = FakePicker()
+
+    private val bundledFeaturesJson = """{"schemaVersion":1,"studioV2":false,"quickRecap":false}"""
+
+    private fun model(bundled: String? = bundledFeaturesJson) = SettingsModel(
+        settings, secrets, status, usage, loadModelConfig(fs, null) { TEST_MODELS_JSON },
+        tools, picker, { io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit) },
+        { io.github.alalkipgen.autoflow.ai.AiResult.Ok(Unit, io.github.alalkipgen.autoflow.ai.Usage("x")) },
+        bundledFeatures = bundled,
+    )
+
+    @Test
+    fun featuresDefaultOffWithNoBundledFile() {
+        val m = model(bundled = null)
+        val flags = m.state.value.features
+        assertEquals(false, flags.studioV2)
+        assertEquals(false, flags.quickRecap)
+    }
+
+    @Test
+    fun bundledFeaturesAreLoaded() {
+        val json = """{"schemaVersion":1,"studioV2":true,"quickRecap":false}"""
+        val m = model(bundled = json)
+        assertEquals(true, m.state.value.features.studioV2)
+        assertEquals(false, m.state.value.features.quickRecap)
+    }
+
+    @Test
+    fun setFeatureAddsOverrideAndTogglesClearIt() {
+        val m = model()
+        // bundled studioV2=false; turning it on stores an override
+        m.setFeature("studioV2", true)
+        assertEquals(true, m.state.value.features.studioV2)
+        assertEquals(mapOf("studioV2" to true), m.state.value.settings.featureOverrides)
+
+        // turning it back to the bundled default removes the override
+        m.setFeature("studioV2", false)
+        assertEquals(false, m.state.value.features.studioV2)
+        assertEquals(emptyMap(), m.state.value.settings.featureOverrides)
+    }
+
+    @Test
+    fun overridesArePersisted() {
+        val m = model()
+        m.setFeature("quickRecap", true)
+        val m2 = model()
+        // The settings store persisted the override; the new model should read it
+        assertEquals(true, m2.state.value.features.quickRecap)
+    }
+}

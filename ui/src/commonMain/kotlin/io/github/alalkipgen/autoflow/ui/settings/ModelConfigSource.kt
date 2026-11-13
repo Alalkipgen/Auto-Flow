@@ -4,9 +4,12 @@ import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.config.ModelConfig
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 
-/** The `config/models.json` shipped with the app; bound by the app module. */
+/** The `config/models.json` (and optionally `config/features.json`) shipped with the app; bound by the app module. */
 fun interface BundledConfig {
     fun modelsJson(): String
+
+    /** Returns the text of the bundled `config/features.json`, or null if the file is not present. */
+    fun featuresJson(): String? = null
 }
 
 /** The model config in use, its text and where it came from, for the read-only view in Settings. */

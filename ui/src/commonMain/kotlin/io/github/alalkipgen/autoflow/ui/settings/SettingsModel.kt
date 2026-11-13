@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.settings
 
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.core.flags.FeatureFlags
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.media.FfmpegCapabilities
 import io.github.alalkipgen.autoflow.media.FfmpegCheck
@@ -39,6 +40,8 @@ data class SettingsUiState(
     val message: String? = null,
     /** WAV of the last "Test Gemini TTS (S5)", for ▶. */
     val ttsSample: String? = null,
+    /** Feature flags with user overrides applied. */
+    val features: FeatureFlags = FeatureFlags(),
 )
 
 /** Settings screen logic. Actions return quickly except the `suspend` ones, which the screen launches. */
@@ -56,6 +59,8 @@ class SettingsModel(
     private val ffmpegRunner: ToolRunner? = null,
     /** S5 (D-34): one real Gemini TTS request; Ok = WAV bytes. Null = no button. */
     private val testTtsCall: (suspend () -> AiResult<ByteArray>)? = null,
+    /** Text of the bundled `config/features.json`; null if the platform does not ship it. */
+    private val bundledFeatures: String? = null,
     /** Keeps the S5 sample for ▶; returns its path or null. */
     private val saveTtsSample: (ByteArray) -> String? = { null },
 ) {
@@ -103,6 +108,13 @@ class SettingsModel(
 
     suspend fun refreshUsage() {
         _state.value = _state.value.copy(usageToday = usage.today())
+    }
+
+    /** Enables or disables a preview-feature flag override.  When [on] matches the bundled default, the override is removed. */
+    fun setFeature(key: String, on: Boolean) = change {
+        val bundledDefault = FeatureFlags.parse(bundledFeatures).asMap()[key] ?: false
+        val newOverrides = if (on == bundledDefault) it.featureOverrides - key else it.featureOverrides + (key to on)
+        it.copy(featureOverrides = newOverrides)
     }
 
     fun setUseFakes(fake: Boolean) = change { it.copy(useFakeProviders = fake) }
@@ -195,6 +207,7 @@ class SettingsModel(
             ffmpegFound = !tools.bundled || tools.findFfmpeg() != null,
             models = models,
             message = message,
+            features = FeatureFlags.load(bundledFeatures, s.featureOverrides),
         )
     }
 
