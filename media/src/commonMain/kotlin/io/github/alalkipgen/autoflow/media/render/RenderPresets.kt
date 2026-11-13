@@ -15,6 +15,9 @@ object RenderPresets {
 
     fun export(ratio: Ratio): Output = output(ratio, EXPORT_SHORT_SIDE, Quality.EXPORT)
 
+    /** Export at a chosen short side (Recap quality Auto / 720 / 1080 / 1440, studio-v2 §9). */
+    fun exportAt(ratio: Ratio, shortSidePx: Int): Output = output(ratio, shortSidePx - shortSidePx % 2, Quality.EXPORT)
+
     fun of(ratio: Ratio, quality: Quality): Output = if (quality == Quality.PREVIEW) preview(ratio) else export(ratio)
 
     private fun output(ratio: Ratio, short: Int, quality: Quality): Output {

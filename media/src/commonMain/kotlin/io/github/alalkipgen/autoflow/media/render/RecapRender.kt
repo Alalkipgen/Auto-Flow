@@ -22,7 +22,7 @@ object RecapRender {
 
     fun graph(recap: Recap, script: RecapScript, ratio: Ratio, quality: Quality, takeFile: (VoiceTake) -> String?, font: String?): RenderGraph {
         val movie = requireNotNull(recap.movie) { "no movie" }
-        val output = RenderPresets.of(ratio, quality)
+        val output = outputFor(recap, ratio, quality)
         val layout = layout(recap, script, takeFile)
         val clips = layout.map { p -> Clip(artifact = null, source = movie.file, trimInMs = p.movieMs, trimOutMs = p.movieMs + p.row.clipMs) }
         val cues = layout.mapNotNull { p -> p.voiced?.let { VoiceCue(it.file, p.startMs + RecapFit.LEAD_MS) } }
@@ -56,7 +56,7 @@ object RecapRender {
         files = emptyMap(),
         fontsDir = fontsDir,
         outputName = outputName,
-        srt = Srt.write(captions(recap, script, takeFile, RenderPresets.of(ratio, quality))),
+        srt = Srt.write(captions(recap, script, takeFile, outputFor(recap, ratio, quality))),
     )
 
     /**
@@ -73,6 +73,11 @@ object RecapRender {
             val at = p.startMs + RecapFit.LEAD_MS
             p.voiced?.takeIf { text.isNotEmpty() }?.let { SrtCue(at, at + it.take.durationMs, text) }
         }
+
+    /** Preview = 540p; Export = the project's [Recap.quality] (Auto = the movie's short side, at most 1080). */
+    fun outputFor(recap: Recap, ratio: Ratio, quality: Quality): Output =
+        if (quality == Quality.PREVIEW) RenderPresets.preview(ratio)
+        else RenderPresets.exportAt(ratio, recap.quality.shortSidePx(recap.movie))
 
     /** Caption em size: 1/18 of the short side (60 px at 1080), a little smaller than lyrics. */
     fun captionSizePx(output: Output): Int = minOf(output.width, output.height) / 18
