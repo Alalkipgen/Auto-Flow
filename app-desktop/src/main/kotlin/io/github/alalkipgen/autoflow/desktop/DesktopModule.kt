@@ -36,7 +36,12 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     single<io.github.alalkipgen.autoflow.platform.VoiceRecorder> { io.github.alalkipgen.autoflow.platform.DesktopVoiceRecorder() }
     single<ToolLocator> { DesktopToolLocator(get()) }
     single<ToolRunner> { DesktopToolRunner() }
-    single { BundledConfig { readResource("/config/models.json") } }
+    single<BundledConfig> {
+        object : BundledConfig {
+            override fun modelsJson(): String = readResource("/config/models.json")
+            override fun featuresJson(): String? = readResourceOrNull("/config/features.json")
+        }
+    }
     // Export on Windows (PLAN 1C): renders in this process, one at a time; Open plays the result.
     single<RenderQueue> { InProcessRenderQueue(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
     single<FileShare> { DesktopFileShare() }
@@ -45,5 +50,8 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
 private fun readResource(path: String): String =
     DesktopModule::class.java.getResourceAsStream(path)?.use { it.readBytes().decodeToString() }
         ?: error("missing resource $path")
+
+private fun readResourceOrNull(path: String): String? =
+    DesktopModule::class.java.getResourceAsStream(path)?.use { it.readBytes().decodeToString() }
 
 private object DesktopModule

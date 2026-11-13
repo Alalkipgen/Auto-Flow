@@ -13,6 +13,7 @@ import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.media.render.BatteryReader
 import io.github.alalkipgen.autoflow.media.render.BatteryReading
+import io.github.alalkipgen.autoflow.core.recap.ExportQuality
 import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderJob
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
@@ -119,5 +120,25 @@ class RecapExportTest {
         assertTrue(job.graph.overlays.isEmpty(), "no Burmese font set: .srt only")
         assertTrue(job.srt!!.contains("ကောင်လေး စောင့်နေတယ်"))
         assertNull(current.state.value!!.project.timeline, "a recap does not replace the music-video timeline")
+    }
+
+    @Test
+    fun setRecapQualitySavesAndUpdatesState() = runTest {
+        val m = recapModel(this)
+        open(m)
+        val e = exportModel(backgroundScope)
+        // default is AUTO
+        assertEquals(ExportQuality.AUTO, e.state.value.recap?.quality)
+
+        e.setRecapQuality(ExportQuality.P1080)
+        assertEquals(ExportQuality.P1080, recap().quality)
+        assertEquals(ExportQuality.P1080, e.state.value.recap?.quality)
+
+        e.setRecapQuality(ExportQuality.P720)
+        assertEquals(ExportQuality.P720, recap().quality)
+
+        // label helper
+        assertEquals("Auto", ExportModel.label(ExportQuality.AUTO))
+        assertEquals("1080p", ExportModel.label(ExportQuality.P1080))
     }
 }

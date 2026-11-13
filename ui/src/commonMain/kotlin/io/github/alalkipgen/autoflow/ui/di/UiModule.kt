@@ -12,6 +12,7 @@ import io.github.alalkipgen.autoflow.ui.projects.DashboardModel
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.settings.AppAiHost
+import io.github.alalkipgen.autoflow.ui.settings.BundledConfig
 import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.settings.LoadedModelConfig
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
@@ -92,6 +93,7 @@ val uiModule = module {
                     runCatching { joinPath(d.root, "tts-test.wav").also { fs.createDirectories(d.root); fs.writeDurably(it, bytes) } }.getOrNull()
                 }
             },
+            bundledFeatures = get<BundledConfig>().featuresJson(),
         )
     }
 }

@@ -54,6 +54,13 @@ fun androidModule(app: Application) = module {
     // Export screen (Q-09 c): open / share the mp4, battery warning before a render.
     single<FileShare> { AndroidFileShare(app) }
     single<BatteryReader> { BatteryReader { Battery.read(app).let { BatteryReading(it.percent, it.charging) } } }
-    single { BundledConfig { app.assets.open("models.json").use { it.readBytes().decodeToString() } } }
+    single<BundledConfig> {
+        object : BundledConfig {
+            override fun modelsJson(): String = app.assets.open("models.json").use { it.readBytes().decodeToString() }
+            override fun featuresJson(): String? = runCatching {
+                app.assets.open("features.json").use { it.readBytes().decodeToString() }
+            }.getOrNull()
+        }
+    }
     single { AppInfo("${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_SHA})") { SelfTestActivity.open(app) } }
 }

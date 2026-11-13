@@ -15,10 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.core.recap.ExportQuality
 import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
+import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
@@ -50,7 +52,7 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             return@Column
         }
         val recap = state.recap
-        if (recap != null) RecapSummary(recap, state.font) else AfCard("Video") {
+        if (recap != null) RecapSummary(recap, state.font, model) else AfCard("Video") {
             AfText("${state.shots} shots · ${InputModel.formatDuration(state.durationMs)}")
             val pending = state.shots - state.accepted
             AfText(
@@ -79,18 +81,19 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             if (state.lowBattery) AfText("Battery is low and not charging: plug in before a long export.", color = AutoFlowColors.Amber)
             WrapRow {
                 AfButton(PREVIEW_BUTTON, { model.render(Quality.PREVIEW) }, enabled = state.canRender)
-                AfButton(EXPORT_BUTTON, { model.render(Quality.EXPORT) }, kind = ButtonKind.Primary, enabled = state.canRender)
+                val exportLabel = state.recap?.let { ExportModel.label(it.quality) } ?: EXPORT_BUTTON
+                AfButton(exportLabel, { model.render(Quality.EXPORT) }, kind = ButtonKind.Primary, enabled = state.canRender)
             }
-            AfText("Preview is fast and small; Export is the full-quality 1080p video. Rendering goes on with the screen off.", muted = true)
+            AfText("Preview is fast and small; Export is the full-quality video. Rendering goes on with the screen off.", muted = true)
             state.run?.let { RunStatus(it, model, state.savingToGallery) }
             state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
     }
 }
 
-/** Movie Recap project (docs/specs/recap.md §6): scenes, voice, sound, looks, captions and the rights reminder. */
+/** Movie Recap project (docs/specs/recap.md §6): scenes, voice, sound, looks, captions, quality and the rights reminder. */
 @Composable
-private fun RecapSummary(recap: RecapExport, font: String?) {
+private fun RecapSummary(recap: RecapExport, font: String?, model: ExportModel) {
     AfCard("Movie Recap") {
         AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
         AfText("${recap.segments} scenes · ${InputModel.formatDuration(recap.durationMs)}" + (recap.movieFile?.let { " · 🎬 $it" } ?: ""))
@@ -109,6 +112,12 @@ private fun RecapSummary(recap: RecapExport, font: String?) {
             },
             color = if (recap.burnCaptions && font == null) AutoFlowColors.Amber else null,
         )
+        AfText("Export quality", muted = true)
+        WrapRow {
+            ExportQuality.entries.forEach { q ->
+                AfChip(ExportModel.label(q), q == recap.quality, onClick = { model.setRecapQuality(q) })
+            }
+        }
         recap.blocker?.let { AfText(it, color = AutoFlowColors.Amber) }
     }
 }
