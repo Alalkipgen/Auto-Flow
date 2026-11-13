@@ -58,3 +58,32 @@ Bottom nav: Projects · Storyboard · Shots · Inbox · More (Input, References,
 
 ## 6. Copy (Burmese UI strings — keep these exact)
 Approve = "အတည်ပြုမယ်" · Edit = "ပြင်မယ်" · Regenerate = "ပြန်ထုတ်မယ်" · Copy Prompt = "Prompt ကူးမယ်" · Needs Flow = "Flow မှာ လုပ်ရန်" · Stale = "ပြန်ထုတ်ရန် လိုသည်" · Accept video = "ဗွီဒီယို လက်ခံမယ်"
+
+## 7. Studio v2 (Phase 5, D-40)
+Mockups: `docs/mockups/phase5.html` — eight AI-drawn screens with English labels (image models garble Burmese); the app uses Burmese strings (§6). Known mockup slips: Quick Recap card numbers repeat (should be 1–5); the desktop script box shows a quote instead of narration.
+
+### Navigation
+Home · Projects · Library · Jobs. Phone (< 600 dp): bottom nav. ≥ 600 dp: nav rail. ≥ 840 dp: project screens in three panes (list · editor · preview). One set of composables for every width — no desktop-only layout (D-22). Jobs badge = running count, red when one failed. No avatar or account (D-06).
+
+### Home
+Continue (last project + its step) · Quick Recap card (movie → length → style → Start; "stops only for your approval") · Create: Recap · Music Video (· Dubbing when Labs is on) · Quick tools: Voice & Audio, Subtitles · Running jobs (progress, ETA).
+
+### Recap — five steps
+Step header "Voice · 3/5" with back / next (no tab bar: Burmese labels at a large font do not fit). Steps: Source · Story · Voice · Style · Export. Small preview on Story and Voice, big preview on Style.
+- **Source:** movie card (length, size, sound), subtitle tracks (Extract), `.srt` import, summary, "Transcribe picked scenes" (confirm card: requests, today's usage), scenes with picks and target chips (as Phase 4).
+- **Story:** block list — #, time, thumbnail, first line, chips ✓ Fits · +1.8 s · No voice · ⚠ Stale · Different voice. Tap → block editor: text (written / spoken toggle, speak-as line), clips (trim, add range, split, merge), take (▶, Speak, Record), Smart Fit choice. "Approve story" at the bottom.
+- **Voice:** voice lock card ("Gemini 3.8 Flash TTS · Charon · locked", "Change voice…" says what becomes stale), Speak all (requests + ETA → Jobs), takes per block. Voice & Audio for one block ("← Block 12"): tabs Speak · Record (teleprompter: current line big, next line muted) · Clean (polish, trim silences) · Clone (Labs only).
+- **Style:** big live preview with draggable layers (blur mask, logo, watermark, title, border, background, captions) and "Exact frame"; Brand Kit chips; Looks; caption style; BGM, ducking, movie volume.
+- **Export:** pre-flight list (✓ / ⚠ rows with "Fix →"), quality Auto / 720 / 1080 / 1440, estimated time, Preview 540p / Export, Save to Gallery, Share, Publish Kit (title, description, hashtags, chapters, thumbnail; Copy each).
+
+### Quick Recap
+Wizard: movie → length chips (1 · 3 · 5 · 10 min) → style (Brand Kit / preset) → Start. Progress list with one row per stage (each a Jobs entry). Stops at the Story review (Approve / Edit); then voice and render continue as jobs.
+
+### Library · Jobs
+Library: Brand Kits · Voices · Lexicon · Music · Fonts · Presets; "Apply" copies into the project (D-39). Jobs: renders and AI jobs with project, progress, ETA, Pause / Resume / Cancel, failure reason + Retry, today's quota.
+
+### Music Video
+Shot sheet per shot: storyboard text (edit / approve), prompt (copy), Ref A / B, Flow handoff (open Flow, import video), video versions, accept. The shots list keeps the §3 cards and badges.
+
+### Accessibility
+Check every screen at font scale 1.0, 1.3 and 2.0 (the owner uses a large font); touch targets ≥ 48 dp; Burmese text wraps, never cut inside a syllable.
