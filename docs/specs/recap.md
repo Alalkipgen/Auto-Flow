@@ -87,6 +87,9 @@ the narration with captions. Everything runs offline except the two optional Gem
 - Audio: the movie's sound at `movieVolume` (chips Off 0 · Low 0.2 · Full 1.0) mixed with the takes.
 - Captions: each voiced segment's text over its take's time, bottom, Burmese Settings font (same rules as lyrics);
   burned in when `burnCaptions`, and always written as `exports/<name>.srt` next to the mp4.
+  A long text is cut into chunks of at most two lines (line width as for lyrics), shown one after the other over
+  the take, each for its share of the text; breaks go at a sentence end (`။ . ! ?`), then a clause mark (`၊ , ; :`),
+  then a space, then a Burmese syllable boundary — never inside a syllable. The `.srt` has the same chunks.
 - Looks (any combination, applied to the movie picture): **Mirror** (`hflip`), **Zoom 10 %** (center crop 90 %),
   **Fill frame** (crop to the output ratio instead of black bars), **Warm** (`eq` saturation 1.15, contrast 1.05).
 - Rendering uses the Export screen (Preview 540p / Export 1080p, Save to Gallery, Share), ratio from the project.

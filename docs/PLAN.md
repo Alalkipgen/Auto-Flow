@@ -100,7 +100,7 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 - [x] Import video, scene detect (ffmpeg scdet), scene picker, target duration — slice (a): New Movie Recap with the rights tick, `source/movie.<ext>`, `SceneDetect`, Movie Recap screen cards 1–2
 - [x] Recap script (Burmese, commentary-style option) + approval — slice (b): summary / `.srt`, `RecapScriptGenerator`, write it myself, edit, approve
 - [x] VoiceSource: Recorded | Tts | Replicated(optional, capability-gated) — slice (c): recorder, import, `GeminiTtsProvider`, takes; Replicated hidden (D-34)
-- [x] Narration-to-scene fit check, captions (SRT + burn-in), visual transform presets — slice (d): `RecapRender` (movie clips via `Clip.source`, `VoiceTrack`, looks, `.srt`), Movie Recap card 5 Fit check (rows, footer, movie sound, looks, burn captions, Go to Export), Export screen recap summary + render; `RecapRenderTest`, `RecapExportTest`. Phone test pending
+- [x] Narration-to-scene fit check, captions (SRT + burn-in), visual transform presets — slice (d): `RecapRender` (movie clips via `Clip.source`, `VoiceTrack`, looks, `.srt`), Movie Recap card 5 Fit check (rows, footer, movie sound, looks, burn captions, Go to Export), Export screen recap summary + render; `RecapRenderTest`, `RecapExportTest`. Phone test pending; phone test v0.1.14 fix: long narration covered the picture → `CaptionChunks` cuts each segment's caption into timed chunks of at most two lines (sentence end, clause mark, space, then Burmese syllable boundary), same chunks burned in and in the `.srt` — `CaptionChunksTest`. Phone check pending
 - [x] Rights/usage disclaimer in UI — Dashboard (New Movie Recap), Movie Recap screen, Export screen (recap projects)
 
 ## Open Questions

@@ -13,8 +13,8 @@ import io.github.alalkipgen.autoflow.core.recap.VoiceTake
 /**
  * Movie Recap → [RenderGraph] / [RenderJob] (docs/specs/recap.md §6, D-33): one movie clip per segment (length from
  * [RecapFit]: the scene, or the take + 0.4 s running on past the scene), each current take 0.2 s into its clip, the
- * movie's sound at `movieVolume`, the looks, and the captions (each voiced segment's text over its take, burned in
- * when `burnCaptions` and a font is set; always as `.srt`).
+ * movie's sound at `movieVolume`, the looks, and the captions (each voiced segment's text over its take in
+ * two-line chunks, burned in when `burnCaptions` and a font is set; always as `.srt`).
  */
 object RecapRender {
     /** A segment's take resolved to its file (relative to the project folder or absolute). */
@@ -26,8 +26,8 @@ object RecapRender {
         val layout = layout(recap, script, takeFile)
         val clips = layout.map { p -> Clip(artifact = null, source = movie.file, trimInMs = p.movieMs, trimOutMs = p.movieMs + p.row.clipMs) }
         val cues = layout.mapNotNull { p -> p.voiced?.let { VoiceCue(it.file, p.startMs + RecapFit.LEAD_MS) } }
-        val overlays = if (font == null || !recap.burnCaptions) emptyList() else captions(recap, script, takeFile).map { c ->
-            Overlay(ProjectRender.wrap(c.text, ProjectRender.lineChars(output)), c.startMs, c.endMs, font, captionSizePx(output))
+        val overlays = if (font == null || !recap.burnCaptions) emptyList() else captions(recap, script, takeFile, output).map { c ->
+            Overlay(c.text, c.startMs, c.endMs, font, captionSizePx(output))
         }
         return RenderGraph(
             clips = clips,
@@ -56,11 +56,18 @@ object RecapRender {
         files = emptyMap(),
         fontsDir = fontsDir,
         outputName = outputName,
-        srt = Srt.write(captions(recap, script, takeFile)),
+        srt = Srt.write(captions(recap, script, takeFile, RenderPresets.of(ratio, quality))),
     )
 
-    /** Captions in output time: each voiced segment's text from its take start to its take end. */
-    fun captions(recap: Recap, script: RecapScript, takeFile: (VoiceTake) -> String?): List<SrtCue> =
+    /**
+     * Captions in output time: each voiced segment's text over its take, cut by [CaptionChunks] into chunks of at most
+     * two lines that fit [output]'s width, one after the other — the same chunks are burned in and written to `.srt`.
+     */
+    fun captions(recap: Recap, script: RecapScript, takeFile: (VoiceTake) -> String?, output: Output): List<SrtCue> =
+        CaptionChunks.split(segmentCaptions(recap, script, takeFile), ProjectRender.lineChars(output))
+
+    /** One cue per voiced segment: its whole text from its take start to its take end. */
+    fun segmentCaptions(recap: Recap, script: RecapScript, takeFile: (VoiceTake) -> String?): List<SrtCue> =
         layout(recap, script, takeFile).mapNotNull { p ->
             val text = script.segments[p.row.segment].textMy.trim()
             val at = p.startMs + RecapFit.LEAD_MS
