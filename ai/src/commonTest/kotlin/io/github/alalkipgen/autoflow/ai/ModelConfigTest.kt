@@ -18,7 +18,7 @@ class ModelConfigTest {
         val c = parse(
             """{ "text": { "default": "x", "candidates": ["a-1", " ... ", "a-1", "b-2"] },
                  "image": { "provider": "manual", "ratios": ["16:9", "9:16", "3:2"] },
-                 "tts": { "default": "...", "burmese": true, "replication": "unknown" },
+                 "tts": { "candidates": [{"id":"m-tts","langs":["my","en"]}], "replication": "unknown" },
                  "flow": { "creditsHint": { "fast": 20, "quality": 100 }, "url": "https://labs.google/fx/tools/flow" },
                  "future": { "anything": 1 } }""",
         )
@@ -26,15 +26,30 @@ class ModelConfigTest {
         assertEquals(listOf(Ratio.R16_9, Ratio.R9_16), c.image.supportedRatios)
         assertEquals(20, c.flow.creditsHint["fast"])
         assertEquals(Availability.UNKNOWN, c.tts.replicationAvailability)
-        assertTrue(c.tts.chain.isEmpty())
+        assertEquals(listOf("m-tts"), c.tts.chainFor("my"))
+        assertEquals(listOf("m-tts"), c.tts.chainFor("en"))
+        assertTrue(c.tts.chainFor("fr").isEmpty())
     }
 
     @Test
-    fun ttsCandidatesWinOverTheOldDefault() {
-        val c = parse("""{ "tts": { "default": "old-tts", "candidates": ["new-tts", " "], "replication": "unavailable" } }""")
-        assertEquals(listOf("new-tts"), c.tts.chain)
+    fun ttsCandidatesFilterByLanguage() {
+        val c = parse(
+            """{ "tts": { "candidates": [
+                  {"id":"tts-full","langs":["my","en"]},
+                  {"id":"tts-en-only","langs":["en"]}
+               ], "replication": "unavailable" } }""",
+        )
+        assertEquals(listOf("tts-full"), c.tts.chainFor("my"))
+        assertEquals(listOf("tts-full", "tts-en-only"), c.tts.chainFor("en"))
+        assertTrue(c.tts.chainFor("ja").isEmpty())
         assertEquals(Availability.UNAVAILABLE, c.tts.replicationAvailability)
-        assertEquals(listOf("old-tts"), parse("""{ "tts": { "default": "old-tts" } }""").tts.chain)
+    }
+
+    @Test
+    fun emptyTtsCandidatesGivesEmptyChain() {
+        val c = parse("""{ "tts": { "candidates": [], "replication": "unavailable" } }""")
+        assertTrue(c.tts.chainFor("my").isEmpty())
+        assertTrue(c.tts.allIds.isEmpty())
     }
 
     @Test

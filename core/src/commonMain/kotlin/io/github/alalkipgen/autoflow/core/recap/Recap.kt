@@ -24,6 +24,11 @@ data class Recap(
     val scriptApproved: Boolean = false,
     val voiceSource: VoiceSource = VoiceSource.RECORDED,
     val ttsVoice: String = DEFAULT_TTS_VOICE,
+    /**
+     * Voice lock for TTS consistency (voice lock, D-35): null until the user picks a voice or the
+     * first TTS take is recorded. Every subsequent TTS call must use exactly these settings.
+     */
+    val voiceLock: VoiceLock? = null,
     /** Newest narration per segment. */
     val takes: List<VoiceTake> = emptyList(),
     val looks: List<Look> = emptyList(),
@@ -94,7 +99,11 @@ enum class Look {
     @SerialName("WARM") WARM,
 }
 
-/** The narration of segment [segment] (0-based): an `au` artifact. Stale when [textHash] ≠ the segment's text hash. */
+/**
+ * The narration of segment [segment] (0-based): an `au` artifact.
+ * Stale when [textHash] ≠ the segment's text hash.
+ * [model] and [voice] are null for takes recorded before the voice lock (D-35); Export pre-flight warns about these.
+ */
 @Serializable
 @SerialName("VoiceTake")
 data class VoiceTake(
@@ -103,6 +112,31 @@ data class VoiceTake(
     val source: VoiceSource,
     val durationMs: Long,
     val textHash: String,
+    /** Gemini model id used for this take; null = recorded by user or pre-lock TTS take (voice unknown). */
+    val model: String? = null,
+    /** Gemini voice name used for this take; null = recorded or pre-lock (voice unknown). */
+    val voice: String? = null,
+    /** Provider id: "gemini", "recorded", etc.; null = pre-lock take. */
+    val provider: String? = null,
+) {
+    /** True when this take came from TTS and the voice is known and matches [lock]. */
+    fun matchesLock(lock: VoiceLock): Boolean =
+        provider == lock.provider && model == lock.model && voice == lock.voice
+}
+
+
+/**
+ * Voice lock for one Recap project (voice lock, D-35): every TTS call uses exactly this
+ * provider / model / voice / lang — no silent fallback to another model or voice.
+ * Set on the Voice step (or by the first TTS take if still empty).
+ */
+@Serializable
+@SerialName("VoiceLock")
+data class VoiceLock(
+    val provider: String,
+    val model: String,
+    val voice: String,
+    val lang: String,
 )
 
 /** The narration script, an `rs` artifact (spec §4): one segment per picked scene, in movie order. */

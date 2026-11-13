@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ai.gemini
 
 import io.github.alalkipgen.autoflow.ai.AiResult
+import io.github.alalkipgen.autoflow.ai.config.TtsCandidate
 import io.github.alalkipgen.autoflow.ai.VoiceRef
 import io.github.alalkipgen.autoflow.ai.codec.Wav
 import io.ktor.client.HttpClient
@@ -46,7 +47,10 @@ class GeminiTtsProviderTest {
             }
         },
         apiKey = { "k" },
-        candidates = listOf("gemini-3.8-flash-tts", "gemini-2.5-flash-preview-tts"),
+        allCandidates = listOf(
+            TtsCandidate("gemini-3.8-flash-tts", langs = listOf("my", "en")),
+            TtsCandidate("gemini-2.5-flash-preview-tts", langs = listOf("my", "en")),
+        ),
     )
 
     private fun body(i: Int) = Json.parseToJsonElement((requests[i].body as TextContent).text).jsonObject
