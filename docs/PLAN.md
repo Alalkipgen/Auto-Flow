@@ -103,6 +103,50 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 - [x] Narration-to-scene fit check, captions (SRT + burn-in), visual transform presets — slice (d): `RecapRender` (movie clips via `Clip.source`, `VoiceTrack`, looks, `.srt`), Movie Recap card 5 Fit check (rows, footer, movie sound, looks, burn captions, Go to Export), Export screen recap summary + render; `RecapRenderTest`, `RecapExportTest`. Phone test pending; phone test v0.1.14 fix: long narration covered the picture → `CaptionChunks` cuts each segment's caption into timed chunks of at most two lines (sentence end, clause mark, space, then Burmese syllable boundary), same chunks burned in and in the `.srt` — `CaptionChunksTest`. Phone check pending
 - [x] Rights/usage disclaimer in UI — Dashboard (New Movie Recap), Movie Recap screen, Export screen (recap projects)
 
+## Phase 5 — Studio v2: recap update + new UI (owner approved, 2026-11-13)
+Spec: docs/specs/studio-v2.md · Decisions D-35 … D-48 · UI: DESIGN.md §7, mockups `docs/mockups/phase5.html` (AI-drawn, English labels; the app uses Burmese strings).
+Rules: one PR per task (AGENTS.md §2), each checked on the owner's phone with the CI APK (D-24); new UI stays behind `config/features.json` flags until release v0.2.0 (D-41). Order: 5A in order (data and structure first), then 5B in order; 5C only after its spike passes.
+
+### 5A Foundation (first — doing these later would mean migrating saved data or moving screens again)
+- [ ] 5A-1 TTS voice lock (D-35, spec §3) — bug fix, no flag, ships in the next v0.1.x: `tts.candidates` → `[{id, langs}]`, `GeminiTtsProvider` speaks only with the locked model + voice and pauses instead of switching on 429/503, takes record provider / model / voice, "Different voice" chip, S5 lists only Burmese-capable models. Tests: `VoiceLockTest`, `GeminiTtsProviderTest` (503 on the locked model → paused, never another model), `ModelsConfigTest`.
+- [ ] 5A-2 Recap data v2 + migration (D-36, spec §2): `rs` v2 blocks, `project.recap` v2, `Migration` 1 → 2 with `project.v1.bak.json`; the Phase 4 screen reads and writes v2 (one clip per block). Tests: `RecapMigrationTest` (v1 fixture → v2: blocks, takes on the right block, approval kept, idempotent), `RecapRulesTest` updated.
+- [ ] 5A-3 Feature flags (D-41, spec §1): `config/features.json`, `FeatureFlags` in `:core`, Self-test → "Preview features" overrides. `FeatureFlagsTest`.
+- [ ] 5A-4 Layer model + compiler (D-37, spec §4): `recap.layers`, RenderGraph → filtergraph for BLUR / IMAGE / TEXT / BORDER / BACKGROUND with 0–1 rects. Golden tests `LayerCompileTest` (every type × 16:9 / 9:16 / 1:1).
+- [ ] 5A-5 Jobs (D-38, spec §5): `ai` WorkManager chain, resumable TTS / transcribe jobs, `rpm` pacing, requests + ETA + today's usage before start, Jobs screen + badge. `AiJobRunnerTest` (killed and resumed → skips finished blocks), `RpmPacerTest`.
+- [ ] 5A-6 Navigation v2 + adaptive layout (D-40, DESIGN.md §7): Home · Projects · Library · Jobs; rail ≥ 600 dp; three panes ≥ 840 dp; Recap step header "x · n/5". CI screenshots at font scale 1.0 / 1.3 / 2.0. Flag `studioV2`.
+- [ ] 5A-7 Library (D-39, spec §6): `library/` store and lists (Brand Kits · Voices · Lexicon · Music · Fonts · Presets), copy into the project on apply, Backup includes `library/`. `LibraryStoreTest`, `ProjectZipTest` updated.
+- [ ] 5A-8 Live preview (D-42, spec §4): ExoPlayer + Compose layers + captions, drag / pinch rect edit, "Exact frame" (one ffmpeg frame). `PreviewGeometryTest` (rect ↔ pixels for every ratio).
+
+### 5B Main update (in this order; behind `studioV2`)
+- [ ] 5B-1 Source step (D-43, D-44, spec §7): movie card, embedded subtitle tracks → `source/subtitles.srt`, `.srt` import, summary, "Transcribe picked scenes" with a confirm card (requests, today's usage), scenes + picks + target (from Phase 4). `SubtitleTracksTest`, `SceneAudioChunksTest`, `GeminiTranscribeProviderTest` (scenes mode).
+- [ ] 5B-2 Visual: blur-mask presets (bottom strip, top strip, custom box), captions placed on the mask, 16:9 → 9:16 with a blurred / image / colour background, Looks kept (D-33), drag / pinch placement.
+- [ ] 5B-3 Brand Kit: save from a project, one-tap apply (logo, watermark, colours, font, caption style, layers, intro / outro).
+- [ ] 5B-4 Audio: BGM from the Library (volume, loop, fades), auto-ducking under the narration, voice polish (high-pass, de-noise, compressor), trim silences in takes, loudness (two-pass `loudnorm`, −14 LUFS by default).
+- [ ] 5B-5 Voice: Voice & Audio in block context (Speak · Record · Import; "← Block 12"), teleprompter recording (current line big, next muted), takes per block, Gemini 3.8 Flash TTS with the lock; Azure Thiha / Nilar after Q-14 (D-45).
+- [ ] 5B-6 Smart Fit (D-46, spec §8) after spike S8: per-block fix chips, Shorten text with approval, speed limits from `config/recap.json`.
+- [ ] 5B-7 Script: spoken / written Burmese toggle (`register`), Lexicon applied before TTS (`speakMy`), names list (reuses the Character Bible, `project.characters`), three hook options for block 1, source / credit line.
+- [ ] 5B-8 Captions: style presets (Library), per-chunk timing edit (drag chunk edges); burn-in and `.srt` keep the same chunks.
+- [ ] 5B-9 Export: quality Auto / 720 / 1080 / 1440, pre-flight check (spec §9: no voice, stale, mixed or unknown voice, captions over a logo, long blocks, free space, estimated render time; each row "Fix →"), Exact-frame thumbnails.
+- [ ] 5B-10 Publish Kit (spec §9): title, description, hashtags, chapters (from block times), thumbnail (frame + title layer) → `exports/<name>.publish.txt` + `.thumb.jpg`, Copy / Share each.
+- [ ] 5B-11 Quick Recap (D-47, spec §10): Home card → wizard, `recapPick` text stage, stops at Story for approval. Flag `quickRecap`.
+- [ ] 5B-12 Music Video Shot sheet (D-40): one sheet per shot (storyboard text, prompt, refs A/B, Flow handoff, video versions, accept) instead of the Storyboard / Shots / Handoff tabs under `studioV2`.
+- [ ] 5B-13 Release v0.2.0 (D-41): flags on, Burmese strings for every new label (DESIGN.md §6), large-font pass on the owner's phone, Classic Recap kept for one release.
+
+### 5C Labs (behind `labs.*`, off by default; spike first, no UI before it passes — D-48)
+- [ ] Voice clone — only with a provider the owner's tier allows (D-34: Gemini replication needs a paid tier)
+- [ ] Speaker-split dubbing (one voice per speaker)
+- [ ] Vocal separation (drop the original voices, keep music and effects)
+- [ ] Smart reframe (follow the subject for 16:9 → 9:16)
+- [ ] Auto caption placement (find a free area / the movie's own burned-in text)
+- [ ] Word karaoke captions
+- [ ] Whole-movie transcription
+- [ ] Edge "Read aloud" voices (unofficial, D-45)
+
+### Phase 5 spikes
+- [ ] S8 Smart Fit speed limit — the owner listens on the phone to one Burmese take at 1.00 / 1.05 / 1.10 / 1.15 / 1.20 / 1.25× (`atempo`) and the picture at 0.9 / 0.8× (Self-test page); the chosen limits go into `config/recap.json`.
+- [ ] S9 Burmese voice check — Gemini 3.8 Flash TTS vs Azure Thiha / Nilar (if Q-14 = yes): the same five sentences, the owner picks; sets the default voice lock.
+- [ ] S10 Preview vs export — CI draws five caption / layer cases with Compose and renders them with ffmpeg, then compares box positions (±2 % of the frame).
+
 ## Open Questions
 - ~~Q-02 S4: supported approach for Burmese text in exports?~~ Resolved → libass primary, Skia PNG overlay fallback (S4 README); specs updated (render-graph.md overlays, flow-handoff.md image inbox, ai-providers.md ManualImageProvider).
 - Q-01 Windows installer: spec asks for MSIX, but Compose `jpackage` cannot produce MSIX. Bootstrap configures MSI. Decide: keep MSI, or add a separate MSIX packaging step later (e.g. MSIX Packaging Tool / `makeappx`).
@@ -118,6 +162,7 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 - ~~Q-12 Phase 2 beat detection~~ Resolved (owner: do it, 2026-11-12) → D-32: (b) the "Snap cuts to beat" switch on Storyboard (±250 ms, shots ≥ 2 s). Original question: Q-12 Phase 2 beat detection (optional, 2026-11-12): no spec. ffmpeg has no beat filter, so this needs our own onset detection (decode mono PCM with the bundled ffmpeg, energy/spectral-flux peaks, tempo estimate) — new code with no test material yet. Proposal: (a) wait until Q-11 lands (line starts are usually better cut points for a lyric video than beats), then (b) "Snap cuts to beat" toggle on Storyboard: each cut moves to the nearest detected beat within ±250 ms, never making a shot shorter than 2 s. Decide: (a)+(b), only (b), or drop it.
 - (agents append here)
 - ~~Q-13 Phase 4 Movie Recap~~ Resolved (owner: finish everything up to Phase 4, 2026-11-12) → D-33 / D-34, docs/specs/recap.md. Original question: Q-13 Phase 4 Movie Recap (2026-11-12): Phase 2 is done; Phase 4 has only the five PLAN lines and no spec or prompt file. Not specified: (1) the source — the owner's own / licensed footage only? what the rights disclaimer says and where (Dashboard → New Movie Recap, Export); (2) the script input — Gemini cannot take a whole movie inline (20 MB), so either a subtitle file (.srt), the owner's own summary text, or Gemini Files API upload (new code, quota); (3) the voice — Recorded (phone mic: needs the RECORD_AUDIO permission and a recorder screen) and/or TTS (Gemini TTS for Burmese is unverified: S5 not run), Replicated only if S5 shows it is available; (4) target length, ratio and how scenes map to narration (one scene per script sentence?). Proposal: first a `docs/specs/recap.md` draft for approval, run S5 on the phone (a Settings self-test button, like S6/S7), then build in slices — (a) import video + ffmpeg `scdet` scene detection + scene picker (offline), (b) script from .srt or typed summary + approval, (c) recorded voice, (d) fit check + captions + export. Note: Phase 1 exit criteria still wait for the next phone test. Decide: approve the order, or change the scope.
+- Q-14 Phase 5 Azure voices (2026-11-13): the Thiha / Nilar voices (D-45) need an Azure account with an AI Speech resource (free F0 tier; Azure sign-up asks for phone and card verification). Decide: (a) the owner makes one → 5B-5 adds `AzureTtsProvider`; (b) not now → Gemini TTS + recording only, Edge stays a Labs switch.
 
 ## Changelog
 - 2026-11-10 plan created
@@ -227,3 +272,4 @@ Spec: docs/specs/recap.md (Q-13 → D-33, D-34).
 - 2026-11-12 Phase 4 slice (c): Movie Recap card 4 Voice — ● Record / ■ Stop (`VoiceRecorder`: Android MediaRecorder m4a + RECORD_AUDIO, desktop javax.sound WAV), Import file, 🔊 Gemini TTS per scene / Speak all (`GeminiTtsProvider`, `tts.candidates`, voice chips), takes as `au` artifacts, ⚠ Stale after an edit, ▶ play; Settings → Test Gemini TTS (S5).
 - 2026-11-12 Phase 4 slice (d): fit check card, looks, movie sound, captions (.srt + burn-in), recap render from the Export screen with the rights notice.
 - 2026-11-12 release v0.1.14: Phase 4 Movie Recap (slices a–d) and Settings → Test Gemini TTS (S5); phone tests pending.
+- 2026-11-13 Phase 5 plan (owner approved): Studio v2 — tasks 5A / 5B / 5C, spikes S8–S10, D-35 … D-48 (voice lock, recap data v2, layers, jobs, library, UI v2, flags, live preview, embedded subtitles, scene audio transcription, Azure voices, Smart Fit, Quick Recap, scope), docs/specs/studio-v2.md, DESIGN.md §7, mockups `docs/mockups/phase5.html`; Q-14 (Azure voices).
