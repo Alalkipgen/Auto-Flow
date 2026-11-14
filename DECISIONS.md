@@ -96,3 +96,29 @@ V2NavRailCompact uses emoji icons + purple top-line indicator.
 - RecapRender: captionSizePx uses effectiveSizeFactor; overlay colour uses effectiveColour.
 - RecapModel: setCaptionCustomColour(), setCaptionCustomSize()
 - RecapPictureControls: hex text field + size factor field, each with Apply / Clear.
+
+## D-57 — Caption colours/stroke, section labels, live preview (v0.2.9)
+
+### Caption Colours (expanded)
+- CaptionStyle.COLOURS: 9 presets — White, Yellow, Cyan, Red, Orange, Green, Blue, Purple, Black.
+- setCaptionColour(hex): sets colour + clears customColour (preset path).
+
+### Caption Stroke / Outline
+- CaptionStyle.strokeWidth: Int 0–8 (0 = auto, proportional to font size).
+- CaptionStyle.strokeColour: #RRGGBB (default #000000).
+- AssWriter: custom outline applied to Style line; StyleKey includes strokeWidth + strokeColour.
+- RecapRender: passes strokeWidth/strokeColour to Overlay.
+- UI: Off / Thin / Medium / Thick chips; stroke colour chips when width > 0.
+
+### Section Labels (RecapPictureControls)
+- Reorganised into 5 AfCard sections:
+  🎬 Output (video ratio)
+  🙈 Hide things (blur boxes)
+  🖼 Background (space around movie)
+  💧 Watermark (import, position)
+  ✍️ Captions (colour presets + custom hex, size presets + custom factor, stroke, dark box)
+
+### Live Preview (5A-8 / ExoPlayer)
+- ExportScreen.RunStatus Done: VideoPreview(s.output) shown above action buttons.
+- Android: ExoPlayer with playWhenReady=false (manual play), keepScreenOn=true.
+- Desktop: placeholder text (video preview not supported on desktop).
