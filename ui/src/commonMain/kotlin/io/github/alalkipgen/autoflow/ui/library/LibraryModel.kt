@@ -106,13 +106,21 @@ class LibraryModel(
         val captionStyle = kit.captionStyle?.let {
             runCatching { CoreJson.decodeFromString(CaptionStyle.serializer(), it) }.getOrNull()
         }
-        if (captionStyle != null) {
-            val recap = open.project.recap
-            if (recap != null) {
-                session.save(open.project.copy(recap = recap.copy(captionStyle = captionStyle)))
+        // Apply captionStyle and watermark layer to the open recap (D-52).
+        val recap = open.project.recap
+        if (recap != null) {
+            var updatedRecap = recap
+            if (captionStyle != null) updatedRecap = updatedRecap.copy(captionStyle = captionStyle)
+            // Wire watermark file into RecapVisual so RecapRender adds it as an IMAGE layer.
+            val wmDestRel = kit.watermark?.substringAfterLast('/')?.let { name ->
+                val destPath = joinPath("library", name)
+                // The file was just copied into <project>/library/; store a relative path.
+                destPath
             }
+            updatedRecap = updatedRecap.copy(visual = updatedRecap.visual.copy(watermarkFile = wmDestRel))
+            if (updatedRecap != recap) session.save(open.project.copy(recap = updatedRecap))
         }
-        say("Applied '${kit.name}' (${files.size} files, caption style${if (captionStyle != null) " ✓" else " —"}).", ok = true)
+        say("Applied '${kit.name}' (${files.size} files, caption style${if (captionStyle != null) " ✓" else " —"}, watermark ${if (kit.watermark != null) "✓" else "—"}).", ok = true)
         return captionStyle
     }
 

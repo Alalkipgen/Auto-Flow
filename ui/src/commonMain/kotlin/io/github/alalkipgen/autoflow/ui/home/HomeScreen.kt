@@ -16,9 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.collectAsState
+import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.core.recap.AiJobKind
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.core.recap.AiJobState
+import org.koin.compose.getKoin
 import io.github.alalkipgen.autoflow.core.recap.QuickRecapStage
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
+import io.github.alalkipgen.autoflow.core.recap.etaSeconds
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfChip
@@ -141,9 +148,36 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
     QuickRecapStageList()
 }
 
+/**
+ * Live Quick Recap stage list (5B-11): shows active/recent AI jobs of kind QUICK_RECAP (D-52).
+ * Each row shows the project name, state, items left, and ETA.
+ */
 @Composable
 private fun QuickRecapStageList() {
-    // Placeholder: in full impl this reads from AiJobRunner.jobs filtered by QUICK_RECAP kind
-    // and shows each stage with progress/ETA.
-    // Listed here as stub so the UI compiles and renders the section header.
+    val koin = getKoin()
+    val runner = remember(koin) { koin.getOrNull<AiJobRunner>() }
+    val jobs by (runner?.jobs?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
+    val active = jobs.filter { it.kind == AiJobKind.QUICK_RECAP || it.kind == AiJobKind.TTS_ALL }
+        .filter { it.state != AiJobState.DONE && it.state != AiJobState.CANCELLED }
+    if (active.isEmpty()) return
+    AfCard("⚡ Running jobs") {
+        active.forEach { job ->
+            val eta = job.etaSeconds()
+            val etaText = if (eta != null && eta > 0) " · ~${eta}s" else ""
+            val itemsLeft = job.items.size
+            val stateLabel = when (job.state) {
+                AiJobState.RUNNING -> "Running"
+                AiJobState.QUEUED -> "Queued"
+                AiJobState.PAUSED -> "Paused"
+                AiJobState.FAILED -> "Failed"
+                else -> job.state.name
+            }
+            val name = job.project.substringAfterLast('/').removeSuffix(".autoflow")
+            AfText(
+                "[$stateLabel] $name · ${job.kind.name} · $itemsLeft left$etaText",
+                size = 12.sp,
+                color = if (job.state == AiJobState.FAILED) AutoFlowColors.Amber else AutoFlowColors.Text,
+            )
+        }
+    }
 }
