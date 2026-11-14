@@ -79,6 +79,15 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
         AfCard("Render") {
             state.unavailable?.let { AfText(it, color = AutoFlowColors.Amber) }
             if (state.lowBattery) AfText("Battery is low and not charging: plug in before a long export.", color = AutoFlowColors.Amber)
+            // Pre-flight checks (5B-9)
+            state.recap?.preflight?.forEach { item ->
+                val color = when (item.kind) {
+                    io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER -> AutoFlowColors.Amber
+                    io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING -> AutoFlowColors.Amber
+                    io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.INFO -> null
+                }
+                AfText("⚠ ${item.message}" + (item.fix?.let { " → $it" } ?: ""), color = color, size = 12.sp)
+            }
             WrapRow {
                 AfButton(PREVIEW_BUTTON, { model.render(Quality.PREVIEW) }, enabled = state.canRender)
                 val exportLabel = state.recap?.let { ExportModel.label(it.quality) } ?: EXPORT_BUTTON
