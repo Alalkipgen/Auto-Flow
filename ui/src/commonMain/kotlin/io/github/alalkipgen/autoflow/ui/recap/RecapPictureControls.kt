@@ -30,11 +30,13 @@ import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.core.recap.MaskPreset
 import io.github.alalkipgen.autoflow.core.recap.MaskStrength
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
 import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfChip
+import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
@@ -55,35 +57,52 @@ const val CAPTIONS_ON_BOX = "Put my captions on the bottom box"
 @Composable
 internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel) {
     val v = recap.visual
-    AfText(HIDE_ON_MOVIE, muted = true, size = 12.sp)
-    WrapRow {
-        MaskPreset.entries.forEach { p ->
-            AfChip(p.label, v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
-        }
-    }
-    if (v.masks.isNotEmpty()) {
-        MaskPreview(recap, model)
+    // ── 🎬 Output ──────────────────────────────────────────────────────────────
+    AfCard("🎬 Output") {
+        AfText("Video ratio", muted = true, size = 12.sp)
         WrapRow {
-            AfText("Blur", muted = true, size = 12.sp)
-            MaskStrength.entries.forEach { s ->
-                AfChip(s.label, v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
+            AfChip("9:16 (default)", v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
+            Ratio.entries.forEach { r ->
+                AfChip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) })
             }
-        }
-        v.masks.forEach { m ->
-            WrapRow {
-                AfText(m.preset.label, size = 12.sp)
-                AfButton("▲", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } })
-                AfButton("▼", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } })
-                AfButton("Taller", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
-                AfButton("Shorter", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
-            }
-        }
-        if (v.masks.any { it.centerY >= 0.5f }) {
-            AfSwitch(CAPTIONS_ON_BOX, v.captionsOnMask, { on -> if (idle) model.setVisual { it.copy(captionsOnMask = on) } })
         }
     }
+
+    // ── 🙈 Hide things ─────────────────────────────────────────────────────────
+    AfCard("🙈 Hide things on the movie") {
+        AfText("Blur boxes over the movie's subtitles, logos etc.", muted = true, size = 12.sp)
+        WrapRow {
+            MaskPreset.entries.forEach { p ->
+                AfChip(p.label, v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
+            }
+        }
+        if (v.masks.isNotEmpty()) {
+            MaskPreview(recap, model)
+            WrapRow {
+                AfText("Blur strength", muted = true, size = 12.sp)
+                MaskStrength.entries.forEach { s ->
+                    AfChip(s.label, v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
+                }
+            }
+            v.masks.forEach { m ->
+                WrapRow {
+                    AfText(m.preset.label, size = 12.sp)
+                    AfButton("▲", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } })
+                    AfButton("▼", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } })
+                    AfButton("Taller", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
+                    AfButton("Shorter", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
+                }
+            }
+            if (v.masks.any { it.centerY >= 0.5f }) {
+                AfSwitch(CAPTIONS_ON_BOX, v.captionsOnMask, { on -> if (idle) model.setVisual { it.copy(captionsOnMask = on) } })
+            }
+        }
+    }
+
+    // ── 🖼 Background ──────────────────────────────────────────────────────────
     if (Look.FILL !in recap.looks) {
-        AfText("Space around the movie (when its shape differs from the video's)", muted = true, size = 12.sp)
+    AfCard("🖼 Background (space around the movie)") {
+        AfText("Fill the space when the movie shape differs from the output ratio.", muted = true, size = 12.sp)
         WrapRow {
             FrameBackground.entries.forEach { b ->
                 AfChip(b.label, v.background == b, { if (idle) model.setVisual { it.copy(background = b) } })
@@ -105,67 +124,94 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
                     AfButton("Remove", { if (idle) model.setVisual { it.copy(background = FrameBackground.BARS, backgroundImageFile = null) } })
                 }
             }
-        } else if (v.background != FrameBackground.IMAGE) {
-            // Show IMAGE option only briefly as a text note (the chip above already includes it)
         }
     }
-    // Watermark (Brand Kit, D-54/D-56): logo image overlaid on every frame.
-    AfText("Watermark / Logo (overlay on every frame)", muted = true, size = 12.sp)
-    WrapRow {
-        if (v.watermarkFile != null) {
-            AfText("🖼 ${v.watermarkFile!!.substringAfterLast('/')}", size = 12.sp)
-            AfButton("Change…", { if (idle) model.importWatermark() })
-            AfButton("Remove", { if (idle) model.removeWatermark() })
-        } else {
-            AfButton("Set watermark…", { if (idle) model.importWatermark() })
-        }
     }
-    if (v.watermarkFile != null) {
-        AfText("Position", muted = true, size = 12.sp)
+
+    // ── 💧 Watermark ───────────────────────────────────────────────────────────
+    AfCard("💧 Watermark") {
+        AfText("Logo / watermark image overlaid on every frame.", muted = true, size = 12.sp)
         WrapRow {
-            WatermarkAnchor.entries.forEach { anchor ->
-                AfChip(anchor.label, v.watermarkAnchor == anchor, { if (idle) model.setWatermarkAnchor(anchor) })
+            if (v.watermarkFile != null) {
+                AfText("🖼 ${v.watermarkFile!!.substringAfterLast('/')}", size = 12.sp)
+                AfButton("Change…", { if (idle) model.importWatermark() })
+                AfButton("Remove", { if (idle) model.removeWatermark() })
+            } else {
+                AfButton("Set watermark…", { if (idle) model.importWatermark() })
+            }
+        }
+        if (v.watermarkFile != null) {
+            AfText("Position", muted = true, size = 12.sp)
+            WrapRow {
+                WatermarkAnchor.entries.forEach { anchor ->
+                    AfChip(anchor.label, v.watermarkAnchor == anchor, { if (idle) model.setWatermarkAnchor(anchor) })
+                }
             }
         }
     }
 
-    // Output video ratio (D-56): overrides the project-level ratio for Movie Recap.
-    AfText("Output video ratio", muted = true, size = 12.sp)
-    WrapRow {
-        AfChip("Default (9:16)", v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
-        Ratio.entries.forEach { r ->
-            AfChip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) })
-        }
-    }
-
-    // Caption custom colour + size (D-56)
-    AfText("Caption colour (custom hex, e.g. #FF5500)", muted = true, size = 12.sp)
-    var colourInput by remember { mutableStateOf(recap.captionStyle.customColour ?: "") }
-    WrapRow {
-        AfTextField(colourInput, { colourInput = it }, "#RRGGBB")
-        AfButton("Apply", {
-            if (idle) {
-                model.setCaptionCustomColour(colourInput.ifBlank { null })
-                colourInput = recap.captionStyle.customColour ?: ""
+    // ── ✍️ Captions ────────────────────────────────────────────────────────────
+    AfCard("✍️ Captions") {
+        // Colour presets
+        AfText("Colour", muted = true, size = 12.sp)
+        WrapRow {
+            CaptionStyle.COLOURS.forEach { (name, hex) ->
+                AfChip(
+                    name,
+                    recap.captionStyle.customColour == null && recap.captionStyle.colour.equals(hex, ignoreCase = true),
+                    { if (idle) { model.setCaptionColour(hex); model.setCaptionCustomColour(null) } }
+                )
             }
-        })
-        if (recap.captionStyle.customColour != null) {
-            AfButton("Clear", { if (idle) { model.setCaptionCustomColour(null); colourInput = "" } })
         }
-    }
-    AfText("Caption size (custom factor 0.5–3.0; blank = use preset)", muted = true, size = 12.sp)
-    var sizeInput by remember { mutableStateOf(recap.captionStyle.customSizeFactor?.toString() ?: "") }
-    WrapRow {
-        AfTextField(sizeInput, { sizeInput = it }, "e.g. 1.5")
-        AfButton("Apply", {
-            if (idle) {
-                model.setCaptionCustomSize(sizeInput.toFloatOrNull())
-                sizeInput = recap.captionStyle.customSizeFactor?.toString() ?: ""
+        // Custom hex override
+        AfText("Custom colour (#RRGGBB)", muted = true, size = 12.sp)
+        var colourInput by remember { mutableStateOf(recap.captionStyle.customColour ?: "") }
+        WrapRow {
+            AfTextField(colourInput, { colourInput = it }, "#RRGGBB")
+            AfButton("Apply", {
+                if (idle) { model.setCaptionCustomColour(colourInput.ifBlank { null }); colourInput = recap.captionStyle.customColour ?: "" }
+            })
+            if (recap.captionStyle.customColour != null) {
+                AfButton("Clear", { if (idle) { model.setCaptionCustomColour(null); colourInput = "" } })
             }
-        })
-        if (recap.captionStyle.customSizeFactor != null) {
-            AfButton("Clear", { if (idle) { model.setCaptionCustomSize(null); sizeInput = "" } })
         }
+        // Size presets + custom factor
+        AfText("Size", muted = true, size = 12.sp)
+        WrapRow {
+            io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { sz ->
+                AfChip(sz.label, recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
+                    if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(size = sz, customSizeFactor = null)) }
+                })
+            }
+        }
+        AfText("Custom size factor (0.5–3.0)", muted = true, size = 12.sp)
+        var sizeInput by remember { mutableStateOf(recap.captionStyle.customSizeFactor?.toString() ?: "") }
+        WrapRow {
+            AfTextField(sizeInput, { sizeInput = it }, "e.g. 1.5")
+            AfButton("Apply", {
+                if (idle) { model.setCaptionCustomSize(sizeInput.toFloatOrNull()); sizeInput = recap.captionStyle.customSizeFactor?.toString() ?: "" }
+            })
+            if (recap.captionStyle.customSizeFactor != null) {
+                AfButton("Clear", { if (idle) { model.setCaptionCustomSize(null); sizeInput = "" } })
+            }
+        }
+        // Stroke
+        AfText("Outline / Stroke width (0 = auto)", muted = true, size = 12.sp)
+        WrapRow {
+            listOf("Off" to 0, "Thin" to 1, "Medium" to 3, "Thick" to 6).forEach { (label, px) ->
+                AfChip(label, recap.captionStyle.strokeWidth == px, { if (idle) model.setCaptionStrokeWidth(px) })
+            }
+        }
+        if (recap.captionStyle.strokeWidth > 0) {
+            AfText("Outline colour", muted = true, size = 12.sp)
+            WrapRow {
+                CaptionStyle.STROKE_COLOURS.forEach { (name, hex) ->
+                    AfChip(name, recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStrokeColour(hex) })
+                }
+            }
+        }
+        // Dark box toggle
+        AfSwitch("Dark box behind captions", recap.captionStyle.box, { on -> if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(box = on)) } })
     }
 }
 

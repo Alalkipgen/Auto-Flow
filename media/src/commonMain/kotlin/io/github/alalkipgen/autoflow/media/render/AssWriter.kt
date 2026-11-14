@@ -10,7 +10,7 @@ object AssWriter {
 
     /** [assScale] maps a font family to its [FontInfo.assScale]; unknown families use 1.0. */
     fun write(overlays: List<Overlay>, output: Output, assScale: (String) -> Double?): String {
-        val styles = overlays.map { StyleKey(it.font, fontSize(it, assScale), assColor(it.color), it.box) }.distinct()
+        val styles = overlays.map { StyleKey(it.font, fontSize(it, assScale), assColor(it.color), it.box, it.strokeWidth, assColor(it.strokeColour)) }.distinct()
         val w = output.width
         val h = output.height
         return buildString {
@@ -28,8 +28,10 @@ object AssWriter {
                     val pad = maxOf(4, s.size / 6)
                     append("Style: s${i + 1},${s.font.replace(',', ' ')},${s.size},${s.color},${s.color},$BOX_COLOUR,$BOX_COLOUR,0,0,0,0,100,100,0,0,3,$pad,0,2,0,0,0,1\n")
                 } else {
-                    val outline = maxOf(2, s.size / 24)
-                    append("Style: s${i + 1},${s.font.replace(',', ' ')},${s.size},${s.color},${s.color},&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,$outline,0,2,0,0,0,1\n")
+                    // Outline width: custom strokeWidth if >0, else auto (size/24 clamped to ≥2).
+                    val outline = if (s.strokeWidth > 0) s.strokeWidth else maxOf(2, s.size / 24)
+                    val outlineColour = if (s.strokeWidth > 0) s.strokeColour else "&H00000000"
+                    append("Style: s${i + 1},${s.font.replace(',', ' ')},${s.size},${s.color},${s.color},$outlineColour,&H80000000,0,0,0,0,100,100,0,0,1,$outline,0,2,0,0,0,1\n")
                 }
             }
             append("\n[Events]\n")
@@ -88,7 +90,7 @@ object AssWriter {
     private fun fontSize(o: Overlay, assScale: (String) -> Double?): Int =
         maxOf(1, kotlin.math.round(o.sizePx * (assScale(o.font) ?: 1.0)).toInt())
 
-    private data class StyleKey(val font: String, val size: Int, val color: String, val box: Boolean = false)
+    private data class StyleKey(val font: String, val size: Int, val color: String, val box: Boolean = false, val strokeWidth: Int = 0, val strokeColour: String = "&H00000000")
 
     private fun pad(v: Long) = v.toString().padStart(2, '0')
 

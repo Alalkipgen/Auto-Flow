@@ -42,6 +42,7 @@ actual fun VideoPreview(path: String, modifier: Modifier) {
     val exoPlayer = remember(path) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+            playWhenReady = false   // don't auto-play; user taps play
             prepare()
         }
     }
@@ -55,9 +56,10 @@ actual fun VideoPreview(path: String, modifier: Modifier) {
             PlayerView(ctx).apply {
                 player = exoPlayer
                 useController = true
+                keepScreenOn = true
             }
         },
-        modifier = modifier.fillMaxWidth().aspectRatio(16f / 9f),
+        modifier = modifier.fillMaxWidth(),
         update = { view -> view.player = exoPlayer },
     )
 }

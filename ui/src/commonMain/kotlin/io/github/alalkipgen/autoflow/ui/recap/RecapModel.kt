@@ -781,6 +781,11 @@ class RecapModel(
 
     // --- Caption custom colour / size (D-56) ----------------------------------------------------------
 
+    /** Set the preset caption colour (D-57). Clears customColour. */
+    fun setCaptionColour(hex: String) = update { recap ->
+        recap.copy(captionStyle = recap.captionStyle.copy(colour = hex, customColour = null))
+    }
+
     /** Set a free hex colour for captions (D-56). Pass null to clear and use the preset [colour]. */
     fun setCaptionCustomColour(hex: String?) = update { recap ->
         val h = hex?.trim()?.let { if (it.startsWith("#")) it else "#$it" }
@@ -792,6 +797,18 @@ class RecapModel(
     fun setCaptionCustomSize(factor: Float?) = update { recap ->
         val f = factor?.coerceIn(0.5f, 3.0f)
         recap.copy(captionStyle = recap.captionStyle.copy(customSizeFactor = f))
+    }
+
+    /** Set caption outline/stroke width (D-57). 0 = no custom stroke (auto). */
+    fun setCaptionStrokeWidth(px: Int) = update { recap ->
+        recap.copy(captionStyle = recap.captionStyle.copy(strokeWidth = px.coerceIn(0, 8)))
+    }
+
+    /** Set caption outline/stroke colour (D-57). `#RRGGBB`. */
+    fun setCaptionStrokeColour(hex: String) {
+        val h = hex.trim().let { if (it.startsWith("#")) it else "#$it" }
+            .takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) } ?: return
+        update { recap -> recap.copy(captionStyle = recap.captionStyle.copy(strokeColour = h)) }
     }
 
     // --- Caption Preset (5B-8, D-51) ------------------------------------------------------------------

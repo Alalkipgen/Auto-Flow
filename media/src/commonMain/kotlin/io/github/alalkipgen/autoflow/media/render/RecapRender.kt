@@ -52,6 +52,7 @@ object RecapRender {
             Overlay(
                 c.text, c.startMs, c.endMs, font, captionSizePx(output, recap.captionStyle),
                 color = recap.captionStyle.effectiveColour, centerY = onMask, box = recap.captionStyle.box,
+                strokeWidth = recap.captionStyle.strokeWidth, strokeColour = recap.captionStyle.strokeColour,
             )
         }
         // Brand Kit watermark layer (5B-3, D-52/D-56): position driven by watermarkAnchor.

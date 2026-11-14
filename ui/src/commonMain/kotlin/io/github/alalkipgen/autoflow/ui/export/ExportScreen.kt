@@ -152,6 +152,8 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
             AfButton("Cancel", model::cancel)
         }
         is RenderState.Done -> {
+            // Inline video preview (D-57 / 5A-8): tap play to watch the render without leaving the app.
+            io.github.alalkipgen.autoflow.ui.components.VideoPreview(s.output)
             AfText(
                 "$what done ✓ · ${InputModel.formatDuration(s.durationMs)} · rendered in ${s.wallMs / 1000} s",
                 Modifier.testTag("export-status"),

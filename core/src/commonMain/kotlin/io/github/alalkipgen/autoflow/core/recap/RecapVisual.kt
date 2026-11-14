@@ -147,14 +147,22 @@ data class CaptionStyle(
     val box: Boolean = false,
     /**
      * Free `#RRGGBB` hex override (D-56). When non-null takes precedence over [colour].
-     * Allows any colour beyond the three presets.
+     * Allows any colour beyond the presets.
      */
     val customColour: String? = null,
     /**
      * Custom size multiplier (D-56), 0.5–3.0. When non-null overrides [size]'s factor.
-     * Allows finer control beyond Small / Medium / Large.
      */
     val customSizeFactor: Float? = null,
+    /**
+     * Outline / stroke width in pixels at 1080p (D-57). 0 = no outline (default).
+     * Scales proportionally with the output resolution.
+     */
+    val strokeWidth: Int = 0,
+    /**
+     * Outline colour `#RRGGBB` (D-57). Used when [strokeWidth] > 0.
+     */
+    val strokeColour: String = "#000000",
 ) {
     /** The effective colour: customColour if set, else colour. */
     val effectiveColour: String get() = customColour?.takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) } ?: colour
@@ -162,7 +170,25 @@ data class CaptionStyle(
     val effectiveSizeFactor: Double get() = customSizeFactor?.toDouble()?.coerceIn(0.5, 3.0) ?: size.factor
 
     companion object {
-        val COLOURS = listOf("White" to "#FFFFFF", "Yellow" to "#FFE14D", "Cyan" to "#7FE7FF")
+        /** Preset colours shown as chips. */
+        val COLOURS = listOf(
+            "White"  to "#FFFFFF",
+            "Yellow" to "#FFE14D",
+            "Cyan"   to "#7FE7FF",
+            "Red"    to "#FF4444",
+            "Orange" to "#FF9900",
+            "Green"  to "#44FF88",
+            "Blue"   to "#4499FF",
+            "Purple" to "#CC77FF",
+            "Black"  to "#111111",
+        )
+        /** Preset stroke colours. */
+        val STROKE_COLOURS = listOf(
+            "Black"  to "#000000",
+            "White"  to "#FFFFFF",
+            "Red"    to "#FF4444",
+            "Yellow" to "#FFE14D",
+        )
     }
 }
 

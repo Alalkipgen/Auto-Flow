@@ -144,6 +144,10 @@ data class Overlay(
     val centerY: Float? = null,
     /** A see-through dark box behind the text instead of the outline (caption style, 5B-8). */
     val box: Boolean = false,
+    /** Outline / stroke width in pixels at the output resolution (D-57). 0 = use default auto outline. */
+    val strokeWidth: Int = 0,
+    /** Outline colour `#RRGGBB` (D-57). Used when [strokeWidth] > 0. */
+    val strokeColour: String = "#000000",
 )
 
 @Serializable
