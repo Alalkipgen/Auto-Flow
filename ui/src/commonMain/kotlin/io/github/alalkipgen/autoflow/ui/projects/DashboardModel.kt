@@ -9,8 +9,10 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
+import io.github.alalkipgen.autoflow.core.recap.QuickRecap
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMigration
+import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
@@ -69,6 +71,24 @@ class DashboardModel(
      * New Movie Recap (docs/specs/recap.md §1): like [createMusicVideo], but only with the rights tick, which is
      * kept in `recap.rightsConfirmed`.
      */
+    /**
+     * Creates a Movie Recap project pre-wired for the Quick Recap wizard (5B-11, D-47).
+     * Uses [lastParent] so the user is not prompted for a folder.
+     * Returns false with a message if no parent is known.
+     */
+    fun createQuickRecap(targetMs: Long, style: RecapStyle): Boolean {
+        val parent = lastParent ?: return fail("Choose a folder for new projects in Settings first")
+        val name = "Quick Recap ${kotlin.time.Clock.System.now().toEpochMilliseconds() / 1000}"
+        return create(parent, name, Mode.MOVIE_RECAP) { project ->
+            project.copy(
+                recap = Recap(
+                    rightsConfirmed = true,
+                    quick = QuickRecap(targetMs = targetMs, style = style),
+                )
+            )
+        }
+    }
+
     fun createMovieRecap(parent: String, name: String, rightsConfirmed: Boolean): Boolean {
         if (!rightsConfirmed) return fail(RIGHTS_REQUIRED)
         return create(parent, name, Mode.MOVIE_RECAP) { it.copy(recap = Recap(rightsConfirmed = true)) }

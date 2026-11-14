@@ -202,11 +202,19 @@ private fun StudioV2App(
 
     val content: @Composable () -> Unit = {
         when (dest) {
-            StudioV2Dest.HOME -> HomeScreen(
-                onNewRecap = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
-                onNewMusicVideo = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
-                onQuickRecapStart = { _, _ -> dest = StudioV2Dest.PROJECTS; projectScreen = null },
-            )
+            StudioV2Dest.HOME -> {
+                val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
+                HomeScreen(
+                    onNewRecap = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
+                    onNewMusicVideo = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
+                    onQuickRecapStart = { targetMs, style ->
+                        if (dashboard.createQuickRecap(targetMs, style)) {
+                            dest = StudioV2Dest.PROJECTS
+                            projectScreen = "Recap"
+                        }
+                    },
+                )
+            }
             StudioV2Dest.PROJECTS -> {
                 when (projectScreen) {
                     "Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(

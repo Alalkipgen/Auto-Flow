@@ -46,3 +46,49 @@ Optimize for: correctness, small diffs, testability without API keys, and never 
 
 ## 5. When you are unsure
 Prefer the simpler design. Prefer the one that keeps user data recoverable. Write the question down. Do not invent features not listed in docs/PLAN.md.
+
+## 6. Phase 5 patterns (Studio v2)
+
+### JDK
+Java 25 at `/usr/lib/jvm/java-25-amazon-corretto.x86_64`. Always set:
+```
+export JAVA_HOME=/usr/lib/jvm/java-25-amazon-corretto.x86_64
+```
+
+### Feature flags
+`FeatureFlags` lives in `:core`. UI reads flags via `koinInject<FeatureFlags>()`. Never read flags in `:core` logic; pass them in at the call site.
+
+### StudioV2 routing (`AppShell.kt`)
+```kotlin
+var dest by remember { mutableStateOf(StudioV2Dest.HOME) }
+var projectScreen by remember { mutableStateOf<String?>(null) }
+// PROJECTS routes: null=Dashboard "Recap"/"Input"/"Storyboard"/"Export"=project screen
+```
+
+### AI job pipeline
+- `AiJob` / `AiJobKind` / `AiJobState` in `:core/recap/`
+- `AiJobStore` persists to `AppDirs.aiJobs` (filesDir/ai-jobs/)
+- `AiJobRunner` interface in `:core`; desktop impl = `DesktopAiJobRunner` in `ui/desktopMain/`
+- `RpmPacer` token-bucket RPM limiter used by the runner
+- Android runner uses WorkManager (device spike S10; not in CI)
+
+### Library
+- `Library` / `BrandKit` / `SavedVoice` / `MusicItem` / `FontItem` / `Preset` in `:core/library/`
+- `LibraryStore` loads/saves `AppDirs.library/library.json`
+- `LibraryModel` applies brand kit / voice / music / font / preset to the open project
+- Wired by `UiModule` (desktop: `DesktopModule`)
+
+### Smart Fit
+- `FitChoice` enum + `SmartFitConfig` in `:core/recap/SmartFit.kt`
+- `Recap.fit: Map<Int, FitChoice>` — keyed by scene index
+- `RecapFitCard` renders fit choices for RUNS_ON rows
+- Actual audio processing (silenceremove + atempo) is device spike S8
+
+### Quick Recap
+- `QuickRecap` + `QuickRecapStage` in `:core/recap/QuickRecap.kt`
+- `recap.quick` stores wizard progress in `project.json`
+- `DashboardModel.createQuickRecap(targetMs, style)` creates the project using `lastParent`
+- `HomeScreen` wizard (Length → Style → Confirm) calls this via `AppShell` wiring
+
+### Skiko / UI tests
+Skiko rendering tests fail on headless Linux (`Unsupported`). This is pre-existing; CI (Windows) runs them. Never mark these as broken.
