@@ -75,3 +75,24 @@ V2NavRailCompact uses emoji icons + purple top-line indicator.
 - padding 20dp → 32dp; title + 20.sp bold; subtitle muted text added
 - Buttons: Row with weight(1f) each → full-width side-by-side Exit / Stay
 - fillMaxWidth(0.85f) so dialog is 85% of screen width
+
+## D-56 — Output ratio, watermark position, caption custom colour/size (v0.2.8)
+
+### Output Video Ratio (Movie Recap)
+- RecapVisual.outputRatio: Ratio? — overrides project.settings.ratio for the render.
+  Null = use project default (9:16). Stored in visual so it travels with Brand Kit.
+- ExportModel.recapJob: ratio = recap.visual.outputRatio ?: project.settings.ratio
+- RecapPictureControls: "Output video ratio" chips (Default / 16:9 / 9:16 / 1:1 / 4:5 / 21:9)
+
+### Watermark Position
+- RecapVisual.watermarkAnchor: WatermarkAnchor (TOP_LEFT/TOP_RIGHT/BOTTOM_LEFT/BOTTOM_RIGHT/CENTER)
+- WatermarkAnchor.rect(wmW, wmH): computes [x,y,w,h] with 2% padding from chosen corner.
+- RecapRender: uses anchor.rect() instead of hardcoded bottom-right [0.76,0.82,0.22,0.14].
+- RecapPictureControls: position chips appear when watermark is set.
+
+### Caption Custom Colour / Size
+- CaptionStyle.customColour: String? — free #RRGGBB; effectiveColour property picks it over preset.
+- CaptionStyle.customSizeFactor: Float? (0.5–3.0); effectiveSizeFactor overrides size enum.
+- RecapRender: captionSizePx uses effectiveSizeFactor; overlay colour uses effectiveColour.
+- RecapModel: setCaptionCustomColour(), setCaptionCustomSize()
+- RecapPictureControls: hex text field + size factor field, each with Apply / Clear.
