@@ -5,6 +5,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
@@ -25,12 +29,17 @@ import io.github.alalkipgen.autoflow.core.recap.FrameBackground
 import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.core.recap.MaskPreset
 import io.github.alalkipgen.autoflow.core.recap.MaskStrength
+import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
+import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
 import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.AfTextField
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
@@ -100,7 +109,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
             // Show IMAGE option only briefly as a text note (the chip above already includes it)
         }
     }
-    // Watermark (Brand Kit, D-54): logo image overlaid on every frame at bottom-right.
+    // Watermark (Brand Kit, D-54/D-56): logo image overlaid on every frame.
     AfText("Watermark / Logo (overlay on every frame)", muted = true, size = 12.sp)
     WrapRow {
         if (v.watermarkFile != null) {
@@ -109,6 +118,53 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
             AfButton("Remove", { if (idle) model.removeWatermark() })
         } else {
             AfButton("Set watermark…", { if (idle) model.importWatermark() })
+        }
+    }
+    if (v.watermarkFile != null) {
+        AfText("Position", muted = true, size = 12.sp)
+        WrapRow {
+            WatermarkAnchor.entries.forEach { anchor ->
+                AfChip(anchor.label, v.watermarkAnchor == anchor, { if (idle) model.setWatermarkAnchor(anchor) })
+            }
+        }
+    }
+
+    // Output video ratio (D-56): overrides the project-level ratio for Movie Recap.
+    AfText("Output video ratio", muted = true, size = 12.sp)
+    WrapRow {
+        AfChip("Default (9:16)", v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
+        Ratio.entries.forEach { r ->
+            AfChip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) })
+        }
+    }
+
+    // Caption custom colour + size (D-56)
+    AfText("Caption colour (custom hex, e.g. #FF5500)", muted = true, size = 12.sp)
+    var colourInput by remember { mutableStateOf(recap.captionStyle.customColour ?: "") }
+    WrapRow {
+        AfTextField(colourInput, { colourInput = it }, "#RRGGBB")
+        AfButton("Apply", {
+            if (idle) {
+                model.setCaptionCustomColour(colourInput.ifBlank { null })
+                colourInput = recap.captionStyle.customColour ?: ""
+            }
+        })
+        if (recap.captionStyle.customColour != null) {
+            AfButton("Clear", { if (idle) { model.setCaptionCustomColour(null); colourInput = "" } })
+        }
+    }
+    AfText("Caption size (custom factor 0.5–3.0; blank = use preset)", muted = true, size = 12.sp)
+    var sizeInput by remember { mutableStateOf(recap.captionStyle.customSizeFactor?.toString() ?: "") }
+    WrapRow {
+        AfTextField(sizeInput, { sizeInput = it }, "e.g. 1.5")
+        AfButton("Apply", {
+            if (idle) {
+                model.setCaptionCustomSize(sizeInput.toFloatOrNull())
+                sizeInput = recap.captionStyle.customSizeFactor?.toString() ?: ""
+            }
+        })
+        if (recap.captionStyle.customSizeFactor != null) {
+            AfButton("Clear", { if (idle) { model.setCaptionCustomSize(null); sizeInput = "" } })
         }
     }
 }

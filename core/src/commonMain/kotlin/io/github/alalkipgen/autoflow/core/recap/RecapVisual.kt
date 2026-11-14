@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.core.recap
 
+import io.github.alalkipgen.autoflow.core.model.Ratio
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -26,6 +27,15 @@ data class RecapVisual(
      * corner (Brand Kit, 5B-3 D-52). Null = no watermark. Set by [RecapModel.applyBrandKit].
      */
     val watermarkFile: String? = null,
+    /**
+     * Where the watermark sits on the frame (D-56). Null = BOTTOM_RIGHT (legacy default).
+     */
+    val watermarkAnchor: WatermarkAnchor = WatermarkAnchor.BOTTOM_RIGHT,
+    /**
+     * Output video ratio for Movie Recap (D-56). Null = 9:16.
+     * Stored here so it travels with the visual settings and Brand Kit.
+     */
+    val outputRatio: Ratio? = null,
     /** Captions are centred on the lowest mask (when there is one) instead of the usual bottom place. */
     val captionsOnMask: Boolean = true,
 ) {
@@ -131,11 +141,26 @@ object RecapVisuals {
 @SerialName("CaptionStyle")
 data class CaptionStyle(
     val size: CaptionSize = CaptionSize.M,
-    /** `#RRGGBB`. */
+    /** `#RRGGBB` preset colour; overridden by [customColour] when set. */
     val colour: String = "#FFFFFF",
     /** A see-through dark box behind the text instead of an outline. */
     val box: Boolean = false,
+    /**
+     * Free `#RRGGBB` hex override (D-56). When non-null takes precedence over [colour].
+     * Allows any colour beyond the three presets.
+     */
+    val customColour: String? = null,
+    /**
+     * Custom size multiplier (D-56), 0.5–3.0. When non-null overrides [size]'s factor.
+     * Allows finer control beyond Small / Medium / Large.
+     */
+    val customSizeFactor: Float? = null,
 ) {
+    /** The effective colour: customColour if set, else colour. */
+    val effectiveColour: String get() = customColour?.takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) } ?: colour
+    /** The effective size factor: customSizeFactor if set, else size.factor. */
+    val effectiveSizeFactor: Double get() = customSizeFactor?.toDouble()?.coerceIn(0.5, 3.0) ?: size.factor
+
     companion object {
         val COLOURS = listOf("White" to "#FFFFFF", "Yellow" to "#FFE14D", "Cyan" to "#7FE7FF")
     }
@@ -147,4 +172,34 @@ enum class CaptionSize(val label: String, val factor: Double) {
     @SerialName("S") S("Small", 0.85),
     @SerialName("M") M("Medium", 1.0),
     @SerialName("L") L("Large", 1.2),
+}
+
+/**
+ * Where the watermark image is anchored on the output frame (D-56).
+ * [wmW] and [wmH] are the watermark's fraction of the frame width/height (e.g. 0.22, 0.14).
+ */
+@Serializable
+@SerialName("WatermarkAnchor")
+enum class WatermarkAnchor(val label: String) {
+    @SerialName("top_left")     TOP_LEFT("↖ Top-left"),
+    @SerialName("top_right")    TOP_RIGHT("↗ Top-right"),
+    @SerialName("bottom_left")  BOTTOM_LEFT("↙ Bottom-left"),
+    @SerialName("bottom_right") BOTTOM_RIGHT("↘ Bottom-right"),
+    @SerialName("center")       CENTER("⊙ Center");
+
+    /** Returns `[x, y, w, h]` in 0–1 of the output frame for a watermark of size [wmW] × [wmH]. */
+    fun rect(wmW: Float = 0.22f, wmH: Float = 0.14f): List<Float> {
+        val pad = 0.02f
+        val x = when (this) {
+            TOP_LEFT, BOTTOM_LEFT -> pad
+            TOP_RIGHT, BOTTOM_RIGHT -> 1f - wmW - pad
+            CENTER -> (1f - wmW) / 2f
+        }
+        val y = when (this) {
+            TOP_LEFT, TOP_RIGHT -> pad
+            BOTTOM_LEFT, BOTTOM_RIGHT -> 1f - wmH - pad
+            CENTER -> (1f - wmH) / 2f
+        }
+        return listOf(x, y, wmW, wmH)
+    }
 }

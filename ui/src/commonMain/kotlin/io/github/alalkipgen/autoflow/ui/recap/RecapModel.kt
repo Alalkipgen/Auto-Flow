@@ -771,6 +771,29 @@ class RecapModel(
     /** Remove the watermark from this project. */
     fun removeWatermark() = setVisual { it.copy(watermarkFile = null) }
 
+    /** Set watermark anchor position (D-56). */
+    fun setWatermarkAnchor(anchor: io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor) =
+        setVisual { it.copy(watermarkAnchor = anchor) }
+
+    /** Set the output video ratio for Movie Recap (D-56). Null = follow project setting (default 9:16). */
+    fun setOutputRatio(ratio: io.github.alalkipgen.autoflow.core.model.Ratio?) =
+        setVisual { it.copy(outputRatio = ratio) }
+
+    // --- Caption custom colour / size (D-56) ----------------------------------------------------------
+
+    /** Set a free hex colour for captions (D-56). Pass null to clear and use the preset [colour]. */
+    fun setCaptionCustomColour(hex: String?) = update { recap ->
+        val h = hex?.trim()?.let { if (it.startsWith("#")) it else "#$it" }
+            ?.takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }
+        recap.copy(captionStyle = recap.captionStyle.copy(customColour = h))
+    }
+
+    /** Set a custom size factor for captions (D-56), 0.5–3.0. Pass null to use the preset [size]. */
+    fun setCaptionCustomSize(factor: Float?) = update { recap ->
+        val f = factor?.coerceIn(0.5f, 3.0f)
+        recap.copy(captionStyle = recap.captionStyle.copy(customSizeFactor = f))
+    }
+
     // --- Caption Preset (5B-8, D-51) ------------------------------------------------------------------
 
     /**

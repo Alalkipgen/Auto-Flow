@@ -281,8 +281,10 @@ class ExportModel(
     private fun recapJob(open: OpenProject, quality: Quality, font: String?, fontsDir: String, name: String): RenderJob? {
         val recap = open.project.recap ?: return null
         val script = recapScript() ?: return null
+        // D-56: use per-recap output ratio when set; fall back to project-level ratio.
+        val ratio = recap.visual.outputRatio ?: open.project.settings.ratio
         return RecapRender.job(
-            recap, script, open.project.settings.ratio, open.dir, quality, { takeFile(open, it) }, font, fontsDir,
+            recap, script, ratio, open.dir, quality, { takeFile(open, it) }, font, fontsDir,
             outputName = joinPath(EXPORTS_DIR, name),
             title = "${open.project.name} · ${label(quality)}",
             bgmFile = recap.audio.bgm?.let { artifactFile(open, it) },

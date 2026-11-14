@@ -51,16 +51,16 @@ object RecapRender {
         val overlays = if (font == null || !recap.burnCaptions) emptyList() else captions(recap, script, takeFile, output).map { c ->
             Overlay(
                 c.text, c.startMs, c.endMs, font, captionSizePx(output, recap.captionStyle),
-                color = recap.captionStyle.colour, centerY = onMask, box = recap.captionStyle.box,
+                color = recap.captionStyle.effectiveColour, centerY = onMask, box = recap.captionStyle.box,
             )
         }
-        // Brand Kit watermark layer (5B-3, D-52): bottom-right corner, 20% wide, semi-transparent.
+        // Brand Kit watermark layer (5B-3, D-52/D-56): position driven by watermarkAnchor.
         val watermarkLayers = recap.visual.watermarkFile?.let { wf ->
             listOf(
                 Layer(
                     id = "watermark",
                     type = LayerType.IMAGE,
-                    rect = listOf(0.76f, 0.82f, 0.22f, 0.14f),
+                    rect = recap.visual.watermarkAnchor.rect(0.22f, 0.14f),
                     fromMs = 0,
                     toMs = null,
                     params = LayerParams(image = wf, opacity = 0.75f),
@@ -151,8 +151,8 @@ object RecapRender {
     /** Caption em size: 1/18 of the short side (60 px at 1080), a little smaller than lyrics. */
     fun captionSizePx(output: Output): Int = minOf(output.width, output.height) / 18
 
-    /** [captionSizePx] × the caption style's size (Small 0.85 · Medium 1 · Large 1.2). */
-    fun captionSizePx(output: Output, style: CaptionStyle): Int = kotlin.math.round(captionSizePx(output) * style.size.factor).toInt()
+    /** [captionSizePx] × the caption style's effective size factor (custom or preset). */
+    fun captionSizePx(output: Output, style: CaptionStyle): Int = kotlin.math.round(captionSizePx(output) * style.effectiveSizeFactor).toInt()
 
     /** [startMs] in the output, [movieMs] where the clip starts in the movie. */
     private data class Placed(val row: FitRow, val startMs: Long, val movieMs: Long, val voiced: Voiced?)
