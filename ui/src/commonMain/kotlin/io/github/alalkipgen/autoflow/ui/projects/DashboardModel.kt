@@ -4,10 +4,16 @@ import io.github.alalkipgen.autoflow.core.CoreError
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.model.ArtifactKind
+import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapMigration
+import io.github.alalkipgen.autoflow.core.recap.RecapScript
+import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -15,6 +21,8 @@ import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 /** The project the pipeline screens work on: its folder and the last saved `project.json`. */
 data class OpenProject(val dir: String, val project: Project)
@@ -98,9 +106,54 @@ class DashboardModel(
         is PlatformResult.Unsupported -> fail(r.reason)
     }
 
-    fun open(dir: String): Boolean = when (val r = store.open(dir)) {
-        is CoreResult.Ok -> opened(dir, r.value)
-        is CoreResult.Err -> fail(r.error.toText())
+    fun open(dir: String): Boolean {
+        // Run recap v1 → v2 migration before decoding the project (spec §2, 5A-2 UI).
+        migrateRecapIfNeeded(dir)
+        return when (val r = store.open(dir)) {
+            is CoreResult.Ok -> opened(dir, r.value)
+            is CoreResult.Err -> fail(r.error.toText())
+        }
+    }
+
+    /**
+     * If [dir]/project.json is a v1 recap project, migrates it to v2 in-place (backup → migrate → save).
+     * Silent on any error so a migration failure never blocks opening the project.
+     */
+    private fun migrateRecapIfNeeded(dir: String) {
+        try {
+            val path = joinPath(dir, "project.json")
+            if (!fs.exists(path)) return
+            val jsonObj = try {
+                Json.parseToJsonElement(fs.read(path).decodeToString()).jsonObject
+            } catch (_: Exception) { return }
+            // Only migrate Movie Recap projects; music video projects have recap=null so skip them.
+            val recapValue = jsonObj["recap"]
+            if (recapValue == null || recapValue.toString() == "null") return
+            if (!RecapMigration.needsMigration(jsonObj)) return
+            RecapMigration.backup(fs, dir)
+            val artifacts = ArtifactStore(fs, dir)
+            val burmeseTtsModel: String? = null // TTS model lookup wired in 5B-5
+            val migrated = RecapMigration.migrate(
+                project = jsonObj,
+                readScript = { id ->
+                    try {
+                        val bytes = fs.read(joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), "${id.value}.json"))
+                        CoreJson.decodeFromString(RecapScript.serializer(), bytes.decodeToString())
+                    } catch (_: Exception) { null }
+                },
+                writeStory = { story ->
+                    val bytes = CoreJson.encodeToString(RecapStory.serializer(), story).encodeToByteArray()
+                    (artifacts.put(bytes, ArtifactKind.RECAP_SCRIPT, "json") as? CoreResult.Ok)?.value?.id
+                        ?: throw IllegalStateException("Failed to write story artifact during migration")
+                },
+                burmeseTtsModel = burmeseTtsModel,
+            )
+            val tmp = "$path.tmp"
+            fs.writeDurably(tmp, migrated.toString().encodeToByteArray())
+            fs.atomicMove(tmp, path)
+        } catch (_: Exception) {
+            // Migration failure must never prevent opening the project
+        }
     }
 
     fun remove(dir: String) {

@@ -19,6 +19,8 @@ data class Recap(
     /** `source/subtitles.srt` when imported. */
     val subtitles: String? = null,
     val style: RecapStyle = RecapStyle.PLAIN,
+    /** Spoken (casual) vs Written (formal) Burmese register for TTS (5B-7, D-36). */
+    val register: RecapRegister = RecapRegister.SPOKEN,
     /** Current `rs` artifact ([RecapScript]). */
     val script: ArtifactId? = null,
     val scriptApproved: Boolean = false,
