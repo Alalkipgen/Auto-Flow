@@ -106,6 +106,8 @@ data class RecapAudio(
     val polish: Boolean = true,
     val trimSilence: Boolean = false,
     val loudnessLufs: Double = -14.0,
+    /** Off = the mix is left as it is (no `loudnorm`). */
+    val loudness: Boolean = true,
 )
 
 @Serializable

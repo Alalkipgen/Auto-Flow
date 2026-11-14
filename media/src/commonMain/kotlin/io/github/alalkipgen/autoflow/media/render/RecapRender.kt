@@ -14,13 +14,22 @@ import io.github.alalkipgen.autoflow.core.recap.VoiceTake
  * Movie Recap → [RenderGraph] / [RenderJob] (docs/specs/recap.md §6, D-33): one movie clip per segment (length from
  * [RecapFit]: the scene, or the take + 0.4 s running on past the scene), each current take 0.2 s into its clip, the
  * movie's sound at `movieVolume`, the looks, and the captions (each voiced segment's text over its take in
- * two-line chunks, burned in when `burnCaptions` and a font is set; always as `.srt`).
+ * two-line chunks, burned in when `burnCaptions` and a font is set; always as `.srt`), and the sound settings
+ * (`recap.audio`, 5B-4): voice polish, background music [bgmFile] with ducking, loudness.
  */
 object RecapRender {
     /** A segment's take resolved to its file (relative to the project folder or absolute). */
     data class Voiced(val take: VoiceTake, val file: String)
 
-    fun graph(recap: Recap, script: RecapScript, ratio: Ratio, quality: Quality, takeFile: (VoiceTake) -> String?, font: String?): RenderGraph {
+    fun graph(
+        recap: Recap,
+        script: RecapScript,
+        ratio: Ratio,
+        quality: Quality,
+        takeFile: (VoiceTake) -> String?,
+        font: String?,
+        bgmFile: String? = null,
+    ): RenderGraph {
         val movie = requireNotNull(recap.movie) { "no movie" }
         val output = outputFor(recap, ratio, quality)
         val layout = layout(recap, script, takeFile)
@@ -33,7 +42,13 @@ object RecapRender {
             clips = clips,
             overlays = overlays,
             output = output,
-            voice = VoiceTrack(cues, clipsVolume = recap.movieVolume),
+            voice = VoiceTrack(
+                cues,
+                clipsVolume = recap.movieVolume,
+                polish = recap.audio.polish,
+                music = bgmFile?.let { MusicBed(it, recap.audio.bgmVolume, recap.audio.duck) },
+                loudnessLufs = recap.audio.loudnessLufs.takeIf { recap.audio.loudness },
+            ),
             looks = recap.looks,
         )
     }
@@ -49,9 +64,10 @@ object RecapRender {
         fontsDir: String,
         outputName: String,
         title: String,
+        bgmFile: String? = null,
     ): RenderJob = RenderJob(
         title = title,
-        graph = graph(recap, script, ratio, quality, takeFile, font),
+        graph = graph(recap, script, ratio, quality, takeFile, font, bgmFile),
         workDir = projectDir,
         files = emptyMap(),
         fontsDir = fontsDir,

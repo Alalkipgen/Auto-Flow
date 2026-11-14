@@ -43,6 +43,8 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
         object : BundledConfig {
             override fun modelsJson(): String = readResource("/config/models.json")
             override fun featuresJson(): String? = readResourceOrNull("/config/features.json")
+            override fun bundledFont(name: String): ByteArray? =
+                DesktopModule::class.java.getResourceAsStream("/config/fonts/$name")?.use { it.readBytes() }
         }
     }
     // Export on Windows (PLAN 1C): renders in this process, one at a time; Open plays the result.

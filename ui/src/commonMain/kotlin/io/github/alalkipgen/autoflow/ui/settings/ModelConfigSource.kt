@@ -10,6 +10,9 @@ fun interface BundledConfig {
 
     /** Returns the text of the bundled `config/features.json`, or null if the file is not present. */
     fun featuresJson(): String? = null
+
+    /** Bytes of a built-in font from `fonts/` ([BuiltInFonts.FILES]), or null when the app does not ship it. */
+    fun bundledFont(name: String): ByteArray? = null
 }
 
 /** The model config in use, its text and where it came from, for the read-only view in Settings. */

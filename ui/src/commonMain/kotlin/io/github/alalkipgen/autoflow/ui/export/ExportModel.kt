@@ -108,6 +108,7 @@ class ExportModel(
     private val battery: BatteryReader?,
     private val scope: CoroutineScope,
     private val clipboard: io.github.alalkipgen.autoflow.platform.Clipboard? = null,
+    private val builtInFonts: io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts? = null,
 ) {
     private val _state = MutableStateFlow(ExportUiState())
     val state: StateFlow<ExportUiState> = _state.asStateFlow()
@@ -247,8 +248,11 @@ class ExportModel(
         session.open?.project?.recap?.script?.let { (session.readJson(it, RecapScript.serializer()) as? CoreResult.Ok)?.value }
 
     /** The take's audio, `artifacts/<file>`, when the file is there. */
-    private fun takeFile(open: OpenProject, take: VoiceTake): String? {
-        val artifact = (session.artifacts()?.get(take.audio) as? CoreResult.Ok)?.value ?: return null
+    private fun takeFile(open: OpenProject, take: VoiceTake): String? = artifactFile(open, take.audio)
+
+    /** `artifacts/<file>` of [id] when the file is there. */
+    private fun artifactFile(open: OpenProject, id: ArtifactId): String? {
+        val artifact = (session.artifacts()?.get(id) as? CoreResult.Ok)?.value ?: return null
         return joinPath(ArtifactStore.ARTIFACTS_DIR, artifact.file).takeIf { fs.exists(joinPath(open.dir, it)) }
     }
 
@@ -281,6 +285,7 @@ class ExportModel(
             recap, script, open.project.settings.ratio, open.dir, quality, { takeFile(open, it) }, font, fontsDir,
             outputName = joinPath(EXPORTS_DIR, name),
             title = "${open.project.name} · ${label(quality)}",
+            bgmFile = recap.audio.bgm?.let { artifactFile(open, it) },
         )
     }
 
@@ -342,9 +347,10 @@ class ExportModel(
 
     private class LyricFont(val family: String, val fileName: String, val bytes: ByteArray)
 
-    /** The Burmese Settings font (Pyidaungsu, else Noto Sans Myanmar; regular weight first), or null. */
+    /** The Burmese font (Pyidaungsu, else Noto Sans Myanmar; regular weight first) from Settings or built in, or null. */
     private fun font(): LyricFont? {
-        val read = settings.state.value.fontPaths.mapNotNull { path ->
+        val paths = io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts.withBuiltIns(settings.state.value.fontPaths, builtInFonts)
+        val read = paths.mapNotNull { path ->
             val bytes = runCatching { fs.read(path) }.getOrNull() ?: return@mapNotNull null
             val info = FontInfo.parse(bytes) ?: return@mapNotNull null
             Triple(path, bytes, UiFont.Candidate(path, info.family, FontInfo.weightClass(bytes) ?: 400))

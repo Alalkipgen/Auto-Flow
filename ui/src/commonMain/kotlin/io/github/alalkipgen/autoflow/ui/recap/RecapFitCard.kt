@@ -88,6 +88,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
         WrapRow {
             RecapModel.MOVIE_VOLUMES.forEach { (name, v) -> AfChip(name, recap.movieVolume == v, { if (idle) model.setMovieVolume(v) }) }
         }
+        RecapSoundControls(recap.audio, state.bgmName, idle, model)
         AfText("Looks (change the movie picture)", muted = true, size = 12.sp)
         WrapRow {
             RecapModel.LOOKS.forEach { (look, name) -> AfChip(name, look in recap.looks, { if (idle) model.toggleLook(look) }) }
@@ -97,5 +98,28 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
         val render = RecapRules.canRender(recap, script)
         render.blockers.firstOrNull()?.let { AfText(it.text(), color = AutoFlowColors.Amber) }
         AfButton(GO_TO_EXPORT, onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
+    }
+}
+
+/** Sound (5B-4): voice polish, background music with ducking, even loudness. Applied when the video is rendered. */
+@Composable
+private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.RecapAudio, bgmName: String?, idle: Boolean, model: RecapModel) {
+    AfSwitch("Clean up the voice (less noise and rumble, steadier level)", audio.polish, { if (idle) model.setAudio { a -> a.copy(polish = it) } })
+    AfSwitch("Even loudness (${audio.loudnessLufs.toInt()} LUFS, like YouTube / TikTok)", audio.loudness, { if (idle) model.setAudio { a -> a.copy(loudness = it) } })
+    AfText("Background music", muted = true, size = 12.sp)
+    WrapRow {
+        if (audio.bgm == null) {
+            AfButton("🎵 Add music…", { if (idle) model.importBgm() })
+        } else {
+            AfText("🎵 ${bgmName ?: "Music"}", size = 12.sp)
+            AfButton("Change…", { if (idle) model.importBgm() })
+            AfButton("Remove", { if (idle) model.setAudio { it.copy(bgm = null) } }, kind = ButtonKind.Danger)
+        }
+    }
+    if (audio.bgm != null) {
+        WrapRow {
+            RecapModel.BGM_VOLUMES.forEach { (name, v) -> AfChip(name, audio.bgmVolume == v, { if (idle) model.setAudio { it.copy(bgmVolume = v) } }) }
+        }
+        AfSwitch("Lower the music while the voice speaks", audio.duck, { if (idle) model.setAudio { a -> a.copy(duck = it) } })
     }
 }

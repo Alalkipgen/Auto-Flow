@@ -4,6 +4,7 @@ import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapAudio
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
@@ -16,6 +17,7 @@ import io.github.alalkipgen.autoflow.media.render.RenderCompiler.Compiled
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** docs/specs/recap.md §6: movie clips per segment, takes 0.2 s in, scene runs on, looks, captions, mix. */
@@ -36,6 +38,38 @@ class RecapRenderTest {
         movieVolume = 0.2,
     )
     private val files = { t: VoiceTake -> "artifacts/${t.audio.value}.m4a" }
+    private val env = RenderCompiler.Env(
+        resolve = { null }, songPath = null, assPath = "a.ass", fontsDir = "fonts", outputPath = "out.mp4",
+        resolveSource = { ClipMedia("/p/$it", hasAudio = true) }, voicePath = { "/p/$it" },
+    )
+
+    @Test
+    fun soundSettingsPolishTheVoiceDuckTheMusicAndEvenTheLoudness() {
+        // Defaults (5B-4): polish + −14 LUFS, no music.
+        val plain = RecapRender.graph(recap, script, Ratio.R9_16, Quality.PREVIEW, files, null)
+        assertEquals(true, plain.voice?.polish)
+        assertEquals(-14.0, plain.voice?.loudnessLufs)
+        assertNull(plain.voice?.music)
+        val fc = assertIs<Compiled.Ok>(RenderCompiler.compile(plain, env)).let { it.args[it.args.indexOf("-filter_complex") + 1].split(';') }
+        assertTrue(fc.any { it.startsWith("[2:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,highpass=f=80,afftdn") && it.endsWith("adelay=200|200[c0]") }, fc.toString())
+        assertTrue("[vbed][c0]amix=inputs=2:duration=first:normalize=0[vo]" in fc, fc.toString())
+        assertTrue(fc.last().startsWith("[base][vo]amix=inputs=2:duration=first:normalize=0,atrim=duration=10.400,loudnorm=I=-14"), fc.last())
+        assertTrue(fc.last().endsWith("[aout]"))
+
+        // Music, ducked under the voice; loudness off.
+        val audio = RecapAudio(polish = false, loudness = false, bgm = ArtifactId("au_bbbbbbbbbbbb"), bgmVolume = 0.1, duck = true)
+        val g = RecapRender.graph(recap.copy(audio = audio), script, Ratio.R9_16, Quality.PREVIEW, files, null, bgmFile = "artifacts/au_bbbbbbbbbbbb.mp3")
+        assertEquals(MusicBed("artifacts/au_bbbbbbbbbbbb.mp3", 0.1, true), g.voice?.music)
+        val r = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env))
+        assertEquals(listOf("-i", "/p/artifacts/au_bbbbbbbbbbbb.mp3"), r.args.subList(21, 23))
+        val mfc = r.args[r.args.indexOf("-filter_complex") + 1].split(';')
+        assertTrue(mfc.any { it.startsWith("[3:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,aloop=loop=-1") && it.endsWith("volume=0.1,afade=t=in:st=0:d=1.500,afade=t=out:st=8.900:d=1.500[bgm]") }, mfc.toString())
+        assertTrue(mfc.any { "sidechaincompress" in it }, mfc.toString())
+        assertEquals("[base][vm]amix=inputs=2:duration=first:normalize=0,atrim=duration=10.400[aout]", mfc.last())
+        // A missing music file is reported instead of a broken render.
+        val missing = RenderCompiler.compile(g, env.copy(voicePath = { f -> "/p/$f".takeIf { "bbbb" !in f } }))
+        assertEquals("the background music file artifacts/au_bbbbbbbbbbbb.mp3 is missing", assertIs<Compiled.Invalid>(missing).reason)
+    }
 
     @Test
     fun graphRunsTheSceneOnForALongTakeAndCaptionsTheTake() {
@@ -55,11 +89,7 @@ class RecapRenderTest {
 
     @Test
     fun compilesLooksAndTheNarrationMix() {
-        val g = RecapRender.graph(recap, script, Ratio.R9_16, Quality.PREVIEW, files, null)
-        val env = RenderCompiler.Env(
-            resolve = { null }, songPath = null, assPath = "a.ass", fontsDir = "fonts", outputPath = "out.mp4",
-            resolveSource = { ClipMedia("/p/$it", hasAudio = true) }, voicePath = { "/p/$it" },
-        )
+        val g = RecapRender.graph(recap.copy(audio = RecapAudio(polish = false, loudness = false)), script, Ratio.R9_16, Quality.PREVIEW, files, null)
         val r = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env))
         val args = r.args
         assertEquals(listOf("-threads", "2", "-ss", "10.000", "-t", "5.400", "-i", "/p/source/movie.mp4"), args.subList(3, 11))

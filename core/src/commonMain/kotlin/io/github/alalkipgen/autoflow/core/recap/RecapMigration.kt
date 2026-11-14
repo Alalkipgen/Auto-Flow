@@ -115,7 +115,7 @@ object RecapMigration {
                     spokenHash = t.textHash,
                 )
             },
-            audio = RecapAudio(movieVolume = v1.movieVolume),
+            audio = v1.audio.copy(movieVolume = v1.movieVolume),
             captions = RecapCaptions(burn = v1.burnCaptions),
             looks = v1.looks,
             quality = v1.quality,

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.media.render
 
+import io.github.alalkipgen.autoflow.media.audio.AudioFilters
+
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.recap.Look
 
@@ -120,11 +122,27 @@ object RenderCompiler {
         }
         val cues = voice?.cues.orEmpty().map { c -> input("-i", env.voicePath(c.file) ?: "") to c.startMs }
         chains += when {
-            voice != null -> {
+            voice != null && voice.music == null && voice.loudnessLufs == null && !voice.polish -> {
                 val base = if (useClipAudio) "[aseq]volume=${voice.clipsVolume}[base]" else "anullsrc=r=48000:cl=stereo:d=${sec(total)},$AUDIO_FORMAT[base]"
                 val delayed = cues.mapIndexed { k, (i, at) -> "[$i:a]$AUDIO_FORMAT,adelay=$at|$at[c$k]" }
                 (listOf(base) + delayed).joinToString(";") + ";[base]" + cues.indices.joinToString("") { "[c$it]" } +
                     "amix=inputs=${cues.size + 1}:duration=first:normalize=0,atrim=duration=${sec(total)}[aout]"
+            }
+            voice != null -> {
+                // 5B-4: polished takes are mixed on their own ([vo]) so the music can duck under the voice only.
+                val base = if (useClipAudio) "[aseq]volume=${voice.clipsVolume}[base]" else "anullsrc=r=48000:cl=stereo:d=${sec(total)},$AUDIO_FORMAT[base]"
+                val polish = if (voice.polish) "," + AudioFilters.voicePolish() else ""
+                val delayed = cues.mapIndexed { k, (i, at) -> "[$i:a]$AUDIO_FORMAT$polish,adelay=$at|$at[c$k]" }
+                val bed = "anullsrc=r=48000:cl=stereo:d=${sec(total)},$AUDIO_FORMAT[vbed]"
+                val vo = "[vbed]" + cues.indices.joinToString("") { "[c$it]" } + "amix=inputs=${cues.size + 1}:duration=first:normalize=0[vo]"
+                val music = voice.music?.let { m ->
+                    val i = input("-i", env.voicePath(m.file) ?: "")
+                    listOf("[$i:a]$AUDIO_FORMAT,${AudioFilters.bgm(total, m.volume)}[bgm]") + AudioFilters.mixWithMusic("vo", "bgm", "vm", m.duck)
+                }.orEmpty()
+                val narration = if (voice.music != null) "vm" else "vo"
+                val loud = voice.loudnessLufs?.let { ",${AudioFilters.loudnormSinglePass(it)},$AUDIO_FORMAT" } ?: ""
+                (listOf(base) + delayed + bed + vo + music).joinToString(";") +
+                    ";[base][$narration]amix=inputs=2:duration=first:normalize=0,atrim=duration=${sec(total)}$loud[aout]"
             }
             song == null -> "[aseq]anull[aout]"
             !useClipAudio -> "$song[aout]"
@@ -182,6 +200,7 @@ object RenderCompiler {
         graph.voice?.let { v ->
             if (graph.audio != null) return "a song and a narration cannot be mixed in one render"
             v.cues.forEachIndexed { k, c -> if (env.voicePath(c.file) == null) return "narration ${k + 1}: the file ${c.file} is missing" }
+            v.music?.let { m -> if (env.voicePath(m.file) == null) return "the background music file ${m.file} is missing" }
         }
         return null
     }
