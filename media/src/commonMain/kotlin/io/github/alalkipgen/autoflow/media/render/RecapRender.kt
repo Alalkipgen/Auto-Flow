@@ -60,6 +60,7 @@ object RecapRender {
             masks = recap.visual.masks,
             background = recap.visual.background,
             backgroundColour = recap.visual.backgroundColour,
+            backgroundImageFile = recap.visual.backgroundImageFile,
         )
     }
 

@@ -26,6 +26,7 @@ import io.github.alalkipgen.autoflow.ui.components.AudioPlayButton
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel.Companion.clock
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel.Companion.seconds
 import io.github.alalkipgen.autoflow.ui.storyboard.text
+import io.github.alalkipgen.autoflow.ui.recap.SpeakAllEta
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 const val SPEAK_ALL = "🔊 Speak all (Gemini TTS)"
@@ -52,7 +53,18 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: Recap) {
             WrapRow {
                 RecapModel.TTS_VOICES.forEach { (name, kind) -> AfChip("$name · $kind", recap.ttsVoice == name, { if (idle) model.setTtsVoice(name) }) }
             }
-            AfButton(SPEAK_ALL, { model.speakAll() }, kind = ButtonKind.Primary, enabled = idle)
+            val eta = state.speakAllEta
+            if (eta != null) {
+                // ETA confirmation card (5A-5, D-51): show before the loop starts
+                val etaStr = eta.etaSeconds?.let { " (~${it / 60} min)" } ?: ""
+                AfText("${eta.count} scenes to speak$etaStr — start?", bold = true)
+                WrapRow {
+                    AfButton("▶ Start", { model.speakAll(confirmed = true) }, kind = ButtonKind.Primary)
+                    AfButton("Cancel", { model.cancelSpeakAll() })
+                }
+            } else {
+                AfButton(SPEAK_ALL, { model.speakAll() }, kind = ButtonKind.Primary, enabled = idle)
+            }
             AfText("Uses your Gemini key; one request per scene. A new voice or style is used for the scenes spoken next.", muted = true, size = 12.sp)
         } else {
             AfText(

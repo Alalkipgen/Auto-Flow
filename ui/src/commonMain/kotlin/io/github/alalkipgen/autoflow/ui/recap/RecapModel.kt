@@ -48,6 +48,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import io.github.alalkipgen.autoflow.core.library.LibraryStore
+import io.github.alalkipgen.autoflow.ui.library.LibraryModel
 import kotlinx.coroutines.withContext
 
 /** What the Movie Recap screen shows besides the project itself. [job] = a long step is running ([progress] 0…1 when known). */
@@ -69,9 +71,17 @@ data class RecapUiState(
     val takeFiles: Map<Int, String> = emptyMap(),
     /** File name of the background music (`recap.audio.bgm`), for the Sound controls. */
     val bgmName: String? = null,
+    /**
+     * ETA card before "Speak all" starts (5A-5, D-51): non-null = show "N scenes, ~T s — Start / Cancel".
+     * Null = no pending ETA card.
+     */
+    val speakAllEta: SpeakAllEta? = null,
 ) {
     val busy: Boolean get() = job != null
 }
+
+/** ETA shown before Speak All starts (5A-5). */
+data class SpeakAllEta(val count: Int, val etaSeconds: Long?)
 
 /**
  * Movie Recap logic (docs/specs/recap.md, D-33): movie import, scenes and picks; script, voice and fit are added
@@ -89,6 +99,8 @@ class RecapModel(
     private val recorder: VoiceRecorder? = null,
     /** Pronunciation fixes applied before TTS (5B-7); empty until Library is wired (5A-7). */
     private val lexicon: Lexicon = Lexicon.EMPTY,
+    /** Library for Brand Kit save/apply and BGM picker (D-51: 5B-3, 5B-4, 5B-8). */
+    private val library: LibraryModel? = null,
 ) {
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
@@ -408,6 +420,15 @@ class RecapModel(
         }
     }
 
+    /**
+     * Called by [AiWorker] (5A-5, D-51) to speak one segment from a WorkManager AI job.
+     * Throws on failure so the worker can mark the job FAILED.
+     */
+    suspend fun speakForJob(index: Int) {
+        val msg = speakOne(index)
+        if (msg != null) error(msg)
+    }
+
     /** 🔊 one segment with Gemini TTS. */
     fun speak(index: Int): Job? {
         voiceText(index) ?: return null
@@ -425,14 +446,26 @@ class RecapModel(
     }
 
     /** 🔊 Speak all: every segment without a current take, in order; stops at the first failure. */
-    fun speakAll(): Job? {
+    /**
+     * Shows an ETA card ("N scenes, ~T s — Start / Cancel") before beginning (5A-5, D-51).
+     * Call again with [confirmed]=true after the user taps Start.
+     */
+    fun speakAll(confirmed: Boolean = false): Job? {
         val recap = recap() ?: return null
         val script = _state.value.script ?: return null
         RecapRules.canVoice(recap, script).blockers.firstOrNull()?.let { say(it.text()); return null }
         if (tts == null) { say("Text to speech is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val todo = script.segments.indices.filter { RecapRules.currentTake(recap, script, it) == null && script.segments[it].textMy.isNotBlank() }
-        if (todo.isEmpty()) { say("Every scene already has its voice.", ); return null }
+        if (todo.isEmpty()) { say("Every scene already has its voice."); return null }
+        // Show ETA card first; user confirms before the loop starts (5A-5).
+        if (!confirmed) {
+            val rpm = 3L // free-tier TTS is ~3 req/min; shown as a rough ETA
+            val etaSec = todo.size * 60L / rpm
+            _state.value = _state.value.copy(speakAllEta = SpeakAllEta(todo.size, etaSec))
+            return null
+        }
+        _state.value = _state.value.copy(speakAllEta = null)
         busy("Speaking…", 0.0)
         return scope.launch {
             try {
@@ -445,6 +478,11 @@ class RecapModel(
                 if (_state.value.job != null) done(null)
             }
         }.also { scriptJob = it }
+    }
+
+    /** Dismiss the Speak All ETA card without starting. */
+    fun cancelSpeakAll() {
+        _state.value = _state.value.copy(speakAllEta = null)
     }
 
     /** null when done, else the message. */
@@ -582,6 +620,90 @@ class RecapModel(
         update { it.copy(fit = it.fit + (index to choice)) }
     }
 
+    // --- Brand Kit (5B-3, D-51) -------------------------------------------------------------------------
+
+    /**
+     * Save the current Recap settings as a Library Brand Kit with [name] (5B-3).
+     * Copies any logo/watermark from the project's `library/` folder.
+     */
+    fun saveBrandKit(name: String) {
+        library?.saveBrandKit(name) ?: say("Library is not available")
+    }
+
+    /**
+     * Apply a Library Brand Kit to this project: copies files and restores caption style (5B-3).
+     */
+    fun applyBrandKit(id: String) {
+        library?.applyBrandKit(id) ?: say("Library is not available")
+        refresh()
+    }
+
+    // --- BGM from Library (5B-4, D-51) ------------------------------------------------------------------
+
+    /**
+     * Pick a music item from the Library and set it as the BGM for this project (5B-4).
+     * Copies the file into the project's `source/` folder and stores it as an `au` artifact.
+     */
+    fun setBgmFromLibrary(musicId: String): Job? {
+        val lib = library ?: run { say("Library is not available"); return null }
+        if (_state.value.busy || _state.value.recording != null) return null
+        return scope.launch {
+            val path = lib.applyMusicAsBgm(musicId) ?: return@launch
+            val bytes = withContext(Dispatchers.Default) { session.readFile(path) }?.takeIf { it.isNotEmpty() }
+                ?: return@launch say("Cannot read the music file")
+            val name = path.substringAfterLast('/')
+            val store = session.artifacts() ?: return@launch say("No project is open")
+            when (val r = store.put(bytes, io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, path.substringAfterLast('.', "m4a"),
+                inputs = mapOf("role" to "bgm", BGM_NAME_INPUT to name), provider = "library")) {
+                is io.github.alalkipgen.autoflow.core.CoreResult.Ok ->
+                    if (update { it.copy(audio = it.audio.copy(bgm = r.value.id)) }) say("Background music: $name", )
+                is io.github.alalkipgen.autoflow.core.CoreResult.Err -> say(r.error.message)
+            }
+        }
+    }
+
+    // --- Background image (5B-2, D-51) ------------------------------------------------------------------
+
+    /**
+     * Pick an image file from the file picker and use it as the background image (FrameBackground.IMAGE).
+     * Copies the file into the project's `library/` folder and sets `recap.visual.backgroundImageFile`.
+     */
+    fun importBackgroundImage(): Job? {
+        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        if (_state.value.busy || _state.value.recording != null) return null
+        return scope.launch {
+            val from = when (val r = p.pickFiles("Choose the background image", IMAGE_EXTENSIONS)) {
+                is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
+                is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> return@launch say(r.reason)
+                is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> return@launch say(r.reason)
+            }
+            val bytes = withContext(Dispatchers.Default) { session.readFile(from) }?.takeIf { it.isNotEmpty() }
+                ?: return@launch say("Cannot read this file")
+            val dir = session.open?.dir ?: return@launch say("No project is open")
+            val libDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, "library")
+            val name = from.substringAfterLast('/').substringAfterLast('\\')
+            val dest = io.github.alalkipgen.autoflow.core.io.joinPath(libDir, name)
+            runCatching { fs.createDirectories(libDir); fs.writeDurably(dest, bytes) }
+                .onFailure { return@launch say("Cannot save the image: ${it.message}") }
+            // Store path relative to project dir
+            val rel = "library/$name"
+            update { it.copy(visual = it.visual.copy(
+                background = io.github.alalkipgen.autoflow.core.recap.FrameBackground.IMAGE,
+                backgroundImageFile = dest,
+            )) }
+            say("Background image set: $name", )
+        }
+    }
+
+    // --- Caption Preset (5B-8, D-51) ------------------------------------------------------------------
+
+    /**
+     * Save the current caption style as a Library preset (5B-8).
+     */
+    fun saveCaptionPreset(name: String) {
+        library?.saveCaptionPreset(name) ?: say("Library is not available")
+    }
+
     private suspend fun durationOf(path: String, bytes: ByteArray): Long? =
         PcmWav.parse(bytes)?.durationMs ?: probe(path)?.takeIf { it.hasAudio && it.durationMs > 0 }?.durationMs
 
@@ -655,6 +777,7 @@ class RecapModel(
         /** Look chips (spec §6). */
         val LOOKS = listOf(Look.MIRROR to "Mirror", Look.ZOOM to "Zoom 10 %", Look.FILL to "Fill frame", Look.WARM to "Warm")
         val AUDIO_EXTENSIONS = setOf("m4a", "mp3", "wav", "aac", "ogg", "opus")
+        val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "webp")
 
         /** Gemini prebuilt voices offered as chips (name to Gemini's own description). */
         val TTS_VOICES = listOf("Charon" to "Informative", "Kore" to "Firm", "Puck" to "Upbeat", "Zephyr" to "Bright", "Fenrir" to "Excitable", "Aoede" to "Breezy")

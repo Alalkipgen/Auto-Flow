@@ -80,7 +80,7 @@ val uiModule = module {
     }
     single { ShellModel(get()) }
     // Movie Recap (D-33): a single, so copying / finding scenes keeps going off-screen.
-    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull()) }
+    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull()) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull()) }
     // Library (5A-7)
     single { io.github.alalkipgen.autoflow.core.library.LibraryStore(get(), get<AppDirs>().library) }

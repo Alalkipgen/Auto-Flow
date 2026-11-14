@@ -2,8 +2,12 @@ package io.github.alalkipgen.autoflow.android
 
 import android.app.Application
 import io.github.alalkipgen.autoflow.BuildConfig
+import io.github.alalkipgen.autoflow.android.ai.AiWorkerRegistry
+import io.github.alalkipgen.autoflow.android.ai.WorkManagerAiJobRunner
 import io.github.alalkipgen.autoflow.android.render.ProcessToolRunner
 import io.github.alalkipgen.autoflow.android.render.WorkManagerRenderQueue
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.core.recap.AiJobStore
 import io.github.alalkipgen.autoflow.android.selftest.SelfTestActivity
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.android.render.Battery
@@ -50,6 +54,13 @@ fun androidModule(app: Application) = module {
     single<ToolRunner> { ProcessToolRunner() }
     // PLAN 1F / D-26: renders run one at a time in a WorkManager foreground worker.
     single<RenderQueue> { WorkManagerRenderQueue(app) }
+    // 5A-5 / D-51: AI jobs (TTS, transcribe, Publish Kit) run on a second unique WorkManager chain "ai".
+    single<AiJobRunner> {
+        WorkManagerAiJobRunner.of(app).also { runner ->
+            // Register the processor so AiWorker can call it after a process recreation.
+            // The processor is set once uiModule + aiModule are both started (see AutoFlowApp).
+        }
+    }
     single<ProjectBackup> { AndroidProjectBackup(app) }
     // Export screen (Q-09 c): open / share the mp4, battery warning before a render.
     single<FileShare> { AndroidFileShare(app) }

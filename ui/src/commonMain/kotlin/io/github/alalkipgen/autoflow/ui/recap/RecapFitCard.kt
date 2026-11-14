@@ -19,10 +19,16 @@ import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel.Companion.clock
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel.Companion.seconds
 import io.github.alalkipgen.autoflow.ui.storyboard.text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 const val GO_TO_EXPORT = "Go to Export →"
@@ -96,7 +102,38 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
         RecapPictureControls(recap, idle, model)
         AfSwitch(BURN_CAPTIONS, recap.burnCaptions, { if (idle) model.setBurnCaptions(it) })
         if (recap.burnCaptions) CaptionStyleControls(recap.captionStyle, idle, model)
-        AfText("Captions are always saved as an .srt file next to the video, too.", muted = true, size = 12.sp)
+        if (recap.burnCaptions) {
+        // Brand Kit save (5B-3, D-51) and Caption Preset save (5B-8, D-51)
+        var showBrandKitName by remember { mutableStateOf("") }
+        var showCaptionPresetName by remember { mutableStateOf("") }
+        WrapRow {
+            AfButton("Save caption style…", {
+                showCaptionPresetName = "Caption ${recap.captionStyle.size.label} ${if (recap.captionStyle.box) "box" else "outline"}"
+            }, enabled = idle)
+        }
+        if (showCaptionPresetName.isNotEmpty()) {
+            AfTextField(showCaptionPresetName, { showCaptionPresetName = it }, "Caption preset name")
+            WrapRow {
+                AfButton("Save to Library", {
+                    if (showCaptionPresetName.isNotBlank()) { model.saveCaptionPreset(showCaptionPresetName); showCaptionPresetName = "" }
+                }, kind = ButtonKind.Primary, enabled = idle && showCaptionPresetName.isNotBlank())
+                AfButton("Cancel", { showCaptionPresetName = "" })
+            }
+        }
+    }
+    AfText("Captions are always saved as an .srt file next to the video, too.", muted = true, size = 12.sp)
+    // Brand Kit save (5B-3, D-51)
+    var brandKitName by remember { mutableStateOf("") }
+    WrapRow { AfButton("💼 Save as Brand Kit…", { brandKitName = "My Brand Kit" }, enabled = idle) }
+    if (brandKitName.isNotEmpty()) {
+        AfTextField(brandKitName, { brandKitName = it }, "Brand kit name")
+        WrapRow {
+            AfButton("Save to Library", {
+                if (brandKitName.isNotBlank()) { model.saveBrandKit(brandKitName); brandKitName = "" }
+            }, kind = ButtonKind.Primary, enabled = idle && brandKitName.isNotBlank())
+            AfButton("Cancel", { brandKitName = "" })
+        }
+    }
         val render = RecapRules.canRender(recap, script)
         render.blockers.firstOrNull()?.let { AfText(it.text(), color = AutoFlowColors.Amber) }
         AfButton(GO_TO_EXPORT, onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)

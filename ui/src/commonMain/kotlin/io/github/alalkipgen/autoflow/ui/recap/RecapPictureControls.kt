@@ -87,6 +87,18 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
                 }
             }
         }
+        if (v.background == FrameBackground.IMAGE) {
+            val imgFile = v.backgroundImageFile?.substringAfterLast('/') ?: "not set"
+            WrapRow {
+                AfText("Image: $imgFile", size = 12.sp)
+                AfButton("Change…", { if (idle) model.importBackgroundImage() })
+                if (v.backgroundImageFile != null) {
+                    AfButton("Remove", { if (idle) model.setVisual { it.copy(background = FrameBackground.BARS, backgroundImageFile = null) } })
+                }
+            }
+        } else if (v.background != FrameBackground.IMAGE) {
+            // Show IMAGE option only briefly as a text note (the chip above already includes it)
+        }
     }
 }
 
