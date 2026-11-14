@@ -39,6 +39,8 @@ data class Recap(
     val burnCaptions: Boolean = true,
     /** Export size (5B-9, studio-v2 §9). Preview renders stay 540p. */
     val quality: ExportQuality = ExportQuality.AUTO,
+    /** Publish Kit text (5B-10, studio-v2 §9): title, description, hashtags, chapters. */
+    val publishKit: PublishKit? = null,
 ) {
     val picked: List<RecapScene> get() = scenes.filter { it.picked }
     val pickedMs: Long get() = picked.sumOf { it.durationMs }
