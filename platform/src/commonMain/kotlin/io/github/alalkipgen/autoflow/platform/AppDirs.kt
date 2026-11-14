@@ -26,6 +26,12 @@ class AppDirs(root: String, projectsHome: String? = null) {
     /** Daily request counter (specs/ai-providers.md). */
     val usage: String get() = joinPath(root, "usage.json")
 
+    /** AI job files (`ai-jobs/<id>.json`), 5A-5. */
+    val aiJobs: String get() = joinPath(root, "ai-jobs")
+
+    /** Library root (`library/library.json` + `library/files/`), 5A-7. */
+    val library: String get() = joinPath(root, "library")
+
     override fun equals(other: Any?): Boolean = other is AppDirs && other.root == root && other.projectsHome == projectsHome
     override fun hashCode(): Int = 31 * root.hashCode() + projectsHome.hashCode()
     override fun toString(): String = if (projectsHome == null) "AppDirs($root)" else "AppDirs($root, projects $projectsHome)"

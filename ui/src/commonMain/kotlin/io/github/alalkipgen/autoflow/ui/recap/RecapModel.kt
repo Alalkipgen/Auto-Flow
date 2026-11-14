@@ -242,7 +242,12 @@ class RecapModel(
     }
 
     fun removeSubtitles() {
-        update { it.copy(subtitles = null) }
+        update { it.copy(subtitles = null, subtitleTrack = null) }
+    }
+
+    /** Sets the selected subtitle stream track index (5B-1). */
+    fun setSubtitleTrack(index: Int?) {
+        update { it.copy(subtitleTrack = index) }
     }
 
     fun setStyle(style: RecapStyle) {

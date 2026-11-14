@@ -1,6 +1,8 @@
 package io.github.alalkipgen.autoflow.desktop
 
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.core.recap.AiJobStore
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
 import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import io.github.alalkipgen.autoflow.platform.AppDirs
@@ -17,6 +19,7 @@ import io.github.alalkipgen.autoflow.platform.ToolLocator
 import io.github.alalkipgen.autoflow.platform.UrlOpener
 import io.github.alalkipgen.autoflow.platform.desktop
 import io.github.alalkipgen.autoflow.platform.desktopSecureStorage
+import io.github.alalkipgen.autoflow.ui.jobs.DesktopAiJobRunner
 import io.github.alalkipgen.autoflow.ui.media.InProcessRenderQueue
 import io.github.alalkipgen.autoflow.ui.settings.BundledConfig
 import java.awt.Frame
@@ -45,6 +48,9 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     // Export on Windows (PLAN 1C): renders in this process, one at a time; Open plays the result.
     single<RenderQueue> { InProcessRenderQueue(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
     single<FileShare> { DesktopFileShare() }
+    // AI job runner (5A-5): in-process coroutine runner for desktop.
+    single { AiJobStore(get(), get<AppDirs>().aiJobs) }
+    single<AiJobRunner> { DesktopAiJobRunner(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
 }
 
 private fun readResource(path: String): String =
