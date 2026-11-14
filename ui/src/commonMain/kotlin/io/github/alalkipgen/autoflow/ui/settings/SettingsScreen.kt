@@ -223,6 +223,10 @@ private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: Corou
 @Composable
 private fun FontsCard(fonts: List<String>, model: SettingsModel, scope: CoroutineScope) {
     AfCard("Fonts (lyrics and title overlays)") {
+        val builtIn = org.koin.compose.getKoin().getOrNull<BuiltInFonts>()?.paths.orEmpty()
+        if (builtIn.isNotEmpty()) {
+            AfText("Built in: Pyidaungsu, Noto Sans Myanmar — used for the app text, lyrics and captions. Fonts added here are used too.", muted = true, size = 12.sp)
+        }
         if (fonts.isEmpty()) AfText("No fonts added.", muted = true)
         fonts.forEach { path ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

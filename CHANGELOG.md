@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.2.2
+
+- **Built-in Burmese fonts** (D-49): Pyidaungsu and Noto Sans Myanmar (regular + bold) ship inside the app, so the
+  app text, lyrics and captions show Burmese without adding fonts in Settings. Fonts added in Settings still work.
+- **Jobs tab** (5A-5): lists everything that is running — finding scenes, writing the script, voice, storyboard and
+  renders (with progress) — with Open and Cancel; the tab badge counts them. No more "not built yet".
+- **Settings in Studio v2**: Home → ⚙ Settings. Home also lists recent projects (tap to open).
+- **Project screens in Studio v2**: a project bar with ← Projects and chips for every screen (Movie Recap: Recap ·
+  Export; Music Video: Input · Storyboard · Shots · References · Flow Handoff · Inbox · Export). Android Back steps
+  back (Settings → project screen → project list → Home) instead of leaving the app.
+- **Sound for Movie Recap** (5B-4): Recap → 5 · Fit check has "Clean up the voice" (on), "Even loudness −14 LUFS"
+  (on), and background music (Add music…, Quiet / Medium / Loud, lower the music while the voice speaks). Applied
+  when the video is rendered.
+
 ## v0.2.1 (bug fixes)
 
 - **Old Movie Recap projects open again**: v0.2.0 migrated them to recap v2 on open, but the app still reads v1, so

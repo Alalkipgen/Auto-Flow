@@ -1,3 +1,5 @@
+import java.io.File
+import java.util.Base64
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -8,6 +10,22 @@ val ciVersionCode = providers.gradleProperty("versionCode").orNull?.toIntOrNull(
 val gitSha = providers.gradleProperty("gitSha").orNull ?: "local"
 val keystoreFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull?.takeIf { file(it).isFile }
 
+// Built-in Burmese fonts (D-49): fonts/*.ttf.b64 are base64 text; decoded here into build/generated/fonts/fonts/*.ttf.
+val decodeBuiltInFonts = tasks.register("decodeBuiltInFonts") {
+    val src = rootProject.layout.projectDirectory.dir("fonts")
+    val out = layout.buildDirectory.dir("generated/fonts/fonts")
+    inputs.dir(src)
+    outputs.dir(out)
+    doLast {
+        val dir = out.get().asFile
+        dir.deleteRecursively()
+        dir.mkdirs()
+        src.asFile.listFiles { f -> f.name.endsWith(".ttf.b64") }.orEmpty().forEach { f ->
+            File(dir, f.name.removeSuffix(".b64")).writeBytes(Base64.getMimeDecoder().decode(f.readText().trim()))
+        }
+    }
+}
+
 android {
     namespace = "io.github.alalkipgen.autoflow"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -17,7 +35,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = ciVersionCode
-        versionName = "0.2.1"
+        versionName = "0.2.2"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("String", "SIGNING", "\"${if (keystoreFile != null) "stable" else "runner-debug"}\"")
         // D-23: the bundled ffmpeg exists for arm64-v8a only.
@@ -32,6 +50,8 @@ android {
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/bundled").get().asFile)
     // The bundled models.json (same file the desktop app ships as a resource).
     sourceSets.getByName("main").assets.srcDir(rootProject.file("config"))
+    // Built-in fonts (D-49) as assets fonts/*.ttf, decoded before the build (see decodeBuiltInFonts).
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/fonts").get().asFile)
 
     signingConfigs {
         if (keystoreFile != null) {
@@ -78,3 +98,5 @@ dependencies {
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotlinx.coroutines.test)
 }
+
+tasks.named("preBuild") { dependsOn(decodeBuiltInFonts) }

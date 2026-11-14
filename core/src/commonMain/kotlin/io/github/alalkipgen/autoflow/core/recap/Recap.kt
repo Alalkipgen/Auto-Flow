@@ -52,6 +52,11 @@ data class Recap(
      * Absent key = default EXTEND. Applied when take + 0.4 s > scene length.
      */
     val fit: Map<Int, FitChoice> = emptyMap(),
+    /**
+     * Sound (5B-4): voice polish, background music (`bgm` = an `au` artifact), ducking, loudness. Its `movieVolume`
+     * is not used in v1 ([movieVolume] is); the migration copies [movieVolume] into it.
+     */
+    val audio: RecapAudio = RecapAudio(),
 ) {
     val picked: List<RecapScene> get() = scenes.filter { it.picked }
     val pickedMs: Long get() = picked.sumOf { it.durationMs }

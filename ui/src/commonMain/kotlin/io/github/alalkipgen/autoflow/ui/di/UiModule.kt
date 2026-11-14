@@ -42,6 +42,7 @@ import org.koin.dsl.module
  */
 val uiModule = module {
     single { SettingsStore(get(), get<AppDirs>().settings) }
+    single { io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts(get(), getOrNull<AppDirs>()?.let { joinPath(it.root, io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts.DIR) }, get()) }
     single { UsageCounter(get(), get<AppDirs>().usage) }
     single { loadModelConfig(get(), get<SettingsStore>().state.value.modelsConfigPath, get()) }
     single { get<LoadedModelConfig>().config }
@@ -80,7 +81,7 @@ val uiModule = module {
     single { ShellModel(get()) }
     // Movie Recap (D-33): a single, so copying / finding scenes keeps going off-screen.
     single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull()) }
-    single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull()) }
+    single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull()) }
     // Library (5A-7)
     single { io.github.alalkipgen.autoflow.core.library.LibraryStore(get(), get<AppDirs>().library) }
     single { io.github.alalkipgen.autoflow.ui.library.LibraryModel(get(), get(), MainScope()) }

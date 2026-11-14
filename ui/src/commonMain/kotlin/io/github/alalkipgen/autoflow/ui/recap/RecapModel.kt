@@ -66,6 +66,8 @@ data class RecapUiState(
     val recording: Int? = null,
     /** Audio file of each segment's newest take (for ▶). */
     val takeFiles: Map<Int, String> = emptyMap(),
+    /** File name of the background music (`recap.audio.bgm`), for the Sound controls. */
+    val bgmName: String? = null,
 ) {
     val busy: Boolean get() = job != null
 }
@@ -108,6 +110,7 @@ class RecapModel(
             summary = if (open == null) "" else session.readSource(SUMMARY_FILE),
             recording = keep?.recording,
             takeFiles = takeFiles(open?.dir, recap),
+            bgmName = recap?.audio?.bgm?.let { id -> session.artifacts()?.get(id)?.let { (it as? CoreResult.Ok)?.value?.inputs?.get(BGM_NAME_INPUT) } },
             movieName = session.moviePath()?.substringAfterLast('/'),
             job = keep?.job,
             progress = keep?.progress,
@@ -493,6 +496,34 @@ class RecapModel(
         update { it.copy(movieVolume = volume.coerceIn(0.0, 1.0)) }
     }
 
+    /** Changes the sound settings (5B-4); used when the video is rendered. */
+    fun setAudio(change: (io.github.alalkipgen.autoflow.core.recap.RecapAudio) -> io.github.alalkipgen.autoflow.core.recap.RecapAudio) {
+        if (_state.value.busy) return
+        update { it.copy(audio = change(it.audio)) }
+    }
+
+    /** Picks a music file and keeps it as the background music (an `au` artifact; the old one stays on disk). */
+    fun importBgm(): Job? {
+        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        if (_state.value.busy || _state.value.recording != null) return null
+        return scope.launch {
+            val from = when (val r = p.pickFiles("Choose the background music", AUDIO_EXTENSIONS)) {
+                is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
+                is PlatformResult.Failed -> return@launch say(r.reason)
+                is PlatformResult.Unsupported -> return@launch say(r.reason)
+            }
+            val bytes = withContext(Dispatchers.Default) { session.readFile(from) }?.takeIf { it.isNotEmpty() }
+                ?: return@launch say("Cannot read this file")
+            val ext = from.substringAfterLast('.', "m4a").lowercase().takeIf { it in AUDIO_EXTENSIONS } ?: "m4a"
+            val store = session.artifacts() ?: return@launch say("No project is open")
+            val name = from.substringAfterLast('/').substringAfterLast('\\')
+            when (val r = store.put(bytes, io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, ext, inputs = mapOf("role" to "bgm", BGM_NAME_INPUT to name), provider = "imported")) {
+                is CoreResult.Ok -> if (update { it.copy(audio = it.audio.copy(bgm = r.value.id)) }) { say("Background music: $name"); ok() }
+                is CoreResult.Err -> say(r.error.message)
+            }
+        }
+    }
+
     /** Turns one look on or off; the order stays Mirror, Zoom, Fill, Warm. */
     fun toggleLook(look: Look) {
         if (_state.value.busy) return
@@ -572,6 +603,10 @@ class RecapModel(
         const val RATE_LIMITED = "The free-tier limit is reached; try again later"
         /** Movie sound chips (spec §6). */
         val MOVIE_VOLUMES = listOf("Off" to 0.0, "Low" to Recap.MOVIE_VOLUME_LOW, "Full" to 1.0)
+
+        /** Background music level chips (5B-4). */
+        val BGM_VOLUMES = listOf("Quiet" to 0.1, "Medium" to 0.18, "Loud" to 0.3)
+        const val BGM_NAME_INPUT = "name"
 
         /** Look chips (spec §6). */
         val LOOKS = listOf(Look.MIRROR to "Mirror", Look.ZOOM to "Zoom 10 %", Look.FILL to "Fill frame", Look.WARM to "Warm")

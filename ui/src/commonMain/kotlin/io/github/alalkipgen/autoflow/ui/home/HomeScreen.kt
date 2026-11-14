@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.QuickRecapStage
@@ -43,6 +44,11 @@ fun HomeScreen(
     onNewMusicVideo: () -> Unit = {},
     onQuickRecapStart: (targetMs: Long, style: RecapStyle) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {},
+    /** AI provider status line (title bar text in the classic shell). */
+    status: String? = null,
+    recent: List<io.github.alalkipgen.autoflow.ui.projects.ProjectEntry> = emptyList(),
+    onOpenProject: (dir: String) -> Unit = {},
 ) {
     Column(
         modifier
@@ -51,7 +57,11 @@ fun HomeScreen(
             .padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        AfText("Home", size = 20.sp, bold = true)
+        androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            AfText("Home", Modifier.weight(1f), size = 20.sp, bold = true)
+            AfButton("⚙ Settings", onOpenSettings, Modifier.testTag("home-settings"))
+        }
+        status?.let { AfText(it, muted = true, size = 12.sp) }
 
         // Quick Recap wizard card (5B-11)
         QuickRecapWizardCard(onQuickRecapStart)
@@ -64,9 +74,12 @@ fun HomeScreen(
             }
         }
 
-        // Recent projects placeholder (full impl in Dashboard, linked from here)
         AfCard("Recent projects") {
-            AfText("Your recent projects appear here. Open them from Projects tab.", muted = true)
+            if (recent.isEmpty()) AfText("No projects yet. New ones show here; all of them are in the Projects tab.", muted = true)
+            recent.forEach { entry ->
+                val kind = if (entry.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "🎬" else "🎵"
+                AfButton("$kind ${entry.name}", { onOpenProject(entry.path) }, Modifier.fillMaxWidth().testTag("recent-${entry.name}"))
+            }
         }
     }
 }

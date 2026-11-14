@@ -84,7 +84,21 @@ data class AudioTrack(
  */
 @Serializable
 @SerialName("VoiceTrack")
-data class VoiceTrack(val cues: List<VoiceCue>, val clipsVolume: Double = 0.2)
+data class VoiceTrack(
+    val cues: List<VoiceCue>,
+    val clipsVolume: Double = 0.2,
+    /** Voice polish on every cue (high-pass, de-noise, compressor; 5B-4 `AudioFilters.voicePolish`). */
+    val polish: Boolean = false,
+    /** Background music under everything, looped and faded, ducked under the narration when [MusicBed.duck]. */
+    val music: MusicBed? = null,
+    /** Final loudness target (single-pass `loudnorm`), e.g. −14 LUFS; null = left as mixed. */
+    val loudnessLufs: Double? = null,
+)
+
+/** Background music for a narrated render; [file] like [VoiceCue.file]. */
+@Serializable
+@SerialName("MusicBed")
+data class MusicBed(val file: String, val volume: Double = 0.18, val duck: Boolean = true)
 
 /** [file] is relative to the project folder (an `au` artifact) or absolute. */
 @Serializable

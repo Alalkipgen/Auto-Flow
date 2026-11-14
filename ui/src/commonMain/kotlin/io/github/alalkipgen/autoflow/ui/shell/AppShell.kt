@@ -116,7 +116,8 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val settingsState by settingsModel.state.collectAsState()
     val fontPaths = settings.fontPaths
     val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
-    val uiFont = remember(fontPaths) { UiFont.load(fontPaths) { runCatching { fs.read(it) }.getOrNull() } ?: FontFamily.Default }
+    val builtInFonts = remember(koin) { koin.getOrNull<io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts>() }
+    val uiFont = remember(fontPaths, builtInFonts) { UiFont.load(io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts.withBuiltIns(fontPaths, builtInFonts)) { runCatching { fs.read(it) }.getOrNull() } ?: FontFamily.Default }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxWidth < COMPACT_WIDTH
         // MORE is a phone tab; a window widened while on it shows the Dashboard.
@@ -166,6 +167,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                     windowWidthDp = maxWidth.value,
                     appInfo = appInfo,
                     backup = backup,
+                    backHandler = backHandler,
                 )
             } else if (compact) {
                 PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
@@ -178,6 +180,22 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     }
 }
 
+/** Where Studio v2 is: tab, project screen (null = the project list) and whether Settings is open over it. */
+data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false)
+
+/** Android Back in Studio v2: closes Settings, then steps project screen → list, then any tab → Home; null = leave. */
+fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
+    nav.settings -> nav.copy(settings = false)
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Export" && recap -> nav.copy(projectScreen = "Recap")
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null -> nav.copy(projectScreen = null)
+    nav.dest != StudioV2Dest.HOME -> V2Nav(projectScreen = nav.projectScreen)
+    else -> null
+}
+
+/** Project screens reachable in Studio v2, per project mode (Music Video keeps the classic steps until 5B-12). */
+fun v2ProjectScreens(recap: Boolean): List<String> =
+    if (recap) listOf("Recap", "Export") else listOf("Input", "Storyboard", "Shots", "References", "Flow Handoff", "Inbox", "Export")
+
 /**
  * Studio v2 root (5A-6): Home · Projects · Library · Jobs with adaptive shell.
  * Bottom nav < 600 dp, rail ≥ 600 dp, three-pane ≥ 840 dp.
@@ -189,58 +207,130 @@ private fun StudioV2App(
     windowWidthDp: Float,
     appInfo: AppInfo?,
     backup: BackupModel?,
+    backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit,
 ) {
-    val koin = getKoin()
-    val jobRunner = remember(koin) { koin.getOrNull<AiJobRunner>() }
-    val jobs by (jobRunner?.jobs?.collectAsState() ?: remember { mutableStateOf<List<AiJob>>(emptyList()) })
-    val badge = jobsBadgeValue(jobs)
-    var dest by remember { mutableStateOf(StudioV2Dest.HOME) }
-    // Project sub-screen: null = Dashboard list; "Recap" / "Input" / "Export" = project screen
-    var projectScreen by remember { mutableStateOf<String?>(null) }
+    val rows = io.github.alalkipgen.autoflow.ui.jobs.rememberJobRows()
+    val badge = jobsBadgeValue(rows)
+    var nav by remember { mutableStateOf(V2Nav()) }
     val currentProject = koinInject<io.github.alalkipgen.autoflow.ui.projects.CurrentProject>()
+    val open by currentProject.state.collectAsState()
+    val isRecap = open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP
     val scope = rememberCoroutineScope()
+    val back = v2Back(nav, isRecap)
+    backHandler(back != null) { back?.let { nav = it } }
+    fun openProjectScreen(screen: String?) { nav = V2Nav(StudioV2Dest.PROJECTS, screen) }
 
     val content: @Composable () -> Unit = {
-        when (dest) {
+        if (nav.settings) {
+            Column(Modifier.fillMaxSize()) {
+                V2SubBar("← Back", status) { nav = nav.copy(settings = false) }
+                Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup) }
+            }
+        } else when (nav.dest) {
             StudioV2Dest.HOME -> {
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
                 HomeScreen(
-                    onNewRecap = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
-                    onNewMusicVideo = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
+                    onNewRecap = { openProjectScreen(null) },
+                    onNewMusicVideo = { openProjectScreen(null) },
                     onQuickRecapStart = { targetMs, style ->
-                        if (dashboard.createQuickRecap(targetMs, style)) {
-                            dest = StudioV2Dest.PROJECTS
-                            projectScreen = "Recap"
+                        if (dashboard.createQuickRecap(targetMs, style)) openProjectScreen("Recap")
+                    },
+                    onOpenSettings = { nav = nav.copy(settings = true) },
+                    status = status,
+                    recent = dashboard.state.collectAsState().value.rows.filter { !it.missing }.take(3).map { it.entry },
+                    onOpenProject = { dir ->
+                        if (dashboard.open(dir)) {
+                            val mode = currentProject.state.value?.project?.mode
+                            openProjectScreen(if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
                         }
                     },
                 )
             }
             StudioV2Dest.PROJECTS -> {
-                when (projectScreen) {
-                    "Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(
-                        koinInject(), onGoToExport = { projectScreen = "Export" }
-                    )
-                    "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { projectScreen = "Storyboard" })
-                    "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { projectScreen = "Input" })
-                    "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
-                    else -> DashboardScreen(koinInject(), onOpened = {
+                val screen = nav.projectScreen
+                if (screen == null) {
+                    DashboardScreen(koinInject(), onOpened = {
                         val mode = currentProject.state.value?.project?.mode
-                        projectScreen = if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input"
+                        openProjectScreen(if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
                     })
+                } else {
+                    Column(Modifier.fillMaxSize()) {
+                        V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
+                        Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen) { openProjectScreen(it) } }
+                    }
                 }
             }
             StudioV2Dest.LIBRARY -> LibraryScreen(koinInject<LibraryModel>())
-            StudioV2Dest.JOBS -> if (jobRunner != null) JobsScreen(jobRunner, scope) else ScreenPlaceholder("Jobs")
+            StudioV2Dest.JOBS -> io.github.alalkipgen.autoflow.ui.jobs.JobsScreen(rows, scope, onOpen = { source ->
+                when (source) {
+                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.RECAP -> openProjectScreen("Recap")
+                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.RENDER -> openProjectScreen("Export")
+                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.STORYBOARD -> openProjectScreen("Storyboard")
+                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.AI -> Unit
+                }
+            })
         }
     }
 
     StudioV2Shell(
-        selected = dest,
-        onSelect = { dest = it },
+        selected = nav.dest,
+        // Projects again while on Projects = back to the list; other tabs keep the open project screen for later.
+        onSelect = { nav = V2Nav(it, if (it == StudioV2Dest.PROJECTS && nav.dest == StudioV2Dest.PROJECTS) null else nav.projectScreen) },
         jobsBadge = badge,
         windowWidthDp = windowWidthDp,
         content = content,
     )
+}
+
+/** One project screen inside Studio v2; [go] moves to another one. */
+@Composable
+private fun V2ProjectScreen(screen: String, go: (String) -> Unit) {
+    when (screen) {
+        "Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { go("Export") })
+        "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { go("Storyboard") })
+        "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { go("Input") })
+        "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
+        "References" -> {
+            val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+            io.github.alalkipgen.autoflow.ui.references.ReferencesScreen(model = koinInject(), readBytes = { path -> runCatching { fs.read(path) }.getOrNull() })
+        }
+        "Flow Handoff" -> {
+            val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+            io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffScreen(model = koinInject(), readBytes = { path -> runCatching { fs.read(path) }.getOrNull() })
+        }
+        "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
+        "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
+        else -> ScreenPlaceholder(screen)
+    }
+}
+
+/** Top bar of a Studio v2 sub-screen: a back button and [status] (AI provider) on the right. */
+@Composable
+private fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        io.github.alalkipgen.autoflow.ui.components.AfButton(backLabel, onBack)
+        Spacer(Modifier.weight(1f))
+        AfText(status, muted = true, size = 12.sp)
+    }
+}
+
+/** Project header in Studio v2: ← Projects, the project name, and chips for the project's screens. */
+@Composable
+private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            io.github.alalkipgen.autoflow.ui.components.AfButton("← Projects", onBack)
+            projectName?.let { AfText(it, Modifier.weight(1f), bold = true) }
+        }
+        io.github.alalkipgen.autoflow.ui.components.WrapRow(spacing = 6.dp) {
+            screens.forEach { s -> io.github.alalkipgen.autoflow.ui.components.AfChip(s, s == selected, onClick = { onSelect(s) }) }
+        }
+        Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
+    }
 }
 
 /**

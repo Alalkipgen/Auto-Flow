@@ -1,3 +1,5 @@
+import java.io.File
+import java.util.Base64
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -27,11 +29,29 @@ dependencies {
     testImplementation(libs.kotlin.test)
 }
 
+// Built-in Burmese fonts (D-49): fonts/*.ttf.b64 are base64 text; decoded here into build/generated/fonts/fonts/*.ttf.
+val decodeBuiltInFonts = tasks.register("decodeBuiltInFonts") {
+    val src = rootProject.layout.projectDirectory.dir("fonts")
+    val out = layout.buildDirectory.dir("generated/fonts/fonts")
+    inputs.dir(src)
+    outputs.dir(out)
+    doLast {
+        val dir = out.get().asFile
+        dir.deleteRecursively()
+        dir.mkdirs()
+        src.asFile.listFiles { f -> f.name.endsWith(".ttf.b64") }.orEmpty().forEach { f ->
+            File(dir, f.name.removeSuffix(".b64")).writeBytes(Base64.getMimeDecoder().decode(f.readText().trim()))
+        }
+    }
+}
+
 // Ship config/models.json (D-10) on the classpath as /config/models.json; Settings can point at an override file.
 // config/features.json (D-41) ships the same way, as /config/features.json.
 tasks.named<ProcessResources>("processResources") {
     from(rootProject.layout.projectDirectory.file("config/models.json")) { into("config") }
     from(rootProject.layout.projectDirectory.file("config/features.json")) { into("config") }
+    // Built-in Burmese fonts (D-49), as /config/fonts/*.ttf.
+    from(decodeBuiltInFonts) { into("config/fonts") }
 }
 
 compose.desktop {
