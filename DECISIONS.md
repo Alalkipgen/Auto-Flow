@@ -1,6 +1,6 @@
 # Auto Flow — Architecture Decisions
 
-Next decision: **D-53**
+Next decision: **D-54**
 
 ## D-52 — Bug fixes + 5A-6 three-pane (2025)
 
@@ -37,3 +37,24 @@ StudioV2Shell now has three branches:
 - ≥ 840 dp → compact rail 60 dp (icon-only) + content fills rest
 
 V2NavRailCompact uses emoji icons + purple top-line indicator.
+
+## D-53 — 5B-6 SmartFit, Brand Kit watermark, caption timing, QuickRecap live (PR #132)
+
+### 5B-6 SmartFit SPEED / SLOW_VIDEO
+- FitChoice.SPEED: RecapFit.rows() computes voiceSpeed = (takeMs+TAIL)/sceneMs, clamped to maxVoiceSpeed (1.5×).
+  VoiceCue.speedFactor → RenderCompiler.atempoChain() (chains atempo=2.0 when >2×).
+- FitChoice.SLOW_VIDEO: videoSlow = scene/take, clamped to maxVideoSlow (0.7×).
+  Clip.slowFactor → RenderCompiler: setpts=1/slowFactor*PTS.
+
+### Brand Kit watermark IMAGE layer (5B-3)
+- RecapVisual.watermarkFile: String? — set by LibraryModel.applyBrandKit when kit has a watermark.
+- RecapRender.graph() adds Layer(IMAGE, rect=[76%,82%,22%,14%], opacity=0.75) for every frame.
+- RenderJobRunner.resolveLayerImage resolves relative paths from workDir.
+
+### Per-chunk caption timing edit
+- RecapModel.saveSegmentTiming(index, startMs, endMs): shifts segment time, validated.
+- TimingEditRow composable in VoiceBlockCard SpeakTab: mm:ss.s format, Save/Cancel.
+
+### QuickRecap stage list (5B-11)
+- QuickRecapStageList() observes AiJobRunner.jobs live (was stub).
+- Filters QUICK_RECAP + TTS_ALL, shows state/items left/ETA per job.
