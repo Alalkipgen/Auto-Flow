@@ -721,7 +721,10 @@ class RecapModel(
         val take = io.github.alalkipgen.autoflow.core.recap.RecapRules.currentTake(recap, _state.value.script ?: return null, index)
             ?: return say("No take for this block").let { null }
         val dir = session.open?.dir ?: return null
-        val file = io.github.alalkipgen.autoflow.core.io.joinPath(dir, take.file)
+        val artifactStore = ArtifactStore(fs, dir)
+        val artifactFile = (artifactStore.get(take.audio) as? CoreResult.Ok)?.value?.file
+            ?: return say("Take file not found").let { null }
+        val file = joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), artifactFile)
         if (!fs.exists(file)) return say("Take file not found").let { null }
         return scope.launch {
             busy("Cleaning take ${ index + 1 }…")
