@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import io.github.alalkipgen.autoflow.platform.AndroidFilePicker
+import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.android.inject
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private val sharedInbox: SharedInbox by inject()
     private val voiceRecorder: io.github.alalkipgen.autoflow.platform.AndroidVoiceRecorder by inject()
 
+
     // Microphone permission for Movie Recap narration (D-34)
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         voiceRecorder.onPermissionResult(granted)
@@ -60,6 +62,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         // Wire the picker launcher into AndroidFilePicker
+        // Wire the exit hook so the UI dialog can finish the activity (D-52).
+        getKoin().declare<io.github.alalkipgen.autoflow.platform.AppExit>(
+            io.github.alalkipgen.autoflow.platform.AppExit { finishAffinity() }
+        )
         filePicker.launchPickIntent = { _, extensions, multiple ->
             val mime = when {
                 extensions.any { it in setOf("mp4", "mov") } && extensions.any { it in setOf("png", "jpg", "jpeg") } -> "*/*"

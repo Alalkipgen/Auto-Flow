@@ -67,7 +67,14 @@ fun StudioV2Shell(
     content: @Composable () -> Unit,
 ) {
     val useRail = windowWidthDp >= RAIL_WIDTH.value
-    if (useRail) {
+    val useThreePane = windowWidthDp >= THREE_PANE_WIDTH.value
+    if (useThreePane) {
+        // Three-pane: narrow rail (60 dp) + content fills the rest (5A-6).
+        Row(modifier.fillMaxSize()) {
+            V2NavRailCompact(selected, onSelect, jobsBadge)
+            Box(Modifier.fillMaxSize()) { content() }
+        }
+    } else if (useRail) {
         Row(modifier.fillMaxSize()) {
             V2NavRail(selected, onSelect, jobsBadge)
             Box(Modifier.fillMaxSize()) { content() }
@@ -76,6 +83,54 @@ fun StudioV2Shell(
         Column(modifier.fillMaxSize()) {
             Box(Modifier.fillMaxWidth().weight(1f)) { content() }
             V2BottomNav(selected, onSelect, jobsBadge)
+        }
+    }
+}
+
+/** Compact nav rail for the three-pane layout (≥840 dp): 60 dp wide, icons only (5A-6). */
+@Composable
+private fun V2NavRailCompact(
+    selected: StudioV2Dest,
+    onSelect: (StudioV2Dest) -> Unit,
+    jobsBadge: Int,
+) {
+    val destIcons = mapOf(
+        StudioV2Dest.HOME to "🏠",
+        StudioV2Dest.PROJECTS to "📁",
+        StudioV2Dest.LIBRARY to "📚",
+        StudioV2Dest.JOBS to "⚙",
+    )
+    Column(
+        Modifier
+            .width(60.dp)
+            .fillMaxHeight()
+            .background(AutoFlowColors.Panel)
+            .border(AutoFlowShapes.Border, AutoFlowColors.Line),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        StudioV2Dest.ALL.forEach { dest ->
+            val on = dest == selected
+            val showBadge = dest == StudioV2Dest.JOBS && jobsBadge != 0
+            val icon = destIcons[dest] ?: dest.label.take(1)
+            val ink = if (on) Color.White else AutoFlowColors.Muted
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .selectable(selected = on, role = Role.Tab) { onSelect(dest) }
+                    .padding(vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (on) Box(Modifier.height(2.dp).fillMaxWidth().background(AutoFlowColors.Purple))
+                BasicText(
+                    if (showBadge) "$icon●" else icon,
+                    style = TextStyle(
+                        color = if (showBadge && jobsBadge < 0) AutoFlowColors.Amber else ink,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 18.sp,
+                    ),
+                )
+            }
         }
     }
 }

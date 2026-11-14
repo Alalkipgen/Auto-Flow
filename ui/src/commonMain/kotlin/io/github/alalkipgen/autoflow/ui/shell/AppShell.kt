@@ -73,6 +73,11 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import io.github.alalkipgen.autoflow.ui.theme.UiFont
+import androidx.compose.ui.window.Dialog
+import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 
@@ -212,12 +217,23 @@ private fun StudioV2App(
     val rows = io.github.alalkipgen.autoflow.ui.jobs.rememberJobRows()
     val badge = jobsBadgeValue(rows)
     var nav by remember { mutableStateOf(V2Nav()) }
+    var showExitDialog by remember { mutableStateOf(false) }
     val currentProject = koinInject<io.github.alalkipgen.autoflow.ui.projects.CurrentProject>()
     val open by currentProject.state.collectAsState()
     val isRecap = open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP
     val scope = rememberCoroutineScope()
+    // Bug fix: share-sheet → Inbox navigate (D-52)
+    val shared = koinInject<io.github.alalkipgen.autoflow.ui.inbox.SharedInbox>()
+    val arrivals by shared.state.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(arrivals.arrivals) {
+        if (arrivals.arrivals > 0) nav = V2Nav(StudioV2Dest.PROJECTS, "Inbox")
+    }
     val back = v2Back(nav, isRecap)
-    backHandler(back != null) { back?.let { nav = it } }
+    // Bug fix: Home Back → "Exit app?" dialog instead of immediate exit (D-52)
+    backHandler(true) {
+        if (back != null) nav = back
+        else showExitDialog = true
+    }
     fun openProjectScreen(screen: String?) { nav = V2Nav(StudioV2Dest.PROJECTS, screen) }
 
     val content: @Composable () -> Unit = {
@@ -280,6 +296,14 @@ private fun StudioV2App(
         windowWidthDp = windowWidthDp,
         content = content,
     )
+    // Exit confirmation dialog (D-52)
+    if (showExitDialog) {
+        val koin = getKoin()
+        ExitDialog(
+            onExit = { koin.getOrNull<io.github.alalkipgen.autoflow.platform.AppExit>()?.exit(); showExitDialog = false },
+            onStay = { showExitDialog = false },
+        )
+    }
 }
 
 /** One project screen inside Studio v2; [go] moves to another one. */
@@ -355,6 +379,26 @@ fun AppShell(
             Column(Modifier.fillMaxSize()) {
                 top()
                 Box(Modifier.fillMaxWidth().weight(1f)) { content() }
+            }
+        }
+    }
+}
+
+/** "Exit Auto Flow?" confirmation (D-52). */
+@Composable
+private fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
+    Dialog(onDismissRequest = onStay) {
+        Column(
+            Modifier
+                .clip(AutoFlowShapes.Card)
+                .background(AutoFlowColors.Panel)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AfText("Exit Auto Flow?", bold = true)
+            WrapRow {
+                AfButton("Exit", onExit, kind = ButtonKind.Danger)
+                AfButton("Stay", onStay)
             }
         }
     }

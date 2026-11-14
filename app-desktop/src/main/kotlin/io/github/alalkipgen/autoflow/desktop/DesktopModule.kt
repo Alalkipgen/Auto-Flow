@@ -6,6 +6,7 @@ import io.github.alalkipgen.autoflow.core.recap.AiJobStore
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
 import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import io.github.alalkipgen.autoflow.platform.AppDirs
+import io.github.alalkipgen.autoflow.platform.AppExit
 import io.github.alalkipgen.autoflow.platform.AwtClipboard
 import io.github.alalkipgen.autoflow.platform.Clipboard
 import io.github.alalkipgen.autoflow.platform.DesktopToolLocator
@@ -53,6 +54,8 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     // AI job runner (5A-5): in-process coroutine runner for desktop.
     single { AiJobStore(get(), get<AppDirs>().aiJobs) }
     single<AiJobRunner> { DesktopAiJobRunner(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
+    // D-52: exit hook; on desktop the Window's onCloseRequest handles it, so this is a no-op stub.
+    single<AppExit> { AppExit { /* desktop exits via Window.onCloseRequest */ } }
 }
 
 private fun readResource(path: String): String =

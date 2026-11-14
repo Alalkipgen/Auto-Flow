@@ -26,6 +26,7 @@ import io.github.alalkipgen.autoflow.platform.AndroidFilePicker
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.JvmFs
 import io.github.alalkipgen.autoflow.platform.ProjectBackup
+import io.github.alalkipgen.autoflow.platform.AppExit
 import io.github.alalkipgen.autoflow.platform.SecureStorage
 import io.github.alalkipgen.autoflow.platform.ToolLocator
 import io.github.alalkipgen.autoflow.platform.UrlOpener
@@ -78,4 +79,6 @@ fun androidModule(app: Application) = module {
         }
     }
     single { AppInfo("${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_SHA})") { SelfTestActivity.open(app) } }
+    // D-52: exit hook so the UI can call finishAffinity() from the dialog.
+    single<AppExit> { AppExit { /* set by MainActivity */ } }
 }
