@@ -38,6 +38,8 @@ object RenderCompiler {
         val voicePath: (String) -> String? = { null },
         /** Layer image id → an absolute file path, or null when the artifact is missing. */
         val resolveLayerImage: (String) -> String? = { null },
+        /** Background image absolute path for [FrameBackground.IMAGE] (D-51); null = not found. */
+        val backgroundImageFile: String? = null,
     )
 
     sealed interface Compiled {
@@ -80,8 +82,19 @@ object RenderCompiler {
             } else videoSource
             val pre = (if (Look.MIRROR in looks) "hflip," else "") + (if (Look.ZOOM in looks) "crop=iw*0.9:ih*0.9," else "")
             val background = if (fromSource) graph.background else FrameBackground.BARS
+            val imgBg = background == FrameBackground.IMAGE && graph.backgroundImageFile != null
+            if (imgBg) {
+                // IMAGE background (D-51): a still image opens as a separate input, blurred and scaled to cover the
+                // frame; the movie picture is fitted on top (like BLUR but the backing comes from a file, not the movie).
+                val bi = input("-loop", "1", "-i", graph.backgroundImageFile!!)
+                chains += "[$bi:v]scale=${out.width}:${out.height}:force_original_aspect_ratio=increase,crop=${out.width}:${out.height},gblur=sigma=4,setsar=1[imgbg$k]"
+            }
             val fit = when {
                 Look.FILL in looks -> "scale=${out.width}:${out.height}:force_original_aspect_ratio=increase,crop=${out.width}:${out.height},"
+                imgBg -> {
+                    // Scale movie to fit, then overlay on the blurred image background
+                    "scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease,setsar=1[mfg$k];[imgbg$k][mfg$k]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2,"
+                }
                 background == FrameBackground.BLUR -> blurredBackground(k, out.width, out.height)
                 else -> {
                     val colour = if (background == FrameBackground.COLOUR) ":color=${hexColour(graph.backgroundColour)}" else ""

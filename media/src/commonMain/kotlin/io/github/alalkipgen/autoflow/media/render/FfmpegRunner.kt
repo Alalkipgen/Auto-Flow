@@ -48,6 +48,20 @@ class FfmpegRunner(private val tools: ToolRunner, private val ffmpeg: String) {
         }
     }
 
+    /**
+     * Runs ffmpeg for a loudnorm pass-1 measurement (audio only, no output file): collects every stderr line
+     * and returns them as a string so [io.github.alalkipgen.autoflow.media.audio.AudioFilters.parseMeasurement]
+     * can extract the JSON block. Silently returns an empty string on error (the caller falls back to single-pass).
+     */
+    suspend fun measure(args: List<String>, workDir: String, durationMs: Long): String {
+        val buf = StringBuilder()
+        val command = listOf(ffmpeg, "-nostats") + args
+        runCatching {
+            tools.run(command, workDir, timeoutFor(durationMs), keepOutput = false) { buf.appendLine(it) }
+        }
+        return buf.toString()
+    }
+
     companion object {
         /** 30 min plus 20× the output length: generous for slow phones, still ends a hung ffmpeg. */
         fun timeoutFor(durationMs: Long): Long = 30 * 60_000L + 20 * durationMs

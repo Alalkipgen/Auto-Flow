@@ -45,4 +45,18 @@ class LibraryStore(
         fs.copyDurably(src, dest)
         return dest
     }
+
+    /**
+     * Copies an arbitrary file [srcAbsolute] into the Library's `files/` directory under [destName].
+     * Returns the relative path (`files/<destName>`) for storage in a [BrandKit] or similar.
+     * Silently returns null when [srcAbsolute] does not exist.
+     */
+    fun copyAssetFromPath(srcAbsolute: String, destName: String): String? {
+        if (!fs.exists(srcAbsolute)) return null
+        val filesDir = joinPath(libraryRoot, "files")
+        fs.createDirectories(filesDir)
+        val dest = joinPath(filesDir, destName)
+        fs.copyDurably(srcAbsolute, dest)
+        return "files/$destName"
+    }
 }

@@ -5,9 +5,9 @@ import kotlinx.serialization.Serializable
 
 /**
  * Picture (5B-2, docs/specs/studio-v2.md §4): blur boxes over the movie (its own burned-in subtitles, logos), what
- * fills the space around the movie when its shape differs from the video's (black bars, the movie blurred, a colour),
- * and whether the captions sit on the lowest blur box. Mask rects are 0–1 of the **movie picture** (before looks),
- * so they follow the movie whatever the output ratio is.
+ * fills the space around the movie when its shape differs from the video's (black bars, the movie blurred, a colour,
+ * or a background image — 5B-2 image background, D-51), and whether the captions sit on the lowest blur box. Mask
+ * rects are 0–1 of the **movie picture** (before looks), so they follow the movie whatever the output ratio is.
  */
 @Serializable
 @SerialName("RecapVisual")
@@ -16,6 +16,11 @@ data class RecapVisual(
     val background: FrameBackground = FrameBackground.BARS,
     /** `#RRGGBB` for [FrameBackground.COLOUR]. */
     val backgroundColour: String = "#000000",
+    /**
+     * Relative path (from the project folder) to the background image for [FrameBackground.IMAGE]
+     * (D-51 image background): copied into `artifacts/` by the UI before saving. Null = not set.
+     */
+    val backgroundImageFile: String? = null,
     /** Captions are centred on the lowest mask (when there is one) instead of the usual bottom place. */
     val captionsOnMask: Boolean = true,
 ) {
@@ -59,6 +64,8 @@ enum class FrameBackground(val label: String) {
     @SerialName("BARS") BARS("Black bars"),
     @SerialName("BLUR") BLUR("Blurred movie"),
     @SerialName("COLOUR") COLOUR("Colour"),
+    /** A still image file, see [RecapVisual.backgroundImageFile] (D-51). */
+    @SerialName("IMAGE") IMAGE("Background image"),
 }
 
 /** Changes to [RecapVisual] the Recap screen makes; pure, so they are tested without the UI. */

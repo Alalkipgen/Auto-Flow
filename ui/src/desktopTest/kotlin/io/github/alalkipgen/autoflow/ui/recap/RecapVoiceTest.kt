@@ -95,7 +95,10 @@ class RecapVoiceTest {
 
         m.setVoiceSource(VoiceSource.TTS)
         m.setTtsVoice("Kore")
-        m.speakAll()!!.join()
+        // First call shows the ETA card; second call (confirmed=true) starts the loop (5A-5, D-51).
+        assertNull(m.speakAll())
+        assertNotNull(m.state.value.speakAllEta)
+        m.speakAll(confirmed = true)!!.join()
         assertEquals(1, tts.calls, "only the scene without a voice")
         assertEquals("🔊 Spoken 1 scenes.", m.state.value.message)
         val script = m.state.value.script!!

@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.4
+
+- **Brand Kit** (5B-3, D-51): Library → save the current project's caption style and colours as a Brand Kit;
+  one-tap apply restores caption style and copies logo/watermark files into the project. Also save Brand Kit
+  directly from Recap → 5 · Fit check.
+- **Caption style presets** (5B-8, D-51): Library → save the current caption style as a preset; apply restores
+  size, colour, and box. Also save from the Fit check's caption controls.
+- **Library BGM picker** (5B-4, D-51): Library → Music → "Set as BGM" copies the track to the project and wires
+  it into the Recap audio settings.
+- **Two-pass loudnorm** (5B-4, D-51): when "Even loudness" is on, the render now runs a fast measure pass first
+  (audio only) to get accurate LUFS numbers, then applies them in the main render. Falls back to single-pass
+  when the measure pass fails.
+- **Background image** (5B-2, D-51): Recap → 5 · Fit check → Space around the movie → "Background image" lets
+  you pick a still image (PNG/JPG) that fills the frame behind the movie. The image is copied into the project.
+- **Android WorkManager AI chain** (5A-5, D-51): AI jobs (Speak All / TTS) now run in a WorkManager foreground
+  worker on the "ai" chain, separate from the render chain, so both can run at once and TTS keeps going with
+  the screen off. The job resumes where it stopped after a process kill (each spoken segment is crossed off as
+  it finishes).
+- **Speak All — ETA before start** (5A-5, D-51): Recap → Voice → "Speak all" shows an ETA card ("N scenes,
+  ~T min — Start / Cancel") before the loop begins, so the owner knows how many Gemini requests will be used.
+
 ## v0.2.3
 
 - **Hide things on the movie** (5B-2, D-50): Recap → 5 · Fit check → blur boxes for the movie's own subtitles

@@ -34,6 +34,11 @@ data class RenderGraph(
     val background: FrameBackground = FrameBackground.BARS,
     /** `#RRGGBB` for [FrameBackground.COLOUR]. */
     val backgroundColour: String = "#000000",
+    /**
+     * Absolute path to the background image for [FrameBackground.IMAGE] (D-51); resolved by the runner.
+     * Null = not set.
+     */
+    val backgroundImageFile: String? = null,
 ) {
     /** Output length: the clip strip minus crossfade overlaps. */
     val durationMs: Long

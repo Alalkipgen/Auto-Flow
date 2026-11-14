@@ -25,6 +25,10 @@ import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
@@ -60,14 +64,25 @@ fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier) {
 @Composable
 private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
     AfCard("Brand Kits (${items.size})") {
+        // Save current project as a new Brand Kit (5B-3, D-51)
+        var newName by remember { mutableStateOf("") }
+        AfButton("💼 Save current project as Brand Kit…", { newName = "My Brand Kit" })
+        if (newName.isNotEmpty()) {
+            AfTextField(newName, { newName = it }, "Brand kit name")
+            WrapRow {
+                AfButton("Save", { if (newName.isNotBlank()) { model.saveBrandKit(newName); newName = "" } }, kind = ButtonKind.Primary, enabled = newName.isNotBlank())
+                AfButton("Cancel", { newName = "" })
+            }
+        }
         if (items.isEmpty()) {
-            AfText("No brand kits yet. Add one via Settings → Library.", muted = true)
+            AfText("No brand kits saved yet. Use the button above to save the current project's settings.", muted = true)
         } else {
             items.forEach { kit ->
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     AfText(kit.name, bold = true)
                     if (kit.colours.isNotEmpty()) AfText("Colours: ${kit.colours.joinToString()}", muted = true, size = 12.sp)
-                    AfButton("Apply", { model.applyBrandKit(kit.id) })
+                    if (kit.captionStyle != null) AfText("Caption style: saved", muted = true, size = 12.sp)
+                    AfButton("Apply to current project", { model.applyBrandKit(kit.id) })
                 }
             }
         }
@@ -109,13 +124,14 @@ private fun LexiconSection(items: List<LexiconEntry>, model: LibraryModel) {
 @Composable
 private fun MusicSection(items: List<MusicItem>, model: LibraryModel) {
     AfCard("Music (${items.size})") {
+        AfText("Apply = copy to project sources. Set as BGM = also wires it into Recap audio (5B-4).", muted = true, size = 12.sp)
         if (items.isEmpty()) {
             AfText("No music tracks yet.", muted = true)
         } else {
             items.forEach { m ->
                 WrapRow {
                     AfText("${m.name} · ${m.durationMs / 1000}s", Modifier.weight(1f))
-                    AfButton("Apply", { model.applyMusic(m.id) })
+                    AfButton("Set as BGM", { model.applyMusicAsBgm(m.id) })
                 }
             }
         }
@@ -141,6 +157,16 @@ private fun FontsSection(items: List<FontItem>, model: LibraryModel) {
 @Composable
 private fun PresetsSection(items: List<Preset>, model: LibraryModel) {
     AfCard("Presets (${items.size})") {
+        // Save current caption style as a preset (5B-8, D-51)
+        var presetName by remember { mutableStateOf("") }
+        AfButton("Save caption style as preset…", { presetName = "My Caption Style" })
+        if (presetName.isNotEmpty()) {
+            AfTextField(presetName, { presetName = it }, "Preset name")
+            WrapRow {
+                AfButton("Save", { if (presetName.isNotBlank()) { model.saveCaptionPreset(presetName); presetName = "" } }, kind = ButtonKind.Primary, enabled = presetName.isNotBlank())
+                AfButton("Cancel", { presetName = "" })
+            }
+        }
         if (items.isEmpty()) {
             AfText("No presets saved yet.", muted = true)
         } else {
