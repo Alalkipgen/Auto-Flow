@@ -81,9 +81,9 @@ object LayerCompiler {
                         val idx = inputIdx++
                         inputPaths += path
                         val enableExpr = enableExpr(from, to)
-                        chains += "[$prev][${idx}:v]scale=$rw:-1,format=yuva420p," +
-                            "colorchannelmixer=aa=${p.opacity}," +
-                            "overlay=$rx:$ry:enable='$enableExpr'[$next]"
+                        chains += "[${idx}:v]scale=$rw:-1,format=yuva420p," +
+                            "colorchannelmixer=aa=${p.opacity}[wmscaled$k];" +
+                            "[$prev][wmscaled$k]overlay=$rx:$ry:enable='$enableExpr'[$next]"
                     }
                 }
 
