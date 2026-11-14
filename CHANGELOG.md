@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.2.6
+
+- **Watermark import UI** (5B-3, D-54): Recap → 5 · Fit check → "Set watermark…" lets you pick a PNG/JPG that
+  appears in the bottom-right of every rendered frame. "Change…" and "Remove" manage it after it is set. The
+  watermark file is also saved into the Brand Kit the next time you save it from Library.
+- **Clean / Polish a take** (D-54): Recap → Voice → Clean tab → "✨ Polish" trims long pauses out of an already-
+  recorded or spoken take so it matches the fit check length without re-recording.
+- **Exit dialog bigger** (D-54): the "Exit Auto Flow?" dialog is now 85% of the screen width with larger text
+  and full-width Exit / Stay buttons, so it is easy to tap on small phones.
+
+## v0.2.5
+
+- **Share-sheet → Inbox auto-navigate** (D-52 bug fix): sharing a file into Auto Flow now jumps straight to
+  Projects → Inbox, so the file is immediately visible. Previously the app opened but stayed on the last screen.
+- **Exit dialog on Back** (D-52 bug fix): pressing Back from the Home screen now shows "Exit Auto Flow?" /
+  "Renders keep going in the background." instead of quitting silently. Exit calls `finishAffinity()` on Android.
+- **Three-pane layout ≥ 840 dp** (5A-6, D-52): on wide tablets and desktop windows wider than 840 dp a compact
+  60 dp icon-only rail (🏠 📁 📚 ⚙) appears alongside the content, leaving more room for the work area.
+- **SmartFit SPEED** (5B-6, D-53): when a voice take runs over the scene length, Fit check can speed up the
+  voice (up to 1.5×) using FFmpeg `atempo` chains, so the voice fits without re-recording.
+- **SmartFit SLOW_VIDEO** (5B-6, D-53): alternatively, the scene video can be slowed down (down to 0.7×) using
+  `setpts` so the voice and video end at the same time.
+- **Brand Kit watermark render layer** (5B-3, D-53): when a watermark file is set it is composited as an IMAGE
+  layer in the bottom-right corner (22 % wide, 14 % tall, 75 % opacity) of every rendered frame.
+- **Per-chunk caption timing edit** (D-53): Recap → Voice → Speak tab shows Start / End time fields for each
+  segment; tap Save to shift the caption burn-in timing without re-rendering the whole video.
+- **QuickRecap stage list live** (5B-11, D-53): the stage list in Home → QuickRecap now updates in real time as
+  AI jobs run (Speak All, TTS), showing state, items left, and ETA.
+
 ## v0.2.4
 
 - **Brand Kit** (5B-3, D-51): Library → save the current project's caption style and colours as a Brand Kit;
