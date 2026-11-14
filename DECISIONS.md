@@ -58,3 +58,20 @@ V2NavRailCompact uses emoji icons + purple top-line indicator.
 ### QuickRecap stage list (5B-11)
 - QuickRecapStageList() observes AiJobRunner.jobs live (was stub).
 - Filters QUICK_RECAP + TTS_ALL, shows state/items left/ETA per job.
+
+## D-54 — Watermark import UI, Clean take, ExitDialog resize (v0.2.6)
+
+### Watermark Import UI
+- RecapModel.importWatermark(): opens file picker → copies file → sets visual.watermarkFile → saves
+- RecapModel.removeWatermark(): clears watermarkFile, deletes local copy
+- RecapPictureControls: "Set watermark…" button when none; "Change… / Remove" when set
+- LibraryModel.saveBrandKit: reads recap.visual.watermarkFile into BrandKit
+
+### Clean Take
+- RecapModel.cleanTake(index): loads take audio → trimPauses → saves cleaned file back
+- VoiceBlockCard Clean tab: "✨ Polish" button calls cleanTake; shows progress
+
+### ExitDialog Resize
+- padding 20dp → 32dp; title + 20.sp bold; subtitle muted text added
+- Buttons: Row with weight(1f) each → full-width side-by-side Exit / Stay
+- fillMaxWidth(0.85f) so dialog is 85% of screen width
