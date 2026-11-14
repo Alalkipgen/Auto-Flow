@@ -1,1 +1,241 @@
-cGFja2FnZSBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5wcm9qZWN0cwoKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUuQ29yZUVycm9yCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLkNvcmVSZXN1bHQKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUuaW8uRmlsZVN5c3RlbQppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5pby5qb2luUGF0aAppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5tb2RlbC5BcnRpZmFjdEtpbmQKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUubW9kZWwuQ29yZUpzb24KaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUubW9kZWwuTW9kZQppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5tb2RlbC5Qcm9qZWN0CmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLm1vZGVsLlByb2plY3RTZXR0aW5ncwppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5yZWNhcC5RdWlja1JlY2FwCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLnJlY2FwLlJlY2FwCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLnJlY2FwLlJlY2FwTWlncmF0aW9uCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLnJlY2FwLlJlY2FwU3R5bGUKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUucmVjYXAuUmVjYXBTY3JpcHQKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUucmVjYXAuUmVjYXBTdG9yeQppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5zdG9yZS5BcnRpZmFjdFN0b3JlCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLnN0b3JlLlByb2plY3RTdG9yZQppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cucGxhdGZvcm0uRmlsZVBpY2tlcgppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cucGxhdGZvcm0uUGxhdGZvcm1SZXN1bHQKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLnNldHRpbmdzLlNldHRpbmdzU3RvcmUKaW1wb3J0IGtvdGxpbnguY29yb3V0aW5lcy5mbG93Lk11dGFibGVTdGF0ZUZsb3cKaW1wb3J0IGtvdGxpbnguY29yb3V0aW5lcy5mbG93LlN0YXRlRmxvdwppbXBvcnQga290bGlueC5jb3JvdXRpbmVzLmZsb3cuYXNTdGF0ZUZsb3cKaW1wb3J0IGtvdGxpbnguc2VyaWFsaXphdGlvbi5qc29uLkpzb24KaW1wb3J0IGtvdGxpbnguc2VyaWFsaXphdGlvbi5qc29uLmpzb25PYmplY3QKCi8qKiBUaGUgcHJvamVjdCB0aGUgcGlwZWxpbmUgc2NyZWVucyB3b3JrIG9uOiBpdHMgZm9sZGVyIGFuZCB0aGUgbGFzdCBzYXZlZCBgcHJvamVjdC5qc29uYC4gKi8KZGF0YSBjbGFzcyBPcGVuUHJvamVjdCh2YWwgZGlyOiBTdHJpbmcsIHZhbCBwcm9qZWN0OiBQcm9qZWN0KQoKLyoqIEhvbGRlciBzaGFyZWQgYnkgYWxsIHNjcmVlbnM7IHNldCBieSB0aGUgRGFzaGJvYXJkLiAqLwpjbGFzcyBDdXJyZW50UHJvamVjdCB7CiAgICBwcml2YXRlIHZhbCBfc3RhdGUgPSBNdXRhYmxlU3RhdGVGbG93PE9wZW5Qcm9qZWN0Pz4obnVsbCkKICAgIHZhbCBzdGF0ZTogU3RhdGVGbG93PE9wZW5Qcm9qZWN0Pz4gPSBfc3RhdGUuYXNTdGF0ZUZsb3coKQoKICAgIGZ1biBzZXQob3BlbjogT3BlblByb2plY3Q/KSB7CiAgICAgICAgX3N0YXRlLnZhbHVlID0gb3BlbgogICAgfQp9CgovKiogW21pc3NpbmddID0gdGhlIGZvbGRlciBvciBpdHMgYHByb2plY3QuanNvbmAgaXMgZ29uZTsgdGhlIHJvdyBvZmZlcnMgIlJlbW92ZSBmcm9tIGxpc3QiLiAqLwpkYXRhIGNsYXNzIERhc2hib2FyZFJvdyh2YWwgZW50cnk6IFByb2plY3RFbnRyeSwgdmFsIG1pc3Npbmc6IEJvb2xlYW4pCgpkYXRhIGNsYXNzIERhc2hib2FyZFVpU3RhdGUodmFsIHJvd3M6IExpc3Q8RGFzaGJvYXJkUm93PiwgdmFsIG1lc3NhZ2U6IFN0cmluZz8gPSBudWxsKQoKLyoqCiAqIERhc2hib2FyZCBsb2dpYyAoREVTSUdOLm1kIMKnMyk6IHByb2plY3QgbGlzdCwgTmV3IE11c2ljIFZpZGVvLCBPcGVuIGZvbGRlci4gV2l0aCBhIFtwcm9qZWN0c0hvbWVdIChBbmRyb2lkLCBELTI3KQogKiBuZXcgcHJvamVjdHMgYWx3YXlzIGdvIHRoZXJlLCBub2JvZHkgcGlja3MgYSBmb2xkZXIsIGFuZCBwcm9qZWN0IGZvbGRlcnMgZm91bmQgdGhlcmUgam9pbiB0aGUgbGlzdCBvbiBbcmVmcmVzaF0KICogKGFmdGVyIGEgbG9zdCBgcHJvamVjdHMuanNvbmAgb3IgYSByZXN0b3JlZCBiYWNrdXApLgogKi8KY2xhc3MgRGFzaGJvYXJkTW9kZWwoCiAgICBwcml2YXRlIHZhbCBmczogRmlsZVN5c3RlbSwKICAgIHByaXZhdGUgdmFsIHN0b3JlOiBQcm9qZWN0U3RvcmUsCiAgICBwcml2YXRlIHZhbCBpbmRleDogUHJvamVjdEluZGV4LAogICAgcHJpdmF0ZSB2YWwgc2V0dGluZ3M6IFNldHRpbmdzU3RvcmUsCiAgICBwcml2YXRlIHZhbCBwaWNrZXI6IEZpbGVQaWNrZXIsCiAgICBwcml2YXRlIHZhbCBjdXJyZW50OiBDdXJyZW50UHJvamVjdCwKICAgIHZhbCBwcm9qZWN0c0hvbWU6IFN0cmluZz8gPSBudWxsLAopIHsKICAgIHByaXZhdGUgdmFsIF9zdGF0ZSA9IE11dGFibGVTdGF0ZUZsb3coc25hcHNob3QoaW5kZXgucHJvYmxlbSkpCiAgICB2YWwgc3RhdGU6IFN0YXRlRmxvdzxEYXNoYm9hcmRVaVN0YXRlPiA9IF9zdGF0ZS5hc1N0YXRlRmxvdygpCgogICAgLyoqIFdoZXJlIG5ldyBwcm9qZWN0cyBnbyBieSBkZWZhdWx0OiB0aGUgcHJvamVjdHMgaG9tZSwgZWxzZSB0aGUgbGFzdCBmb2xkZXIgdXNlZC4gKi8KICAgIHZhbCBsYXN0UGFyZW50OiBTdHJpbmc/IGdldCgpID0gcHJvamVjdHNIb21lID86IHNldHRpbmdzLnN0YXRlLnZhbHVlLnByb2plY3RzRGlyCgogICAgLyoqIENyZWF0ZXMgYDxwYXJlbnQ+LzxuYW1lPi5hdXRvZmxvd2Agd2l0aCB0aGUgZGVmYXVsdCByYXRpbyAvIGNsaXAgbGVuZ3RoIGZyb20gU2V0dGluZ3MsIHRoZW4gb3BlbnMgaXQuICovCiAgICBmdW4gY3JlYXRlTXVzaWNWaWRlbyhwYXJlbnQ6IFN0cmluZywgbmFtZTogU3RyaW5nKTogQm9vbGVhbiA9IGNyZWF0ZShwYXJlbnQsIG5hbWUsIE1vZGUuTVVTSUNfVklERU8pCgogICAgLyoqCiAgICAgKiBOZXcgTW92aWUgUmVjYXAgKGRvY3Mvc3BlY3MvcmVjYXAubWQgwqcxKTogbGlrZSBbY3JlYXRlTXVzaWNWaWRlb10sIGJ1dCBvbmx5IHdpdGggdGhlIHJpZ2h0cyB0aWNrLCB3aGljaCBpcwogICAgICoga2VwdCBpbiBgcmVjYXAucmlnaHRzQ29uZmlybWVkYC4KICAgICAqLwogICAgLyoqCiAgICAgKiBDcmVhdGVzIGEgTW92aWUgUmVjYXAgcHJvamVjdCBwcmUtd2lyZWQgZm9yIHRoZSBRdWljayBSZWNhcCB3aXphcmQgKDVCLTExLCBELTQ3KS4KICAgICAqIFVzZXMgW2xhc3RQYXJlbnRdIHNvIHRoZSB1c2VyIGlzIG5vdCBwcm9tcHRlZCBmb3IgYSBmb2xkZXIuCiAgICAgKiBSZXR1cm5zIGZhbHNlIHdpdGggYSBtZXNzYWdlIGlmIG5vIHBhcmVudCBpcyBrbm93bi4KICAgICAqLwogICAgZnVuIGNyZWF0ZVF1aWNrUmVjYXAodGFyZ2V0TXM6IExvbmcsIHN0eWxlOiBSZWNhcFN0eWxlKTogQm9vbGVhbiB7CiAgICAgICAgdmFsIHBhcmVudCA9IGxhc3RQYXJlbnQgPzogcmV0dXJuIGZhaWwoIkNob29zZSBhIGZvbGRlciBmb3IgbmV3IHByb2plY3RzIGluIFNldHRpbmdzIGZpcnN0IikKICAgICAgICB2YWwgbmFtZSA9ICJRdWljayBSZWNhcCAke2tvdGxpbi50aW1lLkNsb2NrLlN5c3RlbS5ub3coKS50b0Vwb2NoTWlsbGlzZWNvbmRzKCkgLyAxMDAwfSIKICAgICAgICByZXR1cm4gY3JlYXRlKHBhcmVudCwgbmFtZSwgTW9kZS5NT1ZJRV9SRUNBUCkgeyBwcm9qZWN0IC0+CiAgICAgICAgICAgIHByb2plY3QuY29weSgKICAgICAgICAgICAgICAgIHJlY2FwID0gUmVjYXAoCiAgICAgICAgICAgICAgICAgICAgcmlnaHRzQ29uZmlybWVkID0gdHJ1ZSwKICAgICAgICAgICAgICAgICAgICBxdWljayA9IFF1aWNrUmVjYXAodGFyZ2V0TXMgPSB0YXJnZXRNcywgc3R5bGUgPSBzdHlsZSksCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICkKICAgICAgICB9CiAgICB9CgogICAgZnVuIGNyZWF0ZU1vdmllUmVjYXAocGFyZW50OiBTdHJpbmcsIG5hbWU6IFN0cmluZywgcmlnaHRzQ29uZmlybWVkOiBCb29sZWFuKTogQm9vbGVhbiB7CiAgICAgICAgaWYgKCFyaWdodHNDb25maXJtZWQpIHJldHVybiBmYWlsKFJJR0hUU19SRVFVSVJFRCkKICAgICAgICByZXR1cm4gY3JlYXRlKHBhcmVudCwgbmFtZSwgTW9kZS5NT1ZJRV9SRUNBUCkgeyBpdC5jb3B5KHJlY2FwID0gUmVjYXAocmlnaHRzQ29uZmlybWVkID0gdHJ1ZSkpIH0KICAgIH0KCiAgICBwcml2YXRlIGZ1biBjcmVhdGUocGFyZW50OiBTdHJpbmcsIG5hbWU6IFN0cmluZywgbW9kZTogTW9kZSwgaW5pdDogKFByb2plY3QpIC0+IFByb2plY3QgPSB7IGl0IH0pOiBCb29sZWFuIHsKICAgICAgICBpZiAobmFtZS5pc0JsYW5rKCkpIHJldHVybiBmYWlsKCJFbnRlciBhIHByb2plY3QgbmFtZSIpCiAgICAgICAgaWYgKHBhcmVudC5pc0JsYW5rKCkpIHJldHVybiBmYWlsKCJDaG9vc2Ugd2hlcmUgdG8gc2F2ZSB0aGUgcHJvamVjdCIpCiAgICAgICAgdmFsIGRpciA9IGpvaW5QYXRoKHBhcmVudC50cmltRW5kKCcvJyksIHByb2plY3RGb2xkZXJOYW1lKG5hbWUpKQogICAgICAgIHZhbCBkZWZhdWx0cyA9IHNldHRpbmdzLnN0YXRlLnZhbHVlCiAgICAgICAgdmFsIGNyZWF0ZWQgPSBzdG9yZS5jcmVhdGUoZGlyLCBuYW1lLCBtb2RlLCBQcm9qZWN0U2V0dGluZ3MocmF0aW8gPSBkZWZhdWx0cy5kZWZhdWx0UmF0aW8sIGNsaXBNcyA9IGRlZmF1bHRzLmRlZmF1bHRDbGlwTXMpKQogICAgICAgIHZhbCBwcm9qZWN0ID0gd2hlbiAoY3JlYXRlZCkgewogICAgICAgICAgICBpcyBDb3JlUmVzdWx0Lk9rIC0+IGluaXQoY3JlYXRlZC52YWx1ZSkubGV0IHsgcCAtPiBpZiAocCA9PSBjcmVhdGVkLnZhbHVlKSBjcmVhdGVkIGVsc2Ugc3RvcmUuc2F2ZShkaXIsIHApIH0KICAgICAgICAgICAgaXMgQ29yZVJlc3VsdC5FcnIgLT4gY3JlYXRlZAogICAgICAgIH0KICAgICAgICByZXR1cm4gd2hlbiAocHJvamVjdCkgewogICAgICAgICAgICBpcyBDb3JlUmVzdWx0Lk9rIC0+IHsKICAgICAgICAgICAgICAgIGlmIChwcm9qZWN0c0hvbWUgPT0gbnVsbCkgc2V0dGluZ3MudXBkYXRlIHsgaXQuY29weShwcm9qZWN0c0RpciA9IHBhcmVudCkgfQogICAgICAgICAgICAgICAgb3BlbmVkKGRpciwgcHJvamVjdC52YWx1ZSkKICAgICAgICAgICAgfQogICAgICAgICAgICBpcyBDb3JlUmVzdWx0LkVyciAtPiBmYWlsKHByb2plY3QuZXJyb3IudG9UZXh0KCkpCiAgICAgICAgfQogICAgfQoKICAgIHN1c3BlbmQgZnVuIHBpY2tQYXJlbnQoKTogU3RyaW5nPyA9IHdoZW4gKHZhbCByID0gcGlja2VyLnBpY2tGb2xkZXIoIldoZXJlIHRvIHNhdmUgdGhlIHByb2plY3QiLCBsYXN0UGFyZW50KSkgewogICAgICAgIGlzIFBsYXRmb3JtUmVzdWx0Lk9rIC0+IHIudmFsdWUKICAgICAgICBpcyBQbGF0Zm9ybVJlc3VsdC5GYWlsZWQgLT4gbnVsbC5hbHNvIHsgZmFpbChyLnJlYXNvbikgfQogICAgICAgIGlzIFBsYXRmb3JtUmVzdWx0LlVuc3VwcG9ydGVkIC0+IG51bGwuYWxzbyB7IGZhaWwoci5yZWFzb24pIH0KICAgIH0KCiAgICAvKiogIk9wZW4gZm9sZGVyIjogYW55IHByb2plY3QgZm9sZGVyLCBhbHNvIG9uZXMgbm90IGluIHRoZSBsaXN0IHlldC4gKi8KICAgIHN1c3BlbmQgZnVuIG9wZW5Gb2xkZXIoKTogQm9vbGVhbiA9IHdoZW4gKHZhbCByID0gcGlja2VyLnBpY2tGb2xkZXIoIk9wZW4gYSBwcm9qZWN0IGZvbGRlciAoLmF1dG9mbG93KSIsIGxhc3RQYXJlbnQpKSB7CiAgICAgICAgaXMgUGxhdGZvcm1SZXN1bHQuT2sgLT4gci52YWx1ZT8ubGV0KDo6b3BlbikgPzogZmFsc2UKICAgICAgICBpcyBQbGF0Zm9ybVJlc3VsdC5GYWlsZWQgLT4gZmFpbChyLnJlYXNvbikKICAgICAgICBpcyBQbGF0Zm9ybVJlc3VsdC5VbnN1cHBvcnRlZCAtPiBmYWlsKHIucmVhc29uKQogICAgfQoKICAgIGZ1biBvcGVuKGRpcjogU3RyaW5nKTogQm9vbGVhbiB7CiAgICAgICAgLy8gUnVuIHJlY2FwIHYxIOKGkiB2MiBtaWdyYXRpb24gYmVmb3JlIGRlY29kaW5nIHRoZSBwcm9qZWN0IChzcGVjIMKnMiwgNUEtMiBVSSkuCiAgICAgICAgbWlncmF0ZVJlY2FwSWZOZWVkZWQoZGlyKQogICAgICAgIHJldHVybiB3aGVuICh2YWwgciA9IHN0b3JlLm9wZW4oZGlyKSkgewogICAgICAgICAgICBpcyBDb3JlUmVzdWx0Lk9rIC0+IG9wZW5lZChkaXIsIHIudmFsdWUpCiAgICAgICAgICAgIGlzIENvcmVSZXN1bHQuRXJyIC0+IGZhaWwoci5lcnJvci50b1RleHQoKSkKICAgICAgICB9CiAgICB9CgogICAgLyoqCiAgICAgKiBJZiBbZGlyXS9wcm9qZWN0Lmpzb24gaXMgYSB2MSByZWNhcCBwcm9qZWN0LCBtaWdyYXRlcyBpdCB0byB2MiBpbi1wbGFjZSAoYmFja3VwIOKGkiBtaWdyYXRlIOKGkiBzYXZlKS4KICAgICAqIFNpbGVudCBvbiBhbnkgZXJyb3Igc28gYSBtaWdyYXRpb24gZmFpbHVyZSBuZXZlciBibG9ja3Mgb3BlbmluZyB0aGUgcHJvamVjdC4KICAgICAqLwogICAgcHJpdmF0ZSBmdW4gbWlncmF0ZVJlY2FwSWZOZWVkZWQoZGlyOiBTdHJpbmcpIHsKICAgICAgICB0cnkgewogICAgICAgICAgICB2YWwgcGF0aCA9IGpvaW5QYXRoKGRpciwgInByb2plY3QuanNvbiIpCiAgICAgICAgICAgIGlmICghZnMuZXhpc3RzKHBhdGgpKSByZXR1cm4KICAgICAgICAgICAgdmFsIGpzb25PYmogPSB0cnkgewogICAgICAgICAgICAgICAgSnNvbi5wYXJzZVRvSnNvbkVsZW1lbnQoZnMucmVhZChwYXRoKS5kZWNvZGVUb1N0cmluZygpKS5qc29uT2JqZWN0CiAgICAgICAgICAgIH0gY2F0Y2ggKF86IEV4Y2VwdGlvbikgeyByZXR1cm4gfQogICAgICAgICAgICAvLyBPbmx5IG1pZ3JhdGUgTW92aWUgUmVjYXAgcHJvamVjdHM7IG11c2ljIHZpZGVvIHByb2plY3RzIGhhdmUgcmVjYXA9bnVsbCBzbyBza2lwIHRoZW0uCiAgICAgICAgICAgIHZhbCByZWNhcFZhbHVlID0ganNvbk9ialsicmVjYXAiXQogICAgICAgICAgICBpZiAocmVjYXBWYWx1ZSA9PSBudWxsIHx8IHJlY2FwVmFsdWUudG9TdHJpbmcoKSA9PSAibnVsbCIpIHJldHVybgogICAgICAgICAgICBpZiAoIVJlY2FwTWlncmF0aW9uLm5lZWRzTWlncmF0aW9uKGpzb25PYmopKSByZXR1cm4KICAgICAgICAgICAgUmVjYXBNaWdyYXRpb24uYmFja3VwKGZzLCBkaXIpCiAgICAgICAgICAgIHZhbCBhcnRpZmFjdHMgPSBBcnRpZmFjdFN0b3JlKGZzLCBkaXIpCiAgICAgICAgICAgIHZhbCBidXJtZXNlVHRzTW9kZWw6IFN0cmluZz8gPSBudWxsIC8vIFRUUyBtb2RlbCBsb29rdXAgd2lyZWQgaW4gNUItNQogICAgICAgICAgICB2YWwgbWlncmF0ZWQgPSBSZWNhcE1pZ3JhdGlvbi5taWdyYXRlKAogICAgICAgICAgICAgICAgcHJvamVjdCA9IGpzb25PYmosCiAgICAgICAgICAgICAgICByZWFkU2NyaXB0ID0geyBpZCAtPgogICAgICAgICAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICAgICAgICAgIHZhbCBieXRlcyA9IGZzLnJlYWQoam9pblBhdGgoam9pblBhdGgoZGlyLCBBcnRpZmFjdFN0b3JlLkFSVElGQUNUU19ESVIpLCAiJHtpZC52YWx1ZX0uanNvbiIpKQogICAgICAgICAgICAgICAgICAgICAgICBDb3JlSnNvbi5kZWNvZGVGcm9tU3RyaW5nKFJlY2FwU2NyaXB0LnNlcmlhbGl6ZXIoKSwgYnl0ZXMuZGVjb2RlVG9TdHJpbmcoKSkKICAgICAgICAgICAgICAgICAgICB9IGNhdGNoIChfOiBFeGNlcHRpb24pIHsgbnVsbCB9CiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgd3JpdGVTdG9yeSA9IHsgc3RvcnkgLT4KICAgICAgICAgICAgICAgICAgICB2YWwgYnl0ZXMgPSBDb3JlSnNvbi5lbmNvZGVUb1N0cmluZyhSZWNhcFN0b3J5LnNlcmlhbGl6ZXIoKSwgc3RvcnkpLmVuY29kZVRvQnl0ZUFycmF5KCkKICAgICAgICAgICAgICAgICAgICAoYXJ0aWZhY3RzLnB1dChieXRlcywgQXJ0aWZhY3RLaW5kLlJFQ0FQX1NDUklQVCwgImpzb24iKSBhcz8gQ29yZVJlc3VsdC5Payk/LnZhbHVlPy5pZAogICAgICAgICAgICAgICAgICAgICAgICA/OiB0aHJvdyBJbGxlZ2FsU3RhdGVFeGNlcHRpb24oIkZhaWxlZCB0byB3cml0ZSBzdG9yeSBhcnRpZmFjdCBkdXJpbmcgbWlncmF0aW9uIikKICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICBidXJtZXNlVHRzTW9kZWwgPSBidXJtZXNlVHRzTW9kZWwsCiAgICAgICAgICAgICkKICAgICAgICAgICAgdmFsIHRtcCA9ICIkcGF0aC50bXAiCiAgICAgICAgICAgIGZzLndyaXRlRHVyYWJseSh0bXAsIG1pZ3JhdGVkLnRvU3RyaW5nKCkuZW5jb2RlVG9CeXRlQXJyYXkoKSkKICAgICAgICAgICAgZnMuYXRvbWljTW92ZSh0bXAsIHBhdGgpCiAgICAgICAgfSBjYXRjaCAoXzogRXhjZXB0aW9uKSB7CiAgICAgICAgICAgIC8vIE1pZ3JhdGlvbiBmYWlsdXJlIG11c3QgbmV2ZXIgcHJldmVudCBvcGVuaW5nIHRoZSBwcm9qZWN0CiAgICAgICAgfQogICAgfQoKICAgIGZ1biByZW1vdmUoZGlyOiBTdHJpbmcpIHsKICAgICAgICB2YWwgciA9IGluZGV4LnJlbW92ZShkaXIpCiAgICAgICAgZG9uZSgociBhcz8gUGxhdGZvcm1SZXN1bHQuRmFpbGVkKT8ucmVhc29uKQogICAgfQoKICAgIC8qKiBSZS1jaGVja3Mgd2hpY2ggZm9sZGVycyBzdGlsbCBleGlzdCAoZS5nLiBhZnRlciBhIFVTQiBkcml2ZSBjb21lcyBiYWNrKSBhbmQgbGlzdHMgbmV3IG9uZXMgaW4gW3Byb2plY3RzSG9tZV0uICovCiAgICBmdW4gcmVmcmVzaCgpID0gZG9uZShhZG9wdEhvbWVQcm9qZWN0cygpKQoKICAgIC8qKiBBZGRzIHRoZSBgPGhvbWU+LzxuYW1lPi5hdXRvZmxvd2AgZm9sZGVycyB3aXRoIGEgcmVhZGFibGUgYHByb2plY3QuanNvbmAgdGhhdCB0aGUgbGlzdCBkb2VzIG5vdCBoYXZlIHlldC4gKi8KICAgIHByaXZhdGUgZnVuIGFkb3B0SG9tZVByb2plY3RzKCk6IFN0cmluZz8gewogICAgICAgIHZhbCBob21lID0gcHJvamVjdHNIb21lID86IHJldHVybiBudWxsCiAgICAgICAgdmFsIGtub3duID0gaW5kZXguZW50cmllcy52YWx1ZS5tYXAgeyBpdC5wYXRoIH0udG9TZXQoKQogICAgICAgIHZhbCBuYW1lcyA9IHRyeSB7CiAgICAgICAgICAgIGZzLmxpc3QoaG9tZSkKICAgICAgICB9IGNhdGNoIChlOiBFeGNlcHRpb24pIHsKICAgICAgICAgICAgcmV0dXJuIG51bGwKICAgICAgICB9CiAgICAgICAgZm9yIChuYW1lIGluIG5hbWVzKSB7CiAgICAgICAgICAgIHZhbCBkaXIgPSBqb2luUGF0aChob21lLCBuYW1lKQogICAgICAgICAgICBpZiAoIW5hbWUuZW5kc1dpdGgoIi5hdXRvZmxvdyIpIHx8IGRpciBpbiBrbm93bikgY29udGludWUKICAgICAgICAgICAgdmFsIHByb2plY3QgPSAoc3RvcmUub3BlbihkaXIpIGFzPyBDb3JlUmVzdWx0Lk9rKT8udmFsdWUgPzogY29udGludWUKICAgICAgICAgICAgKGluZGV4LnJlY29yZChkaXIsIHByb2plY3QsIG9wZW5lZCA9IGZhbHNlKSBhcz8gUGxhdGZvcm1SZXN1bHQuRmFpbGVkKT8ubGV0IHsgcmV0dXJuIGl0LnJlYXNvbiB9CiAgICAgICAgfQogICAgICAgIHJldHVybiBudWxsCiAgICB9CgogICAgcHJpdmF0ZSBmdW4gb3BlbmVkKGRpcjogU3RyaW5nLCBwcm9qZWN0OiBQcm9qZWN0KTogQm9vbGVhbiB7CiAgICAgICAgY3VycmVudC5zZXQoT3BlblByb2plY3QoZGlyLCBwcm9qZWN0KSkKICAgICAgICBkb25lKChpbmRleC5yZWNvcmQoZGlyLCBwcm9qZWN0KSBhcz8gUGxhdGZvcm1SZXN1bHQuRmFpbGVkKT8ucmVhc29uKQogICAgICAgIHJldHVybiB0cnVlCiAgICB9CgogICAgcHJpdmF0ZSBmdW4gZmFpbChtZXNzYWdlOiBTdHJpbmcpOiBCb29sZWFuIHsKICAgICAgICBkb25lKG1lc3NhZ2UpCiAgICAgICAgcmV0dXJuIGZhbHNlCiAgICB9CgogICAgcHJpdmF0ZSBmdW4gZG9uZShtZXNzYWdlOiBTdHJpbmc/KSB7CiAgICAgICAgX3N0YXRlLnZhbHVlID0gc25hcHNob3QobWVzc2FnZSkKICAgIH0KCiAgICBwcml2YXRlIGZ1biBzbmFwc2hvdChtZXNzYWdlOiBTdHJpbmc/KSA9IERhc2hib2FyZFVpU3RhdGUoCiAgICAgICAgcm93cyA9IGluZGV4LmVudHJpZXMudmFsdWUubWFwIHsgRGFzaGJvYXJkUm93KGl0LCBtaXNzaW5nID0gIWV4aXN0cyhqb2luUGF0aChpdC5wYXRoLCBQcm9qZWN0U3RvcmUuUFJPSkVDVF9GSUxFKSkpIH0sCiAgICAgICAgbWVzc2FnZSA9IG1lc3NhZ2UsCiAgICApCgogICAgcHJpdmF0ZSBmdW4gZXhpc3RzKHBhdGg6IFN0cmluZyk6IEJvb2xlYW4gPSB0cnkgewogICAgICAgIGZzLmV4aXN0cyhwYXRoKQogICAgfSBjYXRjaCAoZTogRXhjZXB0aW9uKSB7CiAgICAgICAgZmFsc2UKICAgIH0KCiAgICBjb21wYW5pb24gb2JqZWN0IHsKICAgICAgICBjb25zdCB2YWwgUklHSFRTX1JFUVVJUkVEID0gIlRpY2sgdGhlIHJpZ2h0cyBib3ggZmlyc3Q6IHVzZSBvbmx5IGZvb3RhZ2UgeW91IG93biBvciBoYXZlIHBlcm1pc3Npb24gdG8gdXNlLiIKICAgIH0KCiAgICBwcml2YXRlIGZ1biBDb3JlRXJyb3IudG9UZXh0KCk6IFN0cmluZyA9IHdoZW4gKHRoaXMpIHsKICAgICAgICBpcyBDb3JlRXJyb3IuTm90Rm91bmQgLT4gIk5vIEF1dG8gRmxvdyBwcm9qZWN0IGhlcmUgKHByb2plY3QuanNvbiBpcyBtaXNzaW5nKSIKICAgICAgICBpcyBDb3JlRXJyb3IuQWxyZWFkeUV4aXN0cyAtPiAiQSBmb2xkZXIgd2l0aCB0aGlzIG5hbWUgYWxyZWFkeSBleGlzdHMgYW5kIGlzIG5vdCBlbXB0eTogJHBhdGgiCiAgICAgICAgaXMgQ29yZUVycm9yLkNvcnJ1cHQgLT4gbWVzc2FnZSArIGlmIChiYWNrdXBBdmFpbGFibGUpICIuIEEgYmFja3VwIChwcm9qZWN0Lmpzb24uYmFrKSBleGlzdHMuIiBlbHNlICIiCiAgICAgICAgZWxzZSAtPiBtZXNzYWdlCiAgICB9Cn0K
+package io.github.alalkipgen.autoflow.ui.projects
+
+import io.github.alalkipgen.autoflow.core.CoreError
+import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.model.ArtifactKind
+import io.github.alalkipgen.autoflow.core.model.CoreJson
+import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.model.ProjectSettings
+import io.github.alalkipgen.autoflow.core.recap.QuickRecap
+import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapMigration
+import io.github.alalkipgen.autoflow.core.recap.RecapStyle
+import io.github.alalkipgen.autoflow.core.recap.RecapScript
+import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.core.store.ArtifactStore
+import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.platform.FilePicker
+import io.github.alalkipgen.autoflow.platform.PlatformResult
+import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+
+/** The project the pipeline screens work on: its folder and the last saved `project.json`. */
+data class OpenProject(val dir: String, val project: Project)
+
+/** Holder shared by all screens; set by the Dashboard. */
+class CurrentProject {
+    private val _state = MutableStateFlow<OpenProject?>(null)
+    val state: StateFlow<OpenProject?> = _state.asStateFlow()
+
+    fun set(open: OpenProject?) {
+        _state.value = open
+    }
+}
+
+/** [missing] = the folder or its `project.json` is gone; the row offers "Remove from list". */
+data class DashboardRow(val entry: ProjectEntry, val missing: Boolean)
+
+data class DashboardUiState(val rows: List<DashboardRow>, val message: String? = null)
+
+/**
+ * Dashboard logic (DESIGN.md §3): project list, New Music Video, Open folder. With a [projectsHome] (Android, D-27)
+ * new projects always go there, nobody picks a folder, and project folders found there join the list on [refresh]
+ * (after a lost `projects.json` or a restored backup).
+ */
+class DashboardModel(
+    private val fs: FileSystem,
+    private val store: ProjectStore,
+    private val index: ProjectIndex,
+    private val settings: SettingsStore,
+    private val picker: FilePicker,
+    private val current: CurrentProject,
+    val projectsHome: String? = null,
+) {
+    private val _state = MutableStateFlow(snapshot(index.problem))
+    val state: StateFlow<DashboardUiState> = _state.asStateFlow()
+
+    /** Where new projects go by default: the projects home, else the last folder used. */
+    val lastParent: String? get() = projectsHome ?: settings.state.value.projectsDir
+
+    /** Creates `<parent>/<name>.autoflow` with the default ratio / clip length from Settings, then opens it. */
+    fun createMusicVideo(parent: String, name: String): Boolean = create(parent, name, Mode.MUSIC_VIDEO)
+
+    /**
+     * New Movie Recap (docs/specs/recap.md §1): like [createMusicVideo], but only with the rights tick, which is
+     * kept in `recap.rightsConfirmed`.
+     */
+    /**
+     * Creates a Movie Recap project pre-wired for the Quick Recap wizard (5B-11, D-47).
+     * Uses [lastParent] so the user is not prompted for a folder.
+     * Returns false with a message if no parent is known.
+     */
+    fun createQuickRecap(targetMs: Long, style: RecapStyle): Boolean {
+        val parent = lastParent ?: return fail("Choose a folder for new projects in Settings first")
+        val name = "Quick Recap ${kotlin.time.Clock.System.now().toEpochMilliseconds() / 1000}"
+        return create(parent, name, Mode.MOVIE_RECAP) { project ->
+            project.copy(
+                recap = Recap(
+                    rightsConfirmed = true,
+                    quick = QuickRecap(targetMs = targetMs, style = style),
+                )
+            )
+        }
+    }
+
+    fun createMovieRecap(parent: String, name: String, rightsConfirmed: Boolean): Boolean {
+        if (!rightsConfirmed) return fail(RIGHTS_REQUIRED)
+        return create(parent, name, Mode.MOVIE_RECAP) { it.copy(recap = Recap(rightsConfirmed = true)) }
+    }
+
+    private fun create(parent: String, name: String, mode: Mode, init: (Project) -> Project = { it }): Boolean {
+        if (name.isBlank()) return fail("Enter a project name")
+        if (parent.isBlank()) return fail("Choose where to save the project")
+        val dir = joinPath(parent.trimEnd('/'), projectFolderName(name))
+        val defaults = settings.state.value
+        val created = store.create(dir, name, mode, ProjectSettings(ratio = defaults.defaultRatio, clipMs = defaults.defaultClipMs))
+        val project = when (created) {
+            is CoreResult.Ok -> init(created.value).let { p -> if (p == created.value) created else store.save(dir, p) }
+            is CoreResult.Err -> created
+        }
+        return when (project) {
+            is CoreResult.Ok -> {
+                if (projectsHome == null) settings.update { it.copy(projectsDir = parent) }
+                opened(dir, project.value)
+            }
+            is CoreResult.Err -> fail(project.error.toText())
+        }
+    }
+
+    suspend fun pickParent(): String? = when (val r = picker.pickFolder("Where to save the project", lastParent)) {
+        is PlatformResult.Ok -> r.value
+        is PlatformResult.Failed -> null.also { fail(r.reason) }
+        is PlatformResult.Unsupported -> null.also { fail(r.reason) }
+    }
+
+    /** "Open folder": any project folder, also ones not in the list yet. */
+    suspend fun openFolder(): Boolean = when (val r = picker.pickFolder("Open a project folder (.autoflow)", lastParent)) {
+        is PlatformResult.Ok -> r.value?.let(::open) ?: false
+        is PlatformResult.Failed -> fail(r.reason)
+        is PlatformResult.Unsupported -> fail(r.reason)
+    }
+
+    fun open(dir: String): Boolean {
+        // Run recap v1 → v2 migration before decoding the project (spec §2, 5A-2 UI).
+        migrateRecapIfNeeded(dir)
+        return when (val r = store.open(dir)) {
+            is CoreResult.Ok -> opened(dir, r.value)
+            is CoreResult.Err -> fail(r.error.toText())
+        }
+    }
+
+    /**
+     * If [dir]/project.json is a v1 recap project, migrates it to v2 in-place (backup → migrate → save).
+     * Silent on any error so a migration failure never blocks opening the project.
+     */
+    private fun migrateRecapIfNeeded(dir: String) {
+        try {
+            val path = joinPath(dir, "project.json")
+            if (!fs.exists(path)) return
+            val jsonObj = try {
+                Json.parseToJsonElement(fs.read(path).decodeToString()).jsonObject
+            } catch (_: Exception) { return }
+            // Only migrate Movie Recap projects; music video projects have recap=null so skip them.
+            val recapValue = jsonObj["recap"]
+            if (recapValue == null || recapValue.toString() == "null") return
+            if (!RecapMigration.needsMigration(jsonObj)) return
+            RecapMigration.backup(fs, dir)
+            val artifacts = ArtifactStore(fs, dir)
+            val burmeseTtsModel: String? = null // TTS model lookup wired in 5B-5
+            val migrated = RecapMigration.migrate(
+                project = jsonObj,
+                readScript = { id ->
+                    try {
+                        val bytes = fs.read(joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), "${id.value}.json"))
+                        CoreJson.decodeFromString(RecapScript.serializer(), bytes.decodeToString())
+                    } catch (_: Exception) { null }
+                },
+                writeStory = { story ->
+                    val bytes = CoreJson.encodeToString(RecapStory.serializer(), story).encodeToByteArray()
+                    (artifacts.put(bytes, ArtifactKind.RECAP_SCRIPT, "json") as? CoreResult.Ok)?.value?.id
+                        ?: throw IllegalStateException("Failed to write story artifact during migration")
+                },
+                burmeseTtsModel = burmeseTtsModel,
+            )
+            val tmp = "$path.tmp"
+            fs.writeDurably(tmp, migrated.toString().encodeToByteArray())
+            fs.atomicMove(tmp, path)
+        } catch (_: Exception) {
+            // Migration failure must never prevent opening the project
+        }
+    }
+
+    fun remove(dir: String) {
+        val r = index.remove(dir)
+        done((r as? PlatformResult.Failed)?.reason)
+    }
+
+    /** Re-checks which folders still exist (e.g. after a USB drive comes back) and lists new ones in [projectsHome]. */
+    fun refresh() = done(adoptHomeProjects())
+
+    /** Adds the `<home>/<name>.autoflow` folders with a readable `project.json` that the list does not have yet. */
+    private fun adoptHomeProjects(): String? {
+        val home = projectsHome ?: return null
+        val known = index.entries.value.map { it.path }.toSet()
+        val names = try {
+            fs.list(home)
+        } catch (e: Exception) {
+            return null
+        }
+        for (name in names) {
+            val dir = joinPath(home, name)
+            if (!name.endsWith(".autoflow") || dir in known) continue
+            val project = (store.open(dir) as? CoreResult.Ok)?.value ?: continue
+            (index.record(dir, project, opened = false) as? PlatformResult.Failed)?.let { return it.reason }
+        }
+        return null
+    }
+
+    private fun opened(dir: String, project: Project): Boolean {
+        current.set(OpenProject(dir, project))
+        done((index.record(dir, project) as? PlatformResult.Failed)?.reason)
+        return true
+    }
+
+    private fun fail(message: String): Boolean {
+        done(message)
+        return false
+    }
+
+    private fun done(message: String?) {
+        _state.value = snapshot(message)
+    }
+
+    private fun snapshot(message: String?) = DashboardUiState(
+        rows = index.entries.value.map { DashboardRow(it, missing = !exists(joinPath(it.path, ProjectStore.PROJECT_FILE))) },
+        message = message,
+    )
+
+    private fun exists(path: String): Boolean = try {
+        fs.exists(path)
+    } catch (e: Exception) {
+        false
+    }
+
+    companion object {
+        const val RIGHTS_REQUIRED = "Tick the rights box first: use only footage you own or have permission to use."
+    }
+
+    private fun CoreError.toText(): String = when (this) {
+        is CoreError.NotFound -> "No Auto Flow project here (project.json is missing)"
+        is CoreError.AlreadyExists -> "A folder with this name already exists and is not empty: $path"
+        is CoreError.Corrupt -> message + if (backupAvailable) ". A backup (project.json.bak) exists." else ""
+        else -> message
+    }
+}

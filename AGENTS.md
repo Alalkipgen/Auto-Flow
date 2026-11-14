@@ -1,1 +1,94 @@
-IyBBR0VOVFMubWQg4oCUIHJ1bGVzIGZvciBBSSBjb2RpbmcgYWdlbnRzIHdvcmtpbmcgb24gQXV0byBGbG93CgpZb3UgYXJlIHdvcmtpbmcgb24gYSBwZXJzb25hbC11c2UgZGVza3RvcCttb2JpbGUgYXBwLiBUaGUgc29sZSB1c2VyIGlzIHRoZSByZXBvIG93bmVyLgpPcHRpbWl6ZSBmb3I6IGNvcnJlY3RuZXNzLCBzbWFsbCBkaWZmcywgdGVzdGFiaWxpdHkgd2l0aG91dCBBUEkga2V5cywgYW5kIG5ldmVyIGxvc2luZyB1c2VyIGRhdGEuCgojIyAwLiBSZWFkIG9yZGVyIChldmVyeSBzZXNzaW9uKQoxLiB0aGlzIGZpbGUKMi4gZG9jcy9QTEFOLm1kIOKAlCBmaW5kIHRoZSBjdXJyZW50IHBoYXNlIGFuZCBvcGVuIHRhc2sKMy4gZG9jcy9BUkNISVRFQ1RVUkUubWQKNC4gdGhlIHNwZWMocykgaW4gZG9jcy9zcGVjcy8gdGhhdCB0aGUgdGFzayByZWZlcmVuY2VzCjUuIGRvY3MvREVDSVNJT05TLm1kIOKAlCBkbyBub3QgcmUtbGl0aWdhdGUgc2V0dGxlZCBkZWNpc2lvbnMKCiMjIDEuIEhhcmQgcnVsZXMKLSAqKk5ldmVyIGRlbGV0ZSBvciBtdXRhdGUgYW4gYXJ0aWZhY3QgZmlsZSoqIHVuZGVyIGBhcnRpZmFjdHMvYC4gQXJ0aWZhY3RzIGFyZSBpbW11dGFibGUgYW5kIGNvbnRlbnQtaGFzaCBuYW1lZC4gT25seSBgcHJvamVjdC5qc29uYCBwb2ludGVycyBjaGFuZ2UuCi0gKipOZXZlciBhdXRvbWF0ZSBHb29nbGUgRmxvdyoqIChubyBicm93c2VyIGF1dG9tYXRpb24sIG5vIGNvb2tpZSByZXVzZSwgbm8gcmV2ZXJzZS1lbmdpbmVlcmVkIGVuZHBvaW50cykuIEZsb3cgaXMgYSBtYW51YWwgaGFuZG9mZi4gU2VlIGRvY3Mvc3BlY3MvZmxvdy1oYW5kb2ZmLm1kLgotICoqTmV2ZXIgaGFyZGNvZGUqKiBtb2RlbCBuYW1lcywgcXVvdGFzLCBjcmVkaXQgY29zdHMsIG9yIHByaWNlcyBpbiBsb2dpYy4gVGhleSBsaXZlIGluIGBjb25maWcvbW9kZWxzLmpzb25gIGFuZCBhcmUgdHJlYXRlZCBhcyBkYXRhIHRoYXQgd2lsbCBjaGFuZ2UuCi0gKipBUEkga2V5cyoqIGFyZSByZWFkIGZyb20gcGxhdGZvcm0gc2VjdXJlIHN0b3JhZ2Ugb25seSAoV2luZG93cyBEUEFQSSB2aWEgYDpwbGF0Zm9ybWAgU2VjdXJlU3RvcmFnZSwgRC0xOSAvIEFuZHJvaWQgS2V5c3RvcmUpLiBOZXZlciBpbiBjb2RlLCBsb2dzLCB0ZXN0IGZpeHR1cmVzLCBvciBgcHJvamVjdC5qc29uYC4KLSAqKkFsbCBBSSBjYWxscyBnbyB0aHJvdWdoIGA6YWlgIGludGVyZmFjZXMuKiogVUkgYW5kIGA6Y29yZWAgbXVzdCBjb21waWxlIGFuZCBydW4gd2l0aCBgRmFrZSpQcm92aWRlcmAgaW1wbGVtZW50YXRpb25zLiBDSSBydW5zIHdpdGggZmFrZXMgb25seS4KLSAqKkJ1cm1lc2UgdnMgRW5nbGlzaDoqKiBodW1hbi1mYWNpbmcgdGV4dCBsaXZlcyBpbiBmaWVsZHMgd2l0aCB0aGUgYE15YCBzdWZmaXggKGNhbWVsQ2FzZSwgZS5nLiBgc2NlbmVNeWAsIGBseXJpY3NNeWApLiBBbnl0aGluZyBzZW50IHRvIGFuIGltYWdlL3ZpZGVvIG1vZGVsIGxpdmVzIGluIGZpZWxkcyB3aXRoIHRoZSBgRW5gIHN1ZmZpeCAoZS5nLiBgc3ViamVjdEVuYCwgYGRlc2NyaXB0aW9uRW5gKS4gTmV2ZXIgbWl4LCBuZXZlciBhdXRvLXRyYW5zbGF0ZSBzaWxlbnRseS4gSlNPTiBrZXlzIGluIGBwcm9qZWN0Lmpzb25gIGFuZCBhbGwgYXJ0aWZhY3RzIHVzZSB0aGUgc2FtZSBjYW1lbENhc2UgbmFtZXMuCi0gKipBcHByb3ZhbCBnYXRlcyBhcmUgZW5mb3JjZWQgaW4gYDpjb3JlYCAoV29ya2Zsb3dSdWxlcyksIG5vdCBpbiBVSS4qKiBVSSBvbmx5IHJlZmxlY3RzIHN0YXRlLgotIFdyaXRlcyB0byBgcHJvamVjdC5qc29uYCBhcmUgYXRvbWljICh3cml0ZSB0ZW1wIOKGkiBmc3luYyDihpIgcmVuYW1lKS4KLSBObyBuZXcgdGhpcmQtcGFydHkgZGVwZW5kZW5jeSB3aXRob3V0IGEgbGluZSBpbiBkb2NzL0RFQ0lTSU9OUy5tZCBleHBsYWluaW5nIHdoeS4KCiMjIDIuIFdvcmtmbG93Ci0gQnJhbmNoIHBlciB0YXNrOiBgd29yay9waGFzZS08bj4tPHNsdWc+YC4gTmV2ZXIgY29tbWl0IGRpcmVjdGx5IHRvIGBtYWluYC4KLSBPbmUgdGFzayA9IG9uZSBQUi4gS2VlcCBQUnMgdW5kZXIgfjQwMCBjaGFuZ2VkIGxpbmVzIHdoZXJlIHBvc3NpYmxlOyBzcGxpdCBvdGhlcndpc2UuCi0gQmVmb3JlIGNvZGluZzogcmVzdGF0ZSB0aGUgdGFzaywgbGlzdCBmaWxlcyB5b3Ugd2lsbCB0b3VjaCwgbGlzdCB0aGUgc3BlYyBzZWN0aW9ucyB5b3UgcmVseSBvbi4gSWYgdGhlIHNwZWMgaXMgYW1iaWd1b3VzLCAqKnN0b3AgYW5kIHdyaXRlIHRoZSBxdWVzdGlvbiBpbnRvIGRvY3MvUExBTi5tZCB1bmRlciAiT3BlbiBRdWVzdGlvbnMiKiogaW5zdGVhZCBvZiBndWVzc2luZy4KLSBBZnRlciBjb2Rpbmc6IHVwZGF0ZSBkb2NzL1BMQU4ubWQgdGFzayBzdGF0dXMsIGFkZC9hZGp1c3QgdGVzdHMsIHJ1biBgLi9ncmFkbGV3IGNoZWNrYC4KLSBDb21taXQgbWVzc2FnZXM6IGBwaGFzZTEoY29yZSk6IGFkZCBBcnRpZmFjdFN0b3JlIHdpdGggY29udGVudC1oYXNoIG5hbWluZ2AuCgojIyAzLiBDb2RlIGNvbnZlbnRpb25zCi0gS290bGluLCBLTVAuIFNoYXJlZCBjb2RlIGluIGBjb21tb25NYWluYDsgcGxhdGZvcm0gY29kZSB2aWEgYGV4cGVjdC9hY3R1YWxgIG9ubHkgaW4gYDptZWRpYWAgYW5kIGA6cGxhdGZvcm1gLgotIENvbXBvc2UgTXVsdGlwbGF0Zm9ybSBmb3IgVUkuIE5vIEFuZHJvaWQtb25seSBVSSBsaWJzIGluIHNoYXJlZCBtb2R1bGVzLgotIFNlcmlhbGl6YXRpb246IGtvdGxpbnguc2VyaWFsaXphdGlvbi4gQWxsIHBlcnNpc3RlZCBtb2RlbHMgaGF2ZSBgQFNlcmlhbE5hbWVgIGFuZCBhIGBzY2hlbWFWZXJzaW9uYC4KLSBFcnJvcnM6IHNlYWxlZCBgUmVzdWx0YC1zdHlsZSB0eXBlcyBhdCBtb2R1bGUgYm91bmRhcmllczsgbm8gZXhjZXB0aW9ucyBhY3Jvc3MgbW9kdWxlIGJvdW5kYXJpZXMuCi0gQ29yb3V0aW5lcyArIEZsb3cgZm9yIGFzeW5jLiBObyBSeEphdmEuCi0gREk6IEtvaW4uIE5vIEhpbHQgKEFuZHJvaWQtb25seSkuCi0gVGVzdHM6IGBjb21tb25UZXN0YCB3aXRoIGtvdGxpbi10ZXN0LiBHb2xkZW4gdGVzdHMgZm9yIHRoZSBwcm9tcHQgY29tcGlsZXIgbGl2ZSBpbiBgY29yZS9zcmMvY29tbW9uVGVzdC9yZXNvdXJjZXMvZ29sZGVuL2AuCgojIyA0LiBEZWZpbml0aW9uIG9mIERvbmUgKHBlciB0YXNrKQotIFsgXSBTcGVjIHNlY3Rpb24gcmVmZXJlbmNlZCBpbiBQUiBkZXNjcmlwdGlvbgotIFsgXSBVbml0IHRlc3RzIGZvciBgOmNvcmVgIC8gYDphaWAgbG9naWM7IFVJIGhhcyBhdCBsZWFzdCBhIHNtb2tlIHRlc3Qgd2l0aCBmYWtlcwotIFsgXSBgLi9ncmFkbGV3IGNoZWNrYCBwYXNzZXMgb24gZGVza3RvcCB0YXJnZXQ7IHRoZSBDSSBgYW5kcm9pZGAgam9iIGJ1aWxkcyB0aGUgZGVidWcgQVBLIChELTI0KQotIFsgXSBkb2NzL1BMQU4ubWQgdXBkYXRlZAotIFsgXSBObyBUT0RPcyB3aXRob3V0IGFuIGlzc3VlIHJlZmVyZW5jZQoKIyMgNS4gV2hlbiB5b3UgYXJlIHVuc3VyZQpQcmVmZXIgdGhlIHNpbXBsZXIgZGVzaWduLiBQcmVmZXIgdGhlIG9uZSB0aGF0IGtlZXBzIHVzZXIgZGF0YSByZWNvdmVyYWJsZS4gV3JpdGUgdGhlIHF1ZXN0aW9uIGRvd24uIERvIG5vdCBpbnZlbnQgZmVhdHVyZXMgbm90IGxpc3RlZCBpbiBkb2NzL1BMQU4ubWQuCgojIyA2LiBQaGFzZSA1IHBhdHRlcm5zIChTdHVkaW8gdjIpCgojIyMgSkRLCkphdmEgMjUgYXQgYC91c3IvbGliL2p2bS9qYXZhLTI1LWFtYXpvbi1jb3JyZXR0by54ODZfNjRgLiBBbHdheXMgc2V0OgpgYGAKZXhwb3J0IEpBVkFfSE9NRT0vdXNyL2xpYi9qdm0vamF2YS0yNS1hbWF6b24tY29ycmV0dG8ueDg2XzY0CmBgYAoKIyMjIEZlYXR1cmUgZmxhZ3MKYEZlYXR1cmVGbGFnc2AgbGl2ZXMgaW4gYDpjb3JlYC4gVUkgcmVhZHMgZmxhZ3MgdmlhIGBrb2luSW5qZWN0PEZlYXR1cmVGbGFncz4oKWAuIE5ldmVyIHJlYWQgZmxhZ3MgaW4gYDpjb3JlYCBsb2dpYzsgcGFzcyB0aGVtIGluIGF0IHRoZSBjYWxsIHNpdGUuCgojIyMgU3R1ZGlvVjIgcm91dGluZyAoYEFwcFNoZWxsLmt0YCkKYGBga290bGluCnZhciBkZXN0IGJ5IHJlbWVtYmVyIHsgbXV0YWJsZVN0YXRlT2YoU3R1ZGlvVjJEZXN0LkhPTUUpIH0KdmFyIHByb2plY3RTY3JlZW4gYnkgcmVtZW1iZXIgeyBtdXRhYmxlU3RhdGVPZjxTdHJpbmc/PihudWxsKSB9Ci8vIFBST0pFQ1RTIHJvdXRlczogbnVsbD1EYXNoYm9hcmQgIlJlY2FwIi8iSW5wdXQiLyJTdG9yeWJvYXJkIi8iRXhwb3J0Ij1wcm9qZWN0IHNjcmVlbgpgYGAKCiMjIyBBSSBqb2IgcGlwZWxpbmUKLSBgQWlKb2JgIC8gYEFpSm9iS2luZGAgLyBgQWlKb2JTdGF0ZWAgaW4gYDpjb3JlL3JlY2FwL2AKLSBgQWlKb2JTdG9yZWAgcGVyc2lzdHMgdG8gYEFwcERpcnMuYWlKb2JzYCAoZmlsZXNEaXIvYWktam9icy8pCi0gYEFpSm9iUnVubmVyYCBpbnRlcmZhY2UgaW4gYDpjb3JlYDsgZGVza3RvcCBpbXBsID0gYERlc2t0b3BBaUpvYlJ1bm5lcmAgaW4gYHVpL2Rlc2t0b3BNYWluL2AKLSBgUnBtUGFjZXJgIHRva2VuLWJ1Y2tldCBSUE0gbGltaXRlciB1c2VkIGJ5IHRoZSBydW5uZXIKLSBBbmRyb2lkIHJ1bm5lciB1c2VzIFdvcmtNYW5hZ2VyIChkZXZpY2Ugc3Bpa2UgUzEwOyBub3QgaW4gQ0kpCgojIyMgTGlicmFyeQotIGBMaWJyYXJ5YCAvIGBCcmFuZEtpdGAgLyBgU2F2ZWRWb2ljZWAgLyBgTXVzaWNJdGVtYCAvIGBGb250SXRlbWAgLyBgUHJlc2V0YCBpbiBgOmNvcmUvbGlicmFyeS9gCi0gYExpYnJhcnlTdG9yZWAgbG9hZHMvc2F2ZXMgYEFwcERpcnMubGlicmFyeS9saWJyYXJ5Lmpzb25gCi0gYExpYnJhcnlNb2RlbGAgYXBwbGllcyBicmFuZCBraXQgLyB2b2ljZSAvIG11c2ljIC8gZm9udCAvIHByZXNldCB0byB0aGUgb3BlbiBwcm9qZWN0Ci0gV2lyZWQgYnkgYFVpTW9kdWxlYCAoZGVza3RvcDogYERlc2t0b3BNb2R1bGVgKQoKIyMjIFNtYXJ0IEZpdAotIGBGaXRDaG9pY2VgIGVudW0gKyBgU21hcnRGaXRDb25maWdgIGluIGA6Y29yZS9yZWNhcC9TbWFydEZpdC5rdGAKLSBgUmVjYXAuZml0OiBNYXA8SW50LCBGaXRDaG9pY2U+YCDigJQga2V5ZWQgYnkgc2NlbmUgaW5kZXgKLSBgUmVjYXBGaXRDYXJkYCByZW5kZXJzIGZpdCBjaG9pY2VzIGZvciBSVU5TX09OIHJvd3MKLSBBY3R1YWwgYXVkaW8gcHJvY2Vzc2luZyAoc2lsZW5jZXJlbW92ZSArIGF0ZW1wbykgaXMgZGV2aWNlIHNwaWtlIFM4CgojIyMgUXVpY2sgUmVjYXAKLSBgUXVpY2tSZWNhcGAgKyBgUXVpY2tSZWNhcFN0YWdlYCBpbiBgOmNvcmUvcmVjYXAvUXVpY2tSZWNhcC5rdGAKLSBgcmVjYXAucXVpY2tgIHN0b3JlcyB3aXphcmQgcHJvZ3Jlc3MgaW4gYHByb2plY3QuanNvbmAKLSBgRGFzaGJvYXJkTW9kZWwuY3JlYXRlUXVpY2tSZWNhcCh0YXJnZXRNcywgc3R5bGUpYCBjcmVhdGVzIHRoZSBwcm9qZWN0IHVzaW5nIGBsYXN0UGFyZW50YAotIGBIb21lU2NyZWVuYCB3aXphcmQgKExlbmd0aCDihpIgU3R5bGUg4oaSIENvbmZpcm0pIGNhbGxzIHRoaXMgdmlhIGBBcHBTaGVsbGAgd2lyaW5nCgojIyMgU2tpa28gLyBVSSB0ZXN0cwpTa2lrbyByZW5kZXJpbmcgdGVzdHMgZmFpbCBvbiBoZWFkbGVzcyBMaW51eCAoYFVuc3VwcG9ydGVkYCkuIFRoaXMgaXMgcHJlLWV4aXN0aW5nOyBDSSAoV2luZG93cykgcnVucyB0aGVtLiBOZXZlciBtYXJrIHRoZXNlIGFzIGJyb2tlbi4K
+# AGENTS.md — rules for AI coding agents working on Auto Flow
+
+You are working on a personal-use desktop+mobile app. The sole user is the repo owner.
+Optimize for: correctness, small diffs, testability without API keys, and never losing user data.
+
+## 0. Read order (every session)
+1. this file
+2. docs/PLAN.md — find the current phase and open task
+3. docs/ARCHITECTURE.md
+4. the spec(s) in docs/specs/ that the task references
+5. docs/DECISIONS.md — do not re-litigate settled decisions
+
+## 1. Hard rules
+- **Never delete or mutate an artifact file** under `artifacts/`. Artifacts are immutable and content-hash named. Only `project.json` pointers change.
+- **Never automate Google Flow** (no browser automation, no cookie reuse, no reverse-engineered endpoints). Flow is a manual handoff. See docs/specs/flow-handoff.md.
+- **Never hardcode** model names, quotas, credit costs, or prices in logic. They live in `config/models.json` and are treated as data that will change.
+- **API keys** are read from platform secure storage only (Windows DPAPI via `:platform` SecureStorage, D-19 / Android Keystore). Never in code, logs, test fixtures, or `project.json`.
+- **All AI calls go through `:ai` interfaces.** UI and `:core` must compile and run with `Fake*Provider` implementations. CI runs with fakes only.
+- **Burmese vs English:** human-facing text lives in fields with the `My` suffix (camelCase, e.g. `sceneMy`, `lyricsMy`). Anything sent to an image/video model lives in fields with the `En` suffix (e.g. `subjectEn`, `descriptionEn`). Never mix, never auto-translate silently. JSON keys in `project.json` and all artifacts use the same camelCase names.
+- **Approval gates are enforced in `:core` (WorkflowRules), not in UI.** UI only reflects state.
+- Writes to `project.json` are atomic (write temp → fsync → rename).
+- No new third-party dependency without a line in docs/DECISIONS.md explaining why.
+
+## 2. Workflow
+- Branch per task: `work/phase-<n>-<slug>`. Never commit directly to `main`.
+- One task = one PR. Keep PRs under ~400 changed lines where possible; split otherwise.
+- Before coding: restate the task, list files you will touch, list the spec sections you rely on. If the spec is ambiguous, **stop and write the question into docs/PLAN.md under "Open Questions"** instead of guessing.
+- After coding: update docs/PLAN.md task status, add/adjust tests, run `./gradlew check`.
+- Commit messages: `phase1(core): add ArtifactStore with content-hash naming`.
+
+## 3. Code conventions
+- Kotlin, KMP. Shared code in `commonMain`; platform code via `expect/actual` only in `:media` and `:platform`.
+- Compose Multiplatform for UI. No Android-only UI libs in shared modules.
+- Serialization: kotlinx.serialization. All persisted models have `@SerialName` and a `schemaVersion`.
+- Errors: sealed `Result`-style types at module boundaries; no exceptions across module boundaries.
+- Coroutines + Flow for async. No RxJava.
+- DI: Koin. No Hilt (Android-only).
+- Tests: `commonTest` with kotlin-test. Golden tests for the prompt compiler live in `core/src/commonTest/resources/golden/`.
+
+## 4. Definition of Done (per task)
+- [ ] Spec section referenced in PR description
+- [ ] Unit tests for `:core` / `:ai` logic; UI has at least a smoke test with fakes
+- [ ] `./gradlew check` passes on desktop target; the CI `android` job builds the debug APK (D-24)
+- [ ] docs/PLAN.md updated
+- [ ] No TODOs without an issue reference
+
+## 5. When you are unsure
+Prefer the simpler design. Prefer the one that keeps user data recoverable. Write the question down. Do not invent features not listed in docs/PLAN.md.
+
+## 6. Phase 5 patterns (Studio v2)
+
+### JDK
+Java 25 at `/usr/lib/jvm/java-25-amazon-corretto.x86_64`. Always set:
+```
+export JAVA_HOME=/usr/lib/jvm/java-25-amazon-corretto.x86_64
+```
+
+### Feature flags
+`FeatureFlags` lives in `:core`. UI reads flags via `koinInject<FeatureFlags>()`. Never read flags in `:core` logic; pass them in at the call site.
+
+### StudioV2 routing (`AppShell.kt`)
+```kotlin
+var dest by remember { mutableStateOf(StudioV2Dest.HOME) }
+var projectScreen by remember { mutableStateOf<String?>(null) }
+// PROJECTS routes: null=Dashboard "Recap"/"Input"/"Storyboard"/"Export"=project screen
+```
+
+### AI job pipeline
+- `AiJob` / `AiJobKind` / `AiJobState` in `:core/recap/`
+- `AiJobStore` persists to `AppDirs.aiJobs` (filesDir/ai-jobs/)
+- `AiJobRunner` interface in `:core`; desktop impl = `DesktopAiJobRunner` in `ui/desktopMain/`
+- `RpmPacer` token-bucket RPM limiter used by the runner
+- Android runner uses WorkManager (device spike S10; not in CI)
+
+### Library
+- `Library` / `BrandKit` / `SavedVoice` / `MusicItem` / `FontItem` / `Preset` in `:core/library/`
+- `LibraryStore` loads/saves `AppDirs.library/library.json`
+- `LibraryModel` applies brand kit / voice / music / font / preset to the open project
+- Wired by `UiModule` (desktop: `DesktopModule`)
+
+### Smart Fit
+- `FitChoice` enum + `SmartFitConfig` in `:core/recap/SmartFit.kt`
+- `Recap.fit: Map<Int, FitChoice>` — keyed by scene index
+- `RecapFitCard` renders fit choices for RUNS_ON rows
+- Actual audio processing (silenceremove + atempo) is device spike S8
+
+### Quick Recap
+- `QuickRecap` + `QuickRecapStage` in `:core/recap/QuickRecap.kt`
+- `recap.quick` stores wizard progress in `project.json`
+- `DashboardModel.createQuickRecap(targetMs, style)` creates the project using `lastParent`
+- `HomeScreen` wizard (Length → Style → Confirm) calls this via `AppShell` wiring
+
+### Skiko / UI tests
+Skiko rendering tests fail on headless Linux (`Unsupported`). This is pre-existing; CI (Windows) runs them. Never mark these as broken.

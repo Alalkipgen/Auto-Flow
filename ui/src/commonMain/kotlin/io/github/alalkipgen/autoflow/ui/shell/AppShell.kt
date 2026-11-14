@@ -1,1 +1,415 @@
-cGFja2FnZSBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5zaGVsbAoKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5DYW52YXMKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5iYWNrZ3JvdW5kCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24uaG92ZXJhYmxlCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24uaW50ZXJhY3Rpb24uTXV0YWJsZUludGVyYWN0aW9uU291cmNlCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24uaW50ZXJhY3Rpb24uY29sbGVjdElzSG92ZXJlZEFzU3RhdGUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQuQXJyYW5nZW1lbnQKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQuQm94CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LkJveFdpdGhDb25zdHJhaW50cwppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLmxheW91dC5JbnRyaW5zaWNTaXplCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LkNvbHVtbgppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLmxheW91dC5Sb3cKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQuU3BhY2VyCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LmZpbGxNYXhIZWlnaHQKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQuZmlsbE1heFNpemUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQuZmlsbE1heFdpZHRoCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LmhlaWdodAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLmxheW91dC5wYWRkaW5nCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LnNpemUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQud2lkdGgKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5zZWxlY3Rpb24uc2VsZWN0YWJsZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLnNoYXBlLlJvdW5kZWRDb3JuZXJTaGFwZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLnRleHQuQmFzaWNUZXh0CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUuQ29tcG9zYWJsZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5ydW50aW1lLkxhdW5jaGVkRWZmZWN0CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUuQ29tcG9zaXRpb25Mb2NhbFByb3ZpZGVyCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUuY29sbGVjdEFzU3RhdGUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UucnVudGltZS5nZXRWYWx1ZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5ydW50aW1lLm11dGFibGVTdGF0ZU9mCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUucmVtZW1iZXJDb3JvdXRpbmVTY29wZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5ydW50aW1lLnJlbWVtYmVyCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUuc2V0VmFsdWUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkuQWxpZ25tZW50CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLk1vZGlmaWVyCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLmRyYXcuY2xpcAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS5nZW9tZXRyeS5Db3JuZXJSYWRpdXMKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkuZ3JhcGhpY3MuQnJ1c2gKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkuZ3JhcGhpY3MuQ29sb3IKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkuZ3JhcGhpY3MuUGF0aAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS5zZW1hbnRpY3MuUm9sZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS5zZW1hbnRpY3Muc2VtYW50aWNzCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnNlbWFudGljcy5zdGF0ZURlc2NyaXB0aW9uCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnRleHQuVGV4dFN0eWxlCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnRleHQuZm9udC5Gb250RmFtaWx5CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnRleHQuZm9udC5Gb250V2VpZ2h0CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnVuaXQuRHAKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkudW5pdC5kcAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS51bml0LnNwCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5jb21wb25lbnRzLkFmVGV4dAppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuY29tcG9uZW50cy5DT01QQUNUX1dJRFRICmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5jb21wb25lbnRzLkxvY2FsQ29tcGFjdAppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuY29tcG9uZW50cy5zY3JlZW5QYWRkaW5nCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5pbnB1dC5JbnB1dFNjcmVlbgppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkucHJvamVjdHMuQ3VycmVudFByb2plY3QKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUucmVjYXAuQWlKb2IKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LmNvcmUucmVjYXAuQWlKb2JSdW5uZXIKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLmhvbWUuSG9tZVNjcmVlbgppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuam9icy5Kb2JzU2NyZWVuCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5qb2JzLmpvYnNCYWRnZVZhbHVlCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5saWJyYXJ5LkxpYnJhcnlNb2RlbAppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkubGlicmFyeS5MaWJyYXJ5U2NyZWVuCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5wcm9qZWN0cy5EYXNoYm9hcmRTY3JlZW4KaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLnNldHRpbmdzLkFwcEluZm8KaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLnNldHRpbmdzLkJhY2t1cE1vZGVsCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5zZXR0aW5ncy5Qcm92aWRlclN0YXR1c01vZGVsCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5zZXR0aW5ncy5TZXR0aW5nc1NjcmVlbgppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuc2V0dGluZ3MuU2V0dGluZ3NNb2RlbAppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuc2V0dGluZ3MuU2V0dGluZ3NTdG9yZQppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuc3Rvcnlib2FyZC5TdG9yeWJvYXJkSm9icwppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuc3Rvcnlib2FyZC5TdG9yeWJvYXJkU2NyZWVuCmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS50aGVtZS5BdXRvRmxvd0NvbG9ycwppbXBvcnQgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkudGhlbWUuQXV0b0Zsb3dTaGFwZXMKaW1wb3J0IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLnRoZW1lLkxvY2FsVWlGb250RmFtaWx5CmltcG9ydCBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS50aGVtZS5VaUZvbnQKaW1wb3J0IG9yZy5rb2luLmNvbXBvc2UuZ2V0S29pbgppbXBvcnQgb3JnLmtvaW4uY29tcG9zZS5rb2luSW5qZWN0CgovKiogVGhlIE1vdmllIFJlY2FwIHdvcmtzcGFjZSAoZG9jcy9zcGVjcy9yZWNhcC5tZCDCpzcpOiBzaWRlYmFyICJNb2RlIOKGkiBNb3ZpZSBSZWNhcCIsIHBob25lIE1vcmUuICovCmNvbnN0IHZhbCBSRUNBUF9TQ1JFRU4gPSAiTW92aWUgUmVjYXAiCgovKiogU2lkZWJhciBzZWN0aW9ucyBpbiBwaXBlbGluZSBvcmRlciDigJQgZG9jcy9ERVNJR04ubWQgwqcyLiAqLwp2YWwgU2lkZWJhclNlY3Rpb25zOiBMaXN0PFBhaXI8U3RyaW5nLCBMaXN0PFN0cmluZz4+PiA9IGxpc3RPZigKICAgICJQcm9qZWN0IiB0byBsaXN0T2YoCiAgICAgICAgIkRhc2hib2FyZCIsICJJbnB1dCIsICJTdG9yeWJvYXJkIiwgIlNob3RzIiwgIlJlZmVyZW5jZXMiLCAiRmxvdyBIYW5kb2ZmIiwgIlRpbWVsaW5lIiwgIkV4cG9ydCIsCiAgICApLAogICAgIk1vZGUiIHRvIGxpc3RPZigiTXVzaWMgVmlkZW8iLCAiTW92aWUgUmVjYXAiKSwKICAgICJTeXN0ZW0iIHRvIGxpc3RPZigiU2V0dGluZ3MiKSwKKQoKLyoqCiAqIFdpbmRvdyBjb250ZW50IHdpcmVkIHRvIHRoZSBLb2luIGdyYXBoIChzZWUgYHVpTW9kdWxlYCkuIFN0YXJ0cyBvbiB0aGUgRGFzaGJvYXJkLiBBIHdpbmRvdyBuYXJyb3dlciB0aGFuCiAqIFtDT01QQUNUX1dJRFRIXSAoYSBwaG9uZSkgZ2V0cyBbUGhvbmVTaGVsbF0gd2l0aCBib3R0b20gdGFicywgYSB3aWRlciBvbmUgW0FwcFNoZWxsXSB3aXRoIHRoZSBzaWRlYmFyCiAqIChERVNJR04ubWQgwqcyLCDCpzQpLiBbYmFja0hhbmRsZXJdIGxldHMgQW5kcm9pZCdzIEJhY2sgYnV0dG9uIHN0ZXAgYmFjayAoc2VlIFtiYWNrVGFyZ2V0XSk7IHRoZSBkZXNrdG9wIGhhcyBub25lLgogKi8KQENvbXBvc2FibGUKZnVuIEFwcChiYWNrSGFuZGxlcjogQENvbXBvc2FibGUgKGVuYWJsZWQ6IEJvb2xlYW4sIG9uQmFjazogKCkgLT4gVW5pdCkgLT4gVW5pdCA9IHsgXywgXyAtPiB9KSB7CiAgICB2YWwgbW9kZWwgPSBrb2luSW5qZWN0PFByb3ZpZGVyU3RhdHVzTW9kZWw+KCkKICAgIHZhbCBzdGF0dXMgYnkgbW9kZWwuc3RhdHVzLmNvbGxlY3RBc1N0YXRlKG1vZGVsLmN1cnJlbnQoKSkKICAgIHZhbCBwcm9qZWN0IGJ5IGtvaW5JbmplY3Q8Q3VycmVudFByb2plY3Q+KCkuc3RhdGUuY29sbGVjdEFzU3RhdGUoKQogICAgdmFsIHNoZWxsID0ga29pbkluamVjdDxTaGVsbE1vZGVsPigpCiAgICB2YWwgc2hlbGxTdGF0ZSBieSBzaGVsbC5zdGF0ZS5jb2xsZWN0QXNTdGF0ZShzaGVsbC5jdXJyZW50KCkpCiAgICB2YWwgam9icyA9IGtvaW5JbmplY3Q8U3Rvcnlib2FyZEpvYnM+KCkKICAgIHZhciBzY3JlZW4gYnkgcmVtZW1iZXIgeyBtdXRhYmxlU3RhdGVPZigiRGFzaGJvYXJkIikgfQogICAgLy8gQSBzaGFyZSBmcm9tIGFub3RoZXIgYXBwIChBbmRyb2lkIHNoYXJlIHNoZWV0KSBsYW5kcyBpbiB0aGUgSW5ib3g6IG9wZW4gaXQuCiAgICB2YWwgc2hhcmVkID0ga29pbkluamVjdDxpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5pbmJveC5TaGFyZWRJbmJveD4oKQogICAgdmFsIGFycml2YWxzID0gc2hhcmVkLnN0YXRlLmNvbGxlY3RBc1N0YXRlKCkudmFsdWUuYXJyaXZhbHMKICAgIExhdW5jaGVkRWZmZWN0KGFycml2YWxzKSB7IGlmIChhcnJpdmFscyA+IDApIHNjcmVlbiA9ICJJbmJveCIgfQogICAgdmFsIGtvaW4gPSBnZXRLb2luKCkKICAgIHZhbCBhcHBJbmZvID0gcmVtZW1iZXIoa29pbikgeyBrb2luLmdldE9yTnVsbDxBcHBJbmZvPigpIH0KICAgIHZhbCBjdXJyZW50UHJvamVjdCA9IGtvaW5JbmplY3Q8Q3VycmVudFByb2plY3Q+KCkKICAgIHZhbCBiYWNrdXAgPSBrb2luSW5qZWN0PEJhY2t1cE1vZGVsPigpLnRha2VJZiB7IGl0LmF2YWlsYWJsZSB9CiAgICB2YWwgc2V0dGluZ3NTdG9yZSA9IGtvaW5JbmplY3Q8U2V0dGluZ3NTdG9yZT4oKQogICAgdmFsIHNldHRpbmdzIGJ5IHNldHRpbmdzU3RvcmUuc3RhdGUuY29sbGVjdEFzU3RhdGUoKQogICAgdmFsIHNldHRpbmdzTW9kZWwgPSBrb2luSW5qZWN0PFNldHRpbmdzTW9kZWw+KCkKICAgIHZhbCBzZXR0aW5nc1N0YXRlIGJ5IHNldHRpbmdzTW9kZWwuc3RhdGUuY29sbGVjdEFzU3RhdGUoKQogICAgdmFsIGZvbnRQYXRocyA9IHNldHRpbmdzLmZvbnRQYXRocwogICAgdmFsIGZzID0ga29pbkluamVjdDxpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLmlvLkZpbGVTeXN0ZW0+KCkKICAgIHZhbCB1aUZvbnQgPSByZW1lbWJlcihmb250UGF0aHMpIHsgVWlGb250LmxvYWQoZm9udFBhdGhzKSB7IHJ1bkNhdGNoaW5nIHsgZnMucmVhZChpdCkgfS5nZXRPck51bGwoKSB9ID86IEZvbnRGYW1pbHkuRGVmYXVsdCB9CiAgICBCb3hXaXRoQ29uc3RyYWludHMoTW9kaWZpZXIuZmlsbE1heFNpemUoKSkgewogICAgICAgIHZhbCBjb21wYWN0ID0gbWF4V2lkdGggPCBDT01QQUNUX1dJRFRICiAgICAgICAgLy8gTU9SRSBpcyBhIHBob25lIHRhYjsgYSB3aW5kb3cgd2lkZW5lZCB3aGlsZSBvbiBpdCBzaG93cyB0aGUgRGFzaGJvYXJkLgogICAgICAgIHZhbCBjdXJyZW50ID0gaWYgKCFjb21wYWN0ICYmIHNjcmVlbiA9PSBNT1JFKSAiRGFzaGJvYXJkIiBlbHNlIHNjcmVlbgogICAgICAgIHZhbCBiYWNrID0gaWYgKGNvbXBhY3QpIGJhY2tUYXJnZXQoY3VycmVudCkgZWxzZSBudWxsCiAgICAgICAgYmFja0hhbmRsZXIoYmFjayAhPSBudWxsKSB7IGJhY2s/LmxldCB7IHNjcmVlbiA9IGl0IH0gfQogICAgICAgIHZhbCB0b3A6IEBDb21wb3NhYmxlICgpIC0+IFVuaXQgPSB7CiAgICAgICAgICAgIEpvYkJhbm5lcihqb2JzKQogICAgICAgICAgICBpZiAoY3VycmVudCBpbiBTaGVsbE1vZGVsLlNDUkVFTl9TVEVQUyAmJiBzaGVsbFN0YXRlLnN0ZXBzLmlzTm90RW1wdHkoKSkgU3RlcHBlcihzaGVsbFN0YXRlLnN0ZXBzLCB2aWV3aW5nID0gU2hlbGxNb2RlbC5TQ1JFRU5fU1RFUFNbY3VycmVudF0pCiAgICAgICAgfQogICAgICAgIHZhbCBjb250ZW50OiBAQ29tcG9zYWJsZSAoKSAtPiBVbml0ID0gewogICAgICAgICAgICB3aGVuIChjdXJyZW50KSB7CiAgICAgICAgICAgICAgICAiRGFzaGJvYXJkIiAtPiBEYXNoYm9hcmRTY3JlZW4oa29pbkluamVjdCgpLCBvbk9wZW5lZCA9IHsKICAgICAgICAgICAgICAgICAgICB2YWwgbW9kZSA9IGN1cnJlbnRQcm9qZWN0LnN0YXRlLnZhbHVlPy5wcm9qZWN0Py5tb2RlCiAgICAgICAgICAgICAgICAgICAgc2NyZWVuID0gaWYgKG1vZGUgPT0gaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5tb2RlbC5Nb2RlLk1PVklFX1JFQ0FQKSBSRUNBUF9TQ1JFRU4gZWxzZSAiSW5wdXQiCiAgICAgICAgICAgICAgICB9KQogICAgICAgICAgICAgICAgUkVDQVBfU0NSRUVOIC0+IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLnJlY2FwLlJlY2FwU2NyZWVuKGtvaW5JbmplY3QoKSwgb25Hb1RvRXhwb3J0ID0geyBzY3JlZW4gPSAiRXhwb3J0IiB9KQogICAgICAgICAgICAgICAgIklucHV0IiAtPiBJbnB1dFNjcmVlbihrb2luSW5qZWN0KCksIGtvaW5JbmplY3QoKSwgb25HZW5lcmF0ZWQgPSB7IHNjcmVlbiA9ICJTdG9yeWJvYXJkIiB9KQogICAgICAgICAgICAgICAgIlN0b3J5Ym9hcmQiIC0+IFN0b3J5Ym9hcmRTY3JlZW4oa29pbkluamVjdCgpLCBrb2luSW5qZWN0KCksIG9uR29Ub0lucHV0ID0geyBzY3JlZW4gPSAiSW5wdXQiIH0pCiAgICAgICAgICAgICAgICAiU2hvdHMiIC0+IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLnNob3RzLlNob3RzU2NyZWVuKGtvaW5JbmplY3QoKSkKICAgICAgICAgICAgICAgICJSZWZlcmVuY2VzIiAtPiB7CiAgICAgICAgICAgICAgICAgICAgdmFsIGZzID0ga29pbkluamVjdDxpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy5jb3JlLmlvLkZpbGVTeXN0ZW0+KCkKICAgICAgICAgICAgICAgICAgICBpby5naXRodWIuYWxhbGtpcGdlbi5hdXRvZmxvdy51aS5yZWZlcmVuY2VzLlJlZmVyZW5jZXNTY3JlZW4oCiAgICAgICAgICAgICAgICAgICAgICAgIG1vZGVsID0ga29pbkluamVjdCgpLAogICAgICAgICAgICAgICAgICAgICAgICByZWFkQnl0ZXMgPSB7IHBhdGggLT4gdHJ5IHsgZnMucmVhZChwYXRoKSB9IGNhdGNoIChlOiBFeGNlcHRpb24pIHsgbnVsbCB9IH0sCiAgICAgICAgICAgICAgICAgICAgKQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgIkZsb3cgSGFuZG9mZiIgLT4gewogICAgICAgICAgICAgICAgICAgIHZhbCBmcyA9IGtvaW5JbmplY3Q8aW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5pby5GaWxlU3lzdGVtPigpCiAgICAgICAgICAgICAgICAgICAgaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuaGFuZG9mZi5GbG93SGFuZG9mZlNjcmVlbigKICAgICAgICAgICAgICAgICAgICAgICAgbW9kZWwgPSBrb2luSW5qZWN0KCksCiAgICAgICAgICAgICAgICAgICAgICAgIHJlYWRCeXRlcyA9IHsgcGF0aCAtPiB0cnkgeyBmcy5yZWFkKHBhdGgpIH0gY2F0Y2ggKGU6IEV4Y2VwdGlvbikgeyBudWxsIH0gfSwKICAgICAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAiSW5ib3giIC0+IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLmluYm94LkluYm94U2NyZWVuKGtvaW5JbmplY3QoKSwgc2hhcmVkID0ga29pbkluamVjdCgpKQogICAgICAgICAgICAgICAgIkV4cG9ydCIgLT4gaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuZXhwb3J0LkV4cG9ydFNjcmVlbihrb2luSW5qZWN0KCkpCiAgICAgICAgICAgICAgICAiU2V0dGluZ3MiIC0+IFNldHRpbmdzU2NyZWVuKGtvaW5JbmplY3QoKSwgaW5mbyA9IGFwcEluZm8sIGJhY2t1cCA9IGJhY2t1cCkKICAgICAgICAgICAgICAgIE1PUkUgLT4gTW9yZVNjcmVlbihzaGVsbFN0YXRlLmxvY2tzLCBvblNlbGVjdCA9IHsgc2NyZWVuID0gaXQgfSkKICAgICAgICAgICAgICAgIGVsc2UgLT4gU2NyZWVuUGxhY2Vob2xkZXIoY3VycmVudCkKICAgICAgICAgICAgfQogICAgICAgIH0KICAgICAgICBDb21wb3NpdGlvbkxvY2FsUHJvdmlkZXIoTG9jYWxDb21wYWN0IHByb3ZpZGVzIGNvbXBhY3QsIExvY2FsVWlGb250RmFtaWx5IHByb3ZpZGVzIHVpRm9udCkgewogICAgICAgICAgICBpZiAoc2V0dGluZ3NTdGF0ZS5mZWF0dXJlcy5zdHVkaW9WMikgewogICAgICAgICAgICAgICAgU3R1ZGlvVjJBcHAoCiAgICAgICAgICAgICAgICAgICAgc3RhdHVzID0gc3RhdHVzLAogICAgICAgICAgICAgICAgICAgIHByb2plY3ROYW1lID0gcHJvamVjdD8ucHJvamVjdD8ubmFtZSwKICAgICAgICAgICAgICAgICAgICB3aW5kb3dXaWR0aERwID0gbWF4V2lkdGgudmFsdWUsCiAgICAgICAgICAgICAgICAgICAgYXBwSW5mbyA9IGFwcEluZm8sCiAgICAgICAgICAgICAgICAgICAgYmFja3VwID0gYmFja3VwLAogICAgICAgICAgICAgICAgKQogICAgICAgICAgICB9IGVsc2UgaWYgKGNvbXBhY3QpIHsKICAgICAgICAgICAgICAgIFBob25lU2hlbGwoc3RhdHVzLCBzZWxlY3RlZCA9IGN1cnJlbnQsIG9uU2VsZWN0ID0geyBzY3JlZW4gPSBpdCB9LCBwcm9qZWN0TmFtZSA9IHByb2plY3Q/LnByb2plY3Q/Lm5hbWUsCiAgICAgICAgICAgICAgICAgICAgbG9ja3MgPSBzaGVsbFN0YXRlLmxvY2tzLCB0b3AgPSB0b3AsIGNvbnRlbnQgPSBjb250ZW50KQogICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgQXBwU2hlbGwoc3RhdHVzLCBzZWxlY3RlZCA9IGN1cnJlbnQsIG9uU2VsZWN0ID0geyBzY3JlZW4gPSBpdCB9LCBwcm9qZWN0TmFtZSA9IHByb2plY3Q/LnByb2plY3Q/Lm5hbWUsCiAgICAgICAgICAgICAgICAgICAgbG9ja3MgPSBzaGVsbFN0YXRlLmxvY2tzLCB0b3AgPSB0b3AsIGNvbnRlbnQgPSBjb250ZW50KQogICAgICAgICAgICB9CiAgICAgICAgfQogICAgfQp9CgovKioKICogU3R1ZGlvIHYyIHJvb3QgKDVBLTYpOiBIb21lIMK3IFByb2plY3RzIMK3IExpYnJhcnkgwrcgSm9icyB3aXRoIGFkYXB0aXZlIHNoZWxsLgogKiBCb3R0b20gbmF2IDwgNjAwIGRwLCByYWlsIOKJpSA2MDAgZHAsIHRocmVlLXBhbmUg4omlIDg0MCBkcC4KICovCkBDb21wb3NhYmxlCnByaXZhdGUgZnVuIFN0dWRpb1YyQXBwKAogICAgc3RhdHVzOiBTdHJpbmcsCiAgICBwcm9qZWN0TmFtZTogU3RyaW5nPywKICAgIHdpbmRvd1dpZHRoRHA6IEZsb2F0LAogICAgYXBwSW5mbzogQXBwSW5mbz8sCiAgICBiYWNrdXA6IEJhY2t1cE1vZGVsPywKKSB7CiAgICB2YWwga29pbiA9IGdldEtvaW4oKQogICAgdmFsIGpvYlJ1bm5lciA9IHJlbWVtYmVyKGtvaW4pIHsga29pbi5nZXRPck51bGw8QWlKb2JSdW5uZXI+KCkgfQogICAgdmFsIGpvYnMgYnkgKGpvYlJ1bm5lcj8uam9icz8uY29sbGVjdEFzU3RhdGUoKSA/OiByZW1lbWJlciB7IG11dGFibGVTdGF0ZU9mPExpc3Q8QWlKb2I+PihlbXB0eUxpc3QoKSkgfSkKICAgIHZhbCBiYWRnZSA9IGpvYnNCYWRnZVZhbHVlKGpvYnMpCiAgICB2YXIgZGVzdCBieSByZW1lbWJlciB7IG11dGFibGVTdGF0ZU9mKFN0dWRpb1YyRGVzdC5IT01FKSB9CiAgICAvLyBQcm9qZWN0IHN1Yi1zY3JlZW46IG51bGwgPSBEYXNoYm9hcmQgbGlzdDsgIlJlY2FwIiAvICJJbnB1dCIgLyAiRXhwb3J0IiA9IHByb2plY3Qgc2NyZWVuCiAgICB2YXIgcHJvamVjdFNjcmVlbiBieSByZW1lbWJlciB7IG11dGFibGVTdGF0ZU9mPFN0cmluZz8+KG51bGwpIH0KICAgIHZhbCBjdXJyZW50UHJvamVjdCA9IGtvaW5JbmplY3Q8aW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkucHJvamVjdHMuQ3VycmVudFByb2plY3Q+KCkKICAgIHZhbCBzY29wZSA9IHJlbWVtYmVyQ29yb3V0aW5lU2NvcGUoKQoKICAgIHZhbCBjb250ZW50OiBAQ29tcG9zYWJsZSAoKSAtPiBVbml0ID0gewogICAgICAgIHdoZW4gKGRlc3QpIHsKICAgICAgICAgICAgU3R1ZGlvVjJEZXN0LkhPTUUgLT4gewogICAgICAgICAgICAgICAgdmFsIGRhc2hib2FyZCA9IGtvaW5JbmplY3Q8aW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkucHJvamVjdHMuRGFzaGJvYXJkTW9kZWw+KCkKICAgICAgICAgICAgICAgIEhvbWVTY3JlZW4oCiAgICAgICAgICAgICAgICAgICAgb25OZXdSZWNhcCA9IHsgZGVzdCA9IFN0dWRpb1YyRGVzdC5QUk9KRUNUUzsgcHJvamVjdFNjcmVlbiA9IG51bGwgfSwKICAgICAgICAgICAgICAgICAgICBvbk5ld011c2ljVmlkZW8gPSB7IGRlc3QgPSBTdHVkaW9WMkRlc3QuUFJPSkVDVFM7IHByb2plY3RTY3JlZW4gPSBudWxsIH0sCiAgICAgICAgICAgICAgICAgICAgb25RdWlja1JlY2FwU3RhcnQgPSB7IHRhcmdldE1zLCBzdHlsZSAtPgogICAgICAgICAgICAgICAgICAgICAgICBpZiAoZGFzaGJvYXJkLmNyZWF0ZVF1aWNrUmVjYXAodGFyZ2V0TXMsIHN0eWxlKSkgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgZGVzdCA9IFN0dWRpb1YyRGVzdC5QUk9KRUNUUwogICAgICAgICAgICAgICAgICAgICAgICAgICAgcHJvamVjdFNjcmVlbiA9ICJSZWNhcCIKICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgIH0KICAgICAgICAgICAgU3R1ZGlvVjJEZXN0LlBST0pFQ1RTIC0+IHsKICAgICAgICAgICAgICAgIHdoZW4gKHByb2plY3RTY3JlZW4pIHsKICAgICAgICAgICAgICAgICAgICAiUmVjYXAiIC0+IGlvLmdpdGh1Yi5hbGFsa2lwZ2VuLmF1dG9mbG93LnVpLnJlY2FwLlJlY2FwU2NyZWVuKAogICAgICAgICAgICAgICAgICAgICAgICBrb2luSW5qZWN0KCksIG9uR29Ub0V4cG9ydCA9IHsgcHJvamVjdFNjcmVlbiA9ICJFeHBvcnQiIH0KICAgICAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICAgICAgIklucHV0IiAtPiBJbnB1dFNjcmVlbihrb2luSW5qZWN0KCksIGtvaW5JbmplY3QoKSwgb25HZW5lcmF0ZWQgPSB7IHByb2plY3RTY3JlZW4gPSAiU3Rvcnlib2FyZCIgfSkKICAgICAgICAgICAgICAgICAgICAiU3Rvcnlib2FyZCIgLT4gU3Rvcnlib2FyZFNjcmVlbihrb2luSW5qZWN0KCksIGtvaW5JbmplY3QoKSwgb25Hb1RvSW5wdXQgPSB7IHByb2plY3RTY3JlZW4gPSAiSW5wdXQiIH0pCiAgICAgICAgICAgICAgICAgICAgIkV4cG9ydCIgLT4gaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cudWkuZXhwb3J0LkV4cG9ydFNjcmVlbihrb2luSW5qZWN0KCkpCiAgICAgICAgICAgICAgICAgICAgZWxzZSAtPiBEYXNoYm9hcmRTY3JlZW4oa29pbkluamVjdCgpLCBvbk9wZW5lZCA9IHsKICAgICAgICAgICAgICAgICAgICAgICAgdmFsIG1vZGUgPSBjdXJyZW50UHJvamVjdC5zdGF0ZS52YWx1ZT8ucHJvamVjdD8ubW9kZQogICAgICAgICAgICAgICAgICAgICAgICBwcm9qZWN0U2NyZWVuID0gaWYgKG1vZGUgPT0gaW8uZ2l0aHViLmFsYWxraXBnZW4uYXV0b2Zsb3cuY29yZS5tb2RlbC5Nb2RlLk1PVklFX1JFQ0FQKSAiUmVjYXAiIGVsc2UgIklucHV0IgogICAgICAgICAgICAgICAgICAgIH0pCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICAgICAgU3R1ZGlvVjJEZXN0LkxJQlJBUlkgLT4gTGlicmFyeVNjcmVlbihrb2luSW5qZWN0PExpYnJhcnlNb2RlbD4oKSkKICAgICAgICAgICAgU3R1ZGlvVjJEZXN0LkpPQlMgLT4gaWYgKGpvYlJ1bm5lciAhPSBudWxsKSBKb2JzU2NyZWVuKGpvYlJ1bm5lciwgc2NvcGUpIGVsc2UgU2NyZWVuUGxhY2Vob2xkZXIoIkpvYnMiKQogICAgICAgIH0KICAgIH0KCiAgICBTdHVkaW9WMlNoZWxsKAogICAgICAgIHNlbGVjdGVkID0gZGVzdCwKICAgICAgICBvblNlbGVjdCA9IHsgZGVzdCA9IGl0IH0sCiAgICAgICAgam9ic0JhZGdlID0gYmFkZ2UsCiAgICAgICAgd2luZG93V2lkdGhEcCA9IHdpbmRvd1dpZHRoRHAsCiAgICAgICAgY29udGVudCA9IGNvbnRlbnQsCiAgICApCn0KCi8qKgogKiBEZXNrdG9wIHdpbmRvdyBjb250ZW50OiB0aXRsZSBiYXIgd2l0aCBbcHJvdmlkZXJTdGF0dXNdIChERVNJR04ubWQgwqcyKSwgcGlwZWxpbmUgc2lkZWJhciB3aXRoIFtzZWxlY3RlZF0KICogaGlnaGxpZ2h0ZWQgYW5kIFtsb2Nrc10gKGVudHJ5IOKGkiB3aGF0IG11c3QgYmUgZG9uZSBmaXJzdCkgZGltbWVkLCBbdG9wXSAoam9iIGJhbm5lciwgc3RlcHBlcikgYW5kIFtjb250ZW50XS4KICovCkBDb21wb3NhYmxlCmZ1biBBcHBTaGVsbCgKICAgIHByb3ZpZGVyU3RhdHVzOiBTdHJpbmcsCiAgICBtb2RpZmllcjogTW9kaWZpZXIgPSBNb2RpZmllciwKICAgIHNlbGVjdGVkOiBTdHJpbmc/ID0gbnVsbCwKICAgIG9uU2VsZWN0OiAoU3RyaW5nKSAtPiBVbml0ID0ge30sCiAgICBwcm9qZWN0TmFtZTogU3RyaW5nPyA9IG51bGwsCiAgICBsb2NrczogTWFwPFN0cmluZywgU3RyaW5nPiA9IGVtcHR5TWFwKCksCiAgICB0b3A6IEBDb21wb3NhYmxlICgpIC0+IFVuaXQgPSB7fSwKICAgIGNvbnRlbnQ6IEBDb21wb3NhYmxlICgpIC0+IFVuaXQgPSB7fSwKKSB7CiAgICBDb2x1bW4obW9kaWZpZXIuZmlsbE1heFNpemUoKS5iYWNrZ3JvdW5kKEF1dG9GbG93Q29sb3JzLkJhY2tncm91bmQpKSB7CiAgICAgICAgVGl0bGVCYXIocHJvdmlkZXJTdGF0dXMsIHByb2plY3ROYW1lKQogICAgICAgIFJvdyhNb2RpZmllci5maWxsTWF4U2l6ZSgpKSB7CiAgICAgICAgICAgIFNpZGViYXIoc2VsZWN0ZWQsIGxvY2tzLCBvblNlbGVjdCkKICAgICAgICAgICAgQ29sdW1uKE1vZGlmaWVyLmZpbGxNYXhTaXplKCkpIHsKICAgICAgICAgICAgICAgIHRvcCgpCiAgICAgICAgICAgICAgICBCb3goTW9kaWZpZXIuZmlsbE1heFdpZHRoKCkud2VpZ2h0KDFmKSkgeyBjb250ZW50KCkgfQogICAgICAgICAgICB9CiAgICAgICAgfQogICAgfQp9CgovKiogQ29udGVudCBmb3IgYSBzaWRlYmFyIGVudHJ5IHdob3NlIHNjcmVlbiBpcyBub3QgYnVpbHQgeWV0LiAqLwpAQ29tcG9zYWJsZQpmdW4gU2NyZWVuUGxhY2Vob2xkZXIobmFtZTogU3RyaW5nKSB7CiAgICBDb2x1bW4oTW9kaWZpZXIucGFkZGluZyhzY3JlZW5QYWRkaW5nKSwgdmVydGljYWxBcnJhbmdlbWVudCA9IEFycmFuZ2VtZW50LnNwYWNlZEJ5KDYuZHApKSB7CiAgICAgICAgQWZUZXh0KG5hbWUsIHNpemUgPSAxOC5zcCwgYm9sZCA9IHRydWUpCiAgICAgICAgQWZUZXh0KCJUaGlzIHNjcmVlbiBpcyBub3QgYnVpbHQgeWV0LiIsIG11dGVkID0gdHJ1ZSkKICAgIH0KfQoKQENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gVGl0bGVCYXIocHJvdmlkZXJTdGF0dXM6IFN0cmluZywgcHJvamVjdE5hbWU6IFN0cmluZz8pIHsKICAgIENvbHVtbihNb2RpZmllci5maWxsTWF4V2lkdGgoKSkgewogICAgICAgIFJvdygKICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllcgogICAgICAgICAgICAgICAgLmZpbGxNYXhXaWR0aCgpCiAgICAgICAgICAgICAgICAuaGVpZ2h0KDQwLmRwKQogICAgICAgICAgICAgICAgLmJhY2tncm91bmQoQXV0b0Zsb3dDb2xvcnMuVGl0bGVCYXIpCiAgICAgICAgICAgICAgICAucGFkZGluZyhob3Jpem9udGFsID0gMTYuZHApLAogICAgICAgICAgICB2ZXJ0aWNhbEFsaWdubWVudCA9IEFsaWdubWVudC5DZW50ZXJWZXJ0aWNhbGx5LAogICAgICAgICAgICBob3Jpem9udGFsQXJyYW5nZW1lbnQgPSBBcnJhbmdlbWVudC5zcGFjZWRCeSgxMC5kcCksCiAgICAgICAgKSB7CiAgICAgICAgICAgIEF1dG9GbG93TG9nbygyMi5kcCkKICAgICAgICAgICAgQmFzaWNUZXh0KAogICAgICAgICAgICAgICAgdGV4dCA9ICJBdXRvIEZsb3ciLAogICAgICAgICAgICAgICAgc3R5bGUgPSBUZXh0U3R5bGUoCiAgICAgICAgICAgICAgICAgICAgY29sb3IgPSBBdXRvRmxvd0NvbG9ycy5UZXh0LAogICAgICAgICAgICAgICAgICAgIGZvbnRTaXplID0gMTMuc3AsCiAgICAgICAgICAgICAgICAgICAgZm9udFdlaWdodCA9IEZvbnRXZWlnaHQuQm9sZCwKICAgICAgICAgICAgICAgICAgICBsZXR0ZXJTcGFjaW5nID0gMC41LnNwLAogICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgKQogICAgICAgICAgICBwcm9qZWN0TmFtZT8ubGV0IHsgQWZUZXh0KCLCtyAgJGl0IiwgbXV0ZWQgPSB0cnVlKSB9CiAgICAgICAgICAgIFNwYWNlcihNb2RpZmllci53ZWlnaHQoMWYpKQogICAgICAgICAgICBCYXNpY1RleHQocHJvdmlkZXJTdGF0dXMsIHN0eWxlID0gVGV4dFN0eWxlKGNvbG9yID0gQXV0b0Zsb3dDb2xvcnMuTXV0ZWQsIGZvbnRTaXplID0gMTMuc3ApKQogICAgICAgIH0KICAgICAgICBCb3goTW9kaWZpZXIuZmlsbE1heFdpZHRoKCkuaGVpZ2h0KEF1dG9GbG93U2hhcGVzLkJvcmRlcikuYmFja2dyb3VuZChBdXRvRmxvd0NvbG9ycy5MaW5lKSkKICAgIH0KfQoKQENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gU2lkZWJhcihzZWxlY3RlZDogU3RyaW5nPywgbG9ja3M6IE1hcDxTdHJpbmcsIFN0cmluZz4sIG9uU2VsZWN0OiAoU3RyaW5nKSAtPiBVbml0KSB7CiAgICB2YXIgdGFwcGVkIGJ5IHJlbWVtYmVyIHsgbXV0YWJsZVN0YXRlT2Y8U3RyaW5nPz4obnVsbCkgfQogICAgUm93KE1vZGlmaWVyLmZpbGxNYXhIZWlnaHQoKSkgewogICAgICAgIENvbHVtbigKICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllcgogICAgICAgICAgICAgICAgLndpZHRoKDE5MC5kcCkKICAgICAgICAgICAgICAgIC5maWxsTWF4SGVpZ2h0KCkKICAgICAgICAgICAgICAgIC5iYWNrZ3JvdW5kKEF1dG9GbG93Q29sb3JzLlBhbmVsKQogICAgICAgICAgICAgICAgLnBhZGRpbmcoaG9yaXpvbnRhbCA9IDEwLmRwLCB2ZXJ0aWNhbCA9IDE0LmRwKSwKICAgICAgICAgICAgdmVydGljYWxBcnJhbmdlbWVudCA9IEFycmFuZ2VtZW50LnNwYWNlZEJ5KDQuZHApLAogICAgICAgICkgewogICAgICAgICAgICBTaWRlYmFyU2VjdGlvbnMuZm9yRWFjaCB7IChzZWN0aW9uLCBpdGVtcykgLT4KICAgICAgICAgICAgICAgIC8vIERFU0lHTi5tZCDCpzIgLyBtb2NrdXA6IHRoZSBTeXN0ZW0gc2VjdGlvbiBzaXRzIGF0IHRoZSBib3R0b20gb2YgdGhlIHNpZGViYXIuCiAgICAgICAgICAgICAgICBpZiAoc2VjdGlvbiA9PSAiU3lzdGVtIikgU3BhY2VyKE1vZGlmaWVyLndlaWdodCgxZikpCiAgICAgICAgICAgICAgICBCYXNpY1RleHQoCiAgICAgICAgICAgICAgICAgICAgdGV4dCA9IHNlY3Rpb24udXBwZXJjYXNlKCksCiAgICAgICAgICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllci5wYWRkaW5nKHN0YXJ0ID0gMTIuZHAsIHRvcCA9IDEwLmRwLCBib3R0b20gPSA0LmRwKSwKICAgICAgICAgICAgICAgICAgICBzdHlsZSA9IFRleHRTdHlsZShjb2xvciA9IEF1dG9GbG93Q29sb3JzLk11dGVkLCBmb250U2l6ZSA9IDEwLnNwLCBsZXR0ZXJTcGFjaW5nID0gMS5zcCksCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICBpdGVtcy5mb3JFYWNoIHsgaXRlbSAtPgogICAgICAgICAgICAgICAgICAgIHZhbCBsb2NrID0gbG9ja3NbaXRlbV0KICAgICAgICAgICAgICAgICAgICBTaWRlYmFySXRlbShpdGVtLCBpdGVtID09IHNlbGVjdGVkLCBsb2NrLCBzaG93TG9jayA9IHRhcHBlZCA9PSBpdGVtKSB7CiAgICAgICAgICAgICAgICAgICAgICAgIGlmIChsb2NrID09IG51bGwpIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRhcHBlZCA9IG51bGwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uU2VsZWN0KGl0ZW0pCiAgICAgICAgICAgICAgICAgICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICB0YXBwZWQgPSBpdGVtCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgQm94KE1vZGlmaWVyLndpZHRoKEF1dG9GbG93U2hhcGVzLkJvcmRlcikuZmlsbE1heEhlaWdodCgpLmJhY2tncm91bmQoQXV0b0Zsb3dDb2xvcnMuTGluZSkpCiAgICB9Cn0KCi8qKgogKiBTZWxlY3RlZDogcHVycGxlIGxlZnQgYmFyICsgZmFkaW5nIHB1cnBsZSBiYWNrZ3JvdW5kLCB3aGl0ZSB0ZXh0IChtb2NrdXAgYC5zaWRlIGEub25gKS4gTG9ja2VkIChbbG9ja10gIT0gbnVsbCk6CiAqIGRpbW1lZCB3aXRoIGEgbG9jayBnbHlwaDsgaG92ZXJpbmcgb3IgY2xpY2tpbmcgc2hvd3MgW2xvY2tdIGluc3RlYWQgb2Ygb3BlbmluZyB0aGUgc2NyZWVuIChERVNJR04ubWQgwqcyKS4KICovCkBDb21wb3NhYmxlCnByaXZhdGUgZnVuIFNpZGViYXJJdGVtKG5hbWU6IFN0cmluZywgc2VsZWN0ZWQ6IEJvb2xlYW4sIGxvY2s6IFN0cmluZz8sIHNob3dMb2NrOiBCb29sZWFuLCBvbkNsaWNrOiAoKSAtPiBVbml0KSB7CiAgICB2YWwgc2hhcGUgPSBSb3VuZGVkQ29ybmVyU2hhcGUoOC5kcCkKICAgIHZhbCBob3ZlciA9IHJlbWVtYmVyIHsgTXV0YWJsZUludGVyYWN0aW9uU291cmNlKCkgfQogICAgdmFsIGhvdmVyZWQgYnkgaG92ZXIuY29sbGVjdElzSG92ZXJlZEFzU3RhdGUoKQogICAgQ29sdW1uIHsKICAgICAgICBSb3coCiAgICAgICAgICAgIE1vZGlmaWVyCiAgICAgICAgICAgICAgICAuZmlsbE1heFdpZHRoKCkKICAgICAgICAgICAgICAgIC5jbGlwKHNoYXBlKQogICAgICAgICAgICAgICAgLnRoZW4oCiAgICAgICAgICAgICAgICAgICAgaWYgKHNlbGVjdGVkKSB7CiAgICAgICAgICAgICAgICAgICAgICAgIE1vZGlmaWVyLmJhY2tncm91bmQoQnJ1c2guaG9yaXpvbnRhbEdyYWRpZW50KGxpc3RPZihBdXRvRmxvd0NvbG9ycy5QdXJwbGUuY29weShhbHBoYSA9IDAuMjVmKSwgQ29sb3IuVHJhbnNwYXJlbnQpKSkKICAgICAgICAgICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgICAgICAgICBNb2RpZmllcgogICAgICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICAuaG92ZXJhYmxlKGhvdmVyKQogICAgICAgICAgICAgICAgLnNlbGVjdGFibGUoc2VsZWN0ZWQgPSBzZWxlY3RlZCwgcm9sZSA9IFJvbGUuVGFiLCBvbkNsaWNrID0gb25DbGljaykKICAgICAgICAgICAgICAgIC50aGVuKGlmIChsb2NrICE9IG51bGwpIE1vZGlmaWVyLnNlbWFudGljcyB7IHN0YXRlRGVzY3JpcHRpb24gPSAibG9ja2VkIiB9IGVsc2UgTW9kaWZpZXIpCiAgICAgICAgICAgICAgICAuaGVpZ2h0KEludHJpbnNpY1NpemUuTWluKSwKICAgICAgICAgICAgdmVydGljYWxBbGlnbm1lbnQgPSBBbGlnbm1lbnQuQ2VudGVyVmVydGljYWxseSwKICAgICAgICApIHsKICAgICAgICAgICAgaWYgKHNlbGVjdGVkKSBCb3goTW9kaWZpZXIud2lkdGgoMy5kcCkuZmlsbE1heEhlaWdodCgpLmJhY2tncm91bmQoQXV0b0Zsb3dDb2xvcnMuUHVycGxlKSkKICAgICAgICAgICAgdmFsIGluayA9IHdoZW4gewogICAgICAgICAgICAgICAgc2VsZWN0ZWQgLT4gQ29sb3IuV2hpdGUKICAgICAgICAgICAgICAgIGxvY2sgIT0gbnVsbCAtPiBBdXRvRmxvd0NvbG9ycy5NdXRlZC5jb3B5KGFscGhhID0gMC41ZikKICAgICAgICAgICAgICAgIGVsc2UgLT4gQXV0b0Zsb3dDb2xvcnMuTXV0ZWQKICAgICAgICAgICAgfQogICAgICAgICAgICBCYXNpY1RleHQoCiAgICAgICAgICAgICAgICB0ZXh0ID0gbmFtZSwKICAgICAgICAgICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIucGFkZGluZyhzdGFydCA9IGlmIChzZWxlY3RlZCkgOS5kcCBlbHNlIDEyLmRwLCBlbmQgPSA2LmRwLCB0b3AgPSA5LmRwLCBib3R0b20gPSA5LmRwKSwKICAgICAgICAgICAgICAgIHN0eWxlID0gVGV4dFN0eWxlKGNvbG9yID0gaW5rLCBmb250U2l6ZSA9IDEzLnNwKSwKICAgICAgICAgICAgKQogICAgICAgICAgICBpZiAobG9jayAhPSBudWxsKSBCYXNpY1RleHQoTE9DS19HTFlQSCwgc3R5bGUgPSBUZXh0U3R5bGUoY29sb3IgPSBpbmssIGZvbnRTaXplID0gMTEuc3ApKQogICAgICAgIH0KICAgICAgICBpZiAobG9jayAhPSBudWxsICYmIChob3ZlcmVkIHx8IHNob3dMb2NrKSkgewogICAgICAgICAgICBBZlRleHQobG9jaywgTW9kaWZpZXIucGFkZGluZyhzdGFydCA9IDEyLmRwLCBlbmQgPSA4LmRwLCBib3R0b20gPSA2LmRwKSwgc2l6ZSA9IDExLnNwLCBjb2xvciA9IEF1dG9GbG93Q29sb3JzLkFtYmVyKQogICAgICAgIH0KICAgIH0KfQoKY29uc3QgdmFsIExPQ0tfR0xZUEggPSAi8J+UkiIKCi8qKiBMb2dvIOKAlCBncmFkaWVudCBwdXJwbGXihpJjeWFuIHJvdW5kZWQgc3F1YXJlIHdpdGggYSB3aGl0ZSBwbGF5IHRyaWFuZ2xlIChkb2NzL0RFU0lHTi5tZCDCpzEpLiAqLwpAQ29tcG9zYWJsZQpmdW4gQXV0b0Zsb3dMb2dvKHNpemU6IERwLCBtb2RpZmllcjogTW9kaWZpZXIgPSBNb2RpZmllcikgewogICAgQ2FudmFzKG1vZGlmaWVyLnNpemUoc2l6ZSkpIHsKICAgICAgICBkcmF3Um91bmRSZWN0KAogICAgICAgICAgICBicnVzaCA9IEJydXNoLmxpbmVhckdyYWRpZW50KGxpc3RPZihBdXRvRmxvd0NvbG9ycy5QdXJwbGUsIEF1dG9GbG93Q29sb3JzLkN5YW4pKSwKICAgICAgICAgICAgY29ybmVyUmFkaXVzID0gQ29ybmVyUmFkaXVzKHRoaXMuc2l6ZS5taW5EaW1lbnNpb24gKiAwLjI3ZiksCiAgICAgICAgKQogICAgICAgIHZhbCB3ID0gdGhpcy5zaXplLndpZHRoCiAgICAgICAgdmFsIGggPSB0aGlzLnNpemUuaGVpZ2h0CiAgICAgICAgdmFsIHRyaWFuZ2xlID0gUGF0aCgpLmFwcGx5IHsKICAgICAgICAgICAgbW92ZVRvKHcgKiAwLjM4ZiwgaCAqIDAuMjhmKQogICAgICAgICAgICBsaW5lVG8odyAqIDAuMzhmLCBoICogMC43MmYpCiAgICAgICAgICAgIGxpbmVUbyh3ICogMC43NGYsIGggKiAwLjUwZikKICAgICAgICAgICAgY2xvc2UoKQogICAgICAgIH0KICAgICAgICBkcmF3UGF0aCh0cmlhbmdsZSwgQ29sb3IuV2hpdGUpCiAgICB9Cn0K
+package io.github.alalkipgen.autoflow.ui.shell
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.COMPACT_WIDTH
+import io.github.alalkipgen.autoflow.ui.components.LocalCompact
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
+import io.github.alalkipgen.autoflow.ui.input.InputScreen
+import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
+import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.ui.home.HomeScreen
+import io.github.alalkipgen.autoflow.ui.jobs.JobsScreen
+import io.github.alalkipgen.autoflow.ui.jobs.jobsBadgeValue
+import io.github.alalkipgen.autoflow.ui.library.LibraryModel
+import io.github.alalkipgen.autoflow.ui.library.LibraryScreen
+import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
+import io.github.alalkipgen.autoflow.ui.settings.AppInfo
+import io.github.alalkipgen.autoflow.ui.settings.BackupModel
+import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
+import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
+import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
+import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
+import io.github.alalkipgen.autoflow.ui.theme.UiFont
+import org.koin.compose.getKoin
+import org.koin.compose.koinInject
+
+/** The Movie Recap workspace (docs/specs/recap.md §7): sidebar "Mode → Movie Recap", phone More. */
+const val RECAP_SCREEN = "Movie Recap"
+
+/** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
+val SidebarSections: List<Pair<String, List<String>>> = listOf(
+    "Project" to listOf(
+        "Dashboard", "Input", "Storyboard", "Shots", "References", "Flow Handoff", "Timeline", "Export",
+    ),
+    "Mode" to listOf("Music Video", "Movie Recap"),
+    "System" to listOf("Settings"),
+)
+
+/**
+ * Window content wired to the Koin graph (see `uiModule`). Starts on the Dashboard. A window narrower than
+ * [COMPACT_WIDTH] (a phone) gets [PhoneShell] with bottom tabs, a wider one [AppShell] with the sidebar
+ * (DESIGN.md §2, §4). [backHandler] lets Android's Back button step back (see [backTarget]); the desktop has none.
+ */
+@Composable
+fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> }) {
+    val model = koinInject<ProviderStatusModel>()
+    val status by model.status.collectAsState(model.current())
+    val project by koinInject<CurrentProject>().state.collectAsState()
+    val shell = koinInject<ShellModel>()
+    val shellState by shell.state.collectAsState(shell.current())
+    val jobs = koinInject<StoryboardJobs>()
+    var screen by remember { mutableStateOf("Dashboard") }
+    // A share from another app (Android share sheet) lands in the Inbox: open it.
+    val shared = koinInject<io.github.alalkipgen.autoflow.ui.inbox.SharedInbox>()
+    val arrivals = shared.state.collectAsState().value.arrivals
+    LaunchedEffect(arrivals) { if (arrivals > 0) screen = "Inbox" }
+    val koin = getKoin()
+    val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
+    val currentProject = koinInject<CurrentProject>()
+    val backup = koinInject<BackupModel>().takeIf { it.available }
+    val settingsStore = koinInject<SettingsStore>()
+    val settings by settingsStore.state.collectAsState()
+    val settingsModel = koinInject<SettingsModel>()
+    val settingsState by settingsModel.state.collectAsState()
+    val fontPaths = settings.fontPaths
+    val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+    val uiFont = remember(fontPaths) { UiFont.load(fontPaths) { runCatching { fs.read(it) }.getOrNull() } ?: FontFamily.Default }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxWidth < COMPACT_WIDTH
+        // MORE is a phone tab; a window widened while on it shows the Dashboard.
+        val current = if (!compact && screen == MORE) "Dashboard" else screen
+        val back = if (compact) backTarget(current) else null
+        backHandler(back != null) { back?.let { screen = it } }
+        val top: @Composable () -> Unit = {
+            JobBanner(jobs)
+            if (current in ShellModel.SCREEN_STEPS && shellState.steps.isNotEmpty()) Stepper(shellState.steps, viewing = ShellModel.SCREEN_STEPS[current])
+        }
+        val content: @Composable () -> Unit = {
+            when (current) {
+                "Dashboard" -> DashboardScreen(koinInject(), onOpened = {
+                    val mode = currentProject.state.value?.project?.mode
+                    screen = if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) RECAP_SCREEN else "Input"
+                })
+                RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
+                "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
+                "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
+                "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
+                "References" -> {
+                    val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+                    io.github.alalkipgen.autoflow.ui.references.ReferencesScreen(
+                        model = koinInject(),
+                        readBytes = { path -> try { fs.read(path) } catch (e: Exception) { null } },
+                    )
+                }
+                "Flow Handoff" -> {
+                    val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+                    io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffScreen(
+                        model = koinInject(),
+                        readBytes = { path -> try { fs.read(path) } catch (e: Exception) { null } },
+                    )
+                }
+                "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
+                "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
+                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
+                MORE -> MoreScreen(shellState.locks, onSelect = { screen = it })
+                else -> ScreenPlaceholder(current)
+            }
+        }
+        CompositionLocalProvider(LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
+            if (settingsState.features.studioV2) {
+                StudioV2App(
+                    status = status,
+                    projectName = project?.project?.name,
+                    windowWidthDp = maxWidth.value,
+                    appInfo = appInfo,
+                    backup = backup,
+                )
+            } else if (compact) {
+                PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
+                    locks = shellState.locks, top = top, content = content)
+            } else {
+                AppShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
+                    locks = shellState.locks, top = top, content = content)
+            }
+        }
+    }
+}
+
+/**
+ * Studio v2 root (5A-6): Home · Projects · Library · Jobs with adaptive shell.
+ * Bottom nav < 600 dp, rail ≥ 600 dp, three-pane ≥ 840 dp.
+ */
+@Composable
+private fun StudioV2App(
+    status: String,
+    projectName: String?,
+    windowWidthDp: Float,
+    appInfo: AppInfo?,
+    backup: BackupModel?,
+) {
+    val koin = getKoin()
+    val jobRunner = remember(koin) { koin.getOrNull<AiJobRunner>() }
+    val jobs by (jobRunner?.jobs?.collectAsState() ?: remember { mutableStateOf<List<AiJob>>(emptyList()) })
+    val badge = jobsBadgeValue(jobs)
+    var dest by remember { mutableStateOf(StudioV2Dest.HOME) }
+    // Project sub-screen: null = Dashboard list; "Recap" / "Input" / "Export" = project screen
+    var projectScreen by remember { mutableStateOf<String?>(null) }
+    val currentProject = koinInject<io.github.alalkipgen.autoflow.ui.projects.CurrentProject>()
+    val scope = rememberCoroutineScope()
+
+    val content: @Composable () -> Unit = {
+        when (dest) {
+            StudioV2Dest.HOME -> {
+                val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
+                HomeScreen(
+                    onNewRecap = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
+                    onNewMusicVideo = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
+                    onQuickRecapStart = { targetMs, style ->
+                        if (dashboard.createQuickRecap(targetMs, style)) {
+                            dest = StudioV2Dest.PROJECTS
+                            projectScreen = "Recap"
+                        }
+                    },
+                )
+            }
+            StudioV2Dest.PROJECTS -> {
+                when (projectScreen) {
+                    "Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(
+                        koinInject(), onGoToExport = { projectScreen = "Export" }
+                    )
+                    "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { projectScreen = "Storyboard" })
+                    "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { projectScreen = "Input" })
+                    "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
+                    else -> DashboardScreen(koinInject(), onOpened = {
+                        val mode = currentProject.state.value?.project?.mode
+                        projectScreen = if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input"
+                    })
+                }
+            }
+            StudioV2Dest.LIBRARY -> LibraryScreen(koinInject<LibraryModel>())
+            StudioV2Dest.JOBS -> if (jobRunner != null) JobsScreen(jobRunner, scope) else ScreenPlaceholder("Jobs")
+        }
+    }
+
+    StudioV2Shell(
+        selected = dest,
+        onSelect = { dest = it },
+        jobsBadge = badge,
+        windowWidthDp = windowWidthDp,
+        content = content,
+    )
+}
+
+/**
+ * Desktop window content: title bar with [providerStatus] (DESIGN.md §2), pipeline sidebar with [selected]
+ * highlighted and [locks] (entry → what must be done first) dimmed, [top] (job banner, stepper) and [content].
+ */
+@Composable
+fun AppShell(
+    providerStatus: String,
+    modifier: Modifier = Modifier,
+    selected: String? = null,
+    onSelect: (String) -> Unit = {},
+    projectName: String? = null,
+    locks: Map<String, String> = emptyMap(),
+    top: @Composable () -> Unit = {},
+    content: @Composable () -> Unit = {},
+) {
+    Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+        TitleBar(providerStatus, projectName)
+        Row(Modifier.fillMaxSize()) {
+            Sidebar(selected, locks, onSelect)
+            Column(Modifier.fillMaxSize()) {
+                top()
+                Box(Modifier.fillMaxWidth().weight(1f)) { content() }
+            }
+        }
+    }
+}
+
+/** Content for a sidebar entry whose screen is not built yet. */
+@Composable
+fun ScreenPlaceholder(name: String) {
+    Column(Modifier.padding(screenPadding), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        AfText(name, size = 18.sp, bold = true)
+        AfText("This screen is not built yet.", muted = true)
+    }
+}
+
+@Composable
+private fun TitleBar(providerStatus: String, projectName: String?) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .background(AutoFlowColors.TitleBar)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            AutoFlowLogo(22.dp)
+            BasicText(
+                text = "Auto Flow",
+                style = TextStyle(
+                    color = AutoFlowColors.Text,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                ),
+            )
+            projectName?.let { AfText("·  $it", muted = true) }
+            Spacer(Modifier.weight(1f))
+            BasicText(providerStatus, style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp))
+        }
+        Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
+    }
+}
+
+@Composable
+private fun Sidebar(selected: String?, locks: Map<String, String>, onSelect: (String) -> Unit) {
+    var tapped by remember { mutableStateOf<String?>(null) }
+    Row(Modifier.fillMaxHeight()) {
+        Column(
+            modifier = Modifier
+                .width(190.dp)
+                .fillMaxHeight()
+                .background(AutoFlowColors.Panel)
+                .padding(horizontal = 10.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            SidebarSections.forEach { (section, items) ->
+                // DESIGN.md §2 / mockup: the System section sits at the bottom of the sidebar.
+                if (section == "System") Spacer(Modifier.weight(1f))
+                BasicText(
+                    text = section.uppercase(),
+                    modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 4.dp),
+                    style = TextStyle(color = AutoFlowColors.Muted, fontSize = 10.sp, letterSpacing = 1.sp),
+                )
+                items.forEach { item ->
+                    val lock = locks[item]
+                    SidebarItem(item, item == selected, lock, showLock = tapped == item) {
+                        if (lock == null) {
+                            tapped = null
+                            onSelect(item)
+                        } else {
+                            tapped = item
+                        }
+                    }
+                }
+            }
+        }
+        Box(Modifier.width(AutoFlowShapes.Border).fillMaxHeight().background(AutoFlowColors.Line))
+    }
+}
+
+/**
+ * Selected: purple left bar + fading purple background, white text (mockup `.side a.on`). Locked ([lock] != null):
+ * dimmed with a lock glyph; hovering or clicking shows [lock] instead of opening the screen (DESIGN.md §2).
+ */
+@Composable
+private fun SidebarItem(name: String, selected: Boolean, lock: String?, showLock: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(8.dp)
+    val hover = remember { MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .then(
+                    if (selected) {
+                        Modifier.background(Brush.horizontalGradient(listOf(AutoFlowColors.Purple.copy(alpha = 0.25f), Color.Transparent)))
+                    } else {
+                        Modifier
+                    },
+                )
+                .hoverable(hover)
+                .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+                .then(if (lock != null) Modifier.semantics { stateDescription = "locked" } else Modifier)
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selected) Box(Modifier.width(3.dp).fillMaxHeight().background(AutoFlowColors.Purple))
+            val ink = when {
+                selected -> Color.White
+                lock != null -> AutoFlowColors.Muted.copy(alpha = 0.5f)
+                else -> AutoFlowColors.Muted
+            }
+            BasicText(
+                text = name,
+                modifier = Modifier.padding(start = if (selected) 9.dp else 12.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
+                style = TextStyle(color = ink, fontSize = 13.sp),
+            )
+            if (lock != null) BasicText(LOCK_GLYPH, style = TextStyle(color = ink, fontSize = 11.sp))
+        }
+        if (lock != null && (hovered || showLock)) {
+            AfText(lock, Modifier.padding(start = 12.dp, end = 8.dp, bottom = 6.dp), size = 11.sp, color = AutoFlowColors.Amber)
+        }
+    }
+}
+
+const val LOCK_GLYPH = "🔒"
+
+/** Logo — gradient purple→cyan rounded square with a white play triangle (docs/DESIGN.md §1). */
+@Composable
+fun AutoFlowLogo(size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(size)) {
+        drawRoundRect(
+            brush = Brush.linearGradient(listOf(AutoFlowColors.Purple, AutoFlowColors.Cyan)),
+            cornerRadius = CornerRadius(this.size.minDimension * 0.27f),
+        )
+        val w = this.size.width
+        val h = this.size.height
+        val triangle = Path().apply {
+            moveTo(w * 0.38f, h * 0.28f)
+            lineTo(w * 0.38f, h * 0.72f)
+            lineTo(w * 0.74f, h * 0.50f)
+            close()
+        }
+        drawPath(triangle, Color.White)
+    }
+}
