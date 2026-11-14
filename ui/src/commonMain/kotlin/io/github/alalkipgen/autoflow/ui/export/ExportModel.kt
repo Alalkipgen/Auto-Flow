@@ -10,6 +10,8 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.recap.ExportQuality
+import io.github.alalkipgen.autoflow.core.recap.PublishKit
+import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
@@ -56,6 +58,7 @@ data class RecapExport(
     val movieVolume: Double,
     val blocker: String?,
     val quality: ExportQuality = ExportQuality.AUTO,
+    val publishKit: PublishKit = PublishKit(),
 )
 
 /** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
@@ -101,6 +104,7 @@ class ExportModel(
     private val share: FileShare?,
     private val battery: BatteryReader?,
     private val scope: CoroutineScope,
+    private val clipboard: io.github.alalkipgen.autoflow.platform.Clipboard? = null,
 ) {
     private val _state = MutableStateFlow(ExportUiState())
     val state: StateFlow<ExportUiState> = _state.asStateFlow()
@@ -147,6 +151,37 @@ class ExportModel(
             unavailable = if (queue == null) NO_QUEUE else null,
             run = run,
         )
+    }
+
+    /** Updates the Publish Kit for the current Recap project. */
+    fun setPublishKit(kit: PublishKit) {
+        val open = session.open ?: return
+        session.save(open.project.copy(recap = open.project.recap?.copy(publishKit = kit)))
+        refresh()
+    }
+
+    /** Copies [text] to the clipboard; shows a message on success/failure. */
+    fun copyPublishText(text: String, label: String) {
+        val cb = clipboard ?: return say("Clipboard is not available here")
+        when (cb.copyText(text)) {
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> say("Copied $label")
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> say("Cannot copy $label")
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> say("Clipboard is not supported here")
+        }
+    }
+
+    /** Writes and shares the publish text file for the current Recap export. */
+    suspend fun sharePublishFile(exportName: String) {
+        val open = session.open ?: return
+        val kit = open.project.recap?.publishKit ?: return
+        val path = joinPath(open.dir, PublishKitText.path(exportName))
+        try {
+            fs.createDirectories(joinPath(open.dir, "exports"))
+            fs.writeDurably(path, PublishKitText.file(kit).encodeToByteArray())
+            result(share?.share(path, "text/plain", "Share publish kit") ?: io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported(NO_SHARE))
+        } catch (e: Exception) {
+            say("Cannot write publish file: ${e.message}")
+        }
     }
 
     /** Sets the [ExportQuality] for the current Recap project and refreshes the screen. */
@@ -230,6 +265,7 @@ class ExportModel(
             movieVolume = recap.movieVolume,
             blocker = gate.blockers.firstOrNull()?.text() ?: if (recap.movie == null) "Import the movie first (Movie Recap → 1 · Movie)." else null,
             quality = recap.quality,
+            publishKit = recap.publishKit ?: PublishKit(),
         )
     }
 

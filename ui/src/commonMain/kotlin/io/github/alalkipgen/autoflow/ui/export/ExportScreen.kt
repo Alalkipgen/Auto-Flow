@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.export
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -15,8 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import io.github.alalkipgen.autoflow.core.recap.ExportQuality
+import io.github.alalkipgen.autoflow.core.recap.PublishKit
+import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.media.render.Quality
+import io.github.alalkipgen.autoflow.ui.components.AfTextField
+import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
@@ -88,6 +97,10 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             state.run?.let { RunStatus(it, model, state.savingToGallery) }
             state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
+        // Publish Kit (5B-10): only for Recap projects
+        state.recap?.let { recap ->
+            PublishKitCard(recap.publishKit, model)
+        }
     }
 }
 
@@ -152,5 +165,35 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
             if (s.tail.isNotEmpty()) AfText(s.tail.takeLast(6).joinToString("\n"), muted = true, mono = true, size = 11.sp)
         }
         RenderState.Cancelled -> AfText("$what cancelled.", Modifier.testTag("export-status"), muted = true)
+    }
+}
+
+/**
+ * Publish Kit (5B-10, studio-v2 §9): edit title / description / hashtags, copy each item, share the full text file.
+ * Thumbnail generation (Exact frame + TEXT layer) is deferred to 5A-8 (live preview).
+ */
+@Composable
+private fun PublishKitCard(kit: PublishKit, model: ExportModel) {
+    val scope = rememberCoroutineScope()
+    var title by remember(kit.title) { mutableStateOf(kit.title) }
+    var description by remember(kit.description) { mutableStateOf(kit.description) }
+    var hashtags by remember(kit.hashtags) { mutableStateOf(kit.hashtags.joinToString(" ")) }
+    AfCard("Publish Kit") {
+        AfText("Title", muted = true, size = 12.sp)
+        AfTextField(title, { title = it }, "Video title (Burmese)", Modifier.fillMaxWidth())
+        AfButton("Copy title", { model.copyPublishText(title, "title") })
+        AfText("Description", muted = true, size = 12.sp)
+        AfText("Chapters are added automatically from the script blocks.", muted = true, size = 11.sp)
+        AfTextField(description, { description = it }, "Description (Burmese)", Modifier.fillMaxWidth(), lines = 4, mono = false)
+        AfButton("Copy description", { model.copyPublishText(PublishKitText.description(kit.copy(description = description)), "description") })
+        AfText("Hashtags (space-separated, # optional)", muted = true, size = 12.sp)
+        AfTextField(hashtags, { hashtags = it }, "#မြန်မာ #movie", Modifier.fillMaxWidth())
+        WrapRow {
+            AfButton("Save", {
+                val parsedHashtags = hashtags.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                model.setPublishKit(kit.copy(title = title, description = description, hashtags = parsedHashtags))
+            }, kind = ButtonKind.Primary)
+            AfButton("Share file…", { scope.launch { model.sharePublishFile("export") } })
+        }
     }
 }

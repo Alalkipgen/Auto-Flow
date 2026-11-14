@@ -19,8 +19,6 @@ data class Recap(
     /** `source/subtitles.srt` when imported. */
     val subtitles: String? = null,
     val style: RecapStyle = RecapStyle.PLAIN,
-    /** Spoken (casual) vs Written (formal) Burmese register for TTS (5B-7, D-36). */
-    val register: RecapRegister = RecapRegister.SPOKEN,
     /** Current `rs` artifact ([RecapScript]). */
     val script: ArtifactId? = null,
     val scriptApproved: Boolean = false,
@@ -39,6 +37,8 @@ data class Recap(
     val burnCaptions: Boolean = true,
     /** Export size (5B-9, studio-v2 §9). Preview renders stay 540p. */
     val quality: ExportQuality = ExportQuality.AUTO,
+    /** Publish Kit text (5B-10, studio-v2 §9): title, description, hashtags, chapters. */
+    val publishKit: PublishKit? = null,
 ) {
     val picked: List<RecapScene> get() = scenes.filter { it.picked }
     val pickedMs: Long get() = picked.sumOf { it.durationMs }
