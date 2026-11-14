@@ -4,6 +4,8 @@ import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.RecapMigration
+import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.ui.settings.FakePicker
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
@@ -108,5 +110,38 @@ class DashboardModelTest {
         model.refresh()
         assertTrue(model.state.value.rows.isEmpty())
         assertNull(model.projectsHome)
+    }
+
+    @Test
+    fun quickRecapGetsAReadableFreeName() {
+        settings.update { it.copy(projectsDir = "/videos") }
+        assertTrue(model.createQuickRecap(180_000, RecapStyle.PLAIN))
+        assertEquals("Quick Recap", current.state.value!!.project.name)
+        assertTrue(model.createQuickRecap(180_000, RecapStyle.PLAIN))
+        assertEquals("Quick Recap 2", current.state.value!!.project.name)
+        assertEquals("/videos/Quick Recap 2.autoflow", current.state.value!!.dir)
+    }
+
+    @Test
+    fun openRestoresV1BackupOfAnEarlyMigratedProject() {
+        assertTrue(model.createMovieRecap("/videos", "Ngam", rightsConfirmed = true))
+        val dir = current.state.value!!.dir
+        val v1 = fs.read("$dir/project.json")
+        RecapMigration.backup(fs, dir)
+        fs.writeDurably("$dir/project.json", """{"schemaVersion":2,"recap":{"sources":{}}}""".encodeToByteArray())
+        assertTrue(model.open(dir))
+        assertEquals("Ngam", current.state.value!!.project.name)
+        assertEquals(v1.decodeToString(), fs.read("$dir/project.json").decodeToString())
+        assertTrue(fs.exists("$dir/${RecapMigration.V2_COPY_FILE}"))
+    }
+
+    @Test
+    fun openLeavesV1ProjectsAlone() {
+        assertTrue(model.createMovieRecap("/videos", "Ngam", rightsConfirmed = true))
+        val dir = current.state.value!!.dir
+        val before = fs.read("$dir/project.json").decodeToString()
+        assertTrue(model.open(dir))
+        assertEquals(before, fs.read("$dir/project.json").decodeToString())
+        assertFalse(fs.exists("$dir/${RecapMigration.BACKUP_FILE}"))
     }
 }

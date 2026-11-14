@@ -119,4 +119,27 @@ class RecapMigrationTest {
         assertEquals("v1", fs.read("/p/${RecapMigration.BACKUP_FILE}").decodeToString())
         assertFalse(fs.exists("/p/${RecapMigration.BACKUP_FILE}.tmp"))
     }
+
+    @Test
+    fun restoreV1BackupPutsTheV1FileBackAndKeepsTheV2Copy() {
+        val fs = InMemoryFileSystem().apply { createDirectories("/p") }
+        fs.writeDurably("/p/project.json", """{"schemaVersion":1,"name":"a"}""".encodeToByteArray())
+        RecapMigration.backup(fs, "/p")
+        fs.writeDurably("/p/project.json", """{"schemaVersion":2,"name":"a"}""".encodeToByteArray())
+        assertTrue(RecapMigration.restoreV1Backup(fs, "/p", supportedVersion = 1))
+        assertEquals("""{"schemaVersion":1,"name":"a"}""", fs.read("/p/project.json").decodeToString())
+        assertEquals("""{"schemaVersion":2,"name":"a"}""", fs.read("/p/${RecapMigration.V2_COPY_FILE}").decodeToString())
+        assertFalse(RecapMigration.restoreV1Backup(fs, "/p", supportedVersion = 1)) // second run: nothing to do
+    }
+
+    @Test
+    fun restoreV1BackupDoesNothingWithoutABackupOrWhenSupported() {
+        val fs = InMemoryFileSystem().apply { createDirectories("/p") }
+        fs.writeDurably("/p/project.json", """{"schemaVersion":2}""".encodeToByteArray())
+        assertFalse(RecapMigration.restoreV1Backup(fs, "/p", supportedVersion = 1))
+        assertFalse(RecapMigration.restoreV1Backup(fs, "/p", supportedVersion = 2))
+        fs.writeDurably("/p/${RecapMigration.BACKUP_FILE}", "not json".encodeToByteArray())
+        assertFalse(RecapMigration.restoreV1Backup(fs, "/p", supportedVersion = 1))
+        assertEquals("""{"schemaVersion":2}""", fs.read("/p/project.json").decodeToString())
+    }
 }
