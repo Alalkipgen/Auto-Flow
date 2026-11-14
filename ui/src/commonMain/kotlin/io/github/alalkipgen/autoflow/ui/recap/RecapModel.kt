@@ -14,6 +14,7 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.recap.Look
+import io.github.alalkipgen.autoflow.media.audio.AudioFilters
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
@@ -477,7 +478,35 @@ class RecapModel(
         return lexicon.apply(written)
     }
 
-    private fun saveTake(index: Int, bytes: ByteArray, ext: String, source: VoiceSource, durationMs: Long): Boolean {
+    /** A new take: long pauses cut first when Sound → "Cut long pauses" is on (5B-4), then saved. */
+    private suspend fun saveTake(index: Int, bytes: ByteArray, ext: String, source: VoiceSource, durationMs: Long): Boolean {
+        val (b, e, ms) = trimPauses(index, bytes, ext, durationMs)
+        return storeTake(index, b, e, source, ms)
+    }
+
+    /**
+     * The take with every pause longer than 0.35 s cut to 0.2 s ([AudioFilters.trimSilence]) as a WAV, when
+     * `recap.audio.trimSilence` is on; the take as it was when it is off, ffmpeg is missing or the result is empty.
+     */
+    private suspend fun trimPauses(index: Int, bytes: ByteArray, ext: String, durationMs: Long): Triple<ByteArray, String, Long> {
+        val asIs = Triple(bytes, ext, durationMs)
+        if (recap()?.audio?.trimSilence != true) return asIs
+        val runner = media?.runner ?: return asIs
+        val ffmpeg = media.ffmpeg() ?: return asIs
+        val dir = session.open?.dir ?: return asIs
+        val src = session.cacheFile("trim-in-$index.$ext") ?: return asIs
+        val out = session.cacheFile("trim-out-$index.wav") ?: return asIs
+        return withContext(Dispatchers.Default) {
+            runCatching { fs.writeDurably(src, bytes) }.getOrElse { return@withContext asIs }
+            val r = runner.run(listOf(ffmpeg) + AudioFilters.trimArgs(src, out), dir, TRIM_TIMEOUT_MS, keepOutput = false) {}
+            val ok = r is io.github.alalkipgen.autoflow.media.tool.ToolExec.Done && r.exitCode == 0 && !r.timedOut
+            val trimmed = if (ok) session.readFile(out) else null
+            val ms = trimmed?.let { PcmWav.parse(it)?.durationMs }
+            if (trimmed == null || ms == null || ms < MIN_TRIMMED_MS) asIs else Triple(trimmed, "wav", ms)
+        }
+    }
+
+    private fun storeTake(index: Int, bytes: ByteArray, ext: String, source: VoiceSource, durationMs: Long): Boolean {
         val text = _state.value.script?.segments?.getOrNull(index)?.textMy ?: return false
         val store = session.artifacts() ?: return false
         val hash = RecapRules.textHash(text)
@@ -522,6 +551,18 @@ class RecapModel(
                 is CoreResult.Err -> say(r.error.message)
             }
         }
+    }
+
+    /** Changes the picture settings (5B-2): blur boxes, the space around the movie, captions on a box. */
+    fun setVisual(change: (io.github.alalkipgen.autoflow.core.recap.RecapVisual) -> io.github.alalkipgen.autoflow.core.recap.RecapVisual) {
+        if (_state.value.busy) return
+        update { it.copy(visual = change(it.visual)) }
+    }
+
+    /** Changes the caption look (5B-8): size, colour, box. */
+    fun setCaptionStyle(change: (io.github.alalkipgen.autoflow.core.recap.CaptionStyle) -> io.github.alalkipgen.autoflow.core.recap.CaptionStyle) {
+        if (_state.value.busy) return
+        update { it.copy(captionStyle = change(it.captionStyle)) }
     }
 
     /** Turns one look on or off; the order stays Mirror, Zoom, Fill, Warm. */
@@ -607,6 +648,9 @@ class RecapModel(
         /** Background music level chips (5B-4). */
         val BGM_VOLUMES = listOf("Quiet" to 0.1, "Medium" to 0.18, "Loud" to 0.3)
         const val BGM_NAME_INPUT = "name"
+        const val TRIM_TIMEOUT_MS = 60_000L
+        /** A trimmed take shorter than this is treated as a failed trim (kept as it was). */
+        const val MIN_TRIMMED_MS = 200L
 
         /** Look chips (spec §6). */
         val LOOKS = listOf(Look.MIRROR to "Mirror", Look.ZOOM to "Zoom 10 %", Look.FILL to "Fill frame", Look.WARM to "Warm")

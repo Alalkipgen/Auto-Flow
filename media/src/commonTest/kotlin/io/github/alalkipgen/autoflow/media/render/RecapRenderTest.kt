@@ -2,7 +2,14 @@ package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.CaptionSize
+import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
+import io.github.alalkipgen.autoflow.core.recap.FrameBackground
 import io.github.alalkipgen.autoflow.core.recap.Look
+import io.github.alalkipgen.autoflow.core.recap.MaskPreset
+import io.github.alalkipgen.autoflow.core.recap.MaskStrength
+import io.github.alalkipgen.autoflow.core.recap.RecapMask
+import io.github.alalkipgen.autoflow.core.recap.RecapVisual
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapAudio
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
@@ -17,6 +24,7 @@ import io.github.alalkipgen.autoflow.media.render.RenderCompiler.Compiled
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -107,5 +115,67 @@ class RecapRenderTest {
         // A missing take file is reported.
         val missing = RenderCompiler.compile(g, env.copy(voicePath = { null }))
         assertEquals("narration 1: the file artifacts/au_aaaaaaaaaaaa.m4a is missing", assertIs<Compiled.Invalid>(missing).reason)
+    }
+
+    @Test
+    fun pictureBlursTheMovieSubtitlesFillsAroundTheMovieAndPutsCaptionsOnTheBox() {
+        val wide = recap.copy(movie = RecapMovie("source/movie.mp4", 9, 120_000, width = 1920, height = 1080), looks = listOf(Look.MIRROR))
+        val visual = RecapVisual(
+            masks = listOf(RecapMask(MaskPreset.BOTTOM, listOf(0f, 0.8f, 1f, 0.17f), MaskStrength.STRONG)),
+            background = FrameBackground.BLUR,
+        )
+        val g = RecapRender.graph(wide.copy(visual = visual), script, Ratio.R9_16, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        assertEquals(visual.masks, g.masks)
+        assertEquals(FrameBackground.BLUR, g.background)
+        // 16:9 movie in a 540×960 frame: picture 540×304 from y 328; the box centre (0.885) lands at 0.622 of the height.
+        val y = assertNotNull(g.overlays.first().centerY)
+        assertTrue(y in 0.62f..0.625f, "$y")
+        val fc = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env)).let { it.args[it.args.indexOf("-filter_complex") + 1] }
+        assertTrue("[0:v]split[mk0_0a][mk0_0b];[mk0_0b]crop=w=iw*1:h=ih*0.17:x=iw*0:y=ih*0.8,gblur=sigma=32[mk0_0c];[mk0_0a][mk0_0c]overlay=x=main_w*0:y=main_h*0.8[mk0_0]" in fc, fc)
+        assertTrue("[mk0_0]hflip,split[bf0][bb0];[bb0]scale=134:240:force_original_aspect_ratio=increase,crop=134:240,gblur=sigma=12,scale=540:960,setsar=1[bbl0];" in fc, fc)
+        assertTrue("[bbl0][bfs0]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2,setsar=1,format=yuv420p,tpad" in fc, fc)
+        // The ASS event is centred on the box.
+        val ass = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env)).ass.orEmpty()
+        assertTrue("\\an5\\pos(270,${(960 * y).toInt()})" in ass, ass)
+
+        // Colour background; captions back at the bottom when turned off; Fill frame crops (no background).
+        val colour = RecapRender.graph(wide.copy(visual = visual.copy(background = FrameBackground.COLOUR, backgroundColour = "#2b1640", captionsOnMask = false)), script, Ratio.R9_16, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        assertNull(colour.overlays.first().centerY)
+        val cfc = assertIs<Compiled.Ok>(RenderCompiler.compile(colour, env)).let { it.args[it.args.indexOf("-filter_complex") + 1] }
+        assertTrue("pad=540:960:(ow-iw)/2:(oh-ih)/2:color=0x2B1640,setsar=1" in cfc, cfc)
+        val fill = RecapRender.graph(wide.copy(visual = visual, looks = listOf(Look.FILL)), script, Ratio.R9_16, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        val ffc = assertIs<Compiled.Ok>(RenderCompiler.compile(fill, env)).let { it.args[it.args.indexOf("-filter_complex") + 1] }
+        assertTrue("[mk0_0]scale=540:960:force_original_aspect_ratio=increase,crop=540:960,setsar=1" in ffc, ffc)
+        assertTrue("[bf0]" !in ffc)
+        // Fill frame on a 16:9 movie in 9:16 crops the box's centre out of view only when it leaves the frame: here it stays.
+        assertEquals(RecapRender.captionY(wide.copy(visual = visual, looks = listOf(Look.FILL)), fill.output), fill.overlays.first().centerY)
+    }
+
+    @Test
+    fun noPictureSettingsKeepTheOldChain() {
+        val g = RecapRender.graph(recap, script, Ratio.R9_16, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        assertTrue(g.masks.isEmpty())
+        assertNull(g.overlays.first().centerY)
+        val fc = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env)).let { it.args[it.args.indexOf("-filter_complex") + 1] }
+        assertTrue("mk0" !in fc && "bb0" !in fc, fc)
+    }
+
+    @Test
+    fun captionStyleSetsSizeColourBoxAndLineLength() {
+        val style = CaptionStyle(size = CaptionSize.L, colour = "#FFE14D", box = true)
+        val g = RecapRender.graph(recap.copy(captionStyle = style), script, Ratio.R9_16, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        val o = g.overlays.first()
+        assertEquals(36, o.sizePx) // 540 / 18 = 30 × 1.2
+        assertEquals("#FFE14D", o.color)
+        assertTrue(o.box)
+        assertEquals(18, RecapRender.lineChars(g.output, style)) // 22 / 1.2
+        assertEquals(26, RecapRender.lineChars(g.output, CaptionStyle(size = CaptionSize.S)))
+        val ass = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env)).ass.orEmpty()
+        assertTrue("Style: s1,Noto Sans Myanmar,36,&H004DE1FF,&H004DE1FF,&H60000000,&H60000000,0,0,0,0,100,100,0,0,3,6,0,2,0,0,0,1" in ass, ass)
+        // Default: white outline as before.
+        val plain = RecapRender.graph(recap, script, Ratio.R9_16, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        assertEquals(30, plain.overlays.first().sizePx)
+        val pass = assertIs<Compiled.Ok>(RenderCompiler.compile(plain, env)).ass.orEmpty()
+        assertTrue(",0,0,1,2,0,2,0,0,0,1" in pass, pass)
     }
 }

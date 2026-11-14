@@ -119,6 +119,7 @@ object RecapMigration {
             captions = RecapCaptions(burn = v1.burnCaptions),
             looks = v1.looks,
             quality = v1.quality,
+            visual = v1.visual,
         )
     }
 

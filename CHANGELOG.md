@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.3
+
+- **Hide things on the movie** (5B-2, D-50): Recap → 5 · Fit check → blur boxes for the movie's own subtitles
+  (bottom strip), a top strip and logos (top-left / top-right), Light / Strong blur, ▲ ▼ Taller / Shorter to move
+  each box, and a frame of the movie with the boxes drawn on it. The boxes follow the movie at any video shape.
+- **Space around the movie**: Black bars · Blurred movie · Colour, for a wide movie in a 9:16 video (Fill frame
+  still crops instead).
+- **Captions on the box**: with a bottom box, the captions sit on it (switch to turn off).
+- **Caption style** (5B-8): Small / Medium / Large, White / Yellow / Cyan, and "Dark box behind the captions". The
+  `.srt` uses the same lines as the burned-in captions.
+- **Cut long pauses in new takes** (5B-4): Sound → switch; pauses longer than 0.35 s become 0.2 s when you record,
+  import or speak a take, so the fit check shows the real length.
+
 ## v0.2.2
 
 - **Built-in Burmese fonts** (D-49): Pyidaungsu and Noto Sans Myanmar (regular + bold) ship inside the app, so the

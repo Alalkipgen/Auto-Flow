@@ -2,8 +2,10 @@ package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.FrameBackground
 import io.github.alalkipgen.autoflow.core.recap.Layer
 import io.github.alalkipgen.autoflow.core.recap.Look
+import io.github.alalkipgen.autoflow.core.recap.RecapMask
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -26,6 +28,12 @@ data class RenderGraph(
     val looks: List<Look> = emptyList(),
     /** Composited layers (spec §4, D-37): BLUR, IMAGE, TEXT, BORDER, BACKGROUND drawn in list order. */
     val layers: List<Layer> = emptyList(),
+    /** Blur boxes over every [Clip.source] clip, 0–1 of the source picture, drawn before the looks (5B-2). */
+    val masks: List<RecapMask> = emptyList(),
+    /** What fills the frame around a [Clip.source] clip whose shape differs from the output (5B-2). */
+    val background: FrameBackground = FrameBackground.BARS,
+    /** `#RRGGBB` for [FrameBackground.COLOUR]. */
+    val backgroundColour: String = "#000000",
 ) {
     /** Output length: the clip strip minus crossfade overlaps. */
     val durationMs: Long
@@ -121,6 +129,10 @@ data class Overlay(
     val color: String = "#FFFFFF",
     val position: Pos = Pos.BOTTOM,
     val anim: Anim = Anim.NONE,
+    /** When set, the text is centred at this height (0–1 of the frame) instead of [position] (captions on a mask). */
+    val centerY: Float? = null,
+    /** A see-through dark box behind the text instead of the outline (caption style, 5B-8). */
+    val box: Boolean = false,
 )
 
 @Serializable

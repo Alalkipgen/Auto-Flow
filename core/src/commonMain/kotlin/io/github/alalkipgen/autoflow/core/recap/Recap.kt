@@ -57,6 +57,10 @@ data class Recap(
      * is not used in v1 ([movieVolume] is); the migration copies [movieVolume] into it.
      */
     val audio: RecapAudio = RecapAudio(),
+    /** Picture (5B-2): blur boxes over the movie, the space around it, captions on a box. */
+    val visual: RecapVisual = RecapVisual(),
+    /** Caption look (5B-8): size, colour, outline or box. */
+    val captionStyle: CaptionStyle = CaptionStyle(),
 ) {
     val picked: List<RecapScene> get() = scenes.filter { it.picked }
     val pickedMs: Long get() = picked.sumOf { it.durationMs }
