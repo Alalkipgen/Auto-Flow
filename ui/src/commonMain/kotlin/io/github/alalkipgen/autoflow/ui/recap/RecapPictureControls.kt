@@ -100,6 +100,17 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
             // Show IMAGE option only briefly as a text note (the chip above already includes it)
         }
     }
+    // Watermark (Brand Kit, D-54): logo image overlaid on every frame at bottom-right.
+    AfText("Watermark / Logo (overlay on every frame)", muted = true, size = 12.sp)
+    WrapRow {
+        if (v.watermarkFile != null) {
+            AfText("🖼 ${v.watermarkFile!!.substringAfterLast('/')}", size = 12.sp)
+            AfButton("Change…", { if (idle) model.importWatermark() })
+            AfButton("Remove", { if (idle) model.removeWatermark() })
+        } else {
+            AfButton("Set watermark…", { if (idle) model.importWatermark() })
+        }
+    }
 }
 
 /** A frame of the first picked scene with the blur boxes drawn on it (what the render will hide). */

@@ -390,15 +390,17 @@ private fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
     Dialog(onDismissRequest = onStay) {
         Column(
             Modifier
+                .fillMaxWidth(0.85f)
                 .clip(AutoFlowShapes.Card)
                 .background(AutoFlowColors.Panel)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            AfText("Exit Auto Flow?", bold = true)
-            WrapRow {
-                AfButton("Exit", onExit, kind = ButtonKind.Danger)
-                AfButton("Stay", onStay)
+            AfText("Exit Auto Flow?", bold = true, size = 20.sp)
+            AfText("Renders keep going in the background.", muted = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AfButton("Exit", onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
+                AfButton("Stay", onStay, Modifier.weight(1f))
             }
         }
     }

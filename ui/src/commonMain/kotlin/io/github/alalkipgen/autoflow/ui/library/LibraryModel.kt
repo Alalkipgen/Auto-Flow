@@ -66,7 +66,10 @@ class LibraryModel(
             return runCatching { store.copyAssetFromPath(src, id + "_" + relative.substringAfterLast('/')) }.getOrNull()
         }
         val logoRel = copyIfExists("library/logo.png") ?: copyIfExists("library/logo.jpg")
-        val wmRel = copyIfExists("library/watermark.png") ?: copyIfExists("library/watermark.jpg")
+        // Also try the watermark file from recap.visual.watermarkFile (D-54)
+        val wmFromVisual = recap.visual.watermarkFile?.substringAfterLast('/')
+            ?.let { copyIfExists("library/$it") }
+        val wmRel = wmFromVisual ?: copyIfExists("library/watermark.png") ?: copyIfExists("library/watermark.jpg")
         val captionJson = CoreJson.encodeToString(CaptionStyle.serializer(), recap.captionStyle)
         val kit = BrandKit(
             id = id,

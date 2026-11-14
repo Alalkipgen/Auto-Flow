@@ -208,9 +208,8 @@ private fun CleanTab(
         return
     }
     AfText("Clean: trim silence gaps, normalise loudness.", muted = true, size = 12.sp)
-    // Polish / trim silence — deferred to 5A-8 SmartFit; button shown as stub.
-    AfButton("✨ Polish (trim silence)", {}, enabled = false)
-    AfText("Smart Fit polish (5A-8) not yet available.", muted = true, size = 11.sp)
+    // Polish / trim silence via ffmpeg silenceremove (available after render, D-54).
+    AfButton("✨ Polish (trim silence)", { model.cleanTake(index) }, enabled = idle, kind = ButtonKind.Primary)
 }
 
 /**

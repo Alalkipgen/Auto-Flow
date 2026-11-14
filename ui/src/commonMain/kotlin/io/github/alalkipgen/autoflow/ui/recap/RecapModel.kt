@@ -709,6 +709,65 @@ class RecapModel(
         }
     }
 
+    // --- Clean tab (D-54) ---------------------------------------------------------------------------
+
+    /**
+     * Polish a recorded take: re-runs [trimPauses] on the existing take file and saves the result.
+     * Shows a busy indicator while running.
+     */
+    fun cleanTake(index: Int): Job? {
+        if (_state.value.busy || _state.value.recording != null) return null
+        val recap = recap() ?: return null
+        val take = io.github.alalkipgen.autoflow.core.recap.RecapRules.currentTake(recap, _state.value.script ?: return null, index)
+            ?: return say("No take for this block").let { null }
+        val dir = session.open?.dir ?: return null
+        val file = io.github.alalkipgen.autoflow.core.io.joinPath(dir, take.file)
+        if (!fs.exists(file)) return say("Take file not found").let { null }
+        return scope.launch {
+            busy("Cleaning take ${ index + 1 }…")
+            val bytes = withContext(Dispatchers.Default) { runCatching { fs.read(file) }.getOrNull() }
+                ?: return@launch done("Cannot read take file")
+            val ext = file.substringAfterLast('.', "wav")
+            val (cleaned, cleanExt, cleanMs) = trimPauses(index, bytes, ext, take.durationMs)
+            if (!storeTake(index, cleaned, cleanExt, take.source, cleanMs))
+                return@launch done("Could not save the cleaned take")
+            done("Take ${ index + 1 } cleaned: silence trimmed", ok = true)
+        }
+    }
+
+    // --- Watermark image (5B-3, D-54) ------------------------------------------------------------------
+
+    /**
+     * Pick a PNG/JPG image, copy it to `library/watermark.<ext>` and set [RecapVisual.watermarkFile].
+     * The file is also picked up by [saveBrandKit] the next time the Brand Kit is saved.
+     */
+    fun importWatermark(): Job? {
+        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        if (_state.value.busy || _state.value.recording != null) return null
+        return scope.launch {
+            val from = when (val r = p.pickFiles("Choose a watermark / logo image", IMAGE_EXTENSIONS)) {
+                is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
+                is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> return@launch say(r.reason)
+                is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> return@launch say(r.reason)
+            }
+            val bytes = withContext(Dispatchers.Default) { session.readFile(from) }?.takeIf { it.isNotEmpty() }
+                ?: return@launch say("Cannot read this file")
+            val dir = session.open?.dir ?: return@launch say("No project is open")
+            val libDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, "library")
+            val ext = from.substringAfterLast('.', "png").lowercase().let { if (it in setOf("png","jpg","jpeg")) it else "png" }
+            val destName = "watermark.$ext"
+            val dest = io.github.alalkipgen.autoflow.core.io.joinPath(libDir, destName)
+            runCatching { fs.createDirectories(libDir); fs.writeDurably(dest, bytes) }
+                .onFailure { return@launch say("Cannot save the watermark: ${it.message}") }
+            val rel = "library/$destName"
+            update { it.copy(visual = it.visual.copy(watermarkFile = rel)) }
+            say("Watermark set: $destName", )
+        }
+    }
+
+    /** Remove the watermark from this project. */
+    fun removeWatermark() = setVisual { it.copy(watermarkFile = null) }
+
     // --- Caption Preset (5B-8, D-51) ------------------------------------------------------------------
 
     /**
