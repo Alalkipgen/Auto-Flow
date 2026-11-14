@@ -41,7 +41,7 @@ compose.desktop {
             // ARCHITECTURE.md §2 says MSIX, but jpackage only builds MSI/EXE — see docs/PLAN.md Q-01.
             targetFormats(TargetFormat.Msi)
             packageName = "AutoFlow"
-            packageVersion = "0.1.0"
+            packageVersion = "0.2.0"
             windows {
                 menuGroup = "Auto Flow"
                 // Fixed forever so future MSI versions upgrade in place.
