@@ -3,31 +3,134 @@ package io.github.alalkipgen.autoflow.ui.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.core.recap.QuickRecapStage
+import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapStyle
+import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.AfCard
+import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+
+/** Quick Recap wizard state for the UI (not persisted here). */
+private enum class WizardStep { IDLE, LENGTH, STYLE, CONFIRM }
 
 /**
- * Studio v2 Home screen (5A-6, DESIGN.md §7 "Home").
- * Shows quick-access entry points: New Movie Recap, recent projects, Quick Recap wizard.
- * Full implementation deferred to 5B-11 (Quick Recap) and 5A-7 (Library).
+ * Studio v2 Home screen (5A-6 / 5B-11, DESIGN.md §7 "Home").
+ * Shows:
+ * - Quick Recap wizard: movie → length chips (1·3·5·10 min) → style → Start
+ * - Running jobs progress (placeholder until 5A-5 runner fully connected)
+ * - Create: Recap · Music Video buttons
  */
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    onNewRecap: () -> Unit = {},
+    onNewMusicVideo: () -> Unit = {},
+    onQuickRecapStart: (targetMs: Long, style: RecapStyle) -> Unit = { _, _ -> },
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(screenPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AfText("Home", size = 20.sp, bold = true)
-        AfText("Quick Recap wizard and recent projects will appear here (5B-11).", muted = true)
+
+        // Quick Recap wizard card (5B-11)
+        QuickRecapWizardCard(onQuickRecapStart)
+
+        // Create shortcuts
+        AfCard("Create") {
+            WrapRow {
+                AfButton("🎬 New Movie Recap", onNewRecap, kind = ButtonKind.Primary)
+                AfButton("🎵 New Music Video", onNewMusicVideo)
+            }
+        }
+
+        // Recent projects placeholder (full impl in Dashboard, linked from here)
+        AfCard("Recent projects") {
+            AfText("Your recent projects appear here. Open them from Projects tab.", muted = true)
+        }
     }
+}
+
+@Composable
+private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
+    var step by remember { mutableStateOf(WizardStep.IDLE) }
+    var targetMs by remember { mutableStateOf(300_000L) }
+    var style by remember { mutableStateOf(RecapStyle.PLAIN) }
+
+    AfCard("⚡ Quick Recap") {
+        when (step) {
+            WizardStep.IDLE -> {
+                AfText("Turn a movie into a recap in one tap — stops only for your approval.", muted = true, size = 12.sp)
+                AfText("Needs subtitles or a transcript embedded in the movie.", muted = true, size = 11.sp)
+                AfButton("Start Quick Recap…", { step = WizardStep.LENGTH }, kind = ButtonKind.Primary)
+            }
+            WizardStep.LENGTH -> {
+                AfText("Target length", bold = true)
+                WrapRow {
+                    listOf(60_000L to "1 min", 180_000L to "3 min", 300_000L to "5 min", 600_000L to "10 min").forEach { (ms, label) ->
+                        AfChip(label, targetMs == ms, onClick = { targetMs = ms })
+                    }
+                }
+                WrapRow {
+                    AfButton("Next: Style →", { step = WizardStep.STYLE }, kind = ButtonKind.Primary)
+                    AfButton("Cancel", { step = WizardStep.IDLE })
+                }
+            }
+            WizardStep.STYLE -> {
+                AfText("Style", bold = true)
+                WrapRow {
+                    AfChip("Plain", style == RecapStyle.PLAIN, onClick = { style = RecapStyle.PLAIN })
+                    AfChip("Commentary", style == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY })
+                }
+                WrapRow {
+                    AfButton("Start →", { step = WizardStep.CONFIRM }, kind = ButtonKind.Primary)
+                    AfButton("Back", { step = WizardStep.LENGTH })
+                }
+            }
+            WizardStep.CONFIRM -> {
+                val minLabel = "${targetMs / 60_000} min"
+                AfText("Quick Recap · $minLabel · $style", bold = true)
+                AfText("Scenes will be detected, AI picks scenes, Gemini writes the script. Stops at Story review — you approve or edit.", muted = true, size = 12.sp)
+                AfText("Then TTS and render run as background jobs.", muted = true, size = 12.sp)
+                WrapRow {
+                    AfButton("Start", {
+                        onStart(targetMs, style)
+                        step = WizardStep.IDLE
+                    }, kind = ButtonKind.Primary)
+                    AfButton("Back", { step = WizardStep.STYLE })
+                }
+            }
+        }
+    }
+
+    // Running stages display — shown when a quick recap job is active
+    // Full impl wired to AiJobRunner in 5A-5; placeholder here.
+    QuickRecapStageList()
+}
+
+@Composable
+private fun QuickRecapStageList() {
+    // Placeholder: in full impl this reads from AiJobRunner.jobs filtered by QUICK_RECAP kind
+    // and shows each stage with progress/ETA.
+    // Listed here as stub so the UI compiles and renders the section header.
 }

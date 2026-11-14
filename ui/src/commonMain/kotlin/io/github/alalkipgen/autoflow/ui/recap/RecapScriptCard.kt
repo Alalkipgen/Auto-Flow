@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,22 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: Recap) {
                 AfText("📄 subtitles.srt ✓", color = AutoFlowColors.Green)
                 AfButton("Replace", { model.importSubtitles() }, enabled = !state.busy)
                 AfButton("Remove", { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
+            }
+        }
+        // Subtitle track selection (5B-1): when the movie has embedded tracks, let the owner pick one.
+        if (recap.movie != null && recap.subtitles == null) {
+            AfText("Or extract from movie", muted = true, size = 12.sp)
+            AfText("Track index (0-based ffprobe stream index, leave blank to auto-detect):", muted = true, size = 11.sp)
+            var trackInput by remember { mutableStateOf(recap.subtitleTrack?.toString() ?: "") }
+            WrapRow {
+                io.github.alalkipgen.autoflow.ui.components.AfTextField(
+                    trackInput, { trackInput = it }, "Track index",
+                    Modifier, enabled = !state.busy,
+                )
+                AfButton("Set track", {
+                    model.setSubtitleTrack(trackInput.trim().toIntOrNull())
+                }, enabled = !state.busy)
+                recap.subtitleTrack?.let { AfText("Selected: track $it", color = AutoFlowColors.Cyan, size = 12.sp) }
             }
         }
         AfText("Style", muted = true, size = 12.sp)

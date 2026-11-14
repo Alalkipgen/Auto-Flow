@@ -63,12 +63,22 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: Recap) {
         val voiced = script.segments.indices.count { RecapRules.currentTake(recap, script, it) != null }
         AfText("Voiced $voiced of ${script.segments.size} scenes", bold = true, color = if (voiced == script.segments.size) AutoFlowColors.Green else null)
         var playing by remember { mutableStateOf<Int?>(null) }
-        script.segments.forEachIndexed { i, _ -> VoiceRow(model, state, recap, script, i, idle, playing == i) { playing = if (playing == i) null else i } }
+        // Block detail: tap "Voice & Audio" on a row to open the teleprompter / tab view (5B-5).
+        var blockDetail by remember { mutableStateOf<Int?>(null) }
+        if (blockDetail != null) {
+            VoiceBlockCard(model, state, recap, script, blockDetail!!, onClose = { blockDetail = null })
+            return@AfCard
+        }
+        script.segments.forEachIndexed { i, _ ->
+            VoiceRow(model, state, recap, script, i, idle, playing == i,
+                onPlay = { playing = if (playing == i) null else i },
+                onOpenBlock = { blockDetail = i })
+        }
     }
 }
 
 @Composable
-private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: Recap, script: RecapScript, i: Int, idle: Boolean, playing: Boolean, onPlay: () -> Unit) {
+private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: Recap, script: RecapScript, i: Int, idle: Boolean, playing: Boolean, onPlay: () -> Unit, onOpenBlock: () -> Unit = {}) {
     val seg = script.segments[i]
     val take = RecapRules.currentTake(recap, script, i)
     val stale = RecapRules.isStale(recap, script, i)
@@ -94,6 +104,8 @@ private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: Recap, scrip
             }
             val file = state.takeFiles[i]
             if (take != null && file != null) AudioPlayButton(file, playing, onPlay)
+            // Voice & Audio block detail (5B-5)
+            AfButton("⋮ Voice & Audio", onOpenBlock, enabled = idle)
         }
     }
 }

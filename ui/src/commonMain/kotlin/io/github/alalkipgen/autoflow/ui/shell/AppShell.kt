@@ -58,6 +58,7 @@ import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.ui.home.HomeScreen
 import io.github.alalkipgen.autoflow.ui.jobs.JobsScreen
 import io.github.alalkipgen.autoflow.ui.jobs.jobsBadgeValue
+import io.github.alalkipgen.autoflow.ui.library.LibraryModel
 import io.github.alalkipgen.autoflow.ui.library.LibraryScreen
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.settings.AppInfo
@@ -198,9 +199,13 @@ private fun StudioV2App(
 
     val content: @Composable () -> Unit = {
         when (dest) {
-            StudioV2Dest.HOME -> HomeScreen()
+            StudioV2Dest.HOME -> HomeScreen(
+                onNewRecap = { dest = StudioV2Dest.PROJECTS },
+                onNewMusicVideo = { dest = StudioV2Dest.PROJECTS },
+                onQuickRecapStart = { _, _ -> dest = StudioV2Dest.PROJECTS },
+            )
             StudioV2Dest.PROJECTS -> DashboardScreen(koinInject(), onOpened = {})
-            StudioV2Dest.LIBRARY -> LibraryScreen()
+            StudioV2Dest.LIBRARY -> LibraryScreen(koinInject<LibraryModel>())
             StudioV2Dest.JOBS -> if (jobRunner != null) JobsScreen(jobRunner, scope) else ScreenPlaceholder("Jobs")
         }
     }

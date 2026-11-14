@@ -18,6 +18,10 @@ data class Recap(
     val sceneThreshold: Int = Scenes.THRESHOLD_NORMAL,
     /** `source/subtitles.srt` when imported. */
     val subtitles: String? = null,
+    /** Selected subtitle track stream index (ffprobe 0-based, 5B-1). */
+    val subtitleTrack: Int? = null,
+    /** Transcript artifact id (`tx_…`, schemaVersion 2, 5B-1). */
+    val transcript: ArtifactId? = null,
     val style: RecapStyle = RecapStyle.PLAIN,
     /** Spoken (casual) vs Written (formal) Burmese register for TTS (5B-7, D-36). */
     val register: RecapRegister = RecapRegister.SPOKEN,
