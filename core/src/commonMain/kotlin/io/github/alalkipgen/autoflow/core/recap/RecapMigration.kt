@@ -15,10 +15,12 @@ import kotlinx.serialization.json.jsonPrimitive
  * every non-recap key passes through untouched. Running it on a v2 project changes nothing.
  *
  * Not called by the app yet: the Studio v2 Recap screen (5A-2 UI part) switches it on together with the v2 reader.
+ * v0.2.0 ran it on open too early (the app still reads recap v1), so [restoreV1Backup] undoes that.
  */
 object RecapMigration {
     const val BACKUP_FILE = "project.v1.bak.json"
     const val TO_VERSION = 2
+    const val V2_COPY_FILE = "project.v2.json"
 
     fun schemaVersion(project: JsonObject): Int = project["schemaVersion"]?.jsonPrimitive?.intOrNull ?: 1
 
@@ -31,6 +33,35 @@ object RecapMigration {
         val tmp = "$backup.tmp"
         fs.copyDurably(joinPath(projectDir, "project.json"), tmp)
         fs.atomicMove(tmp, backup)
+    }
+
+    /**
+     * Undo for a project migrated before the app can read v2: when `project.json` has a schemaVersion above
+     * [supportedVersion] and [BACKUP_FILE] is a v1 project, keeps the v2 file as [V2_COPY_FILE] and puts the backup
+     * back as `project.json`. Returns true when it restored. Never throws on a bad file; it just does nothing.
+     */
+    fun restoreV1Backup(fs: FileSystem, projectDir: String, supportedVersion: Int): Boolean {
+        val main = joinPath(projectDir, "project.json")
+        val backup = joinPath(projectDir, BACKUP_FILE)
+        if (!fs.exists(main) || !fs.exists(backup)) return false
+        val current = versionOf(fs, main) ?: return false
+        if (current <= supportedVersion) return false
+        val old = versionOf(fs, backup) ?: return false
+        if (old > supportedVersion) return false
+        val copy = joinPath(projectDir, V2_COPY_FILE)
+        if (!fs.exists(copy)) {
+            fs.copyDurably(main, "$copy.tmp")
+            fs.atomicMove("$copy.tmp", copy)
+        }
+        fs.copyDurably(backup, "$main.tmp")
+        fs.atomicMove("$main.tmp", main)
+        return true
+    }
+
+    private fun versionOf(fs: FileSystem, path: String): Int? = try {
+        schemaVersion(kotlinx.serialization.json.Json.parseToJsonElement(fs.read(path).decodeToString()).jsonObject)
+    } catch (_: Exception) {
+        null
     }
 
     /** Step 2: the v1 script as an `rs` v2 story, one block per segment. */

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.1 (bug fixes)
+
+- **Old Movie Recap projects open again**: v0.2.0 migrated them to recap v2 on open, but the app still reads v1, so
+  they failed with "schemaVersion 2; this app supports up to 1". Migration on open is off until the v2 reader lands;
+  opening such a project puts `project.v1.bak.json` back (the v2 file is kept as `project.v2.json`).
+- **Quick Recap names**: new projects are "Quick Recap", "Quick Recap 2", … instead of a timestamp.
+
 ## v0.2.0 (Phase 5 — Studio v2)
 
 ### New features

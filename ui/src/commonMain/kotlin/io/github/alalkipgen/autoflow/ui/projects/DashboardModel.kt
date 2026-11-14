@@ -4,8 +4,6 @@ import io.github.alalkipgen.autoflow.core.CoreError
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
-import io.github.alalkipgen.autoflow.core.model.ArtifactKind
-import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
@@ -13,9 +11,6 @@ import io.github.alalkipgen.autoflow.core.recap.QuickRecap
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMigration
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
-import io.github.alalkipgen.autoflow.core.recap.RecapScript
-import io.github.alalkipgen.autoflow.core.recap.RecapStory
-import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -23,8 +18,6 @@ import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 
 /** The project the pipeline screens work on: its folder and the last saved `project.json`. */
 data class OpenProject(val dir: String, val project: Project)
@@ -78,7 +71,7 @@ class DashboardModel(
      */
     fun createQuickRecap(targetMs: Long, style: RecapStyle): Boolean {
         val parent = lastParent ?: return fail("Choose a folder for new projects in Settings first")
-        val name = "Quick Recap ${kotlin.time.Clock.System.now().toEpochMilliseconds() / 1000}"
+        val name = freeName(parent, "Quick Recap")
         return create(parent, name, Mode.MOVIE_RECAP) { project ->
             project.copy(
                 recap = Recap(
@@ -87,6 +80,14 @@ class DashboardModel(
                 )
             )
         }
+    }
+
+    /** [base], or "[base] 2", "[base] 3"… when that project folder is already taken. */
+    private fun freeName(parent: String, base: String): String {
+        var name = base
+        var n = 2
+        while (fs.exists(joinPath(parent.trimEnd('/'), projectFolderName(name)))) name = "$base ${n++}"
+        return name
     }
 
     fun createMovieRecap(parent: String, name: String, rightsConfirmed: Boolean): Boolean {
@@ -127,52 +128,16 @@ class DashboardModel(
     }
 
     fun open(dir: String): Boolean {
-        // Run recap v1 → v2 migration before decoding the project (spec §2, 5A-2 UI).
-        migrateRecapIfNeeded(dir)
+        // The app still reads recap v1, so v1 → v2 migration stays off until the v2 reader lands (spec §2).
+        // Projects that v0.2.0 already migrated get their v1 backup back.
+        try {
+            RecapMigration.restoreV1Backup(fs, dir, Project.SCHEMA_VERSION)
+        } catch (_: Exception) {
+            // Never block opening; store.open reports the real problem.
+        }
         return when (val r = store.open(dir)) {
             is CoreResult.Ok -> opened(dir, r.value)
             is CoreResult.Err -> fail(r.error.toText())
-        }
-    }
-
-    /**
-     * If [dir]/project.json is a v1 recap project, migrates it to v2 in-place (backup → migrate → save).
-     * Silent on any error so a migration failure never blocks opening the project.
-     */
-    private fun migrateRecapIfNeeded(dir: String) {
-        try {
-            val path = joinPath(dir, "project.json")
-            if (!fs.exists(path)) return
-            val jsonObj = try {
-                Json.parseToJsonElement(fs.read(path).decodeToString()).jsonObject
-            } catch (_: Exception) { return }
-            // Only migrate Movie Recap projects; music video projects have recap=null so skip them.
-            val recapValue = jsonObj["recap"]
-            if (recapValue == null || recapValue.toString() == "null") return
-            if (!RecapMigration.needsMigration(jsonObj)) return
-            RecapMigration.backup(fs, dir)
-            val artifacts = ArtifactStore(fs, dir)
-            val burmeseTtsModel: String? = null // TTS model lookup wired in 5B-5
-            val migrated = RecapMigration.migrate(
-                project = jsonObj,
-                readScript = { id ->
-                    try {
-                        val bytes = fs.read(joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), "${id.value}.json"))
-                        CoreJson.decodeFromString(RecapScript.serializer(), bytes.decodeToString())
-                    } catch (_: Exception) { null }
-                },
-                writeStory = { story ->
-                    val bytes = CoreJson.encodeToString(RecapStory.serializer(), story).encodeToByteArray()
-                    (artifacts.put(bytes, ArtifactKind.RECAP_SCRIPT, "json") as? CoreResult.Ok)?.value?.id
-                        ?: throw IllegalStateException("Failed to write story artifact during migration")
-                },
-                burmeseTtsModel = burmeseTtsModel,
-            )
-            val tmp = "$path.tmp"
-            fs.writeDurably(tmp, migrated.toString().encodeToByteArray())
-            fs.atomicMove(tmp, path)
-        } catch (_: Exception) {
-            // Migration failure must never prevent opening the project
         }
     }
 
