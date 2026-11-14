@@ -10,6 +10,7 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.recap.ExportQuality
+import io.github.alalkipgen.autoflow.core.recap.PreflightCheck
 import io.github.alalkipgen.autoflow.core.recap.PublishKit
 import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
@@ -59,6 +60,8 @@ data class RecapExport(
     val blocker: String?,
     val quality: ExportQuality = ExportQuality.AUTO,
     val publishKit: PublishKit = PublishKit(),
+    /** Pre-flight items (5B-9): computed from data, no render required. */
+    val preflight: List<PreflightCheck.Item> = emptyList(),
 )
 
 /** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
@@ -266,6 +269,7 @@ class ExportModel(
             blocker = gate.blockers.firstOrNull()?.text() ?: if (recap.movie == null) "Import the movie first (Movie Recap → 1 · Movie)." else null,
             quality = recap.quality,
             publishKit = recap.publishKit ?: PublishKit(),
+            preflight = PreflightCheck.check(recap, script),
         )
     }
 

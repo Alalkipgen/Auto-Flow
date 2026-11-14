@@ -97,6 +97,10 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             state.run?.let { RunStatus(it, model, state.savingToGallery) }
             state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
+        // Pre-flight (5B-9): blockers and warnings shown before export
+        state.recap?.let { recap ->
+            if (recap.preflight.isNotEmpty()) PreflightCard(recap.preflight)
+        }
         // Publish Kit (5B-10): only for Recap projects
         state.recap?.let { recap ->
             PublishKitCard(recap.publishKit, model)
@@ -195,5 +199,32 @@ private fun PublishKitCard(kit: PublishKit, model: ExportModel) {
             }, kind = ButtonKind.Primary)
             AfButton("Share file…", { scope.launch { model.sharePublishFile("export") } })
         }
+    }
+}
+
+/**
+ * Pre-flight checklist card (5B-9, studio-v2.md §9): blockers and warnings shown before export.
+ * Each row has a "Fix →" label pointing to the step to fix it.
+ */
+@Composable
+private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item>) {
+    AfCard("Pre-flight check") {
+        items.forEach { item ->
+            val color = when (item.kind) {
+                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER -> AutoFlowColors.Amber
+                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING -> AutoFlowColors.Amber.copy(alpha = 0.8f)
+                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.INFO -> null
+            }
+            val prefix = when (item.kind) {
+                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER -> "⛔ "
+                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING -> "⚠ "
+                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.INFO -> "ℹ "
+            }
+            val text = prefix + item.message + item.fix?.let { " — Fix → $it" }.orEmpty()
+            AfText(text, color = color, size = 12.sp)
+        }
+        val blockers = items.count { it.kind == io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER }
+        val warnings = items.count { it.kind == io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING }
+        if (blockers == 0 && warnings == 0) AfText("✓ All checks passed", color = AutoFlowColors.Green)
     }
 }
