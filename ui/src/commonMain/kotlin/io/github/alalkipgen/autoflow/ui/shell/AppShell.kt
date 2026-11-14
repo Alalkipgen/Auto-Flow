@@ -28,6 +28,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,11 +53,18 @@ import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.InputScreen
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
+import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.ui.home.HomeScreen
+import io.github.alalkipgen.autoflow.ui.jobs.JobsScreen
+import io.github.alalkipgen.autoflow.ui.jobs.jobsBadgeValue
+import io.github.alalkipgen.autoflow.ui.library.LibraryScreen
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
+import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
@@ -101,7 +109,10 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
     val currentProject = koinInject<CurrentProject>()
     val backup = koinInject<BackupModel>().takeIf { it.available }
-    val settings by koinInject<SettingsStore>().state.collectAsState()
+    val settingsStore = koinInject<SettingsStore>()
+    val settings by settingsStore.state.collectAsState()
+    val settingsModel = koinInject<SettingsModel>()
+    val settingsState by settingsModel.state.collectAsState()
     val fontPaths = settings.fontPaths
     val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
     val uiFont = remember(fontPaths) { UiFont.load(fontPaths) { runCatching { fs.read(it) }.getOrNull() } ?: FontFamily.Default }
@@ -147,7 +158,15 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
             }
         }
         CompositionLocalProvider(LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
-            if (compact) {
+            if (settingsState.features.studioV2) {
+                StudioV2App(
+                    status = status,
+                    projectName = project?.project?.name,
+                    windowWidthDp = maxWidth.value,
+                    appInfo = appInfo,
+                    backup = backup,
+                )
+            } else if (compact) {
                 PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
                     locks = shellState.locks, top = top, content = content)
             } else {
@@ -156,6 +175,43 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
             }
         }
     }
+}
+
+/**
+ * Studio v2 root (5A-6): Home · Projects · Library · Jobs with adaptive shell.
+ * Bottom nav < 600 dp, rail ≥ 600 dp, three-pane ≥ 840 dp.
+ */
+@Composable
+private fun StudioV2App(
+    status: String,
+    projectName: String?,
+    windowWidthDp: Float,
+    appInfo: AppInfo?,
+    backup: BackupModel?,
+) {
+    val koin = getKoin()
+    val jobRunner = remember(koin) { koin.getOrNull<AiJobRunner>() }
+    val jobs by (jobRunner?.jobs?.collectAsState() ?: remember { mutableStateOf<List<AiJob>>(emptyList()) })
+    val badge = jobsBadgeValue(jobs)
+    var dest by remember { mutableStateOf(StudioV2Dest.HOME) }
+    val scope = rememberCoroutineScope()
+
+    val content: @Composable () -> Unit = {
+        when (dest) {
+            StudioV2Dest.HOME -> HomeScreen()
+            StudioV2Dest.PROJECTS -> DashboardScreen(koinInject(), onOpened = {})
+            StudioV2Dest.LIBRARY -> LibraryScreen()
+            StudioV2Dest.JOBS -> if (jobRunner != null) JobsScreen(jobRunner, scope) else ScreenPlaceholder("Jobs")
+        }
+    }
+
+    StudioV2Shell(
+        selected = dest,
+        onSelect = { dest = it },
+        jobsBadge = badge,
+        windowWidthDp = windowWidthDp,
+        content = content,
+    )
 }
 
 /**
