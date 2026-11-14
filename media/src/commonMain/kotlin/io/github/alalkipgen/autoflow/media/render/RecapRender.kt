@@ -3,6 +3,9 @@ package io.github.alalkipgen.autoflow.media.render
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.FitRow
+import io.github.alalkipgen.autoflow.core.recap.Layer
+import io.github.alalkipgen.autoflow.core.recap.LayerParams
+import io.github.alalkipgen.autoflow.core.recap.LayerType
 import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
@@ -36,8 +39,14 @@ object RecapRender {
         val movie = requireNotNull(recap.movie) { "no movie" }
         val output = outputFor(recap, ratio, quality)
         val layout = layout(recap, script, takeFile)
-        val clips = layout.map { p -> Clip(artifact = null, source = movie.file, trimInMs = p.movieMs, trimOutMs = p.movieMs + p.row.clipMs) }
-        val cues = layout.mapNotNull { p -> p.voiced?.let { VoiceCue(it.file, p.startMs + RecapFit.LEAD_MS) } }
+        // 5B-6 SmartFit: pass slowFactor to Clip (SLOW_VIDEO) and speedFactor to VoiceCue (SPEED).
+        val clips = layout.map { p ->
+            Clip(artifact = null, source = movie.file, trimInMs = p.movieMs, trimOutMs = p.movieMs + p.row.clipMs,
+                slowFactor = p.row.videoSlow)
+        }
+        val cues = layout.mapNotNull { p ->
+            p.voiced?.let { VoiceCue(it.file, p.startMs + RecapFit.LEAD_MS, speedFactor = p.row.voiceSpeed) }
+        }
         val onMask = captionY(recap, output)
         val overlays = if (font == null || !recap.burnCaptions) emptyList() else captions(recap, script, takeFile, output).map { c ->
             Overlay(
@@ -45,6 +54,20 @@ object RecapRender {
                 color = recap.captionStyle.colour, centerY = onMask, box = recap.captionStyle.box,
             )
         }
+        // Brand Kit watermark layer (5B-3, D-52): bottom-right corner, 20% wide, semi-transparent.
+        val watermarkLayers = recap.visual.watermarkFile?.let { wf ->
+            listOf(
+                Layer(
+                    id = "watermark",
+                    type = LayerType.IMAGE,
+                    rect = listOf(0.76f, 0.82f, 0.22f, 0.14f),
+                    fromMs = 0,
+                    toMs = null,
+                    params = LayerParams(image = wf, opacity = 0.75f),
+                )
+            )
+        }.orEmpty()
+
         return RenderGraph(
             clips = clips,
             overlays = overlays,
@@ -57,6 +80,7 @@ object RecapRender {
                 loudnessLufs = recap.audio.loudnessLufs.takeIf { recap.audio.loudness },
             ),
             looks = recap.looks,
+            layers = watermarkLayers,
             masks = recap.visual.masks,
             background = recap.visual.background,
             backgroundColour = recap.visual.backgroundColour,
