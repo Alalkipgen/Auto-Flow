@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.Layer
 import io.github.alalkipgen.autoflow.core.recap.Look
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -23,6 +24,8 @@ data class RenderGraph(
     val voice: VoiceTrack? = null,
     /** Picture changes for every [Clip.source] clip (Movie Recap looks, docs/specs/recap.md §6). */
     val looks: List<Look> = emptyList(),
+    /** Composited layers (spec §4, D-37): BLUR, IMAGE, TEXT, BORDER, BACKGROUND drawn in list order. */
+    val layers: List<Layer> = emptyList(),
 ) {
     /** Output length: the clip strip minus crossfade overlaps. */
     val durationMs: Long
