@@ -333,6 +333,20 @@ class RecapModel(
         return saveScript(script.copy(segments = segments))
     }
 
+    /**
+     * Edit the timing of segment [index] (per-chunk caption timing, D-52): shifts [startMs] and [endMs].
+     * The new start is clamped to 0 and the new end must be > the new start. Adjacent segments are NOT
+     * automatically adjusted — the owner sets each one explicitly in the edit UI.
+     */
+    fun saveSegmentTiming(index: Int, startMs: Long, endMs: Long): Boolean {
+        val script = _state.value.script ?: return false
+        if (index !in script.segments.indices) return false
+        if (endMs <= startMs) { say("End must be after start"); return false }
+        val clamped = startMs.coerceAtLeast(0L)
+        val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(startMs = clamped, endMs = endMs) else s }
+        return if (saveScript(script.copy(segments = segments))) { say("Timing saved", ); true } else false
+    }
+
     /** ✓ Approve script ([RecapRules.canApproveScript]). */
     fun approveScript(): Boolean {
         val recap = recap() ?: return false

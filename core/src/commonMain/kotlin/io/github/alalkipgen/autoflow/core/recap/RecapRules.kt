@@ -63,8 +63,13 @@ object RecapRules {
         recap.copy(takes = recap.takes.filter { it.segment != take.segment } + take)
 }
 
-/** One fit-check row (spec §6). [clipMs] is the output clip length; [overMs] > 0 when the scene runs on. */
-data class FitRow(val segment: Int, val sceneMs: Long, val takeMs: Long?, val clipMs: Long, val status: FitStatus) {
+/**
+ * One fit-check row (spec §6). [clipMs] is the output clip length; [overMs] > 0 when the scene runs on.
+ * [voiceSpeed] > 1.0 when FitChoice.SPEED is selected: the voice is atempo-filtered to fit the scene (5B-6).
+ * [videoSlow] < 1.0 when FitChoice.SLOW_VIDEO: setpts slows the picture to match the take (5B-6).
+ */
+data class FitRow(val segment: Int, val sceneMs: Long, val takeMs: Long?, val clipMs: Long, val status: FitStatus,
+                  val voiceSpeed: Float = 1f, val videoSlow: Float = 1f) {
     val overMs: Long get() = if (takeMs == null) 0 else maxOf(0, clipMs - sceneMs)
 }
 
@@ -75,14 +80,31 @@ object RecapFit {
     const val LEAD_MS = 200L
     const val TAIL_MS = 400L
 
-    fun rows(recap: Recap, script: RecapScript): List<FitRow> {
+    fun rows(recap: Recap, script: RecapScript, maxVoiceSpeed: Float = 1.5f, maxVideoSlow: Float = 0.7f): List<FitRow> {
         return script.segments.mapIndexed { i, seg ->
             val take = RecapRules.currentTake(recap, script, i)
             val scene = seg.durationMs
+            val choice = recap.fit[i]
             when {
                 take != null -> {
                     val want = maxOf(scene, take.durationMs + TAIL_MS)
-                    FitRow(i, scene, take.durationMs, want, if (want > scene) FitStatus.RUNS_ON else FitStatus.FITS)
+                    val runsOn = want > scene
+                    when {
+                        // 5B-6 SmartFit SPEED: speed up voice to fit in the scene.
+                        runsOn && choice == FitChoice.SPEED && take.durationMs > 0 -> {
+                            val rawSpeed = (take.durationMs + TAIL_MS).toFloat() / scene.toFloat()
+                            val speed = rawSpeed.coerceIn(1.0f, maxVoiceSpeed.coerceAtLeast(1.01f))
+                            FitRow(i, scene, take.durationMs, scene, FitStatus.FITS, voiceSpeed = speed)
+                        }
+                        // 5B-6 SmartFit SLOW_VIDEO: slow down the picture so it fills the take duration.
+                        runsOn && choice == FitChoice.SLOW_VIDEO && scene > 0 -> {
+                            val rawSlow = scene.toFloat() / (take.durationMs + TAIL_MS).toFloat()
+                            val slow = rawSlow.coerceIn(maxVideoSlow.coerceAtMost(0.99f), 1.0f)
+                            val newClip = take.durationMs + TAIL_MS
+                            FitRow(i, scene, take.durationMs, newClip, FitStatus.RUNS_ON, videoSlow = slow)
+                        }
+                        else -> FitRow(i, scene, take.durationMs, want, if (runsOn) FitStatus.RUNS_ON else FitStatus.FITS)
+                    }
                 }
                 RecapRules.isStale(recap, script, i) -> FitRow(i, scene, null, scene, FitStatus.STALE)
                 else -> FitRow(i, scene, null, scene, FitStatus.NO_VOICE)

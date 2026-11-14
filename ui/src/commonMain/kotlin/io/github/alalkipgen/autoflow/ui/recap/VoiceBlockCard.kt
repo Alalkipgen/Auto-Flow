@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +30,7 @@ import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.AudioPlayButton
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
@@ -101,6 +103,61 @@ private fun SpeakTab(
         AfButton("🔊 Speak", { model.speak(index) },
             kind = ButtonKind.Primary, enabled = idle && text.isNotBlank())
     }
+    // Per-chunk caption timing edit (D-52): edit startMs / endMs in mm:ss.s format.
+    TimingEditRow(seg.startMs, seg.endMs) { start, end -> model.saveSegmentTiming(index, start, end) }
+}
+
+/** Inline timing editor: shows current start/end, two text fields, Save button (D-52). */
+@Composable
+private fun TimingEditRow(startMs: Long, endMs: Long, onSave: (Long, Long) -> Unit) {
+    var editing by remember(startMs, endMs) { mutableStateOf(false) }
+    var startText by remember(startMs) { mutableStateOf(msToField(startMs)) }
+    var endText by remember(endMs) { mutableStateOf(msToField(endMs)) }
+
+    if (!editing) {
+        AfText("⏱ ${msToField(startMs)} → ${msToField(endMs)}", muted = true, size = 11.sp)
+        AfButton("Edit timing…", { editing = true }, enabled = true)
+    } else {
+        AfText("Edit timing (mm:ss.s)", bold = true, size = 12.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            io.github.alalkipgen.autoflow.ui.components.AfTextField(
+                startText, { startText = it }, "Start",
+                modifier = androidx.compose.ui.Modifier.weight(1f)
+            )
+            AfText("→", size = 13.sp)
+            io.github.alalkipgen.autoflow.ui.components.AfTextField(
+                endText, { endText = it }, "End",
+                modifier = androidx.compose.ui.Modifier.weight(1f)
+            )
+        }
+        WrapRow {
+            AfButton("Save", {
+                val s = fieldToMs(startText)
+                val e = fieldToMs(endText)
+                if (s != null && e != null) { onSave(s, e); editing = false }
+            }, kind = ButtonKind.Primary)
+            AfButton("Cancel", { editing = false })
+        }
+    }
+}
+
+private fun msToField(ms: Long): String {
+    val totalSec = ms / 1000.0
+    val min = (totalSec / 60).toInt()
+    val sec = totalSec % 60
+    return "%d:%04.1f".format(min, sec)
+}
+
+private fun fieldToMs(text: String): Long? {
+    val t = text.trim()
+    return try {
+        if (':' in t) {
+            val (m, s) = t.split(':')
+            ((m.trim().toLong() * 60 + s.trim().toDouble()) * 1000).toLong()
+        } else {
+            (t.toDouble() * 1000).toLong()
+        }
+    } catch (e: Exception) { null }
 }
 
 @Composable

@@ -61,6 +61,8 @@ class RenderJobRunner(
             resolveSource = { sources[it] },
             voicePath = { f -> abs(f).takeIf { fs.exists(it) } },
             backgroundImageFile = graph.backgroundImageFile?.let { abs(it).takeIf { p -> fs.exists(p) } },
+            // Watermark and other image layers: resolve relative paths against workDir (D-52).
+            resolveLayerImage = { imageId -> abs(imageId).takeIf { p -> fs.exists(p) } },
         )
         val compiled = when (val c = RenderCompiler.compile(graph, env)) {
             is RenderCompiler.Compiled.Invalid -> return RenderState.Failed(c.reason)

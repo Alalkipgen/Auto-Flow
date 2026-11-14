@@ -64,6 +64,8 @@ data class Clip(
     val transitionMs: Int = 0,
     val label: String = "",
     val source: String? = null,
+    /** < 1.0 slows the clip with `setpts` (5B-6 SmartFit SLOW_VIDEO). 1.0 = no change. */
+    val slowFactor: Float = 1f,
 ) {
     val durationMs: Long get() = trimOutMs - trimInMs
     val crossfadeMs: Long get() = if (transition == Transition.CROSSFADE) transitionMs.toLong() else 0
@@ -113,10 +115,14 @@ data class VoiceTrack(
 @SerialName("MusicBed")
 data class MusicBed(val file: String, val volume: Double = 0.18, val duck: Boolean = true)
 
-/** [file] is relative to the project folder (an `au` artifact) or absolute. */
+/**
+ * [file] is relative to the project folder (an `au` artifact) or absolute.
+ * [speedFactor] > 1.0 applies `atempo` to fit the voice in a shorter scene (5B-6 SmartFit SPEED).
+ * [slowFactor] < 1.0 applies `setpts` to slow down the companion video clip (5B-6 SmartFit SLOW_VIDEO).
+ */
 @Serializable
 @SerialName("VoiceCue")
-data class VoiceCue(val file: String, val startMs: Long)
+data class VoiceCue(val file: String, val startMs: Long, val speedFactor: Float = 1f)
 
 /**
  * A text overlay (lyrics, title card), drawn by libass from the fonts dir (S4). [font] is the family name inside a

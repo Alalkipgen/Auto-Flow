@@ -21,6 +21,11 @@ data class RecapVisual(
      * (D-51 image background): copied into `artifacts/` by the UI before saving. Null = not set.
      */
     val backgroundImageFile: String? = null,
+    /**
+     * Relative path (from the project folder) to a watermark image overlaid on every frame in the bottom-right
+     * corner (Brand Kit, 5B-3 D-52). Null = no watermark. Set by [RecapModel.applyBrandKit].
+     */
+    val watermarkFile: String? = null,
     /** Captions are centred on the lowest mask (when there is one) instead of the usual bottom place. */
     val captionsOnMask: Boolean = true,
 ) {

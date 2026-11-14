@@ -102,7 +102,9 @@ object RenderCompiler {
                 }
             }
             val warm = if (Look.WARM in looks) "eq=saturation=1.15:contrast=1.05," else ""
-            chains += "$masked$pre${fit}setsar=1,format=yuv420p,$warm" +
+            // 5B-6 SmartFit SLOW_VIDEO: setpts slows the picture (factor < 1 → PTS multiplied by 1/factor).
+            val slowPts = if (clip.slowFactor in 0.01f..0.999f) "setpts=${String.format("%.4f", 1f / clip.slowFactor)}*PTS," else ""
+            chains += "$masked$pre${fit}setsar=1,format=yuv420p,$warm$slowPts" +
                 // fps last: setpts clears the constant frame rate that xfade requires.
                 "tpad=stop_mode=clone:stop_duration=$d,trim=duration=$d,setpts=PTS-STARTPTS,fps=${out.fps}[v$k]"
             if (useClipAudio) {
@@ -144,11 +146,21 @@ object RenderCompiler {
             val fadeOut = if (a.fadeOutMs > 0) ",afade=t=out:st=${sec(maxOf(0, total - a.fadeOutMs))}:d=${sec(a.fadeOutMs.toLong())}" else ""
             "[$s:a]$AUDIO_FORMAT$delay$fadeIn$fadeOut,apad=whole_dur=${sec(total)},atrim=duration=${sec(total)}"
         }
-        val cues = voice?.cues.orEmpty().map { c -> input("-i", env.voicePath(c.file) ?: "") to c.startMs }
+        // 5B-6 SmartFit SPEED: atempo filter — chain multiple atempos if factor > 2 (ffmpeg limit per filter).
+        fun atempoChain(speed: Float): String {
+            if (speed <= 1.01f) return ""
+            val factors = mutableListOf<Float>()
+            var rem = speed
+            while (rem > 2.0f) { factors += 2.0f; rem /= 2.0f }
+            if (rem > 1.001f) factors += rem
+            return factors.joinToString(",") { f -> "atempo=${String.format("%.4f", f)}" } + ","
+        }
+        data class CueTuple(val inputIdx: Int, val startMs: Long, val speed: Float)
+        val cues = voice?.cues.orEmpty().map { c -> CueTuple(input("-i", env.voicePath(c.file) ?: ""), c.startMs, c.speedFactor) }
         chains += when {
             voice != null && voice.music == null && voice.loudnessLufs == null && !voice.polish -> {
                 val base = if (useClipAudio) "[aseq]volume=${voice.clipsVolume}[base]" else "anullsrc=r=48000:cl=stereo:d=${sec(total)},$AUDIO_FORMAT[base]"
-                val delayed = cues.mapIndexed { k, (i, at) -> "[$i:a]$AUDIO_FORMAT,adelay=$at|$at[c$k]" }
+                val delayed = cues.mapIndexed { k, (i, at, spd) -> "[${i}:a]$AUDIO_FORMAT,${atempoChain(spd)}adelay=$at|$at[c$k]" }
                 (listOf(base) + delayed).joinToString(";") + ";[base]" + cues.indices.joinToString("") { "[c$it]" } +
                     "amix=inputs=${cues.size + 1}:duration=first:normalize=0,atrim=duration=${sec(total)}[aout]"
             }
@@ -156,7 +168,7 @@ object RenderCompiler {
                 // 5B-4: polished takes are mixed on their own ([vo]) so the music can duck under the voice only.
                 val base = if (useClipAudio) "[aseq]volume=${voice.clipsVolume}[base]" else "anullsrc=r=48000:cl=stereo:d=${sec(total)},$AUDIO_FORMAT[base]"
                 val polish = if (voice.polish) "," + AudioFilters.voicePolish() else ""
-                val delayed = cues.mapIndexed { k, (i, at) -> "[$i:a]$AUDIO_FORMAT$polish,adelay=$at|$at[c$k]" }
+                val delayed = cues.mapIndexed { k, (i, at, spd) -> "[${i}:a]$AUDIO_FORMAT,${atempoChain(spd)}$polish,adelay=$at|$at[c$k]".replace(",,", ",") }
                 val bed = "anullsrc=r=48000:cl=stereo:d=${sec(total)},$AUDIO_FORMAT[vbed]"
                 val vo = "[vbed]" + cues.indices.joinToString("") { "[c$it]" } + "amix=inputs=${cues.size + 1}:duration=first:normalize=0[vo]"
                 val music = voice.music?.let { m ->
