@@ -19,7 +19,14 @@ import kotlinx.serialization.json.putJsonObject
 data class SceneBrief(val startMs: Long, val endMs: Long, val dialogue: String = "")
 
 /** Everything the recap script prompt needs (docs/specs/recap.md §4). [summary] may be Burmese or English. */
-data class RecapBrief(val title: String, val summary: String, val style: RecapStyle, val scenes: List<SceneBrief>)
+data class RecapBrief(
+    val title: String,
+    val summary: String,
+    val style: RecapStyle,
+    val scenes: List<SceneBrief>,
+    /** Spoken (casual) vs Written (formal) Burmese; affects the prompt and TTS (5B-7). */
+    val register: io.github.alalkipgen.autoflow.core.recap.RecapRegister = io.github.alalkipgen.autoflow.core.recap.RecapRegister.SPOKEN,
+)
 
 /**
  * Burmese recap narration, one text per picked scene (spec §4), on any [TextProvider]. Like the storyboard: a
@@ -66,8 +73,7 @@ class RecapScriptGenerator(private val text: TextProvider) {
 /** Prompt and schema for [RecapScriptGenerator]. */
 object RecapPrompts {
     const val SYSTEM = "You write Burmese narration for movie recap videos (a narrator retells a movie over its scenes). " +
-        "Write natural, colloquial Myanmar Unicode Burmese, the everyday spoken register of Burmese recap channels, " +
-        "not literary style. Never write English in textMy except names. Return only JSON that matches the schema."
+        "Write Myanmar Unicode Burmese. Never write English in textMy except names. Return only JSON that matches the schema."
 
     /** Burmese narration speed used to size each text (spec §4). */
     const val SYLLABLES_PER_SECOND = 4
@@ -104,6 +110,14 @@ object RecapPrompts {
                 RecapStyle.PLAIN -> "Style: neutral storytelling — tell what happens and why it matters, like a calm narrator."
                 RecapStyle.COMMENTARY -> "Style: commentary — tell what happens and add short reactions and opinions (surprise, humour, " +
                     "what the viewer should notice), like a popular recap channel. Keep it respectful."
+            },
+        )
+        appendLine(
+            when (brief.register) {
+                io.github.alalkipgen.autoflow.core.recap.RecapRegister.SPOKEN ->
+                    "Register: everyday colloquial Burmese — the natural spoken register of Burmese recap channels, not literary."
+                io.github.alalkipgen.autoflow.core.recap.RecapRegister.WRITTEN ->
+                    "Register: formal written Burmese — grammatically complete sentences, as used in books or news."
             },
         )
         appendLine("Each textMy must take about the scene's length to read aloud (about $SYLLABLES_PER_SECOND Burmese syllables per second); never much longer.")

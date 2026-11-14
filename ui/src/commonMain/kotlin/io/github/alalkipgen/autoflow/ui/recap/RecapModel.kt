@@ -20,6 +20,8 @@ import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
+import io.github.alalkipgen.autoflow.core.recap.Lexicon
+import io.github.alalkipgen.autoflow.core.recap.RecapRegister
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.core.recap.Srt
 import io.github.alalkipgen.autoflow.core.recap.VoiceSource
@@ -82,6 +84,8 @@ class RecapModel(
     private val generator: RecapScriptGenerator? = null,
     private val tts: TtsProvider? = null,
     private val recorder: VoiceRecorder? = null,
+    /** Pronunciation fixes applied before TTS (5B-7); empty until Library is wired (5A-7). */
+    private val lexicon: Lexicon = Lexicon.EMPTY,
 ) {
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
@@ -245,6 +249,11 @@ class RecapModel(
         update { it.copy(style = style) }
     }
 
+    /** Spoken (casual) vs Written (formal) Burmese register for TTS (5B-7). */
+    fun setRegister(register: RecapRegister) {
+        update { it.copy(register = register) }
+    }
+
     /** ✨ Write script (Gemini): one narration text per picked scene; the new `rs` replaces the current one, not approved. */
     fun writeScript(): Job? {
         val recap = recap() ?: return null
@@ -258,6 +267,7 @@ class RecapModel(
             title = project()?.name.orEmpty(),
             summary = summary,
             style = recap.style,
+            register = recap.register,
             scenes = recap.picked.map { SceneBrief(it.startMs, it.endMs, Srt.textIn(cues, it.startMs, it.endMs, RecapPrompts.DIALOGUE_CHARS)) },
         )
         busy(WRITING)
@@ -453,9 +463,10 @@ class RecapModel(
         val recap = recap() ?: return null
         val script = _state.value.script
         RecapRules.canVoice(recap, script).blockers.firstOrNull()?.let { say(it.text()); return null }
-        val text = script!!.segments.getOrNull(index)?.textMy?.trim().orEmpty()
-        if (text.isEmpty()) { say("Scene ${index + 1} has no narration text"); return null }
-        return text
+        val written = script!!.segments.getOrNull(index)?.textMy?.trim().orEmpty()
+        if (written.isEmpty()) { say("Scene ${index + 1} has no narration text"); return null }
+        // Apply lexicon substitutions before TTS (5B-7): captions show the written text, TTS speaks the spoken form.
+        return lexicon.apply(written)
     }
 
     private fun saveTake(index: Int, bytes: ByteArray, ext: String, source: VoiceSource, durationMs: Long): Boolean {

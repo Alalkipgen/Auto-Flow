@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapRegister
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
@@ -53,8 +54,13 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: Recap) {
         }
         AfText("Style", muted = true, size = 12.sp)
         WrapRow {
-            AfChip("Plain", recap.style == RecapStyle.PLAIN, { model.setStyle(RecapStyle.PLAIN) })
-            AfChip("Commentary", recap.style == RecapStyle.COMMENTARY, { model.setStyle(RecapStyle.COMMENTARY) })
+            AfChip("Plain", recap.style == RecapStyle.PLAIN, onClick = { model.setStyle(RecapStyle.PLAIN) })
+            AfChip("Commentary", recap.style == RecapStyle.COMMENTARY, onClick = { model.setStyle(RecapStyle.COMMENTARY) })
+        }
+        AfText("Burmese register (affects TTS pronunciation)", muted = true, size = 12.sp)
+        WrapRow {
+            AfChip("Spoken (casual)", recap.register == RecapRegister.SPOKEN, onClick = { model.setRegister(RecapRegister.SPOKEN) })
+            AfChip("Written (formal)", recap.register == RecapRegister.WRITTEN, onClick = { model.setRegister(RecapRegister.WRITTEN) })
         }
         val script = state.script
         var confirming by remember { mutableStateOf<String?>(null) }
