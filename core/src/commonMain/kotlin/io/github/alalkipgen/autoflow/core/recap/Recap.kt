@@ -47,6 +47,11 @@ data class Recap(
     val publishKit: PublishKit? = null,
     /** Quick Recap wizard state (5B-11, D-47); null = not a Quick Recap. Feature-flagged by `quickRecap`. */
     val quick: QuickRecap? = null,
+    /**
+     * Smart Fit choices per segment (5A-8, studio-v2.md §8): segment index → [FitChoice].
+     * Absent key = default EXTEND. Applied when take + 0.4 s > scene length.
+     */
+    val fit: Map<Int, FitChoice> = emptyMap(),
 ) {
     val picked: List<RecapScene> get() = scenes.filter { it.picked }
     val pickedMs: Long get() = picked.sumOf { it.durationMs }

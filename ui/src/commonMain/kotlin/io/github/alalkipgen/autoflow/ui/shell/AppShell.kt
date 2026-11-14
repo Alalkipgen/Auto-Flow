@@ -195,16 +195,32 @@ private fun StudioV2App(
     val jobs by (jobRunner?.jobs?.collectAsState() ?: remember { mutableStateOf<List<AiJob>>(emptyList()) })
     val badge = jobsBadgeValue(jobs)
     var dest by remember { mutableStateOf(StudioV2Dest.HOME) }
+    // Project sub-screen: null = Dashboard list; "Recap" / "Input" / "Export" = project screen
+    var projectScreen by remember { mutableStateOf<String?>(null) }
+    val currentProject = koinInject<io.github.alalkipgen.autoflow.ui.projects.CurrentProject>()
     val scope = rememberCoroutineScope()
 
     val content: @Composable () -> Unit = {
         when (dest) {
             StudioV2Dest.HOME -> HomeScreen(
-                onNewRecap = { dest = StudioV2Dest.PROJECTS },
-                onNewMusicVideo = { dest = StudioV2Dest.PROJECTS },
-                onQuickRecapStart = { _, _ -> dest = StudioV2Dest.PROJECTS },
+                onNewRecap = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
+                onNewMusicVideo = { dest = StudioV2Dest.PROJECTS; projectScreen = null },
+                onQuickRecapStart = { _, _ -> dest = StudioV2Dest.PROJECTS; projectScreen = null },
             )
-            StudioV2Dest.PROJECTS -> DashboardScreen(koinInject(), onOpened = {})
+            StudioV2Dest.PROJECTS -> {
+                when (projectScreen) {
+                    "Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(
+                        koinInject(), onGoToExport = { projectScreen = "Export" }
+                    )
+                    "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { projectScreen = "Storyboard" })
+                    "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { projectScreen = "Input" })
+                    "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
+                    else -> DashboardScreen(koinInject(), onOpened = {
+                        val mode = currentProject.state.value?.project?.mode
+                        projectScreen = if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input"
+                    })
+                }
+            }
             StudioV2Dest.LIBRARY -> LibraryScreen(koinInject<LibraryModel>())
             StudioV2Dest.JOBS -> if (jobRunner != null) JobsScreen(jobRunner, scope) else ScreenPlaceholder("Jobs")
         }

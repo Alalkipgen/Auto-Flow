@@ -504,6 +504,12 @@ class RecapModel(
         update { it.copy(burnCaptions = on) }
     }
 
+    /** Sets the Smart Fit choice for segment [index] (5A-8, studio-v2 §8). */
+    fun setFitChoice(index: Int, choice: io.github.alalkipgen.autoflow.core.recap.FitChoice) {
+        if (_state.value.busy) return
+        update { it.copy(fit = it.fit + (index to choice)) }
+    }
+
     private suspend fun durationOf(path: String, bytes: ByteArray): Long? =
         PcmWav.parse(bytes)?.durationMs ?: probe(path)?.takeIf { it.hasAudio && it.durationMs > 0 }?.durationMs
 

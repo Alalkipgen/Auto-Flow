@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.core.recap.FitChoice
 import io.github.alalkipgen.autoflow.core.recap.FitRow
 import io.github.alalkipgen.autoflow.core.recap.FitStatus
 import io.github.alalkipgen.autoflow.core.recap.Recap
@@ -63,6 +64,22 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
                     },
                     muted = row.status == FitStatus.NO_VOICE,
                 )
+            }
+            // Smart Fit choices (5A-8): shown when the take runs over by > 400 ms
+            if (row.status == FitStatus.RUNS_ON && row.overMs > 400) {
+                val current = recap.fit[row.segment] ?: FitChoice.EXTEND
+                AfText("Fix (+${seconds(row.overMs)} over):", muted = true, size = 11.sp)
+                WrapRow {
+                    listOf(
+                        FitChoice.EXTEND to "Extend clip",
+                        FitChoice.NEXT_RANGE to "Next range",
+                        FitChoice.SPEED to "Speed voice",
+                        FitChoice.SLOW_VIDEO to "Slow video",
+                        FitChoice.FREEZE to "Freeze frame",
+                    ).forEach { (choice, label) ->
+                        AfChip(label, current == choice, onClick = { model.setFitChoice(row.segment, choice) })
+                    }
+                }
             }
         }
         AfText(fitFooter(recap, rows), bold = true)
