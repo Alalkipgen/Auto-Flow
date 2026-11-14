@@ -18,10 +18,6 @@ data class Recap(
     val sceneThreshold: Int = Scenes.THRESHOLD_NORMAL,
     /** `source/subtitles.srt` when imported. */
     val subtitles: String? = null,
-    /** Selected subtitle track index (ffprobe stream index). */
-    val subtitleTrack: Int? = null,
-    /** Transcript artifact id (`tx_…`, schemaVersion 2, 5B-1). */
-    val transcript: ArtifactId? = null,
     val style: RecapStyle = RecapStyle.PLAIN,
     /** Spoken (casual) vs Written (formal) Burmese register for TTS (5B-7, D-36). */
     val register: RecapRegister = RecapRegister.SPOKEN,
@@ -45,6 +41,8 @@ data class Recap(
     val quality: ExportQuality = ExportQuality.AUTO,
     /** Publish Kit text (5B-10, studio-v2 §9): title, description, hashtags, chapters. */
     val publishKit: PublishKit? = null,
+    /** Quick Recap wizard state (5B-11, D-47); null = not a Quick Recap. Feature-flagged by `quickRecap`. */
+    val quick: QuickRecap? = null,
 ) {
     val picked: List<RecapScene> get() = scenes.filter { it.picked }
     val pickedMs: Long get() = picked.sumOf { it.durationMs }
