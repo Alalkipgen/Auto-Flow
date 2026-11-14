@@ -3,7 +3,9 @@ package io.github.alalkipgen.autoflow.media.render
 import io.github.alalkipgen.autoflow.media.audio.AudioFilters
 
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.recap.FrameBackground
 import io.github.alalkipgen.autoflow.core.recap.Look
+import io.github.alalkipgen.autoflow.core.recap.RecapMask
 
 /**
  * RenderGraph → one `ffmpeg -filter_complex` command (specs/render-graph.md), the only filtergraph code for desktop
@@ -71,14 +73,23 @@ object RenderCompiler {
             // Generated sources are filters inside the graph, never `-f lavfi` inputs: the Android build has no input devices.
             val videoSource = if (v != null) "[$v:v]" else "color=c=$PLACEHOLDER_COLOR:s=${out.width}x${out.height}:r=${out.fps}:d=$d,"
             val looks = if (fromSource) graph.looks.toSet() else emptySet()
+            // 5B-2: blur boxes on the movie picture itself (before the looks), so they follow the movie at any ratio.
+            val masked = if (fromSource && v != null && graph.masks.isNotEmpty()) {
+                chains += maskChains(v, k, graph.masks)
+                "[mk${k}_${graph.masks.lastIndex}]"
+            } else videoSource
             val pre = (if (Look.MIRROR in looks) "hflip," else "") + (if (Look.ZOOM in looks) "crop=iw*0.9:ih*0.9," else "")
-            val fit = if (Look.FILL in looks) {
-                "scale=${out.width}:${out.height}:force_original_aspect_ratio=increase,crop=${out.width}:${out.height},"
-            } else {
-                "scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease,pad=${out.width}:${out.height}:(ow-iw)/2:(oh-ih)/2,"
+            val background = if (fromSource) graph.background else FrameBackground.BARS
+            val fit = when {
+                Look.FILL in looks -> "scale=${out.width}:${out.height}:force_original_aspect_ratio=increase,crop=${out.width}:${out.height},"
+                background == FrameBackground.BLUR -> blurredBackground(k, out.width, out.height)
+                else -> {
+                    val colour = if (background == FrameBackground.COLOUR) ":color=${hexColour(graph.backgroundColour)}" else ""
+                    "scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease,pad=${out.width}:${out.height}:(ow-iw)/2:(oh-ih)/2$colour,"
+                }
             }
             val warm = if (Look.WARM in looks) "eq=saturation=1.15:contrast=1.05," else ""
-            chains += "$videoSource$pre${fit}setsar=1,format=yuv420p,$warm" +
+            chains += "$masked$pre${fit}setsar=1,format=yuv420p,$warm" +
                 // fps last: setpts clears the constant frame rate that xfade requires.
                 "tpad=stop_mode=clone:stop_duration=$d,trim=duration=$d,setpts=PTS-STARTPTS,fps=${out.fps}[v$k]"
             if (useClipAudio) {
@@ -203,6 +214,45 @@ object RenderCompiler {
             v.music?.let { m -> if (env.voicePath(m.file) == null) return "the background music file ${m.file} is missing" }
         }
         return null
+    }
+
+    /**
+     * One blur box after another on input [input]'s picture (clip [k]): split, crop the box (0–1 of the picture),
+     * `gblur`, overlay it back. Ends in `[mk<k>_<last>]`.
+     */
+    private fun maskChains(input: Int, k: Int, masks: List<RecapMask>): String {
+        var cur = "$input:v"
+        return masks.mapIndexed { j, m ->
+            val (x, y, w, h) = (0..3).map { i -> f3(m.rect.getOrElse(i) { if (i < 2) 0f else 1f }) }
+            val l = "mk${k}_$j"
+            "[$cur]split[${l}a][${l}b];[${l}b]crop=w=iw*$w:h=ih*$h:x=iw*$x:y=ih*$y,gblur=sigma=${m.strength.sigma}[${l}c];" +
+                "[${l}a][${l}c]overlay=x=main_w*$x:y=main_h*$y[$l]".also { cur = l }
+        }.joinToString(";")
+    }
+
+    /**
+     * The picture fitted inside [w] × [h] over a blurred copy of itself that covers the frame (5B-2). The copy is
+     * blurred at a quarter size (cheap on the phone) and scaled back up. Ends with a `,` so the chain continues.
+     */
+    private fun blurredBackground(k: Int, w: Int, h: Int): String {
+        val sw = maxOf(2, w / 4 / 2 * 2)
+        val sh = maxOf(2, h / 4 / 2 * 2)
+        return "split[bf$k][bb$k];" +
+            "[bb$k]scale=$sw:$sh:force_original_aspect_ratio=increase,crop=$sw:$sh,gblur=sigma=12,scale=$w:$h,setsar=1[bbl$k];" +
+            "[bf$k]scale=$w:$h:force_original_aspect_ratio=decrease,setsar=1[bfs$k];" +
+            "[bbl$k][bfs$k]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2,"
+    }
+
+    /** `#RRGGBB` → `0xRRGGBB` (black when it is not a colour). */
+    private fun hexColour(c: String): String {
+        val hex = c.removePrefix("#")
+        return if (hex.length == 6 && hex.all { it in "0123456789abcdefABCDEF" }) "0x${hex.uppercase()}" else "0x000000"
+    }
+
+    /** A 0–1 value with at most three decimals, never in exponent form. */
+    private fun f3(v: Float): String {
+        val r = kotlin.math.round(v.coerceIn(0f, 1f) * 1000).toInt()
+        return if (r % 1000 == 0) "${r / 1000}" else "${r / 1000}.${(r % 1000).toString().padStart(3, '0').trimEnd('0')}"
     }
 
     /** Milliseconds as ffmpeg seconds: `8.000`. */

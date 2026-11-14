@@ -101,6 +101,13 @@ object AudioFilters {
         )
     }
 
+    /**
+     * ffmpeg arguments (after the binary) that write [input] with its long pauses cut ([trimSilence]) as a mono
+     * 48 kHz 16-bit WAV [output] — done once when a take is made, so its length (and the fit check) is the real one.
+     */
+    fun trimArgs(input: String, output: String): List<String> =
+        listOf("-hide_banner", "-y", "-nostdin", "-i", input, "-vn", "-af", trimSilence(), "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "1", output)
+
     /** The narration chain for one take as [RecapAudio] asks: polish, then silence trim (either may be off). */
     fun narration(audio: RecapAudio): String? =
         listOfNotNull(voicePolish().takeIf { audio.polish }, trimSilence().takeIf { audio.trimSilence })

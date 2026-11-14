@@ -146,6 +146,8 @@ data class RecapV2(
     val looks: List<Look> = emptyList(),
     val quality: ExportQuality = ExportQuality.AUTO,
     val quick: JsonElement? = null,
+    /** Picture (5B-2): blur boxes over the movie, the space around it. */
+    val visual: RecapVisual = RecapVisual(),
 ) {
     /** The chosen take of [blockId], else its newest. */
     fun takeFor(blockId: String): BlockTake? {

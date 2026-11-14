@@ -93,7 +93,9 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
         WrapRow {
             RecapModel.LOOKS.forEach { (look, name) -> AfChip(name, look in recap.looks, { if (idle) model.toggleLook(look) }) }
         }
+        RecapPictureControls(recap, idle, model)
         AfSwitch(BURN_CAPTIONS, recap.burnCaptions, { if (idle) model.setBurnCaptions(it) })
+        if (recap.burnCaptions) CaptionStyleControls(recap.captionStyle, idle, model)
         AfText("Captions are always saved as an .srt file next to the video, too.", muted = true, size = 12.sp)
         val render = RecapRules.canRender(recap, script)
         render.blockers.firstOrNull()?.let { AfText(it.text(), color = AutoFlowColors.Amber) }
@@ -106,6 +108,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
 private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.RecapAudio, bgmName: String?, idle: Boolean, model: RecapModel) {
     AfSwitch("Clean up the voice (less noise and rumble, steadier level)", audio.polish, { if (idle) model.setAudio { a -> a.copy(polish = it) } })
     AfSwitch("Even loudness (${audio.loudnessLufs.toInt()} LUFS, like YouTube / TikTok)", audio.loudness, { if (idle) model.setAudio { a -> a.copy(loudness = it) } })
+    AfSwitch("Cut long pauses in new takes (record, import, speak)", audio.trimSilence, { if (idle) model.setAudio { a -> a.copy(trimSilence = it) } })
     AfText("Background music", muted = true, size = 12.sp)
     WrapRow {
         if (audio.bgm == null) {
@@ -122,4 +125,22 @@ private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.R
         }
         AfSwitch("Lower the music while the voice speaks", audio.duck, { if (idle) model.setAudio { a -> a.copy(duck = it) } })
     }
+}
+
+/** Caption look (5B-8): size, colour, outline or a dark box behind the text. */
+@Composable
+private fun CaptionStyleControls(style: io.github.alalkipgen.autoflow.core.recap.CaptionStyle, idle: Boolean, model: RecapModel) {
+    WrapRow {
+        AfText("Caption size", muted = true, size = 12.sp)
+        io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { s ->
+            AfChip(s.label, style.size == s, { if (idle) model.setCaptionStyle { it.copy(size = s) } })
+        }
+    }
+    WrapRow {
+        AfText("Colour", muted = true, size = 12.sp)
+        io.github.alalkipgen.autoflow.core.recap.CaptionStyle.COLOURS.forEach { (name, hex) ->
+            AfChip(name, style.colour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStyle { it.copy(colour = hex) } })
+        }
+    }
+    AfSwitch("Dark box behind the captions", style.box, { on -> if (idle) model.setCaptionStyle { it.copy(box = on) } })
 }

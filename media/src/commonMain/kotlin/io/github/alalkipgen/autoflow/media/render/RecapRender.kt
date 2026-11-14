@@ -1,11 +1,14 @@
 package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.FitRow
+import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
+import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
 import io.github.alalkipgen.autoflow.core.recap.Srt
 import io.github.alalkipgen.autoflow.core.recap.SrtCue
 import io.github.alalkipgen.autoflow.core.recap.VoiceTake
@@ -35,8 +38,12 @@ object RecapRender {
         val layout = layout(recap, script, takeFile)
         val clips = layout.map { p -> Clip(artifact = null, source = movie.file, trimInMs = p.movieMs, trimOutMs = p.movieMs + p.row.clipMs) }
         val cues = layout.mapNotNull { p -> p.voiced?.let { VoiceCue(it.file, p.startMs + RecapFit.LEAD_MS) } }
+        val onMask = captionY(recap, output)
         val overlays = if (font == null || !recap.burnCaptions) emptyList() else captions(recap, script, takeFile, output).map { c ->
-            Overlay(c.text, c.startMs, c.endMs, font, captionSizePx(output))
+            Overlay(
+                c.text, c.startMs, c.endMs, font, captionSizePx(output, recap.captionStyle),
+                color = recap.captionStyle.colour, centerY = onMask, box = recap.captionStyle.box,
+            )
         }
         return RenderGraph(
             clips = clips,
@@ -50,7 +57,24 @@ object RecapRender {
                 loudnessLufs = recap.audio.loudnessLufs.takeIf { recap.audio.loudness },
             ),
             looks = recap.looks,
+            masks = recap.visual.masks,
+            background = recap.visual.background,
+            backgroundColour = recap.visual.backgroundColour,
         )
+    }
+
+    /**
+     * Captions on the lowest blur box (5B-2): its centre in the output (0–1 of the height), or null for the usual
+     * bottom place (no such box, turned off, or the box is cropped away by Fill frame).
+     */
+    fun captionY(recap: Recap, output: Output): Float? {
+        val mask = recap.visual.captionMask ?: return null
+        val movie = recap.movie ?: return null
+        val y = RecapVisuals.outputY(
+            mask.centerY, movie.width, movie.height, output.width, output.height,
+            zoom = Look.ZOOM in recap.looks, fill = Look.FILL in recap.looks,
+        )
+        return y.takeIf { it in 0.05f..0.95f }
     }
 
     fun job(
@@ -80,7 +104,11 @@ object RecapRender {
      * two lines that fit [output]'s width, one after the other — the same chunks are burned in and written to `.srt`.
      */
     fun captions(recap: Recap, script: RecapScript, takeFile: (VoiceTake) -> String?, output: Output): List<SrtCue> =
-        CaptionChunks.split(segmentCaptions(recap, script, takeFile), ProjectRender.lineChars(output))
+        CaptionChunks.split(segmentCaptions(recap, script, takeFile), lineChars(output, recap.captionStyle))
+
+    /** Characters per caption line: fewer for large captions, more for small ones (same chunks burned and in `.srt`). */
+    fun lineChars(output: Output, style: CaptionStyle): Int =
+        maxOf(8, kotlin.math.round(ProjectRender.lineChars(output) / style.size.factor).toInt())
 
     /** One cue per voiced segment: its whole text from its take start to its take end. */
     fun segmentCaptions(recap: Recap, script: RecapScript, takeFile: (VoiceTake) -> String?): List<SrtCue> =
@@ -97,6 +125,9 @@ object RecapRender {
 
     /** Caption em size: 1/18 of the short side (60 px at 1080), a little smaller than lyrics. */
     fun captionSizePx(output: Output): Int = minOf(output.width, output.height) / 18
+
+    /** [captionSizePx] × the caption style's size (Small 0.85 · Medium 1 · Large 1.2). */
+    fun captionSizePx(output: Output, style: CaptionStyle): Int = kotlin.math.round(captionSizePx(output) * style.size.factor).toInt()
 
     /** [startMs] in the output, [movieMs] where the clip starts in the movie. */
     private data class Placed(val row: FitRow, val startMs: Long, val movieMs: Long, val voiced: Voiced?)
