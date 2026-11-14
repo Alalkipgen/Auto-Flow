@@ -137,7 +137,8 @@ data class RecapV2(
     val chosenTakes: Map<String, ArtifactId> = emptyMap(),
     /** Block id → Smart Fit choice (5B-6). */
     val fit: Map<String, String> = emptyMap(),
-    val layers: List<JsonElement> = emptyList(),
+    /** Composited layers (spec §4, D-37). */
+    val layers: List<Layer> = emptyList(),
     val audio: RecapAudio = RecapAudio(),
     val captions: RecapCaptions = RecapCaptions(),
     val looks: List<Look> = emptyList(),

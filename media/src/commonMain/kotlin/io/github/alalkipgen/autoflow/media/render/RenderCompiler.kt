@@ -32,6 +32,8 @@ object RenderCompiler {
         val resolveSource: (String) -> ClipMedia? = { null },
         /** [VoiceCue.file] → an existing file, else null. */
         val voicePath: (String) -> String? = { null },
+        /** Layer image id → an absolute file path, or null when the artifact is missing. */
+        val resolveLayerImage: (String) -> String? = { null },
     )
 
     sealed interface Compiled {
@@ -91,9 +93,23 @@ object RenderCompiler {
                 Overlay(c.label, starts[k], starts[k] + c.durationMs, font, out.height / 24, "#B0FFFFFF", Pos.CENTER)
             }
         }.orEmpty()
-        val drawn = graph.overlays + labels
+
+        // Compile composited layers (5A-4); images for layers follow the base clips and song in the input list.
+        val layerResult = LayerCompiler.compile(
+            layers = graph.layers,
+            output = out,
+            totalMs = total,
+            resolveImage = env.resolveLayerImage,
+            baseInputCount = index,
+        )
+        layerResult.inputPaths.forEach { path -> input("-i", path) }
+        chains += layerResult.chains
+
+        // After layers, apply ASS overlays. The video label entering ASS is [vlayer] when layers exist, else [vseq].
+        val preAssLabel = if (layerResult.chains.isNotEmpty()) "vlayer" else "vseq"
+        val drawn = graph.overlays + labels + layerResult.assEvents
         val ass = if (drawn.isEmpty()) null else AssWriter.write(drawn, out, env.assScale)
-        chains += if (ass == null) "[vseq]null[vout]" else "[vseq]ass=filename=${filterPath(env.assPath)}:fontsdir=${filterPath(env.fontsDir)}[vout]"
+        chains += if (ass == null) "[$preAssLabel]null[vout]" else "[$preAssLabel]ass=filename=${filterPath(env.assPath)}:fontsdir=${filterPath(env.fontsDir)}[vout]"
 
         val song = audio?.let { a ->
             val s = input(*(if (a.offsetMs < 0) arrayOf("-ss", sec(-a.offsetMs)) else emptyArray()), "-i", env.songPath ?: "")
