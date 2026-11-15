@@ -53,7 +53,7 @@ const val TEST_TTS = "🔊 Test Gemini TTS (S5)"
 fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null, backup: BackupModel? = null) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(model) { model.refreshUsage() }
+    LaunchedEffect(model) { model.refresh(); model.refreshUsage() }
     LaunchedEffect(backup) { backup?.refresh() }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
@@ -64,8 +64,8 @@ fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: Ap
         AiCard(state, model, scope)
         DefaultsCard(state.settings, model)
         ToolsCard(state, model, scope)
-        FontsCard(state.settings.fontPaths, model, scope)
-        PreviewFeaturesCard(state, model)
+        FontsCard(state.settings.fontPaths, model.builtInFontPaths, model, scope)
+        PreviewFeaturesCard(model)
         ModelsCard(state, model, scope)
         backup?.let { BackupCard(it) }
         info?.let { AboutCard(it) }
@@ -221,9 +221,8 @@ private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: Corou
 }
 
 @Composable
-private fun FontsCard(fonts: List<String>, model: SettingsModel, scope: CoroutineScope) {
+private fun FontsCard(fonts: List<String>, builtIn: List<String>, model: SettingsModel, scope: CoroutineScope) {
     AfCard("Fonts (lyrics and title overlays)") {
-        val builtIn = org.koin.compose.getKoin().getOrNull<BuiltInFonts>()?.paths.orEmpty()
         if (builtIn.isNotEmpty()) {
             AfText("Built in: Pyidaungsu, Noto Sans Myanmar — used for the app text, lyrics and captions. Fonts added here are used too.", muted = true, size = 12.sp)
         }
@@ -257,10 +256,11 @@ private fun ModelsCard(state: SettingsUiState, model: SettingsModel, scope: Coro
 
 /**
  * Preview-features toggles (5A-3): one switch per flag in [FeatureFlags.asMap].
- * Note: the Self-test screen is a separate Android activity; this shared card keeps things simpler.
+ * Shared with Android Self-test so both routes use the same stored overrides.
  */
 @Composable
-private fun PreviewFeaturesCard(state: SettingsUiState, model: SettingsModel) {
+fun PreviewFeaturesCard(model: SettingsModel) {
+    val state by model.state.collectAsState()
     val flags = state.features.asMap()
     if (flags.isEmpty()) return
     AfCard("Preview features") {

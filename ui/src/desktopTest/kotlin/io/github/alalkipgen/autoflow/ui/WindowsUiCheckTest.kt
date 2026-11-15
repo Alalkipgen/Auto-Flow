@@ -71,7 +71,7 @@ class WindowsUiCheckTest {
             listOf("E:/USB/Gone.autoflow", "D:/Videos/ကျွန်တော့်ညများ.autoflow", "D:/Videos/မိုးရေစက်.autoflow").forEach(dashboard::open)
             fs.atomicMove("E:/USB/Gone.autoflow/project.json", "E:/moved.json")
             koin.get<CurrentProject>().set(null)
-            setContent { App() }
+            setContent { TestApp() }
             save(dir, "dashboard")
             onNode(hasText("Settings") and isSelectable()).performClick()
             save(dir, "settings")

@@ -164,10 +164,12 @@ class RecapModel(
     private val jobs: AiJobRunner? = null,
     /** Production supplies LibraryStore.lexicon; each request captures its value before suspending. */
     private val lexicons: StateFlow<Lexicon>? = null,
+    modelConfig: io.github.alalkipgen.autoflow.ai.config.ModelConfig? = null,
 ) {
     private val pronunciation: Lexicon get() = lexicons?.value ?: lexicon
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
+    val voiceSettings = RecapVoiceSettings(session, modelConfig, jobs, ::refresh)
     private val thumbs = Mutex()
     private var scriptJob: Job? = null
 
@@ -664,7 +666,9 @@ class RecapModel(
         val block = story.blocks.firstOrNull { it.id == blockId } ?: return true
         val lexicon = pronunciation
         if (SpokenText.of(block, lexicon).isEmpty()) return true
-        return recap.takeFor(blockId)?.let { !SpokenText.isStale(it, block, lexicon) } == true
+        return recap.takeFor(blockId)?.let {
+            !SpokenText.isStale(it, block, lexicon) && it.voiceStatus(recap.voiceLock) !in setOf(TakeVoiceStatus.DIFFERENT, TakeVoiceStatus.UNKNOWN)
+        } == true
     }
 
     /** The voice target of a job item, from the project on disk; null = the block is gone or has no text. */
@@ -712,7 +716,7 @@ class RecapModel(
      * opened: the job goes on, see Jobs). Without a runner the same per-block step ([speakJobItem]) runs here,
      * stopping at the first failure.
      */
-    fun speakAll(confirmed: Boolean = false): Job? {
+    fun speakAll(confirmed: Boolean = false, includeDifferentVoice: Boolean = false): Job? {
         val open = session.open ?: return null
         val recap = open.project.recap ?: return null
         val story = currentStory()
@@ -721,7 +725,10 @@ class RecapModel(
         if (_state.value.busy || _state.value.recording != null) return null
         val lexicon = pronunciation
         val todo = story!!.blocks.withIndex().filter { (_, b) ->
-            SpokenText.of(b, lexicon).isNotEmpty() && recap.takeFor(b.id).let { it == null || SpokenText.isStale(it, b, lexicon) }
+            SpokenText.of(b, lexicon).isNotEmpty() && recap.takeFor(b.id).let {
+                it == null || SpokenText.isStale(it, b, lexicon) ||
+                    (includeDifferentVoice && it.voiceStatus(recap.voiceLock) in setOf(TakeVoiceStatus.DIFFERENT, TakeVoiceStatus.UNKNOWN))
+            }
         }.map { it.index }
         if (todo.isEmpty()) { say("Every scene already has its voice."); return null }
         // Show ETA card first; user confirms before the loop starts (5A-5).

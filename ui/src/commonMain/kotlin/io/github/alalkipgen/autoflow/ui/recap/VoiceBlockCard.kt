@@ -67,6 +67,7 @@ fun VoiceBlockCard(
         // Back link
         AfButton("← Back", onClose)
         AfText("${clock(seg.startMs)}–${clock(seg.endMs)} · ${seconds(seg.durationMs)}", muted = true, size = 12.sp)
+        TakeVoiceLabel(recap.takeFor(state.story!!.blocks[segmentIndex].id), recap.voiceLock)
 
         // Tab row
         WrapRow {

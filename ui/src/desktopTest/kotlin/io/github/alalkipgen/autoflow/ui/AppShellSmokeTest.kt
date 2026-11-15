@@ -16,6 +16,8 @@ import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.shell.ShellModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
@@ -74,8 +76,27 @@ fun fakePlatformModule(fs: InMemoryFileSystem = InMemoryFileSystem(), secrets: S
 
 @OptIn(ExperimentalTestApi::class)
 class AppShellSmokeTest {
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @kotlin.test.BeforeTest
+    fun dispatcher() { kotlinx.coroutines.Dispatchers.setMain(kotlinx.coroutines.Dispatchers.Unconfined) }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @AfterTest
-    fun tearDown() = stopKoin()
+    fun tearDown() { stopKoin(); kotlinx.coroutines.Dispatchers.resetMain() }
+
+    @Test
+    fun previewFeatureChangeFromAnotherSettingsStoreModelUpdatesTheRealShellGate() = runComposeUiTest {
+        val koin = startKoin { modules(fakePlatformModule(), uiModule, aiModule) }.koin
+        setContent { TestApp() }
+        onNodeWithText("Quick Recap", substring = true).assertDoesNotExist()
+        // Self-test owns another SettingsModel; App must observe the shared SettingsStore, not a stale snapshot.
+        koin.get<io.github.alalkipgen.autoflow.ui.settings.SettingsModel>().setFeature("studioV2", true)
+        waitForIdle()
+        onNodeWithText("Home").assertExists()
+        koin.get<io.github.alalkipgen.autoflow.ui.settings.SettingsModel>().setFeature("studioV2", false)
+        waitForIdle()
+        onNodeWithText("Dashboard").assertExists()
+    }
 
     @Test
     fun shellShowsTitleBarAndPipelineSidebar() = runComposeUiTest {
@@ -88,7 +109,7 @@ class AppShellSmokeTest {
     @Test
     fun wiredAppStartsInFakeModeAndFollowsTheSetting() = runComposeUiTest {
         val koin = startKoin { modules(fakePlatformModule(), uiModule, aiModule) }.koin
-        setContent { App() }
+        setContent { TestApp() }
         onNodeWithText("AI ● Fake (offline) · Flow ● Manual").assertExists()
         koin.get<SettingsStore>().update { it.copy(useFakeProviders = false) }
         waitForIdle()
@@ -98,7 +119,7 @@ class AppShellSmokeTest {
     @Test
     fun sidebarSelectsAScreen() = runComposeUiTest {
         startKoin { modules(fakePlatformModule(), uiModule, aiModule) }
-        setContent { App() }
+        setContent { TestApp() }
         fun sidebar(name: String) = onNode(hasText(name) and isSelectable())
         sidebar("Dashboard").assertIsSelected()
         sidebar("Settings").performClick()
@@ -122,7 +143,7 @@ class AppShellSmokeTest {
         val dir = "/p/Rain.autoflow"
         val p = (store.create(dir, "Rain", Mode.MUSIC_VIDEO, ProjectSettings(durationMs = 30_000, clipMs = 8_000)) as CoreResult.Ok).value
         koin.get<CurrentProject>().set(OpenProject(dir, p))
-        setContent { App() }
+        setContent { TestApp() }
         fun sidebar(name: String) = onNode(hasText(name) and isSelectable())
         sidebar("Shots").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "locked"))
         sidebar("Shots").performClick()

@@ -121,5 +121,5 @@ Archive exact SHA/tree, environment, XML/logs, real render commands/measurements
 
 Android assembly or a reconstructed executor test is **not** an emulator/device lifecycle pass. Without a suitable
 device, process death/reopen/resume, project switching in flight, cancellation/checkpoint and actual WorkManager chain/
-pacing execution stay **UNVERIFIED** (S10). User force-stop differs from OS process death. Local saved-output
+pacing execution stay **UNVERIFIED** (Android lifecycle; S10 is Compose/ffmpeg preview parity). User force-stop differs from OS process death. Local saved-output
 reconciliation does not promise exactly-once remote TTS requests across crashes; no provider idempotency is available.

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -153,4 +155,28 @@ class SettingsScreenTest {
         waitForIdle()
         assertEquals(1, fake.shared.size)
     }
+    @Test
+    fun previewFeaturesDefaultsPersistAcrossStoreAndScreenReopening() = runComposeUiTest {
+        var reopened by androidx.compose.runtime.mutableStateOf(false)
+        fun fresh() = SettingsModel(
+            SettingsStore(fs, "/a/settings.json"), secrets, ProviderStatusModel(settings, secrets), UsageCounter(fs, "/a/usage.json"),
+            loadModelConfig(fs, null) { TEST_MODELS_JSON }, tools, FakePicker(), { PlatformResult.Ok(Unit) }, { AiResult.Ok(Unit) },
+            bundledFeatures = """{"schemaVersion":1,"studioV2":false,"quickRecap":false}""",
+        )
+        val first = fresh()
+        var second: SettingsModel? = null
+        setContent { PreviewFeaturesCard(if (reopened) second!! else first) }
+        assertFalse(first.state.value.features.studioV2)
+        onNodeWithText("studioV2").performClick()
+        assertEquals(true, first.state.value.features.studioV2)
+        second = fresh()
+        reopened = true
+        waitForIdle()
+        assertEquals(true, second!!.state.value.features.studioV2)
+        onNodeWithText("studioV2").performClick()
+        assertFalse(second!!.state.value.features.studioV2)
+        assertEquals(emptyMap(), SettingsStore(fs, "/a/settings.json").state.value.featureOverrides)
+        assertEquals(false, second!!.state.value.features.labs.wholeMovieTranscribe)
+    }
+
 }

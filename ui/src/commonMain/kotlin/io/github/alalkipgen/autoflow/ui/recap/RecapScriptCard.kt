@@ -173,6 +173,7 @@ private fun SegmentRow(model: RecapModel, state: RecapUiState, index: Int, seg: 
                 AfButton("⏱", { editTiming = true }, enabled = enabled)
             }
         }
+        TakeVoiceLabel(state.recap?.takeFor(state.story!!.blocks[index].id), state.recap?.voiceLock)
         if (editTiming) {
             // Caption timing (D-53, audit F05): in the voice take, saved as captions.chunkEdits; the movie clip
             // shown above is not changed.
