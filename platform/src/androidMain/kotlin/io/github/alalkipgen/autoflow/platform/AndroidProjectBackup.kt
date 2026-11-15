@@ -72,13 +72,17 @@ class AndroidProjectBackup(
         }
     }
 
-    override fun restore(zipPath: String, destDir: String): PlatformResult<List<String>> = try {
-        val dest = java.io.File(destDir).also { it.mkdirs() }
-        val restored = java.io.FileInputStream(zipPath).use { ProjectZip.restore(it, dest) }
-        PlatformResult.Ok(restored)
-    } catch (e: Exception) {
-        PlatformResult.Failed("Restore failed: ${e.message ?: e::class.simpleName}")
-    }
+    override suspend fun restore(zipPath: String, destDir: String): PlatformResult<List<RestoredProject>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val restored = java.io.FileInputStream(zipPath).buffered().use { ProjectZip.restore(it, java.io.File(destDir)) }
+                PlatformResult.Ok(restored)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                PlatformResult.Failed("Restore failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
 
     override fun share(result: BackupResult): PlatformResult<Unit> {
         val uri = Uri.parse(result.ref)

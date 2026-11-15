@@ -1,13 +1,21 @@
 package io.github.alalkipgen.autoflow.platform
 
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FilterInputStream
+import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -106,5 +114,176 @@ class ProjectZipTest {
         assertEquals(false, ProjectZip.skipped("party.mp4"))
         assertTrue(ProjectZip.isCompressed("a/b/IM_1.JPG"))
         assertEquals(false, ProjectZip.isCompressed("a/b/sb_123.json"))
+    }
+
+    // ---- restore (audit F01) ----
+
+    private val home get() = File(tmp, "home").apply { mkdirs() }
+    private val projects get() = File(home, "projects").apply { mkdirs() }
+
+    private fun realProject(name: String, json: String = """{"schemaVersion":2,"id":"id-$name","name":"$name","mode":"MOVIE_RECAP"}"""): File {
+        file("src/$name/project.json", json.encodeToByteArray())
+        file("src/$name/artifacts/vd_aaaaaaaaaaaa.mp4", ByteArray(40_000) { (it * 13).toByte() })
+        file("src/$name/source/lyrics.txt", "မိုးရွာ $name\n".encodeToByteArray())
+        return File(tmp, "src/$name")
+    }
+
+    private suspend fun backupOf(vararg names: String): ByteArray {
+        val plan = ProjectZip.plan(names.map { BackupProject(realProject(it).path, it) })
+        return ByteArrayOutputStream().also { ProjectZip.write(plan, it, "2026-11-15T10:00") }.toByteArray()
+    }
+
+    /** A hand-made zip; [manifest] null = none, otherwise listed after the entries like [ProjectZip.write] does. */
+    private fun zipOf(entries: List<Pair<String, ByteArray>>, manifest: String? = null): ByteArray = ByteArrayOutputStream().also { b ->
+        ZipOutputStream(b).use { z ->
+            for ((name, bytes) in entries) { z.putNextEntry(ZipEntry(name)); z.write(bytes); z.closeEntry() }
+            if (manifest != null) { z.putNextEntry(ZipEntry(ProjectZip.MANIFEST)); z.write(manifest.encodeToByteArray()); z.closeEntry() }
+        }
+    }.toByteArray()
+
+    private fun manifestFor(vararg folders: Pair<String, Int>) =
+        """{"format":"autoflow-backup","version":1,"createdAt":"t","projects":[${folders.joinToString(",") { """{"folder":"${it.first}","files":${it.second},"bytes":1}""" }}]}"""
+
+    private val validJson = """{"schemaVersion":2,"id":"x","name":"X","mode":"MOVIE_RECAP"}""".encodeToByteArray()
+
+    /** Every path under [dir] (links not followed) with its bytes, a link's target or `<dir>`. */
+    private fun tree(dir: File): Map<String, String> {
+        if (!dir.exists()) return emptyMap()
+        return Files.walk(dir.toPath()).use { s ->
+            s.toList().associate { p ->
+                val rel = dir.toPath().relativize(p).toString()
+                rel to when {
+                    Files.isSymbolicLink(p) -> "link->" + Files.readSymbolicLink(p)
+                    Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS) -> "<dir>"
+                    else -> Files.readAllBytes(p).contentHashCode().toString() + ":" + Files.size(p)
+                }
+            }
+        }
+    }
+
+    private fun noStagingLeft() = assertEquals(emptyList(), projects.list()!!.filter { it.startsWith(".restore-") }, "staging folder removed")
+
+    @Test
+    fun restoreRoundTripsABackupByteForByte() = runTest {
+        val zip = backupOf("Rain.autoflow", "Sun.autoflow")
+        val restored = ProjectZip.restore(ByteArrayInputStream(zip), projects)
+        assertEquals(listOf(RestoredProject("Rain.autoflow", "Rain.autoflow"), RestoredProject("Sun.autoflow", "Sun.autoflow")), restored)
+        for (name in listOf("Rain.autoflow", "Sun.autoflow")) assertEquals(tree(File(tmp, "src/$name")), tree(File(projects, name)), name)
+        noStagingLeft()
+    }
+
+    @Test
+    fun zipRestoreMustStayInsideDestination() = runTest {
+        val bad = listOf(
+            "../escaped.txt", "Proj.autoflow/../../escaped.txt", "/tmp/af-absolute-escape.txt", "Proj.autoflow\\..\\..\\escaped.txt",
+            "C:/escaped.txt", "Proj.autoflow/C:escaped.txt", "Proj.autoflow/./project.json", "Proj.autoflow//x", ".restore-x/project.json",
+        )
+        val existing = file("home/projects/Keep.autoflow/project.json", "NEW WORK".encodeToByteArray())
+        val before = tree(home)
+        for (name in bad) {
+            val zip = zipOf(listOf("Proj.autoflow/project.json" to validJson, name to "OUTSIDE".encodeToByteArray()), manifestFor("Proj.autoflow" to 2))
+            val e = assertFailsWith<RestoreException>(name) { ProjectZip.restore(ByteArrayInputStream(zip), projects) }
+            assertTrue(e.message!!.startsWith("Unsafe name"), "$name: ${e.message}")
+            assertEquals(before, tree(home), "nothing written anywhere under home for $name")
+            assertFalse(File(tmp, "escaped.txt").exists() || File("/tmp/af-absolute-escape.txt").exists(), name)
+            noStagingLeft()
+        }
+        assertEquals("NEW WORK", existing.readText())
+    }
+
+    @Test
+    fun restoreMustNotOverwriteExistingProjectsWithoutConsent() = runTest {
+        val current = file("home/projects/Same.autoflow/project.json", """{"id":"mine","name":"NEW WORK","mode":"MOVIE_RECAP"}""".encodeToByteArray())
+        file("home/projects/Same.autoflow/source/lyrics.txt", "new lyrics".encodeToByteArray())
+        val before = tree(File(projects, "Same.autoflow"))
+        val zip = backupOf("Same.autoflow")
+
+        val first = ProjectZip.restore(ByteArrayInputStream(zip), projects)
+        assertEquals(listOf(RestoredProject("Same (restored).autoflow", "Same.autoflow")), first)
+        assertTrue(first.single().renamed)
+        val second = ProjectZip.restore(ByteArrayInputStream(zip), projects)
+        assertEquals(listOf(RestoredProject("Same (restored 2).autoflow", "Same.autoflow")), second)
+
+        assertEquals(before, tree(File(projects, "Same.autoflow")), "the existing project is byte-identical")
+        assertContentEquals("""{"id":"mine","name":"NEW WORK","mode":"MOVIE_RECAP"}""".encodeToByteArray(), current.readBytes())
+        for (copy in listOf("Same (restored).autoflow", "Same (restored 2).autoflow")) {
+            assertEquals(tree(File(tmp, "src/Same.autoflow")), tree(File(projects, copy)), copy)
+        }
+        noStagingLeft()
+    }
+
+    @Test
+    fun restoreNeverWritesThroughAPreExistingLink() = runTest {
+        val outside = File(tmp, "outside").apply { mkdirs() }
+        File(outside, "project.json").writeText("OUTSIDE DATA")
+        Files.createSymbolicLink(File(projects, "Evil.autoflow").toPath(), outside.toPath())
+        Files.createSymbolicLink(File(projects, "Dangling.autoflow").toPath(), File(tmp, "nowhere").toPath())
+        val before = tree(outside)
+        val restored = ProjectZip.restore(ByteArrayInputStream(backupOf("Evil.autoflow", "Dangling.autoflow")), projects)
+        assertEquals(listOf("Dangling (restored).autoflow", "Evil (restored).autoflow"), restored.map { it.folder })
+        assertEquals(before, tree(outside), "the linked folder is untouched")
+        assertTrue(Files.isSymbolicLink(File(projects, "Evil.autoflow").toPath()))
+        assertFalse(File(tmp, "nowhere").exists(), "nothing created through the dangling link")
+        assertEquals(tree(File(tmp, "src/Evil.autoflow")), tree(File(projects, "Evil (restored).autoflow")))
+    }
+
+    @Test
+    fun corruptOrPartialArchivesChangeNothing() = runTest {
+        file("home/projects/Rain.autoflow/project.json", "NEW WORK".encodeToByteArray())
+        val before = tree(home)
+        val good = backupOf("Rain.autoflow", "Sun.autoflow")
+        val cases = mapOf(
+            "truncated mid-file" to good.copyOf(good.size / 2),
+            "manifest cut off" to zipOf(listOf("Sun.autoflow/project.json" to validJson, "Sun.autoflow/source/a.txt" to ByteArray(10))),
+            "file missing from a listed project" to zipOf(listOf("Sun.autoflow/project.json" to validJson), manifestFor("Sun.autoflow" to 2)),
+            "project not listed" to zipOf(listOf("Sun.autoflow/project.json" to validJson, "Odd.autoflow/project.json" to validJson), manifestFor("Sun.autoflow" to 1)),
+            "no project.json" to zipOf(listOf("Sun.autoflow/source/a.txt" to ByteArray(10)), manifestFor("Sun.autoflow" to 1)),
+            "corrupt project.json" to zipOf(listOf("Sun.autoflow/project.json" to "{trunc".encodeToByteArray()), manifestFor("Sun.autoflow" to 1)),
+            "not a project" to zipOf(listOf("Sun.autoflow/project.json" to "{\"a\":1}".encodeToByteArray()), manifestFor("Sun.autoflow" to 1)),
+            "bad manifest" to zipOf(listOf("Sun.autoflow/project.json" to validJson), "[not json"),
+            "duplicate entry" to zipOf(listOf("Sun.autoflow/project.json" to validJson, "sun.autoflow/PROJECT.json" to validJson), manifestFor("Sun.autoflow" to 2)),
+            "random bytes" to ByteArray(5_000) { (it * 31).toByte() },
+        )
+        for ((why, zip) in cases) {
+            val e = assertFailsWith<IOException>(why) { ProjectZip.restore(ByteArrayInputStream(zip), projects) }
+            assertTrue(e.message != null, why)
+            assertEquals(before, tree(home), "home unchanged after: $why")
+            noStagingLeft()
+        }
+    }
+
+    @Test
+    fun restoreIsBoundedAndCancellable() = runTest {
+        val zip = backupOf("Big.autoflow")
+        projects.mkdirs()
+        val before = tree(home)
+        assertFailsWith<RestoreException> { ProjectZip.restore(ByteArrayInputStream(zip), projects, RestoreLimits(maxBytes = 10_000)) }
+        assertFailsWith<RestoreException> { ProjectZip.restore(ByteArrayInputStream(zip), projects, RestoreLimits(maxEntries = 2)) }
+        assertFailsWith<RestoreException> { ProjectZip.restore(ByteArrayInputStream(zip), projects, RestoreLimits(maxNameLength = 10)) }
+        assertEquals(before, tree(home))
+        noStagingLeft()
+
+        val job = Job()
+        var read = 0
+        val slow = object : FilterInputStream(ByteArrayInputStream(zip)) {
+            override fun read(b: ByteArray, off: Int, len: Int): Int {
+                if (++read == 3) job.cancel()
+                return super.read(b, off, minOf(len, 4096))
+            }
+        }
+        assertFailsWith<CancellationException> { withContext(job) { ProjectZip.restore(slow, projects) } }
+        assertEquals(before, tree(home), "a cancelled restore leaves nothing behind")
+        noStagingLeft()
+    }
+
+    @Test
+    fun restoredNamesAndSafeSegments() {
+        assertEquals("Rain.autoflow", ProjectZip.restoredName("Rain.autoflow", 1))
+        assertEquals("Rain (restored).autoflow", ProjectZip.restoredName("Rain.autoflow", 2))
+        assertEquals("Rain (restored 3).autoflow", ProjectZip.restoredName("Rain.autoflow", 4))
+        assertEquals("Rain.autoflow (2) (restored)", ProjectZip.restoredName("Rain.autoflow (2)", 2))
+        assertEquals(listOf("Rain.autoflow", "source", "a b.txt"), ProjectZip.safeSegments("Rain.autoflow/source/a b.txt"))
+        assertEquals(listOf("Rain.autoflow", "source"), ProjectZip.safeSegments("Rain.autoflow/source/", directory = true))
+        assertEquals(listOf("မိုး.autoflow", "project.json"), ProjectZip.safeSegments("မိုး.autoflow/project.json"))
     }
 }

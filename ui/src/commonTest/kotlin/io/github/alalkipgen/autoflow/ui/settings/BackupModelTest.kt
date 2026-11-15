@@ -9,6 +9,7 @@ import io.github.alalkipgen.autoflow.platform.BackupProject
 import io.github.alalkipgen.autoflow.platform.BackupResult
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.ProjectBackup
+import io.github.alalkipgen.autoflow.platform.RestoredProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.StepClock
 import kotlin.test.Test
@@ -37,8 +38,8 @@ class FakeBackup : ProjectBackup {
         return shareResult
     }
 
-    override fun restore(zipPath: String, destDir: String): PlatformResult<List<String>> =
-        PlatformResult.Ok(listOf("Test.autoflow"))
+    override suspend fun restore(zipPath: String, destDir: String): PlatformResult<List<RestoredProject>> =
+        PlatformResult.Ok(listOf(RestoredProject("Test.autoflow", "Test.autoflow")))
 }
 
 class BackupModelTest {
@@ -138,5 +139,18 @@ class BackupModelTest {
         assertEquals("0.4 MB", BackupModel.fileSize(420_000))
         assertEquals("14.5 MB", BackupModel.fileSize(14_480_000))
         assertEquals("1203 MB", BackupModel.fileSize(1_203_400_000))
+    }
+
+    @Test
+    fun restoreMessageSaysWhenAnExistingProjectWasKept() {
+        assertEquals("No projects found in the zip", BackupModel.restored(emptyList()))
+        assertEquals(
+            "Restored: Rain.autoflow. Go to Projects to open them.",
+            BackupModel.restored(listOf(RestoredProject("Rain.autoflow", "Rain.autoflow"))),
+        )
+        assertEquals(
+            "Restored: Rain.autoflow, Sun (restored).autoflow. Sun.autoflow already existed and was not changed. Go to Projects to open them.",
+            BackupModel.restored(listOf(RestoredProject("Rain.autoflow", "Rain.autoflow"), RestoredProject("Sun (restored).autoflow", "Sun.autoflow"))),
+        )
     }
 }
