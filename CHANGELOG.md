@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.2
+
+- **BLUR feather fix** (5A-4): `geq=lum` + a real 0–255 alpha fade; `LayerFfmpegRenderTest` renders with a real ffmpeg (#135).
+- **Desktop Main dispatcher** (D-61): `kotlinx-coroutines-swing` in the desktop app; CI `desktop-smoke` launches the packaged app under Xvfb (#136).
+- **Voice lock** (5A-1, D-35): one model per TTS call, first take sets the lock, busy model → job PAUSED, Burmese-only S5 list; `VoiceLockTest`, `ModelsConfigTest`, `RecapVoiceLockTest` (#137).
+
 ## v0.2.6
 
 - **Watermark import UI** (5B-3, D-54): Recap → 5 · Fit check → "Set watermark…" lets you pick a PNG/JPG that
