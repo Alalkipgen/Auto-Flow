@@ -7,6 +7,8 @@ import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.FitStatus
 import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
@@ -63,7 +65,7 @@ class RecapExportTest {
     private fun open(m: RecapModel) {
         val p = (store.create(dir, "R", Mode.MOVIE_RECAP) as CoreResult.Ok).value
         val scenes = listOf(RecapScene(0, 4_000, picked = true), RecapScene(4_000, 9_000, picked = true))
-        current.set(OpenProject(dir, p.copy(recap = Recap(rightsConfirmed = true, movie = RecapMovie("source/movie.mp4", 9, 9_000), scenes = scenes))))
+        current.set(OpenProject(dir, p.copy(recap = RecapV2(rightsConfirmed = true, movie = RecapMovie("source/movie.mp4", 9, 9_000), scenes = scenes))))
         m.refresh()
         assertTrue(m.writeManually())
         m.saveSegment(0, "ကောင်လေး စောင့်နေတယ်")
@@ -98,7 +100,7 @@ class RecapExportTest {
 
         assertTrue(m.approveScript())
         m.speak(0)!!.join()
-        val rows = RecapFit.rows(recap(), m.state.value.script!!)
+        val rows = RecapFit.rows(recap().toV1(), m.state.value.script!!)
         assertEquals(FitStatus.NO_VOICE, rows[1].status)
         assertEquals("No voice", rows[1].label())
         assertTrue(fitFooter(recap(), rows).endsWith("· 1 of 2 voiced"))

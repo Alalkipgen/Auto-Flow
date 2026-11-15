@@ -22,8 +22,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.VoiceSource
 import io.github.alalkipgen.autoflow.core.recap.VoiceTab
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -48,15 +50,15 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 fun VoiceBlockCard(
     model: RecapModel,
     state: RecapUiState,
-    recap: Recap,
+    recap: RecapV2,
     script: RecapScript,
     segmentIndex: Int,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val seg = script.segments.getOrNull(segmentIndex) ?: return
-    val take = RecapRules.currentTake(recap, script, segmentIndex)
-    val stale = RecapRules.isStale(recap, script, segmentIndex)
+    val take = RecapRules.currentTake(recap.toV1(), script, segmentIndex)
+    val stale = RecapRules.isStale(recap.toV1(), script, segmentIndex)
     val idle = !state.busy && state.recording == null
     var tab by remember { mutableStateOf(
         if (recap.voiceSource == VoiceSource.TTS) VoiceTab.SPEAK else VoiceTab.RECORD
@@ -90,7 +92,7 @@ fun VoiceBlockCard(
 private fun SpeakTab(
     model: RecapModel,
     state: RecapUiState,
-    recap: Recap,
+    recap: RecapV2,
     script: RecapScript,
     index: Int,
     idle: Boolean,
@@ -164,7 +166,7 @@ private fun fieldToMs(text: String): Long? {
 private fun RecordTab(
     model: RecapModel,
     state: RecapUiState,
-    recap: Recap,
+    recap: RecapV2,
     script: RecapScript,
     index: Int,
     idle: Boolean,

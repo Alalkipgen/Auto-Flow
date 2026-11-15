@@ -6,6 +6,8 @@ import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
@@ -40,7 +42,7 @@ class RecapScriptTest {
     private fun open() {
         val p = (store.create("/p/R.autoflow", "R", Mode.MOVIE_RECAP) as CoreResult.Ok).value
         val scenes = listOf(RecapScene(0, 10_000), RecapScene(10_000, 20_000, picked = true), RecapScene(20_000, 30_000, picked = true))
-        current.set(OpenProject("/p/R.autoflow", p.copy(recap = Recap(rightsConfirmed = true, movie = RecapMovie("source/movie.mp4", 9, 30_000), scenes = scenes))))
+        current.set(OpenProject("/p/R.autoflow", p.copy(recap = RecapV2(rightsConfirmed = true, movie = RecapMovie("source/movie.mp4", 9, 30_000), scenes = scenes))))
         fs.createDirectories("/dl")
         fs.writeDurably("/dl/film.srt", "\uFEFF1\n00:00:11,000 --> 00:00:12,500\nWhere are you?\n\n2\n00:00:21,000 --> 00:00:22,000\nHere.\n".encodeToByteArray())
     }
@@ -74,7 +76,7 @@ class RecapScriptTest {
         assertEquals("ကောင်လေး စောင့်နေတယ်", m.state.value.script!!.segments[0].textMy)
         assertTrue(m.approveScript())
         assertTrue(recap().scriptApproved)
-        assertTrue(RecapRules.canVoice(recap(), m.state.value.script).allowed)
+        assertTrue(RecapRules.canVoice(recap().toV1(), m.state.value.script).allowed)
 
         // Editing again clears the approval; changing the picks makes the script outdated.
         assertTrue(m.saveSegment(1, "ဒီမှာ"))

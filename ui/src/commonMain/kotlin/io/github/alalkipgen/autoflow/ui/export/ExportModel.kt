@@ -16,7 +16,10 @@ import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
+import io.github.alalkipgen.autoflow.core.recap.RecapStory
 import io.github.alalkipgen.autoflow.core.recap.VoiceTake
+import io.github.alalkipgen.autoflow.core.recap.toV1
+import io.github.alalkipgen.autoflow.core.recap.toV1Script
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.render.BatteryReader
 import io.github.alalkipgen.autoflow.media.render.FontInfo
@@ -244,8 +247,10 @@ class ExportModel(
 
     private fun isRecap(p: Project) = p.mode == Mode.MOVIE_RECAP && p.recap != null
 
-    private fun recapScript(): RecapScript? =
-        session.open?.project?.recap?.script?.let { (session.readJson(it, RecapScript.serializer()) as? CoreResult.Ok)?.value }
+    private fun recapStory(): RecapStory? =
+        session.open?.project?.recap?.story?.let { (session.readJson(it, RecapStory.serializer()) as? CoreResult.Ok)?.value }
+
+    private fun recapScript(): RecapScript? = recapStory()?.toV1Script()
 
     /** The take's audio, `artifacts/<file>`, when the file is there. */
     private fun takeFile(open: OpenProject, take: VoiceTake): String? = artifactFile(open, take.audio)
@@ -258,8 +263,10 @@ class ExportModel(
 
     private fun recapExport(open: OpenProject): RecapExport? {
         if (!isRecap(open.project)) return null
-        val recap = open.project.recap!!
-        val script = recapScript()
+        val recapV2 = open.project.recap!!
+        val story = recapStory()
+        val recap = recapV2.toV1(story)
+        val script = story?.toV1Script()
         val gate = RecapRules.canRender(recap, script)
         val rows = script?.takeIf { RecapRules.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it) }.orEmpty()
         return RecapExport(
@@ -279,8 +286,10 @@ class ExportModel(
 
     /** The recap render (spec §6): movie clips, takes, looks, captions (burned in when wanted and a font is set) + `.srt`. */
     private fun recapJob(open: OpenProject, quality: Quality, font: String?, fontsDir: String, name: String): RenderJob? {
-        val recap = open.project.recap ?: return null
-        val script = recapScript() ?: return null
+        val recapV2 = open.project.recap ?: return null
+        val story = recapStory()
+        val recap = recapV2.toV1(story)
+        val script = story?.toV1Script() ?: return null
         // D-56: use per-recap output ratio when set; fall back to project-level ratio.
         val ratio = recap.visual.outputRatio ?: open.project.settings.ratio
         return RecapRender.job(

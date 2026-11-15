@@ -27,11 +27,11 @@ data class Project(
     /** RenderGraph (specs/render-graph.md), typed by the PLAN 1D RenderGraph task; kept opaque so nothing is lost. */
     val timeline: JsonElement? = null,
     val flowCredits: FlowCredits = FlowCredits(),
-    /** Movie Recap state (docs/specs/recap.md, D-33); null in Music Video projects. */
-    val recap: io.github.alalkipgen.autoflow.core.recap.Recap? = null,
+    /** Movie Recap state v2 (docs/specs/studio-v2.md §2, D-36); null in Music Video projects. */
+    val recap: io.github.alalkipgen.autoflow.core.recap.RecapV2? = null,
 ) {
     companion object {
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
     }
 }
 

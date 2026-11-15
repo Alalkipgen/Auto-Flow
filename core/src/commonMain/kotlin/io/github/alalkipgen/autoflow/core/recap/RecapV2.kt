@@ -148,7 +148,39 @@ data class RecapV2(
     val quick: JsonElement? = null,
     /** Picture (5B-2): blur boxes over the movie, the space around it. */
     val visual: RecapVisual = RecapVisual(),
+    /** Caption appearance (colour, size, stroke). Stored here for direct access; `captions.burn` controls whether captions are burned. */
+    val captionStyle: CaptionStyle = CaptionStyle(),
+    /** Publish Kit text (docs/specs/studio-v2.md §9, 5B-10). */
+    val publishKit: PublishKit? = null,
 ) {
+    /** Convenience: whether captions are burned (delegates to [captions]). */
+    val burnCaptions: Boolean get() = captions.burn
+    /** Convenience: movie audio volume under narration (delegates to [audio]). */
+    val movieVolume: Double get() = audio.movieVolume
+    /** Alias for [story] — used by code that hasn't been updated from v1 yet. */
+    val script: ArtifactId? get() = story
+    /** Picked scenes (scenes with picked=true), for backward-compat with v1 UI code. */
+    val picked: List<RecapScene> get() = scenes.filter { it.picked }
+    /** Total ms of picked scenes. */
+    val pickedMs: Long get() = picked.sumOf { it.durationMs }
+    /** Whether the story is approved; alias for [storyApproved]. */
+    val scriptApproved: Boolean get() = storyApproved
+    /** Subtitle path from sources; backward-compat with v1 UI code. */
+    val subtitles: String? get() = sources.subtitles
+    val subtitleTrack: Int? get() = sources.subtitleTrack
+    /** Voice source: TTS when voiceLock is set, else RECORDED. */
+    val voiceSource: VoiceSource get() = if (voiceLock != null) VoiceSource.TTS else VoiceSource.RECORDED
+    /** TTS voice from voiceLock, or the default. */
+    val ttsVoice: String get() = voiceLock?.voice ?: Recap.DEFAULT_TTS_VOICE
+    /** Script style from the story artifact — not stored in RecapV2 directly; callers set _style in RecapModel. */
+    val style: RecapStyle get() = RecapStyle.PLAIN
+    /** Script register — not stored in RecapV2 directly. */
+    val register: RecapRegister get() = RecapRegister.SPOKEN
+    /** Fit choice for segment [index] by blockId or fallback key "b_seg{index}". */
+    fun fitChoice(index: Int): FitChoice? {
+        val byIndex = fit["b_seg$index"] ?: fit.values.toList().getOrNull(index)
+        return byIndex?.let { runCatching { FitChoice.valueOf(it) }.getOrNull() }
+    }
     /** The chosen take of [blockId], else its newest. */
     fun takeFor(blockId: String): BlockTake? {
         val mine = takes.filter { it.block == blockId }

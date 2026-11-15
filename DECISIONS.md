@@ -122,3 +122,16 @@ V2NavRailCompact uses emoji icons + purple top-line indicator.
 - ExportScreen.RunStatus Done: VideoPreview(s.output) shown above action buttons.
 - Android: ExoPlayer with playWhenReady=false (manual play), keepScreenOn=true.
 - Desktop: placeholder text (video preview not supported on desktop).
+
+## D-60 (2025) · STEP 1 — Recap v2 reader
+- `Project.SCHEMA_VERSION` bumped 1 → 2; `Project.recap` changed to `RecapV2?`.
+- `DashboardModel.open()`: replaces disabled migration guard with `migrateProject()` — JSON-level backup + `RecapMigration.migrate()` using `ModelConfig.tts.chainFor("my").first()` for the voice lock.
+- `createMovieRecap` / `createQuickRecap`: new projects start as `RecapV2` (no v1 `Recap` created anymore).
+- `RecapV2`: added `captionStyle`, `publishKit`, and backward-compat computed properties (`burnCaptions`, `movieVolume`, `script`, `picked`, `pickedMs`, `scriptApproved`, `subtitles`, `subtitleTrack`, `voiceSource`, `ttsVoice`, `style`, `register`, `fitChoice()`).
+- `RecapV2Adapters.kt`: `RecapV2.toV1(story?)` and `RecapStory.toV1Script()` for rendering/rules backward compat.
+- `RecapRulesV2.kt`: v2-native gate functions (`canImportMovie`, `canFindScenes`, `canVoice`, `canRender` etc.).
+- `RecapRules.kt`: `RecapV2` overloads via `toV1()`; `RecapFit.rows(RecapV2, ...)` overload.
+- `Scenes.kt`: `offTarget(RecapV2)` overload.
+- `RecapModel`: reads/writes `RecapV2`; story artifact (`RecapStory`) replaces `RecapScript` internally; `storyToScript()` adapter for UI backward compat; `BlockTake` replaces `VoiceTake` in `storeTake()`; v2 field access (`storyApproved`, `sources.subtitles`, `voiceLock?.voice`).
+- All composables updated to `RecapV2`; `recap.toV1()` used at `RecapRules` call sites.
+- `ProjectStoreTest`: expected schema version for newer-schema test bumped 2 → 3.

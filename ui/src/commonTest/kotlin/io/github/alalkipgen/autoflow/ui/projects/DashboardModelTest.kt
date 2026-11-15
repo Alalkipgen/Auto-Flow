@@ -126,12 +126,13 @@ class DashboardModelTest {
     fun openRestoresV1BackupOfAnEarlyMigratedProject() {
         assertTrue(model.createMovieRecap("/videos", "Ngam", rightsConfirmed = true))
         val dir = current.state.value!!.dir
-        val v1 = fs.read("$dir/project.json")
-        RecapMigration.backup(fs, dir)
+        val validJson = fs.read("$dir/project.json").decodeToString()
+        // Simulate a backup from v1→v2 migration; current project.json has been corrupted / prematurely upgraded.
+        fs.writeDurably("$dir/${RecapMigration.BACKUP_FILE}", validJson.encodeToByteArray())
         fs.writeDurably("$dir/project.json", """{"schemaVersion":2,"recap":{"sources":{}}}""".encodeToByteArray())
         assertTrue(model.open(dir))
         assertEquals("Ngam", current.state.value!!.project.name)
-        assertEquals(v1.decodeToString(), fs.read("$dir/project.json").decodeToString())
+        assertEquals(validJson, fs.read("$dir/project.json").decodeToString())
         assertTrue(fs.exists("$dir/${RecapMigration.V2_COPY_FILE}"))
     }
 

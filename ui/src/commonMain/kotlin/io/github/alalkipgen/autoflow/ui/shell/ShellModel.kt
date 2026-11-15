@@ -3,9 +3,11 @@ package io.github.alalkipgen.autoflow.ui.shell
 import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
-import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
+import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.core.recap.toV1
+import io.github.alalkipgen.autoflow.core.recap.toV1Script
 import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.core.workflow.Pipeline
 import io.github.alalkipgen.autoflow.core.workflow.PipelineStep
@@ -41,8 +43,10 @@ class ShellModel(private val session: ProjectSession) {
 
     /** A Movie Recap project (D-33): the music-video screens are locked, Export opens when [RecapRules] allows a render; no stepper. */
     private fun recapShell(p: Project): ShellUiState {
-        val recap = p.recap ?: Recap()
-        val script = recap.script?.let { session.readJson(it, RecapScript.serializer()).getOrNull() }
+        val recapV2 = p.recap
+        val story = recapV2?.story?.let { session.readJson(it, RecapStory.serializer()).getOrNull() }
+        val recap = recapV2?.toV1(story) ?: io.github.alalkipgen.autoflow.core.recap.Recap()
+        val script = story?.toV1Script()
         val export = RecapRules.canRender(recap, script).blockers.firstOrNull()?.text()
         val locks = SCREEN_STEPS.keys.filter { it != "Export" }.associateWith { RECAP_LOCK } + listOfNotNull(export?.let { "Export" to it })
         return ShellUiState(locks)

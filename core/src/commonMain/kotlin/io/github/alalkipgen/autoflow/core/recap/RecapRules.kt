@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.core.recap
 
 import io.github.alalkipgen.autoflow.core.hash.Sha256
+import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.core.workflow.Gate
 
@@ -114,3 +115,41 @@ object RecapFit {
 
     fun totalMs(rows: List<FitRow>): Long = rows.sumOf { it.clipMs }
 }
+
+// RecapV2 overloads for backward-compat UI code
+fun RecapRules.canImportMovie(recap: RecapV2): Gate = canImportMovie(recap.toV1())
+fun RecapRules.canFindScenes(recap: RecapV2): Gate = canFindScenes(recap.toV1())
+fun RecapRules.canGenerateScript(recap: RecapV2, summary: String, subtitles: String): Gate =
+    canGenerateScript(recap.toV1(), summary, subtitles)
+fun RecapRules.canWriteManually(recap: RecapV2): Gate = canWriteManually(recap.toV1())
+fun RecapRules.isCurrent(recap: RecapV2, script: RecapScript?): Boolean =
+    isCurrent(recap.toV1(), script)
+fun RecapRules.canApproveScript(recap: RecapV2, script: RecapScript?): Gate =
+    canApproveScript(recap.toV1(), script)
+fun RecapRules.canVoice(recap: RecapV2, script: RecapScript?): Gate =
+    canVoice(recap.toV1(), script)
+fun RecapRules.canRender(recap: RecapV2, script: RecapScript?): Gate =
+    canRender(recap.toV1(), script)
+fun RecapRules.currentTake(recap: RecapV2, script: RecapScript, i: Int): VoiceTake? =
+    currentTake(recap.toV1(), script, i)
+fun RecapRules.isStale(recap: RecapV2, script: RecapScript, i: Int): Boolean =
+    isStale(recap.toV1(), script, i)
+fun RecapRules.withTake(recap: RecapV2, take: VoiceTake): RecapV2 {
+    val v1 = withTake(recap.toV1(), take)
+    // map VoiceTake back to BlockTake and update takes list
+    val blockTake = BlockTake(
+        block = "b_seg${take.segment}",
+        audio = take.audio,
+        source = when (take.source) {
+            VoiceSource.TTS, VoiceSource.REPLICATED -> TakeSource.TTS
+            VoiceSource.RECORDED -> TakeSource.RECORDED
+        },
+        durationMs = take.durationMs,
+        spokenHash = take.textHash,
+    )
+    return recap.copy(takes = recap.takes.filter { it.block != blockTake.block } + blockTake)
+}
+
+// RecapFit overloads for RecapV2
+fun RecapFit.rows(recap: RecapV2, script: RecapScript, maxVoiceSpeed: Float = 1.5f, maxVideoSlow: Float = 0.7f): List<FitRow> =
+    rows(recap.toV1(), script, maxVoiceSpeed, maxVideoSlow)
