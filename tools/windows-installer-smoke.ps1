@@ -68,7 +68,7 @@ function Get-AutoFlowUninstallEntries {
             }
         }
     }
-    return , $found
+    return $found # unrolled; every caller wraps the call in @(...)
 }
 
 function Invoke-Msi([string] $file, [string[]] $arguments, [string] $what) {
