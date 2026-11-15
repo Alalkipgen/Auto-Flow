@@ -150,13 +150,15 @@ object RecapRender {
         title: String,
         bgmFile: String? = null,
         lexicon: Lexicon = Lexicon.EMPTY,
+        imageFile: (String) -> String? = { null },
     ): RenderJob {
         val graph = graph(recap, story, ratio, quality, takeFile, font, bgmFile, lexicon)
         return RenderJob(
             title = title,
             graph = graph,
             workDir = projectDir,
-            files = emptyMap(),
+            // Layer images by artifact id (`im_…`, spec §4) → their files; one that is not found fails the render (F08).
+            files = graph.layers.mapNotNull { it.params.image }.distinct().mapNotNull { id -> imageFile(id)?.let { id to it } }.toMap(),
             fontsDir = fontsDir,
             outputName = outputName,
             srt = Srt.write(captions(recap, story, takeFile, graph.output, lexicon)),

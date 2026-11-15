@@ -15,7 +15,7 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.recap.Look
-import io.github.alalkipgen.autoflow.media.audio.AudioFilters
+import io.github.alalkipgen.autoflow.media.audio.SilenceTrim
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.BlockTake
@@ -342,11 +342,8 @@ class RecapModel(
             val sourceDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, ProjectSession.SOURCE_DIR)
             val outPath = io.github.alalkipgen.autoflow.core.io.joinPath(sourceDir, SUBTITLES_FILE)
             fs.createDirectories(sourceDir)
-            val args = listOf(
-                ffmpeg, "-y", "-i", moviePath,
-                "-map", "0:${track.index}", "-c:s", "srt",
-                outPath,
-            )
+            // The track's own stream index from the probe (audit F14).
+            val args = listOf(ffmpeg) + io.github.alalkipgen.autoflow.media.probe.MediaProbe.extractSubtitleArgs(moviePath, track.index, outPath)
             val r = withContext(kotlinx.coroutines.Dispatchers.Default) {
                 runner.run(args, dir, 120_000L, keepOutput = true) {}
             }
@@ -785,9 +782,9 @@ class RecapModel(
     }
 
     /**
-     * The take with every pause longer than 0.35 s cut to 0.2 s ([AudioFilters.trimSilence]) as a WAV, when the
-     * target asks for it; the take as it was when it does not, ffmpeg is missing or the result is empty. Works in
-     * the target project's `.cache/`.
+     * The take with every pause longer than 0.35 s cut to 0.2 s ([SilenceTrim], audit F09) as a WAV, when the
+     * target asks for it; the take as it was when it does not, no pause is that long, ffmpeg is missing or fails, or
+     * the result is empty. Works in the target project's `.cache/`.
      */
     private suspend fun trimPauses(t: VoiceTarget, bytes: ByteArray, ext: String, durationMs: Long): Triple<ByteArray, String, Long> {
         val asIs = Triple(bytes, ext, durationMs)
@@ -798,9 +795,8 @@ class RecapModel(
         val out = cachePath(t.dir, "trim-out-${t.blockId}.wav") ?: return asIs
         return withContext(Dispatchers.Default) {
             runCatching { fs.writeDurably(src, bytes) }.getOrElse { return@withContext asIs }
-            val r = runner.run(listOf(ffmpeg) + AudioFilters.trimArgs(src, out), t.dir, TRIM_TIMEOUT_MS, keepOutput = false) {}
-            val ok = r is io.github.alalkipgen.autoflow.media.tool.ToolExec.Done && r.exitCode == 0 && !r.timedOut
-            val trimmed = if (ok) session.readFile(out) else null
+            val r = SilenceTrim(runner, ffmpeg).trim(src, out, t.dir, TRIM_TIMEOUT_MS)
+            val trimmed = if (r is SilenceTrim.Result.Trimmed) session.readFile(out) else null
             val ms = trimmed?.let { PcmWav.parse(it)?.durationMs }
             if (trimmed == null || ms == null || ms < MIN_TRIMMED_MS) asIs else Triple(trimmed, "wav", ms)
         }

@@ -10,6 +10,7 @@ import io.github.alalkipgen.autoflow.media.render.RenderCompiler.ClipMedia
 import io.github.alalkipgen.autoflow.media.render.RenderCompiler.Compiled
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -81,12 +82,16 @@ class LayerCompileTest {
         assertContains(r.args, imgPath)
     }
 
-    @Test fun imageMissing_relaysStream() {
+    @Test fun imageMissing_failsTheRender() {
+        // Audit F08: a missing image is an explicit failure, never a render that quietly leaves the layer out.
         val layer = Layer("l1", LayerType.IMAGE, params = LayerParams(image = "im_missing"))
-        val r = compile(Ratio.R16_9, layer)
-        val fc = filterComplex(r)
-        // Should not crash; stream relayed with null
-        assertContains(fc, "[vlayer]")
+        val g = RenderGraph(clips = listOf(Clip(clip, trimOutMs = 10_000)), output = RenderPresets.export(Ratio.R16_9), layers = listOf(layer))
+        val invalid = assertIs<Compiled.Invalid>(RenderCompiler.compile(g, env(Ratio.R16_9)))
+        assertEquals("layer l1: the image im_missing is missing", invalid.reason)
+        val none = g.copy(layers = listOf(layer.copy(params = LayerParams(image = null))))
+        assertEquals("layer l1: no image is chosen", assertIs<Compiled.Invalid>(RenderCompiler.compile(none, env(Ratio.R16_9))).reason)
+        val bg = g.copy(layers = listOf(Layer("b", LayerType.BACKGROUND, params = LayerParams(mode = BackgroundMode.IMAGE, image = "im_missing"))))
+        assertEquals("layer b: the image im_missing is missing", assertIs<Compiled.Invalid>(RenderCompiler.compile(bg, env(Ratio.R16_9))).reason)
     }
 
     // ── TEXT ──────────────────────────────────────────────────────────────────
@@ -110,9 +115,22 @@ class LayerCompileTest {
         val layer = Layer("t", LayerType.TEXT, rect = listOf(0.05f, 0.05f, 0.9f, 0.2f),
             params = LayerParams(textMy = "ခေါင်းစဉ်", style = "Pyidaungsu"))
         val ass = assertNotNull(compile(Ratio.R9_16, layer).ass)
-        // 1080 × 1920: centre line 0.15 × 1920 = 288; one line in 0.2 × 1920 = 384 px → 384 / 1.5 = 256 px.
+        // 1080 × 1920: centre line 0.15 × 1920 = 288; one line in 0.2 × 1920 = 384 px → 384 / 1.5 = 256 px tall, but
+        // 7 spacing Burmese letters × 0.6 em must fit 0.9 × 1080 = 972 px → 231 px.
         assertContains(ass, "{\\an5\\pos(540,288)}ခေါင်းစဉ်")
-        assertContains(ass, "Style: s1,Pyidaungsu,256,")
+        assertContains(ass, "Style: s1,Pyidaungsu,231,")
+    }
+
+    @Test fun textLayer_offCentreRect_usesItsXAndTheCaptionFont() {
+        // Audit F08: the rect's x counts too (the text was always at the frame's middle); no style = the captions' font.
+        val layer = Layer("t", LayerType.TEXT, rect = listOf(0.02f, 0.02f, 0.3f, 0.15f), params = LayerParams(textMy = "AUDIT"))
+        val caption = Overlay("cap", 0, 1_000, "Padauk", 60)
+        val g = RenderGraph(clips = listOf(Clip(clip, trimOutMs = 10_000)), output = RenderPresets.export(Ratio.R16_9),
+            overlays = listOf(caption), layers = listOf(layer))
+        val ass = assertNotNull(assertIs<Compiled.Ok>(RenderCompiler.compile(g, env(Ratio.R16_9))).ass)
+        // 1920 × 1080: centre (0.17 × 1920, 0.095 × 1080) = (326, 102); 0.15 × 1080 / 1.5 = 108 px.
+        assertContains(ass, "{\\an5\\pos(326,102)}AUDIT")
+        assertContains(ass, "Style: s2,Padauk,108,")
     }
 
     // ── BORDER ────────────────────────────────────────────────────────────────
@@ -132,6 +150,12 @@ class LayerCompileTest {
     }
 
     // ── BACKGROUND ────────────────────────────────────────────────────────────
+    // Audit F08 / F12: a BACKGROUND is composed inside each clip's own chain, behind the fitted picture (the pixels
+    // are checked with a real ffmpeg in LayerMatrixFfmpegTest); it is not painted over the finished strip.
+
+    /** The chain that ends in the clip's picture `[v0]`. */
+    private fun clipChain(fc: String) = fc.split(";").takeWhile { !it.endsWith("[v0]") }.joinToString(";") + ";" +
+        fc.split(";").first { it.endsWith("[v0]") }
 
     @Test fun backgroundBlur_16x9() { backgroundBlur(Ratio.R16_9) }
     @Test fun backgroundBlur_9x16() { backgroundBlur(Ratio.R9_16) }
@@ -141,24 +165,37 @@ class LayerCompileTest {
         val layer = Layer("l1", LayerType.BACKGROUND, params = LayerParams(mode = BackgroundMode.BLUR))
         val r = compile(ratio, layer)
         val fc = filterComplex(r)
-        assertContains(fc, "gblur=sigma=30")
-        assertContains(fc, "[vlayer]")
+        val out = RenderPresets.export(ratio)
+        assertContains(clipChain(fc), "gblur=")
+        assertContains(clipChain(fc), "scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease")
+        // Nothing is drawn over the strip, so there is no layer stage.
+        assertTrue("[vlayer]" !in fc, fc)
     }
 
     @Test fun backgroundColour_16x9() {
         val layer = Layer("l1", LayerType.BACKGROUND, params = LayerParams(mode = BackgroundMode.COLOUR, colour = "#1A1A2E"))
-        val r = compile(Ratio.R16_9, layer)
-        val fc = filterComplex(r)
-        assertContains(fc, "0x1A1A2E")
-        assertContains(fc, "[vlayer]")
+        val fc = filterComplex(compile(Ratio.R16_9, layer))
+        assertContains(clipChain(fc), "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1A1A2E")
+        // F12: no split output is left unconnected.
+        assertTrue("split" !in fc, fc)
     }
 
     @Test fun backgroundImage_9x16() {
         val layer = Layer("l1", LayerType.BACKGROUND, params = LayerParams(mode = BackgroundMode.IMAGE, image = imgId))
         val r = compile(Ratio.R9_16, layer)
         val fc = filterComplex(r)
-        assertContains(fc, "[vlayer]")
         assertContains(r.args, imgPath)
+        val i = r.args.indexOf(imgPath)
+        assertEquals(listOf("-loop", "1", "-t", "10.000", "-i"), r.args.subList(i - 5, i))
+        assertContains(fc, "[1:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920")
+    }
+
+    @Test fun backgroundForPartOfAClip_isShownOnlyInItsWindow() {
+        val layer = Layer("l1", LayerType.BACKGROUND, fromMs = 4_000, toMs = 6_000, params = LayerParams(mode = BackgroundMode.COLOUR, colour = "#00FF00"))
+        val fc = filterComplex(compile(Ratio.R16_9, layer))
+        // Two whole pictures of the clip (bars / green), the green one over the other from 4 s to 6 s of the clip.
+        assertContains(fc, "[0:v]split=2[vs0_0][vs0_1]")
+        assertContains(fc, "[vf0_0][vf0_1]overlay=0:0:enable='between(t,4.000,6.000)',fps=24[v0]")
     }
 
     // ── Layering order ────────────────────────────────────────────────────────
@@ -190,7 +227,6 @@ class LayerCompileTest {
     /**
      * Audit item 2: BACKGROUND-IMAGE filtergraph must NOT feed two inputs into scale.
      * Old code: `[$prev][idx:v]scale=...` → scale got 2 inputs → ffmpeg exit 234.
-     * New code: `[idx:v]scale=...[bgimg];[$prev][bgimg]overlay=...`
      */
     @Test fun backgroundImage_scaleHasOneInput() {
         val layer = Layer("l1", LayerType.BACKGROUND,
@@ -203,7 +239,6 @@ class LayerCompileTest {
         assertTrue(!twoInputsBeforeScale,
             "scale must have exactly one input label (not two). Graph: $fc")
         assertContains(fc, "overlay=")
-        assertContains(fc, "[vlayer]")
         assertContains(r.args, imgPath)
     }
 

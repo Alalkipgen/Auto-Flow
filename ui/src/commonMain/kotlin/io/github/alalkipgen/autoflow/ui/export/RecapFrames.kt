@@ -101,6 +101,8 @@ class RecapFrames(
             outputName = name,
             title = title,
             bgmFile = recap.audio.bgm?.let { artifactFile(open, it) },
+            // Layer images are artifacts (`im_…`, spec §4); the watermark is a project path the runner finds itself.
+            imageFile = { id -> ArtifactId(id).takeIf { it.isWellFormed }?.let { artifactFile(open, it) } },
         )
     }
 

@@ -111,6 +111,25 @@ internal object RealFfmpeg {
         return Triple((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
     }
 
+    /** Mean absolute RGB difference of [a] and [b] over the box [x0, x1) × [y0, y1). */
+    fun diff(a: BufferedImage, b: BufferedImage, x0: Int, y0: Int, x1: Int, y1: Int): Double {
+        var sum = 0L; var n = 0
+        for (y in y0 until y1) for (x in x0 until x1) {
+            if (x !in 0 until a.width || y !in 0 until a.height) continue
+            val p = a.getRGB(x, y); val q = b.getRGB(x, y)
+            for (s in intArrayOf(16, 8, 0)) sum += kotlin.math.abs(((p shr s) and 0xFF) - ((q shr s) and 0xFF))
+            n++
+        }
+        return if (n == 0) 0.0 else sum.toDouble() / (n * 3)
+    }
+
+    /** Any TrueType font on the machine (DejaVu / Liberation / Arial first), for burned-in text. */
+    fun anyFont(): File? = listOf("/usr/share/fonts", "/usr/local/share/fonts", "C:/Windows/Fonts", "/System/Library/Fonts")
+        .map(::File).filter { it.isDirectory }
+        .flatMap { d -> d.walkTopDown().filter { it.isFile && it.name.endsWith(".ttf", true) }.toList() }
+        .sortedBy { f -> listOf("DejaVuSans.ttf", "LiberationSans-Regular.ttf", "arial.ttf").indexOf(f.name).let { if (it < 0) 99 else it } }
+        .firstOrNull { f -> FontInfo.parse(f.readBytes()) != null }
+
     fun tempDir(name: String): File = Files.createTempDirectory(name).toFile()
 }
 

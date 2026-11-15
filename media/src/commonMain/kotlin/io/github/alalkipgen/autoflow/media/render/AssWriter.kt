@@ -39,7 +39,12 @@ object AssWriter {
             overlays.sortedBy { it.startMs }.forEach { o ->
                 val style = styles.indexOf(key(o, assScale)) + 1
                 val centreY = o.centerY
-                val (an, x, y) = if (centreY != null) Triple(5, w / 2, (h * centreY.coerceIn(0.05f, 0.95f)).toInt()) else when (o.position) {
+                val centreX = o.centerX
+                val (an, x, y) = if (centreY != null || centreX != null) Triple(
+                    5,
+                    centreX?.let { (w * it.coerceIn(0f, 1f)).toInt() } ?: (w / 2),
+                    centreY?.let { (h * it.coerceIn(0.05f, 0.95f)).toInt() } ?: (h / 2),
+                ) else when (o.position) {
                     Pos.TOP -> Triple(8, w / 2, h * MARGIN_PERCENT / 100)
                     Pos.CENTER -> Triple(5, w / 2, h / 2)
                     Pos.BOTTOM -> Triple(2, w / 2, h - h * MARGIN_PERCENT / 100)

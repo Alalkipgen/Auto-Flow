@@ -1,6 +1,5 @@
 package io.github.alalkipgen.autoflow.media.render
 
-import io.github.alalkipgen.autoflow.core.recap.BackgroundMode
 import io.github.alalkipgen.autoflow.core.recap.Layer
 import io.github.alalkipgen.autoflow.core.recap.LayerType
 
@@ -31,6 +30,7 @@ object LayerCompiler {
      * @param totalMs Total render duration.
      * @param resolveImage Maps a Layer.params.image id to an absolute file path (or null if missing).
      * @param baseInputCount Number of input streams already added by [RenderCompiler] (images get index baseInputCount + k).
+     * @param textFont The font family for a TEXT layer without a [LayerParams.style] (the captions' font).
      */
     fun compile(
         layers: List<Layer>,
@@ -38,6 +38,7 @@ object LayerCompiler {
         totalMs: Long,
         resolveImage: (String) -> String?,
         baseInputCount: Int,
+        textFont: String? = null,
     ): LayerResult {
         if (layers.isEmpty()) return LayerResult(emptyList(), emptyList(), emptyList<Overlay>())
 
@@ -80,37 +81,40 @@ object LayerCompiler {
                 LayerType.IMAGE -> {
                     val path = p.image?.let(resolveImage)
                     if (path == null) {
-                        // Skip missing image: just relay the stream
+                        // RenderCompiler refuses a graph whose image is missing (audit F08); a direct caller gets a relay.
                         chains += "[$prev]null[$next]"
                     } else {
                         val (rx, ry, rw, _) = rectPx(layer.rect, w, h)
-                        val alpha = (p.opacity.coerceIn(0f, 1f) * 255).toInt()
                         val idx = inputIdx++
                         inputPaths += path
                         val enableExpr = enableExpr(from, to)
-                        chains += "[${idx}:v]scale=$rw:-1,format=yuva420p," +
-                            "colorchannelmixer=aa=${p.opacity}[wmscaled$k];" +
+                        // Scaled to the rect's width, aspect kept (-2: an even height for the 4:2:0 planes).
+                        chains += "[${idx}:v]scale=$rw:-2,format=yuva420p," +
+                            "colorchannelmixer=aa=${p.opacity.coerceIn(0f, 1f)}[wmscaled$k];" +
                             "[$prev][wmscaled$k]overlay=$rx:$ry:enable='$enableExpr'[$next]"
                     }
                 }
 
                 LayerType.TEXT -> {
                     // TEXT layers generate ASS events; no filtergraph change needed. A whole-frame rect (the
-                    // default) keeps the centred caption size; a smaller rect places the text on its centre line
-                    // and sizes the lines to fill its height (e.g. the Publish Kit thumbnail title, 5B-10).
+                    // default) keeps the centred caption size; a smaller rect centres the text in the rect (x and y,
+                    // audit F08) and sizes the lines to fill its height (e.g. the Publish Kit thumbnail title, 5B-10).
                     val whole = layer.rect.size != 4 || (layer.rect[2] >= 1f && layer.rect[3] >= 1f)
-                    val lines = p.textMy.trim().lines().size.coerceAtLeast(1)
+                    val lines = p.textMy.trim().lines()
+                    // In a rect: as tall as its height allows and no wider than it (estimated from the text).
+                    val widest = lines.maxOf { emWidth(it) }.coerceAtLeast(1f)
                     val fontSize = if (whole) (h / 18).coerceAtLeast(12)
-                    else (layer.rect[3] * h / (lines * 1.5f)).toInt().coerceIn(12, h / 4)
+                    else minOf(layer.rect[3] * h / (lines.size * 1.5f), layer.rect[2] * w / widest).toInt().coerceIn(12, h / 4)
                     assEvents += Overlay(
                         text = p.textMy,
                         startMs = from,
                         endMs = to,
-                        font = p.style.ifBlank { "" },
+                        font = p.style.ifBlank { textFont.orEmpty() },
                         sizePx = fontSize,
                         color = "#FFFFFF",
                         position = Pos.CENTER,
                         centerY = if (whole) null else layer.rect[1] + layer.rect[3] / 2,
+                        centerX = if (whole) null else layer.rect[0] + layer.rect[2] / 2,
                         strokeWidth = if (whole) 0 else maxOf(2, fontSize / 14),
                     )
                     chains += "[$prev]null[$next]"
@@ -131,36 +135,10 @@ object LayerCompiler {
                 }
 
                 LayerType.BACKGROUND -> {
-                    // A fill layer behind a movie that doesn't cover the full output frame.
-                    // Compose a full-frame background from blurred/image/colour, then overlay the base strip.
-                    val enableExpr = enableExpr(from, to)
-                    when (p.mode) {
-                        BackgroundMode.BLUR -> {
-                            chains += "[$prev]split[bgfg$k][bgblur$k];" +
-                                "[bgblur$k]scale=${w}:${h}:force_original_aspect_ratio=increase," +
-                                "crop=${w}:${h},gblur=sigma=30[bgfull$k];" +
-                                "[bgfull$k][bgfg$k]overlay=0:0:enable='$enableExpr'[$next]"
-                        }
-                        BackgroundMode.COLOUR -> {
-                            val c = p.colour.removePrefix("#").padEnd(6, '0').let { "0x$it" }
-                            chains += "[$prev]split[bgov$k][bgfg$k];" +
-                                "color=c=$c:s=${w}x${h}:r=${output.fps}[bgcol$k];" +
-                                "[bgcol$k][bgfg$k]overlay=0:0:enable='$enableExpr'[$next]"
-                        }
-                        BackgroundMode.IMAGE -> {
-                            val path = p.image?.let(resolveImage)
-                            if (path == null) {
-                                chains += "[$prev]null[$next]"
-                            } else {
-                                val idx = inputIdx++
-                                inputPaths += path
-                                // Scale background image alone (audit fix: scale must have one input only).
-                                chains += "[${idx}:v]scale=${w}:${h}:force_original_aspect_ratio=increase," +
-                                    "crop=${w}:${h}[bgimg$k];" +
-                                    "[bgimg$k][$prev]overlay=0:0:enable='$enableExpr'[$next]"
-                            }
-                        }
-                    }
+                    // A BACKGROUND fills what the fitted picture leaves free, so RenderCompiler composes it per clip
+                    // behind the picture (spec §4, audit F08 / F12). Over the finished frame it would be hidden by the
+                    // bars (or cover the picture), so here it passes the picture on unchanged.
+                    chains += "[$prev]null[$next]"
                 }
             }
         }
@@ -169,6 +147,20 @@ object LayerCompiler {
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * A rough width of [line] in ems (no font metrics here): marks that sit on a letter take no room, a space 0.3,
+     * Burmese 0.6, wide CJK / emoji 1.0, other letters 0.62 — so a TEXT layer is sized to stay inside its rect.
+     */
+    internal fun emWidth(line: String): Float = line.sumOf { c ->
+        when {
+            c.category == CharCategory.NON_SPACING_MARK || c.category == CharCategory.ENCLOSING_MARK || c.category == CharCategory.FORMAT -> 0.0
+            c.isWhitespace() -> 0.3
+            c.code in 0x1000..0x109F || c.code in 0xAA60..0xAA7F || c.code in 0xA9E0..0xA9FF -> 0.6
+            c.code >= 0x2E80 || c.isSurrogate() -> 1.0
+            else -> 0.62
+        }
+    }.toFloat()
 
     /** Enable expression for `enable='between(t,from,to)'`. */
     private fun enableExpr(fromMs: Long, toMs: Long): String =

@@ -4,6 +4,7 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.CoreJson
+import io.github.alalkipgen.autoflow.media.audio.AudioFilters
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
 
 /**
@@ -103,8 +104,9 @@ class RenderJobRunner(
             resolveSource = { sources[it] },
             voicePath = { f -> abs(f).takeIf { fs.exists(it) } },
             backgroundImageFile = graph.backgroundImageFile?.let { abs(it).takeIf { p -> fs.exists(p) } },
-            // Watermark and other image layers: resolve relative paths against workDir (D-52).
-            resolveLayerImage = { imageId -> abs(imageId).takeIf { p -> fs.exists(p) } },
+            // Layer images (audit F08): an artifact id (`im_…`) through the job's files, else a project path such as
+            // the Brand Kit watermark (D-52); null when the file is not there, which fails the compile.
+            resolveLayerImage = { image -> abs(job.files[image] ?: image).takeIf { p -> fs.exists(p) } },
         )
         return when (val c = RenderCompiler.compile(graph, env)) {
             is RenderCompiler.Compiled.Invalid -> Prepared.Failed(RenderState.Failed(c.reason))
@@ -127,49 +129,23 @@ class RenderJobRunner(
         } catch (e: Exception) {
             return RenderState.Failed("cannot write to ${out.substringBeforeLast('/')}: ${e.message}")
         }
-        // 5B-4 two-pass loudnorm (D-51): when loudness is requested, run a fast measure pass first (no video encode,
-        // audio only, stats_mode=rms), parse the JSON from stderr, then compile again with the accurate numbers.
-        val args = if (graph.voice?.loudnessLufs != null && compiled is RenderCompiler.Compiled.Ok) {
-            // Build pass-1 args: same inputs as the full render but write to /dev/null with audio-only loudnorm measure.
-            // Start from compiled.args, strip the output path, add -vn, replace the last -af with one that appends
-            // the loudnorm measure filter.
-            val measureArgs = buildList {
-                val full = compiled.args
-                var i = 0
-                while (i < full.size) {
-                    when {
-                        full[i] == "-af" && i + 1 < full.size -> {
-                            add("-af"); add("${full[i + 1]},${io.github.alalkipgen.autoflow.media.audio.AudioFilters.loudnormMeasure(graph.voice!!.loudnessLufs!!)}")
-                            i += 2
-                        }
-                        // Skip the output path (last non-flag arg)
-                        i == full.lastIndex && !full[i].startsWith("-") -> { add("-vn"); add("-f"); add("null"); add("-"); i++ }
-                        else -> { add(full[i]); i++ }
-                    }
-                }
+        // 5B-4 two-pass loudness (D-51, audit F09): pass 1 runs only the sound chains with a measuring `loudnorm`
+        // (no picture, nothing written); its JSON numbers go into pass 2 — the real render — as measured_I / TP /
+        // LRA / thresh / offset. Numbers missing or not finite (silence, a failed pass) → the one-pass `loudnorm`
+        // the graph was compiled with, and the result says so ([RenderState.Loudness]).
+        var loudness: RenderState.Loudness? = null
+        val args = graph.voice?.loudnessLufs?.let { lufs ->
+            val measureArgs = compiled.measureArgs ?: return@let null
+            val measured = AudioFilters.parseMeasurement(ffmpeg.measure(measureArgs, job.workDir, compiled.durationMs))
+            if (measured == null) {
+                loudness = RenderState.Loudness(lufs, null, "the loudness could not be measured, so one-pass loudnorm was used")
+                return@let null
             }
-            // Run measure pass: collect stderr for JSON
-            val measureStderr = ffmpeg.measure(measureArgs, job.workDir, compiled.durationMs)
-            val measurement = io.github.alalkipgen.autoflow.media.audio.AudioFilters.parseMeasurement(measureStderr)
-            if (measurement != null) {
-                // Recompile with two-pass values: replace the loudnormSinglePass filter with loudnormApply
-                val twoPassEnv = env.copy()
-                when (val c2 = RenderCompiler.compile(graph.copy(
-                    voice = graph.voice!!.copy(loudnessLufs = null) // let the compiler skip single-pass
-                ), twoPassEnv)) {
-                    is RenderCompiler.Compiled.Ok -> {
-                        // Append loudnormApply to the final audio filter
-                        val args2 = c2.args.toMutableList()
-                        val afIdx2 = args2.indexOfLast { it == "-af" }
-                        if (afIdx2 >= 0 && afIdx2 + 1 < args2.size) {
-                            args2[afIdx2 + 1] = "${args2[afIdx2 + 1]},${io.github.alalkipgen.autoflow.media.audio.AudioFilters.loudnormApply(measurement, graph.voice!!.loudnessLufs!!)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo"
-                        }
-                        args2
-                    }
-                    else -> compiled.args
-                }
-            } else compiled.args
-        } else compiled.args
+            when (val c2 = RenderCompiler.compile(graph, env, measured)) {
+                is RenderCompiler.Compiled.Ok -> c2.args.also { loudness = RenderState.Loudness(lufs, measured, null) }
+                is RenderCompiler.Compiled.Invalid -> return RenderState.Failed(c2.reason)
+            }
+        } ?: compiled.args
 
         return when (val r = ffmpeg.render(args, job.workDir, compiled.durationMs, onProgress = onProgress)) {
             is FfmpegRunner.Outcome.CannotStart -> RenderState.Failed("ffmpeg cannot start: ${r.message}")
@@ -178,7 +154,7 @@ class RenderJobRunner(
             is FfmpegRunner.Outcome.Rendered -> try {
                 fs.atomicMove(env.outputPath, "$out.mp4")
                 job.srt?.let { fs.writeDurably("$out.srt", it.encodeToByteArray()) }
-                RenderState.Done("$out.mp4", r.wallMs, compiled.durationMs, r.maxRssKb)
+                RenderState.Done("$out.mp4", r.wallMs, compiled.durationMs, r.maxRssKb, loudness)
             } catch (e: Exception) {
                 RenderState.Failed("cannot save $out.mp4: ${e.message}")
             }

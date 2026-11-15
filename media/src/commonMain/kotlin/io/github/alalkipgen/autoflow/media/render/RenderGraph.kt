@@ -148,6 +148,8 @@ data class Overlay(
     val strokeWidth: Int = 0,
     /** Outline colour `#RRGGBB` (D-57). Used when [strokeWidth] > 0. */
     val strokeColour: String = "#000000",
+    /** When set, the text is centred at this x (0–1 of the frame) instead of the middle (a TEXT layer's rect, F08). */
+    val centerX: Float? = null,
 )
 
 @Serializable
