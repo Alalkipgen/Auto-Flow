@@ -14,10 +14,8 @@ import io.github.alalkipgen.autoflow.core.recap.PreflightCheck
 import io.github.alalkipgen.autoflow.core.recap.PublishKit
 import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
-import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
-import io.github.alalkipgen.autoflow.core.recap.toV1
-import io.github.alalkipgen.autoflow.core.recap.toV1Script
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.render.BatteryReader
 import io.github.alalkipgen.autoflow.media.render.ProjectRender
@@ -244,12 +242,11 @@ class ExportModel(
 
     private fun recapExport(open: OpenProject): RecapExport? {
         if (!isRecap(open.project)) return null
-        val recapV2 = open.project.recap!!
+        val recap = open.project.recap!!
         val story = recapStory()
-        val recap = recapV2.toV1(story)
-        val script = story?.toV1Script()
-        val gate = RecapRules.canRender(recap, script)
-        val rows = script?.takeIf { RecapRules.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it) }.orEmpty()
+        // v2 rules (audit F07): fit rows by block id with every clip and the chosen take — what the render plays.
+        val gate = RecapRulesV2.canRender(recap, story)
+        val rows = story?.takeIf { RecapRulesV2.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it) }.orEmpty()
         return RecapExport(
             segments = rows.size,
             voiced = rows.count { it.takeMs != null },
@@ -261,7 +258,7 @@ class ExportModel(
             blocker = gate.blockers.firstOrNull()?.text() ?: if (recap.movie == null) "Import the movie first (Movie Recap → 1 · Movie)." else null,
             quality = recap.quality,
             publishKit = recap.publishKit ?: PublishKit(),
-            preflight = PreflightCheck.check(recap, script),
+            preflight = PreflightCheck.check(recap, story),
         )
     }
 

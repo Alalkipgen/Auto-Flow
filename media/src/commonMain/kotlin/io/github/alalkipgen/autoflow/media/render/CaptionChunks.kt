@@ -30,6 +30,24 @@ object CaptionChunks {
         }
     }
 
+    /**
+     * One block's caption chunks in take time (0 = the take starts, audit F05): [text] cut into [chunks]; timed by
+     * [edges] — `recap.captions.chunkEdits` of the block, ms into the take (studio-v2 §2) — when they are valid:
+     * strictly increasing inside `[0, takeMs]`, either one edge per chunk start plus the last end (`chunks + 1`
+     * values: each chunk exactly there) or just `[start, end]` of the caption (the chunks share that window by
+     * their text, as automatic timing does). Otherwise — none, or edges left from another text or a shorter take —
+     * automatic: the chunks share the whole take. The same cues are burned in and written to `.srt`.
+     */
+    fun timed(text: String, takeMs: Long, edges: List<Long>?, maxChars: Int, maxLines: Int = MAX_LINES): List<SrtCue> {
+        val pieces = chunks(text, maxChars, maxLines).ifEmpty { listOf(text.trim()) }
+        val valid = edges?.takeIf { e ->
+            e.size >= 2 && e.first() >= 0 && e.last() <= takeMs && e.zipWithNext().all { (a, b) -> b > a }
+        }
+        if (valid != null && valid.size == pieces.size + 1) return pieces.mapIndexed { i, t -> SrtCue(valid[i], valid[i + 1], t) }
+        val (start, end) = if (valid != null) valid.first() to valid.last() else 0L to takeMs
+        return split(listOf(SrtCue(start, end, text)), maxChars, maxLines)
+    }
+
     /** [text] → chunks of at most [maxLines] lines; sentences start a new chunk unless they fit with the one before. */
     fun chunks(text: String, maxChars: Int, maxLines: Int = MAX_LINES): List<String> {
         val width = maxChars.coerceAtLeast(4)

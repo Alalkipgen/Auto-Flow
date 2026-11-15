@@ -5,8 +5,6 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
-import io.github.alalkipgen.autoflow.core.recap.toV1
-import io.github.alalkipgen.autoflow.core.recap.toV1Script
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
 import io.github.alalkipgen.autoflow.media.render.ExactFrame
@@ -92,15 +90,14 @@ class RecapFrames(
 
     /** The recap render (spec §6): movie clips, takes, looks, captions (burned in when wanted and a font is set) + `.srt`. */
     fun job(open: OpenProject, quality: Quality, font: String?, name: String, title: String): RenderJob? {
-        val recapV2 = open.project.recap ?: return null
-        val story = story(open)
-        val recap = recapV2.toV1(story)
-        val script = story?.toV1Script() ?: return null
+        val recap = open.project.recap ?: return null
+        val story = story(open) ?: return null
         if (recap.movie == null) return null
         // D-56: use per-recap output ratio when set; fall back to project-level ratio.
         val ratio = recap.visual.outputRatio ?: open.project.settings.ratio
+        // v2-native (audit F07): every clip of every block, all layers, the chosen take, the caption chunk edges.
         return RecapRender.job(
-            recap, script, ratio, open.dir, quality, { artifactFile(open, it.audio) }, font, FONTS_DIR,
+            recap, story, ratio, open.dir, quality, { artifactFile(open, it.audio) }, font, FONTS_DIR,
             outputName = name,
             title = title,
             bgmFile = recap.audio.bgm?.let { artifactFile(open, it) },

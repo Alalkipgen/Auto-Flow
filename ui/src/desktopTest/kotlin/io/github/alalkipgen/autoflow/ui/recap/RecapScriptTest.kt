@@ -7,9 +7,8 @@ import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
-import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
-import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
@@ -76,14 +75,18 @@ class RecapScriptTest {
         assertEquals("ကောင်လေး စောင့်နေတယ်", m.state.value.script!!.segments[0].textMy)
         assertTrue(m.approveScript())
         assertTrue(recap().scriptApproved)
-        assertTrue(RecapRules.canVoice(recap().toV1(), m.state.value.script).allowed)
+        assertTrue(RecapRulesV2.canVoice(recap(), m.state.value.story).allowed)
 
-        // Editing again clears the approval; changing the picks makes the script outdated.
+        // Editing again clears the approval. Changing the picks does not make a v2 story outdated (studio-v2 §2:
+        // picks only build the first story; only a clip outside the movie does) — the v1 "segments = picks" rule
+        // is gone (audit F05).
         assertTrue(m.saveSegment(1, "ဒီမှာ"))
         assertFalse(recap().scriptApproved)
+        val clips = m.state.value.story!!.blocks.map { it.clips }
         m.togglePick(0)
-        assertFalse(m.approveScript())
-        assertEquals("The picked scenes changed: write the script again", m.state.value.message)
+        assertEquals(clips, m.state.value.story!!.blocks.map { it.clips })
+        assertTrue(m.approveScript())
+        assertTrue(recap().scriptApproved)
     }
 
     @Test

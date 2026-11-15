@@ -69,6 +69,11 @@ data class RecapUiState(
     val messageOk: Boolean = false,
     /** The current `rs` artifact, null when none or unreadable. */
     val script: RecapScript? = null,
+    /**
+     * The story (v2) [script] is shown from: rules — current take (chosen, else newest), stale, fit, caption timing —
+     * read it by block id (audit F05 / F07), never the v1 shape.
+     */
+    val story: RecapStory? = null,
     /** `source/summary.txt`. */
     val summary: String = "",
     /** Segment being recorded now. */
@@ -90,6 +95,37 @@ data class RecapUiState(
 
 /** ETA shown before Speak All starts (5A-5). */
 data class SpeakAllEta(val count: Int, val etaSeconds: Long?)
+
+/** The take that plays for story block [index] — chosen, else newest, when not stale (audit F06 / F07); null = none. */
+fun RecapUiState.currentTake(index: Int): BlockTake? {
+    val r = recap ?: return null
+    val block = story?.blocks?.getOrNull(index) ?: return null
+    return RecapRulesV2.currentTake(r, block)
+}
+
+/** Block [index] has a take, but for another text (⚠ Stale). */
+fun RecapUiState.isStale(index: Int): Boolean {
+    val r = recap ?: return false
+    val block = story?.blocks?.getOrNull(index) ?: return false
+    return RecapRulesV2.isStale(r, block)
+}
+
+/**
+ * Block [index]'s caption window in take time (audit F05): the owner's `captions.chunkEdits` (first … last edge),
+ * else automatic — 0 … the take (or, before a take, the block). Null without such a block.
+ */
+fun RecapUiState.captionWindow(index: Int): Pair<Long, Long>? {
+    val block = story?.blocks?.getOrNull(index) ?: return null
+    val edges = recap?.captions?.chunkEdits?.get(block.id)?.takeIf { it.size >= 2 }
+    if (edges != null) return edges.first() to edges.last()
+    return 0L to (recap?.takeFor(block.id)?.durationMs ?: block.durationMs)
+}
+
+/** True when block [index] has the owner's caption timing (not automatic). */
+fun RecapUiState.hasCaptionTiming(index: Int): Boolean {
+    val block = story?.blocks?.getOrNull(index) ?: return false
+    return recap?.captions?.chunkEdits?.containsKey(block.id) == true
+}
 
 /**
  * Movie Recap logic (docs/specs/recap.md, D-33): movie import, scenes and picks; script, voice and fit are added
@@ -139,6 +175,7 @@ class RecapModel(
             projectDir = open?.dir,
             recap = recap,
             script = story?.let(::storyToScript),
+            story = (story as? CoreResult.Ok)?.value,
             summary = if (open == null) "" else session.readSource(SUMMARY_FILE),
             recording = if (recordingInto != null) _state.value.recording else keep?.recording,
             takeFiles = takeFiles(open?.dir, recap, (story as? CoreResult.Ok)?.value),
@@ -437,23 +474,30 @@ class RecapModel(
     }
 
     /**
-     * Edit the timing of segment [index] (per-chunk caption timing, D-52): shifts [startMs] and [endMs].
+     * Caption timing of block [index] (per-chunk caption timing, D-53; audit F05): saves
+     * `recap.captions.chunkEdits[block id] = [startMs, endMs]` — ms into the block's voice take (studio-v2 §2) — the
+     * window its caption chunks share (burned in and in `.srt`, the same cues). The story is not touched: its clips
+     * (the movie cuts), text and approval stay as they are. With a take, [endMs] must lie inside it.
      */
     fun saveSegmentTiming(index: Int, startMs: Long, endMs: Long): Boolean {
-        val story = currentStory() ?: run {
-            val script = _state.value.script ?: return false
-            if (index !in script.segments.indices) return false
-            if (endMs <= startMs) { say("End must be after start"); return false }
-            val clamped = startMs.coerceAtLeast(0L)
-            val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(startMs = clamped, endMs = endMs) else s }
-            return if (saveScript(script.copy(segments = segments))) { say("Timing saved"); true } else false
-        }
-        if (index !in story.blocks.indices) return false
-        if (endMs <= startMs) { say("End must be after start"); return false }
-        val clamped = startMs.coerceAtLeast(0L)
-        val clip = io.github.alalkipgen.autoflow.core.recap.RecapClip(clamped, endMs)
-        val blocks = story.blocks.mapIndexed { i, b -> if (i == index) b.copy(clips = listOf(clip)) else b }
-        return if (saveStory(story.copy(blocks = blocks))) { say("Timing saved"); true } else false
+        if (_state.value.busy) return false
+        val recap = recap() ?: return false
+        val block = currentStory()?.blocks?.getOrNull(index) ?: return false
+        val start = startMs.coerceAtLeast(0L)
+        if (endMs <= start) { say("End must be after start"); return false }
+        val take = recap.takeFor(block.id)
+        if (take != null && endMs > take.durationMs) { say("End must be inside the voice (${seconds(take.durationMs)})"); return false }
+        val saved = update { it.copy(captions = it.captions.copy(chunkEdits = it.captions.chunkEdits + (block.id to listOf(start, endMs)))) }
+        if (saved) say("Caption timing saved")
+        return saved
+    }
+
+    /** Block [index]'s captions back to automatic timing (its chunk edges are removed, audit F05). */
+    fun resetCaptionTiming(index: Int): Boolean {
+        if (_state.value.busy) return false
+        val block = currentStory()?.blocks?.getOrNull(index) ?: return false
+        if (recap()?.captions?.chunkEdits?.containsKey(block.id) != true) return true
+        return update { it.copy(captions = it.captions.copy(chunkEdits = it.captions.chunkEdits - block.id)) }
     }
 
     /** ✓ Approve script. */
@@ -900,10 +944,10 @@ class RecapModel(
         update { it.copy(captions = it.captions.copy(burn = on)) }
     }
 
-    /** Sets the Smart Fit choice for segment [index] (5A-8, studio-v2 §8). */
-    fun setFitChoice(index: Int, choice: io.github.alalkipgen.autoflow.core.recap.FitChoice) {
+    /** Sets the Smart Fit choice of story block [blockId] (5A-8, studio-v2 §8; by block id, audit F07). */
+    fun setFitChoice(blockId: String, choice: io.github.alalkipgen.autoflow.core.recap.FitChoice) {
         if (_state.value.busy) return
-        val blockId = currentStory()?.blocks?.getOrNull(index)?.id ?: "b_seg$index"
+        if (currentStory()?.blocks?.any { it.id == blockId } != true) return
         update { it.copy(fit = it.fit + (blockId to choice.name)) }
     }
 

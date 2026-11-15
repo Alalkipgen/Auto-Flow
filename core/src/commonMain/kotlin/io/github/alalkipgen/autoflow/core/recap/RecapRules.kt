@@ -70,7 +70,7 @@ object RecapRules {
  * [videoSlow] < 1.0 when FitChoice.SLOW_VIDEO: setpts slows the picture to match the take (5B-6).
  */
 data class FitRow(val segment: Int, val sceneMs: Long, val takeMs: Long?, val clipMs: Long, val status: FitStatus,
-                  val voiceSpeed: Float = 1f, val videoSlow: Float = 1f) {
+                  val voiceSpeed: Float = 1f, val videoSlow: Float = 1f, val block: String? = null) {
     val overMs: Long get() = if (takeMs == null) 0 else maxOf(0, clipMs - sceneMs)
 }
 
@@ -81,37 +81,47 @@ object RecapFit {
     const val LEAD_MS = 200L
     const val TAIL_MS = 400L
 
-    fun rows(recap: Recap, script: RecapScript, maxVoiceSpeed: Float = 1.5f, maxVideoSlow: Float = 0.7f): List<FitRow> {
-        return script.segments.mapIndexed { i, seg ->
-            val take = RecapRules.currentTake(recap, script, i)
-            val scene = seg.durationMs
-            val choice = recap.fit[i]
-            when {
-                take != null -> {
-                    val want = maxOf(scene, take.durationMs + TAIL_MS)
-                    val runsOn = want > scene
-                    when {
-                        // 5B-6 SmartFit SPEED: speed up voice to fit in the scene.
-                        runsOn && choice == FitChoice.SPEED && take.durationMs > 0 -> {
-                            val rawSpeed = (take.durationMs + TAIL_MS).toFloat() / scene.toFloat()
-                            val speed = rawSpeed.coerceIn(1.0f, maxVoiceSpeed.coerceAtLeast(1.01f))
-                            FitRow(i, scene, take.durationMs, scene, FitStatus.FITS, voiceSpeed = speed)
-                        }
-                        // 5B-6 SmartFit SLOW_VIDEO: slow down the picture so it fills the take duration.
-                        runsOn && choice == FitChoice.SLOW_VIDEO && scene > 0 -> {
-                            val rawSlow = scene.toFloat() / (take.durationMs + TAIL_MS).toFloat()
-                            val slow = rawSlow.coerceIn(maxVideoSlow.coerceAtMost(0.99f), 1.0f)
-                            val newClip = take.durationMs + TAIL_MS
-                            FitRow(i, scene, take.durationMs, newClip, FitStatus.RUNS_ON, videoSlow = slow)
-                        }
-                        else -> FitRow(i, scene, take.durationMs, want, if (runsOn) FitStatus.RUNS_ON else FitStatus.FITS)
-                    }
-                }
-                RecapRules.isStale(recap, script, i) -> FitRow(i, scene, null, scene, FitStatus.STALE)
-                else -> FitRow(i, scene, null, scene, FitStatus.NO_VOICE)
-            }
+    fun rows(recap: Recap, script: RecapScript, maxVoiceSpeed: Float = 1.5f, maxVideoSlow: Float = 0.7f): List<FitRow> =
+        script.segments.mapIndexed { i, seg ->
+            row(i, seg.durationMs, RecapRules.currentTake(recap, script, i)?.durationMs, recap.fit[i],
+                RecapRules.isStale(recap, script, i), maxVoiceSpeed, maxVideoSlow)
         }
-    }
+
+    /**
+     * v2 rows (audit F07): one per story block, in story order; the scene is the block's clips together, the take
+     * is [RecapRulesV2.currentTake] (chosen, else newest, when not stale) and the choice is `recap.fit[block.id]`.
+     */
+    fun rows(recap: RecapV2, story: RecapStory, lexicon: Lexicon = Lexicon.EMPTY, maxVoiceSpeed: Float = 1.5f, maxVideoSlow: Float = 0.7f): List<FitRow> =
+        story.blocks.mapIndexed { i, b ->
+            row(i, b.durationMs, RecapRulesV2.currentTake(recap, b, lexicon)?.durationMs, recap.fitChoice(b.id),
+                RecapRulesV2.isStale(recap, b, lexicon), maxVoiceSpeed, maxVideoSlow).copy(block = b.id)
+        }
+
+    private fun row(i: Int, scene: Long, takeMs: Long?, choice: FitChoice?, stale: Boolean, maxVoiceSpeed: Float, maxVideoSlow: Float): FitRow =
+        when {
+            takeMs != null -> {
+                val want = maxOf(scene, takeMs + TAIL_MS)
+                val runsOn = want > scene
+                when {
+                    // 5B-6 SmartFit SPEED: speed up voice to fit in the scene.
+                    runsOn && choice == FitChoice.SPEED && takeMs > 0 -> {
+                        val rawSpeed = (takeMs + TAIL_MS).toFloat() / scene.toFloat()
+                        val speed = rawSpeed.coerceIn(1.0f, maxVoiceSpeed.coerceAtLeast(1.01f))
+                        FitRow(i, scene, takeMs, scene, FitStatus.FITS, voiceSpeed = speed)
+                    }
+                    // 5B-6 SmartFit SLOW_VIDEO: slow down the picture so it fills the take duration.
+                    runsOn && choice == FitChoice.SLOW_VIDEO && scene > 0 -> {
+                        val rawSlow = scene.toFloat() / (takeMs + TAIL_MS).toFloat()
+                        val slow = rawSlow.coerceIn(maxVideoSlow.coerceAtMost(0.99f), 1.0f)
+                        val newClip = takeMs + TAIL_MS
+                        FitRow(i, scene, takeMs, newClip, FitStatus.RUNS_ON, videoSlow = slow)
+                    }
+                    else -> FitRow(i, scene, takeMs, want, if (runsOn) FitStatus.RUNS_ON else FitStatus.FITS)
+                }
+            }
+            stale -> FitRow(i, scene, null, scene, FitStatus.STALE)
+            else -> FitRow(i, scene, null, scene, FitStatus.NO_VOICE)
+        }
 
     fun totalMs(rows: List<FitRow>): Long = rows.sumOf { it.clipMs }
 }
@@ -122,34 +132,8 @@ fun RecapRules.canFindScenes(recap: RecapV2): Gate = canFindScenes(recap.toV1())
 fun RecapRules.canGenerateScript(recap: RecapV2, summary: String, subtitles: String): Gate =
     canGenerateScript(recap.toV1(), summary, subtitles)
 fun RecapRules.canWriteManually(recap: RecapV2): Gate = canWriteManually(recap.toV1())
-fun RecapRules.isCurrent(recap: RecapV2, script: RecapScript?): Boolean =
-    isCurrent(recap.toV1(), script)
-fun RecapRules.canApproveScript(recap: RecapV2, script: RecapScript?): Gate =
-    canApproveScript(recap.toV1(), script)
-fun RecapRules.canVoice(recap: RecapV2, script: RecapScript?): Gate =
-    canVoice(recap.toV1(), script)
-fun RecapRules.canRender(recap: RecapV2, script: RecapScript?): Gate =
-    canRender(recap.toV1(), script)
-fun RecapRules.currentTake(recap: RecapV2, script: RecapScript, i: Int): VoiceTake? =
-    currentTake(recap.toV1(), script, i)
-fun RecapRules.isStale(recap: RecapV2, script: RecapScript, i: Int): Boolean =
-    isStale(recap.toV1(), script, i)
-fun RecapRules.withTake(recap: RecapV2, take: VoiceTake): RecapV2 {
-    val v1 = withTake(recap.toV1(), take)
-    // map VoiceTake back to BlockTake and update takes list
-    val blockTake = BlockTake(
-        block = "b_seg${take.segment}",
-        audio = take.audio,
-        source = when (take.source) {
-            VoiceSource.TTS, VoiceSource.REPLICATED -> TakeSource.TTS
-            VoiceSource.RECORDED -> TakeSource.RECORDED
-        },
-        durationMs = take.durationMs,
-        spokenHash = take.textHash,
-    )
-    return recap.copy(takes = recap.takes.filter { it.block != blockTake.block } + blockTake)
-}
 
-// RecapFit overloads for RecapV2
-fun RecapFit.rows(recap: RecapV2, script: RecapScript, maxVoiceSpeed: Float = 1.5f, maxVideoSlow: Float = 0.7f): List<FitRow> =
-    rows(recap.toV1(), script, maxVoiceSpeed, maxVideoSlow)
+// The story / take v2 overloads (isCurrent / canApproveScript / canVoice / currentTake / isStale / canRender /
+// withTake / RecapFit.rows with a RecapScript) were removed (audit F05 / F06 / F07): through `toV1()` they compared
+// only first clips with the picks and mapped takes by list position, which is wrong for multi-clip blocks and once a
+// block keeps a take history. Use RecapRulesV2 and RecapFit.rows(RecapV2, RecapStory).
