@@ -77,8 +77,9 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
     }
 }
 
+/** Approved count, versions, Approve all / Regenerate all, snap to beat; also on the Studio v2 shot sheet (5B-12). */
 @Composable
-private fun Header(state: StoryboardUiState, model: StoryboardModel, busy: Boolean) {
+internal fun Header(state: StoryboardUiState, model: StoryboardModel, busy: Boolean) {
     var confirming by remember { mutableStateOf(false) }
     val count: @Composable () -> Unit = { AfText("${state.approvedCount}/${state.cards.size} approved", muted = true) }
     val versions: @Composable () -> Unit = {
@@ -117,8 +118,9 @@ private fun Header(state: StoryboardUiState, model: StoryboardModel, busy: Boole
     }
 }
 
+/** One storyboard card; [showHeader] = false on the shot sheet (5B-12), which shows the shot number itself. */
 @Composable
-private fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean) {
+internal fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean, showHeader: Boolean = true) {
     var mode by remember(card.number) { mutableStateOf(CardMode.VIEW) }
     val number = "#${card.number.toString().padStart(2, '0')}"
     Column(
@@ -135,7 +137,13 @@ private fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean) {
             if (card.approved) AfText("✓ Approved", color = AutoFlowColors.Green, size = 12.sp)
             if (card.stale) AfText(STALE, color = AutoFlowColors.Amber, size = 12.sp)
         }
-        if (LocalCompact.current) {
+        if (!showHeader) {
+            WrapRow(spacing = 10.dp) {
+                if (card.approved) AfText("✓ Approved", color = AutoFlowColors.Green, size = 12.sp)
+                if (card.stale) AfText(STALE, color = AutoFlowColors.Amber, size = 12.sp)
+                AfText(card.tag, muted = true, size = 12.sp, mono = true)
+            }
+        } else if (LocalCompact.current) {
             WrapRow(spacing = 10.dp) {
                 badges()
                 AfText(card.tag, muted = true, size = 12.sp, mono = true)
@@ -147,7 +155,7 @@ private fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean) {
                 AfText(card.tag, muted = true, size = 12.sp, mono = true)
             }
         }
-        if (card.lyric.isNotBlank()) AfText(card.lyric, muted = true)
+        if (showHeader && card.lyric.isNotBlank()) AfText(card.lyric, muted = true)
         val spec = card.spec
         when {
             spec == null -> AfText("This shot has no scene yet.", color = AutoFlowColors.Amber)

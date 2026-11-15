@@ -87,14 +87,17 @@ fun FlowHandoffScreen(
     }
 }
 
+/** One shot's handoff card; [showHeader] = false on the Studio v2 shot sheet (5B-12), which has its own header. */
 @Composable
-private fun HandoffCard(
+internal fun HandoffCard(
     row: HandoffRow,
     compact: Boolean,
     model: FlowHandoffModel,
     importVideo: () -> Unit,
     fast: Int,
     quality: Int,
+    showHeader: Boolean = true,
+    noPromptText: String = "No compiled prompt — compile it on the Shots screen.",
 ) {
     var showCredits by remember(row.number) { mutableStateOf(false) }
     var creditInput by remember(row.number) { mutableStateOf("") }
@@ -117,11 +120,13 @@ private fun HandoffCard(
     ) {
         // Header
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("Shot ${row.number}", bold = true, size = 14.sp)
-            AfText(row.timecode, muted = true, size = 12.sp)
+            if (showHeader) {
+                AfText("Shot ${row.number}", bold = true, size = 14.sp)
+                AfText(row.timecode, muted = true, size = 12.sp)
+            }
             handoffBadges(row.state, row.accepted).forEach { StatePill(it) }
         }
-        row.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 12.sp) }
+        if (showHeader) row.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 12.sp) }
 
         // What is attached: reference image and video thumbnails (phone test v0.1.14, fix 2)
         WrapRow {
@@ -145,7 +150,7 @@ private fun HandoffCard(
             ) {
                 AfText(prompt.take(200) + if (prompt.length > 200) "…" else "", size = 11.sp)
             }
-        } ?: AfText("No compiled prompt — compile it on the Shots screen.", muted = true, size = 12.sp)
+        } ?: AfText(noPromptText, muted = true, size = 12.sp)
 
         // Pass toggle
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -186,7 +191,7 @@ private fun HandoffCard(
 }
 
 @Composable
-private fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
+internal fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
     val image by produceState<ImageBitmap?>(null, row.refImage) {
         value = row.refImage?.let { model.refThumbnail(row.number)?.let(::decodeImage) }
     }
@@ -202,7 +207,7 @@ private fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
 }
 
 @Composable
-private fun VideoThumb(row: HandoffRow, model: FlowHandoffModel) {
+internal fun VideoThumb(row: HandoffRow, model: FlowHandoffModel) {
     val image by produceState<ImageBitmap?>(null, row.shownVideo) {
         value = row.shownVideo?.let { model.videoThumbnail(row.number)?.let(::decodeImage) }
     }
@@ -324,7 +329,7 @@ private fun CreditQuestion(
 
 /** Manual Flow credit counter (DESIGN.md §6): today / this month, and the month's log with ✕ to fix a wrong line. */
 @Composable
-private fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
+internal fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
     var open by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth()
@@ -353,7 +358,7 @@ private fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
 
 /** Batch handoff sheet (DESIGN.md §6): ticked pending shots → one offline HTML page with prompts, refs, Copy buttons. */
 @Composable
-private fun BatchPanel(state: FlowHandoffUiState, model: FlowHandoffModel) {
+internal fun BatchPanel(state: FlowHandoffUiState, model: FlowHandoffModel) {
     val pending = state.rows.count { it.batchable }
     Column(
         Modifier.fillMaxWidth()

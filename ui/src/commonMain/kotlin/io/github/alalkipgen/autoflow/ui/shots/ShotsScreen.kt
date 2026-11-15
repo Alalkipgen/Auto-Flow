@@ -114,7 +114,7 @@ private fun ShotGrid(state: ShotsUiState, model: ShotsModel) {
 }
 
 @Composable
-private fun ShotRowItem(row: ShotRow, selected: Boolean, onClick: () -> Unit) {
+internal fun ShotRowItem(row: ShotRow, selected: Boolean, onClick: () -> Unit) {
     val bg = if (selected) AutoFlowColors.Card else AutoFlowColors.Panel
     val border = if (selected) AutoFlowColors.Purple else AutoFlowColors.Line
     Row(
@@ -138,7 +138,7 @@ private fun ShotRowItem(row: ShotRow, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun StatusBadge(status: ShotStatus) {
+internal fun StatusBadge(status: ShotStatus) {
     Box(
         Modifier
             .clip(AutoFlowShapes.Card)
@@ -152,7 +152,6 @@ private fun StatusBadge(status: ShotStatus) {
 
 @Composable
 private fun ShotDetailPanel(detail: ShotDetail, model: ShotsModel) {
-    var confirmCompile by remember(detail.number) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("Shot ${detail.number}", size = 16.sp, bold = true)
@@ -180,50 +179,56 @@ private fun ShotDetailPanel(detail: ShotDetail, model: ShotsModel) {
             AfText("No storyboard yet — generate it on the Storyboard screen.", muted = true, size = 13.sp)
         }
 
-        // Prompt section
-        SectionLabel("Prompt (Veo / Flow)")
-        when {
-            detail.promptText != null -> {
-                Box(
-                    Modifier.fillMaxWidth()
-                        .clip(AutoFlowShapes.Card)
-                        .background(AutoFlowColors.Background)
-                        .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
-                        .padding(10.dp),
-                ) {
-                    AfText(detail.promptText, size = 12.sp)
+        PromptSection(detail, model)
+    }
+}
+
+/** Prompt (Veo / Flow): compiled text, approve, recompile — Shots detail and the Studio v2 shot sheet (5B-12). */
+@Composable
+internal fun PromptSection(detail: ShotDetail, model: ShotsModel) {
+    var confirmCompile by remember(detail.number) { mutableStateOf(false) }
+    SectionLabel("Prompt (Veo / Flow)")
+    when {
+        detail.promptText != null -> {
+            Box(
+                Modifier.fillMaxWidth()
+                    .clip(AutoFlowShapes.Card)
+                    .background(AutoFlowColors.Background)
+                    .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+                    .padding(10.dp),
+            ) {
+                AfText(detail.promptText, size = 12.sp)
+            }
+            val approveLabel = if (detail.approvedPrompt) "✓ Approved" else "✓ Approve Prompt"
+            WrapRow {
+                AfButton(approveLabel,
+                    { model.approvePrompt(detail.number, !detail.approvedPrompt) },
+                    kind = if (detail.approvedPrompt) ButtonKind.Primary else ButtonKind.Secondary,
+                )
+                if (confirmCompile) {
+                    AfButton("Recompile? Yes", {
+                        confirmCompile = false
+                        model.compilePrompt(detail.number)
+                    }, kind = ButtonKind.Danger)
+                    AfButton("Cancel", { confirmCompile = false })
+                } else {
+                    AfButton("↻ Recompile", { confirmCompile = true }, kind = ButtonKind.Secondary)
                 }
-                val approveLabel = if (detail.approvedPrompt) "✓ Approved" else "✓ Approve Prompt"
-                WrapRow {
-                    AfButton(approveLabel,
-                        { model.approvePrompt(detail.number, !detail.approvedPrompt) },
-                        kind = if (detail.approvedPrompt) ButtonKind.Primary else ButtonKind.Secondary,
-                    )
-                    if (confirmCompile) {
-                        AfButton("Recompile? Yes", {
-                            confirmCompile = false
-                            model.compilePrompt(detail.number)
-                        }, kind = ButtonKind.Danger)
-                        AfButton("Cancel", { confirmCompile = false })
-                    } else {
-                        AfButton("↻ Recompile", { confirmCompile = true }, kind = ButtonKind.Secondary)
-                    }
-                }
             }
-            detail.compileError != null -> {
-                AfText("Cannot compile: ${detail.compileError}", color = AutoFlowColors.Amber, size = 12.sp)
-            }
-            detail.spec != null -> {
-                AfText("Not compiled yet.", muted = true, size = 12.sp)
-                AfButton("Compile Prompt", { model.compilePrompt(detail.number) }, kind = ButtonKind.Primary)
-            }
-            else -> AfText("Generate storyboard first.", muted = true, size = 12.sp)
         }
+        detail.compileError != null -> {
+            AfText("Cannot compile: ${detail.compileError}", color = AutoFlowColors.Amber, size = 12.sp)
+        }
+        detail.spec != null -> {
+            AfText("Not compiled yet.", muted = true, size = 12.sp)
+            AfButton("Compile Prompt", { model.compilePrompt(detail.number) }, kind = ButtonKind.Primary)
+        }
+        else -> AfText("Generate storyboard first.", muted = true, size = 12.sp)
     }
 }
 
 @Composable
-private fun VersionBrowser(detail: ShotDetail, model: ShotsModel) {
+internal fun VersionBrowser(detail: ShotDetail, model: ShotsModel) {
     SectionLabel(versionsTitle(detail.versions.size))
     detail.versions.firstOrNull { it.id == detail.previewing }?.path?.let { path -> key(path) { VideoPreview(path) } }
     detail.versions.asReversed().forEach { v ->
