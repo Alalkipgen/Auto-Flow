@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
 import io.github.alalkipgen.autoflow.ai.AiResult
+import io.github.alalkipgen.autoflow.ai.retry.isBusy
 import io.github.alalkipgen.autoflow.ai.TtsProvider
 import io.github.alalkipgen.autoflow.ai.VoiceRef
 import io.github.alalkipgen.autoflow.ai.recap.RecapBrief
@@ -562,9 +563,14 @@ class RecapModel(
      * Throws on failure so the worker can mark the job FAILED.
      */
     suspend fun speakForJob(index: Int) {
-        val msg = speakOne(index)
-        if (msg != null) error(msg)
+        val msg = speakOne(index) ?: return
+        // Locked model busy (429 / 5xx after retries) → the job pauses, never another model (spec §3).
+        if (lastSpeakBusy) throw io.github.alalkipgen.autoflow.core.recap.AiItemPaused(msg)
+        error(msg)
     }
+
+    /** True when the last [speakOne] failure was a busy model (job pauses) rather than a hard failure. */
+    private var lastSpeakBusy = false
 
     /** 🔊 one segment with Gemini TTS. */
     fun speak(index: Int): Job? {
@@ -635,16 +641,27 @@ class RecapModel(
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.PLAIN -> "calm, clear movie recap narrator"
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.COMMENTARY -> "lively movie recap narrator with feeling"
         }
-        // Voice lock enforcement (D-35, audit): pass the locked model so the provider never switches.
-        val lockedModel = recap.voiceLock?.model
+        // Voice lock (D-35, spec §3): pass the locked model so the provider never switches. A lock made by a voice
+        // chip before any take has model "" — that means "no model yet" (the provider uses the default lock), never
+        // a model called "".
+        val lockedModel = recap.voiceLock?.model?.takeIf { it.isNotBlank() }
         val ttsVoice = recap.voiceLock?.voice ?: "Kore"
-        return when (val r = provider.speak(text, VoiceRef(ttsVoice), "my", style, lockedModel)) {
+        val r = provider.speak(text, VoiceRef(ttsVoice), "my", style, lockedModel)
+        lastSpeakBusy = r.isBusy()
+        return when (r) {
             is AiResult.Ok -> {
                 val ms = PcmWav.parse(r.value)?.durationMs ?: return "The speech audio cannot be read"
-                if (saveTake(index, r.value, "wav", VoiceSource.TTS, ms)) null else _state.value.message ?: "Cannot save the voice"
+                if (!saveTake(index, r.value, "wav", VoiceSource.TTS, ms)) return _state.value.message ?: "Cannot save the voice"
+                // The first TTS take sets the lock if it is empty (spec §3): the model that answered + this voice.
+                val answered = r.usage?.model
+                if (lockedModel == null && !answered.isNullOrBlank()) {
+                    update { rc -> rc.copy(voiceLock = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", answered, ttsVoice, "my")) }
+                }
+                null
             }
-            is AiResult.RateLimited -> RATE_LIMITED
-            is AiResult.Failed -> "Gemini TTS: ${r.msg}"
+            is AiResult.RateLimited -> "${lockedModel ?: "Gemini TTS"} is busy · Resume (${RATE_LIMITED})"
+            is AiResult.Failed -> if (lastSpeakBusy) "${lockedModel ?: "Gemini TTS"} is busy · Resume (${r.msg})"
+                else "Gemini TTS: ${r.msg}"
             is AiResult.Deferred -> r.instruction
         }
     }

@@ -5,6 +5,7 @@ import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.AiJobStore
+import io.github.alalkipgen.autoflow.core.recap.AiItemPaused
 import io.github.alalkipgen.autoflow.core.recap.AiItemProcessor
 import io.github.alalkipgen.autoflow.core.recap.RpmPacer
 import kotlinx.coroutines.CoroutineScope
@@ -97,7 +98,10 @@ class DesktopAiJobRunner(
                     refresh()
                 }
                 .onFailure { e ->
-                    current = current.copy(state = AiJobState.FAILED, error = e.message)
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    // Busy locked model → PAUSED (Resume re-enqueues); anything else → FAILED (spec §3).
+                    val state = if (e is AiItemPaused) AiJobState.PAUSED else AiJobState.FAILED
+                    current = current.copy(state = state, error = e.message)
                     store.save(current)
                     refresh()
                     return
