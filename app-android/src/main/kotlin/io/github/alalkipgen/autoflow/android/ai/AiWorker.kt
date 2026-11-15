@@ -67,6 +67,10 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
                 updateNotification(labelFor(current), "${current.items.size} items left")
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: io.github.alalkipgen.autoflow.core.recap.AiItemPaused) {
+                // Locked model busy (spec §3): keep the remaining items, Resume re-enqueues.
+                store.save(current.copy(state = AiJobState.PAUSED, error = e.message))
+                return Result.success()
             } catch (e: Throwable) {
                 store.save(current.copy(state = AiJobState.FAILED, error = e.message))
                 return Result.success()

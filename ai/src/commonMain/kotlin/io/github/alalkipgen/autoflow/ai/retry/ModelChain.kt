@@ -92,3 +92,16 @@ class ModelChain(
         }
     }
 }
+
+/**
+ * Voice lock (spec §3): true when the model was only busy (429, 5xx, timeout, an empty / unreadable answer after
+ * the D-15 retries) — the job pauses ("<model> is busy · Resume"). False for 400 / 404 / key / blocked: the job
+ * fails ("Model unavailable · Change voice…"). Never a reason to switch models.
+ */
+fun AiResult<*>.isBusy(): Boolean = when (this) {
+    is AiResult.RateLimited -> true
+    is AiResult.Failed -> code in BUSY_CODES || code.startsWith("http_5")
+    else -> false
+}
+
+private val BUSY_CODES = setOf("timeout", "empty_response", "invalid_response", "invalid_audio")

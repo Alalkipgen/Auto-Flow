@@ -27,7 +27,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** D-34: Gemini TTS request shapes per model family, WAV passthrough, raw PCM wrapped, fallback on 404. */
+/** D-34: Gemini TTS request shapes per model family, WAV passthrough, raw PCM wrapped (one model per call: VoiceLockTest). */
 class GeminiTtsProviderTest {
     private val requests = mutableListOf<HttpRequestData>()
     private val wav = Wav.pcm16Mono(ShortArray(2400) { (it % 100).toShort() }, 24_000)
@@ -69,19 +69,19 @@ class GeminiTtsProviderTest {
 
     @Test
     fun olderModelGetsPrebuiltVoiceAndRawPcmIsWrapped() = runTest {
+        // Locked to the older model (no fallback any more — VoiceLockTest): its raw PCM is wrapped as WAV.
         val pcm = ByteArray(4800) { (it % 7).toByte() }
-        val r = provider(
-            HttpStatusCode.NotFound to """{"error":{"code":404,"message":"model not found"}}""",
-            HttpStatusCode.OK to audio("audio/L16;codec=pcm;rate=24000", pcm),
-        ).speak("က", VoiceRef("Kore"), "my", "style")
+        val r = provider(HttpStatusCode.OK to audio("audio/L16;codec=pcm;rate=24000", pcm))
+            .speak("က", VoiceRef("Kore"), "my", "style", lockedModel = "gemini-2.5-flash-preview-tts")
         val out = assertIs<AiResult.Ok<ByteArray>>(r).value
         val info = assertNotNull(Wav.parse(out))
         assertEquals(24_000, info.sampleRate)
         assertEquals(100L, info.durationMs)
         assertEquals("gemini-2.5-flash-preview-tts", r.usage?.model)
-        val voice = body(1)["generationConfig"]!!.jsonObject["speechConfig"]!!.jsonObject["voiceConfig"]!!.jsonObject
+        assertEquals(1, requests.size)
+        val voice = body(0)["generationConfig"]!!.jsonObject["speechConfig"]!!.jsonObject["voiceConfig"]!!.jsonObject
         assertEquals("Kore", voice["prebuiltVoiceConfig"]!!.jsonObject["voiceName"]!!.jsonPrimitive.content)
-        assertTrue("speech_metadata" !in body(1).toString())
+        assertTrue("speech_metadata" !in body(0).toString())
     }
 
     @Test

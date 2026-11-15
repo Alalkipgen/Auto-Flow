@@ -41,20 +41,14 @@ class GeminiTtsProvider(
         val key = apiKey()?.trim().orEmpty()
         if (key.isEmpty()) return AiResult.Failed("no_api_key", "Add a Gemini API key in Settings")
         if (text.isBlank()) return AiResult.Failed("empty_text", "There is no text to speak")
-        // Voice-lock enforcement (D-35, audit): when a model is locked (per-call or field), restrict to
-        // that model only — never fall back to another candidate on 503/429/404.
-        val lock = lockedModel ?: this.lockedModel
-        val eligible = if (lock != null) {
-            listOf(lock)
-        } else {
-            // No lock: use all models that declare they can speak this language.
-            allCandidates.filter { it.speaksLanguage(lang) }.map { it.id }
-        }
-        if (eligible.isEmpty()) return AiResult.Failed(
+        // Voice lock (D-35, spec §3): exactly one model per call — the lock, or with no lock (blank = none) the
+        // default lock = the first candidate that speaks [lang]. 429 / 5xx retry that model only (D-15 backoff),
+        // 404 fails; never another model or voice ("No automatic model or voice change, ever").
+        val model = resolveModel(allCandidates, lang, lockedModel ?: this.lockedModel) ?: return AiResult.Failed(
             "no_tts_model_for_lang",
             "No TTS model in config/models.json supports language \"$lang\"",
         )
-        return chain.run(eligible) { model ->
+        return chain.run(listOf(model)) { model ->
             val body = GeminiWire.speechRequest(model, text.trim(), voice.id, style).toString()
             when (val a: Attempt<JsonElement> = GeminiWire.post(http, baseUrl, model, key, body, audio = true)) {
                 is Attempt.Success -> wav(a.value)?.let { Attempt.Success(it, a.promptTokens, a.outputTokens) }
@@ -68,6 +62,10 @@ class GeminiTtsProvider(
     }
 
     companion object {
+        /** The one model a [speak] call may use: a non-blank [lock], else the first candidate that speaks [lang]. */
+        fun resolveModel(candidates: List<io.github.alalkipgen.autoflow.ai.config.TtsCandidate>, lang: String, lock: String?): String? =
+            lock?.takeIf { it.isNotBlank() } ?: candidates.firstOrNull { it.speaksLanguage(lang) }?.id
+
         /** Gemini TTS raw PCM rate. */
         const val PCM_RATE = 24_000
 

@@ -30,3 +30,10 @@ fun interface AiItemProcessor {
     /** Process one [item]; throw on failure. */
     suspend fun process(job: AiJob, item: String)
 }
+
+/**
+ * Thrown by an [AiItemProcessor] when the item could not run *for now* (the locked model is busy: 429 / 5xx after
+ * retries, spec §3). The runner keeps the remaining items and marks the job PAUSED with [message] so the user can
+ * Resume; any other exception marks it FAILED.
+ */
+class AiItemPaused(message: String) : Exception(message)
