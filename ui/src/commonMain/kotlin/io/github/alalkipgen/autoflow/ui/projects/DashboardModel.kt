@@ -146,10 +146,27 @@ class DashboardModel(
         } catch (_: Exception) {
             // Never block opening; store.open reports the real problem.
         }
-        return when (val r = store.open(dir)) {
-            is CoreResult.Ok -> opened(dir, r.value)
-            is CoreResult.Err -> fail(r.error.toText())
-        }
+        val firstTry = store.open(dir)
+        if (firstTry is CoreResult.Ok) return opened(dir, firstTry.value)
+        // Current project.json is unreadable — try restoring migration backup (covers v0.2.0 premature migration).
+        try {
+            val backup = joinPath(dir, RecapMigration.BACKUP_FILE)
+            val main = joinPath(dir, "project.json")
+            if (fs.exists(backup)) {
+                val copy = joinPath(dir, RecapMigration.V2_COPY_FILE)
+                if (!fs.exists(copy)) {
+                    fs.copyDurably(main, "$copy.tmp")
+                    fs.atomicMove("$copy.tmp", copy)
+                }
+                fs.copyDurably(backup, "$main.tmp")
+                fs.atomicMove("$main.tmp", main)
+                val r2 = store.open(dir)
+                if (r2 is CoreResult.Ok) return opened(dir, r2.value)
+                // Restore the broken file back so we don't silently lose it.
+                if (fs.exists(copy)) { fs.copyDurably(copy, "$main.tmp"); fs.atomicMove("$main.tmp", main) }
+            }
+        } catch (_: Exception) { }
+        return fail((firstTry as CoreResult.Err).error.toText())
     }
 
     /**
