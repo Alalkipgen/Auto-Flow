@@ -1,6 +1,20 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.platform.testTag
+import io.github.alalkipgen.autoflow.core.recap.PreviewGeometry
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -101,6 +115,8 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
             }
         }
     }
+
+    ExactFrameCard(model)
 
     // ── 🖼 Background ──────────────────────────────────────────────────────────
     if (Look.FILL !in recap.looks) {
@@ -218,23 +234,122 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
 }
 
-/** A frame of the first picked scene with the blur boxes drawn on it (what the render will hide). */
+/** Test tag of the live mask preview (drag / pinch target). */
+internal const val MASK_PREVIEW_TAG = "mask-preview"
+
+/**
+ * Live preview (5A-8, D-42): a frame of the first picked scene with the blur boxes drawn on it (what the render will
+ * hide). Touch a box to pick it, drag to move it, pinch (or the mouse wheel on a computer) to resize it around the
+ * fingers; the box follows the fingers and is saved when they lift. Rects are 0–1 of the movie picture (D-50), the
+ * same numbers the export compiler uses.
+ */
 @Composable
 private fun MaskPreview(recap: RecapV2, model: RecapModel) {
-    val scene = recap.picked.firstOrNull() ?: recap.scenes.firstOrNull() ?: return
-    val image by produceState<ImageBitmap?>(null, scene.startMs, scene.endMs) { value = model.thumbnail(scene)?.let(::decodeImage) }
+    val scene = recap.picked.firstOrNull() ?: recap.scenes.firstOrNull()
+    val image by produceState<ImageBitmap?>(null, scene?.startMs, scene?.endMs) { value = scene?.let { model.thumbnail(it) }?.let(::decodeImage) }
     val movie = recap.movie
     val ratio = if (movie != null && movie.width > 0 && movie.height > 0) movie.width.toFloat() / movie.height else 16f / 9f
-    Box(Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(ratio).clip(AutoFlowShapes.Card).background(AutoFlowColors.Background)) {
+    val masks = recap.visual.masks
+    var selected by remember { mutableStateOf<MaskPreset?>(null) }
+    // The box under the fingers while a gesture runs; saved (and cleared) when they lift.
+    var draft by remember { mutableStateOf<Pair<MaskPreset, List<Float>>?>(null) }
+    val current by rememberUpdatedState(masks)
+    Box(
+        Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(ratio).clip(AutoFlowShapes.Card).background(AutoFlowColors.Background)
+            .testTag(MASK_PREVIEW_TAG)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val w = size.width.toFloat().coerceAtLeast(1f)
+                    val h = size.height.toFloat().coerceAtLeast(1f)
+                    val list = current
+                    val hit = PreviewGeometry.hit(list.map { it.rect }, down.position.x / w, down.position.y / h, slop = 0.02f)
+                    if (hit == null) {
+                        selected = null
+                        return@awaitEachGesture
+                    }
+                    val preset = list[hit].preset
+                    selected = preset
+                    var rect = list[hit].rect
+                    down.consume()
+                    do {
+                        val event = awaitPointerEvent()
+                        val zoom = event.calculateZoom()
+                        val pan = event.calculatePan()
+                        if (zoom != 1f || pan != Offset.Zero) {
+                            val c = event.calculateCentroid(useCurrent = false).takeIf { it.isSpecified }
+                                ?: Offset((rect[0] + rect[2] / 2) * w, (rect[1] + rect[3] / 2) * h)
+                            rect = PreviewGeometry.transform(rect, pan.x / w, pan.y / h, zoom, c.x / w, c.y / h, RecapVisuals.MIN_SIZE)
+                            draft = preset to rect
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
+                    } while (event.changes.any { it.pressed })
+                    if (draft != null) model.setMaskRect(preset, rect)
+                    draft = null
+                }
+            }
+            .pointerInput(Unit) {
+                // Mouse wheel = pinch on a computer: resizes the picked box around its centre, saved at once.
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type != PointerEventType.Scroll) continue
+                        val preset = selected ?: continue
+                        val rect = current.firstOrNull { it.preset == preset }?.rect ?: continue
+                        val dy = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+                        if (dy == 0f) continue
+                        val zoom = if (dy < 0) 1.1f else 1f / 1.1f
+                        model.setMaskRect(preset, PreviewGeometry.transform(rect, 0f, 0f, zoom, rect[0] + rect[2] / 2, rect[1] + rect[3] / 2, RecapVisuals.MIN_SIZE))
+                        event.changes.forEach { it.consume() }
+                    }
+                }
+            },
+    ) {
         image?.let { Image(it, contentDescription = "Movie frame", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
         Canvas(Modifier.fillMaxSize()) {
-            recap.visual.masks.forEach { m ->
-                val r = m.rect
+            masks.forEach { m ->
+                val r = draft?.takeIf { it.first == m.preset }?.second ?: m.rect
                 val topLeft = Offset(r[0] * size.width, r[1] * size.height)
                 val box = Size(r[2] * size.width, r[3] * size.height)
-                drawRect(Color.White.copy(alpha = 0.55f), topLeft, box)
-                drawRect(AutoFlowColors.Purple, topLeft, box, style = Stroke(width = 2.dp.toPx()))
+                val picked = m.preset == selected
+                drawRect(Color.White.copy(alpha = if (picked) 0.4f else 0.55f), topLeft, box)
+                drawRect(if (picked) AutoFlowColors.Cyan else AutoFlowColors.Purple, topLeft, box, style = Stroke(width = (if (picked) 3 else 2).dp.toPx()))
             }
+        }
+    }
+    AfText(
+        selected?.let { "${it.label}: drag to move · pinch or mouse wheel to resize" } ?: "Touch a box to move or resize it.",
+        muted = true, size = 12.sp,
+    )
+}
+
+/**
+ * "Exact frame" (D-42): the export compiler renders one still of the recap (blur boxes, background, looks,
+ * watermark, burned-in captions with the real font) — the preview above is close, this is exact.
+ */
+@Composable
+private fun ExactFrameCard(model: RecapModel) {
+    val scope = rememberCoroutineScope()
+    var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
+    var working by remember { mutableStateOf(false) }
+    AfCard("🎯 Exact frame") {
+        AfText("One frame made by the export itself — what the video will really show.", muted = true, size = 12.sp)
+        AfButton(if (working) "Rendering…" else "Exact frame", {
+            if (!working) {
+                working = true
+                scope.launch { result = model.exactFrame(); working = false }
+            }
+        }, enabled = !working)
+        when (val r = result) {
+            is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Ok -> {
+                val bmp = remember(r.frame) { decodeImage(r.frame.bytes) }
+                bmp?.let {
+                    Image(it, contentDescription = "Exact frame", Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(it.width.toFloat() / it.height).clip(AutoFlowShapes.Card))
+                }
+                AfText("Exact frame · ${RecapModel.seconds(r.frame.atMs)}", muted = true, size = 12.sp)
+            }
+            is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Failed -> AfText(r.reason, color = AutoFlowColors.Amber, size = 12.sp)
+            null -> {}
         }
     }
 }

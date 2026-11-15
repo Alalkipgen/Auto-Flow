@@ -95,8 +95,13 @@ object LayerCompiler {
                 }
 
                 LayerType.TEXT -> {
-                    // TEXT layers generate ASS events; no filtergraph change needed
-                    val fontSize = (h / 18).coerceAtLeast(12)
+                    // TEXT layers generate ASS events; no filtergraph change needed. A whole-frame rect (the
+                    // default) keeps the centred caption size; a smaller rect places the text on its centre line
+                    // and sizes the lines to fill its height (e.g. the Publish Kit thumbnail title, 5B-10).
+                    val whole = layer.rect.size != 4 || (layer.rect[2] >= 1f && layer.rect[3] >= 1f)
+                    val lines = p.textMy.trim().lines().size.coerceAtLeast(1)
+                    val fontSize = if (whole) (h / 18).coerceAtLeast(12)
+                    else (layer.rect[3] * h / (lines * 1.5f)).toInt().coerceIn(12, h / 4)
                     assEvents += Overlay(
                         text = p.textMy,
                         startMs = from,
@@ -105,6 +110,8 @@ object LayerCompiler {
                         sizePx = fontSize,
                         color = "#FFFFFF",
                         position = Pos.CENTER,
+                        centerY = if (whole) null else layer.rect[1] + layer.rect[3] / 2,
+                        strokeWidth = if (whole) 0 else maxOf(2, fontSize / 14),
                     )
                     chains += "[$prev]null[$next]"
                 }

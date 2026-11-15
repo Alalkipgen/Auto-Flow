@@ -65,4 +65,20 @@ class AssWriterTest {
     fun textCannotOpenOverrideBlocksOrEscapes() {
         assertEquals("a\\{b\\}c\\N\\\u2060Nd", AssWriter.escape("a{b}c\r\n\\Nd"))
     }
+
+    @Test
+    fun outlinedCaptionsUseTheirOwnStyle() {
+        // 5B-8 outline: the Dialogue must name the Style line written for it (it named "s0", which does not exist,
+        // so libass fell back to its Default style — wrong font and size — whenever an outline was picked).
+        val overlays = listOf(
+            Overlay("ည", 0, 1_000, noto, 64, strokeWidth = 3, strokeColour = "#FF0000"),
+            Overlay("မိုး", 1_000, 2_000, noto, 64),
+        )
+        val ass = AssWriter.write(overlays, RenderPresets.export(Ratio.R9_16)) { null }
+        val styles = ass.lines().filter { it.startsWith("Style: ") }
+        assertEquals(2, styles.size, ass)
+        kotlin.test.assertTrue(styles[0].startsWith("Style: s1,Noto Sans Myanmar,64,&H00FFFFFF,&H00FFFFFF,&H000000FF,"), styles[0])
+        val used = ass.lines().filter { it.startsWith("Dialogue: ") }.map { it.split(",")[3] }
+        assertEquals(listOf("s1", "s2"), used, ass)
+    }
 }

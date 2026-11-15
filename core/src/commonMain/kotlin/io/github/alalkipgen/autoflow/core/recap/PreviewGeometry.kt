@@ -35,6 +35,31 @@ object PreviewGeometry {
     }
 
     /**
+     * Index of the rect under the point ([x], [y]) (0–1), the topmost one (last in drawing order) when they overlap;
+     * [slop] widens every rect on each side so a thin strip is still easy to grab with a finger. Null = none.
+     */
+    fun hit(rects: List<List<Float>>, x: Float, y: Float, slop: Float = 0f): Int? =
+        rects.indices.lastOrNull { i ->
+            val r = rects[i]
+            x >= r[0] - slop && x <= r[0] + r[2] + slop && y >= r[1] - slop && y <= r[1] + r[3] + slop
+        }
+
+    /**
+     * One drag / pinch step on [rect] (5A-8): scale it by [zoom] around the gesture centre ([cx], [cy]) — the point
+     * under the fingers stays under the fingers — then move it by ([dx], [dy]); all 0–1, kept inside the frame with
+     * sides ≥ [minSize]. A side that is already the full frame (a strip) stays full while it is zoomed bigger.
+     */
+    fun transform(rect: List<Float>, dx: Float, dy: Float, zoom: Float, cx: Float, cy: Float, minSize: Float = 0.05f): List<Float> {
+        val z = if (zoom.isFinite() && zoom > 0f) zoom else 1f
+        val w = rect[2] * z
+        val h = rect[3] * z
+        // A plain drag (z = 1) adds dx / dy only, so many small moves do not drift by rounding.
+        val x = if (z == 1f) rect[0] + dx else cx - (cx - rect[0]) * z + dx
+        val y = if (z == 1f) rect[1] + dy else cy - (cy - rect[1]) * z + dy
+        return clamp(listOf(x, y, w, h), minSize)
+    }
+
+    /**
      * Converts a normalized rect `[x, y, w, h]` to pixel coordinates given [frameW] × [frameH].
      * Returns `[left, top, right, bottom]` in pixels.
      */

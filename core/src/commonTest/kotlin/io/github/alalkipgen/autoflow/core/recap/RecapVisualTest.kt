@@ -66,4 +66,14 @@ class RecapVisualTest {
         val back = CoreJson.decodeFromString(Recap.serializer(), CoreJson.encodeToString(Recap.serializer(), r.copy(visual = RecapVisuals.toggle(RecapVisual(), MaskPreset.BOTTOM))))
         assertEquals(MaskPreset.BOTTOM, back.visual.masks.single().preset)
     }
+
+    @Test
+    fun setRectPlacesOneBoxInsideThePicture() {
+        val v = RecapVisuals.toggle(RecapVisuals.toggle(RecapVisual(), MaskPreset.BOTTOM), MaskPreset.LOGO_TR)
+        val moved = RecapVisuals.setRect(v, MaskPreset.LOGO_TR, listOf(0.9f, -0.1f, 0.3f, 0.1f))
+        assertEquals(listOf(0.7f, 0f, 0.3f, 0.1f), moved.masks.single { it.preset == MaskPreset.LOGO_TR }.rect)
+        assertEquals(MaskPreset.BOTTOM.rect, moved.masks.single { it.preset == MaskPreset.BOTTOM }.rect, "other box untouched")
+        assertEquals(v, RecapVisuals.setRect(v, MaskPreset.LOGO_TR, listOf(Float.NaN, 0f, 0.1f, 0.1f)), "broken rect ignored")
+        assertEquals(v, RecapVisuals.setRect(v, MaskPreset.TOP, listOf(0f, 0f, 0.5f, 0.5f)), "no such box: nothing changes")
+    }
 }

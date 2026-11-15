@@ -108,6 +108,8 @@ class RecapModel(
     private val lexicon: Lexicon = Lexicon.EMPTY,
     /** Library for Brand Kit save/apply and BGM picker (D-51: 5B-3, 5B-4, 5B-8). */
     private val library: LibraryModel? = null,
+    /** Exact frames from the export compiler (D-42, 5A-8); null = this app cannot render stills. */
+    private val frames: io.github.alalkipgen.autoflow.ui.export.RecapFrames? = null,
 ) {
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
@@ -765,6 +767,25 @@ class RecapModel(
     fun setVisual(change: (io.github.alalkipgen.autoflow.core.recap.RecapVisual) -> io.github.alalkipgen.autoflow.core.recap.RecapVisual) {
         if (_state.value.busy) return
         update { it.copy(visual = change(it.visual)) }
+    }
+
+    /**
+     * Puts the blur box of [preset] at [rect] (0–1 of the movie picture) — the end of a drag / pinch on the live
+     * preview (5A-8); kept inside the picture, saved at once.
+     */
+    fun setMaskRect(preset: io.github.alalkipgen.autoflow.core.recap.MaskPreset, rect: List<Float>) {
+        setVisual { io.github.alalkipgen.autoflow.core.recap.RecapVisuals.setRect(it, preset, rect) }
+    }
+
+    /**
+     * "Exact frame" (D-42): the still the export will show at [atMs] (default: the first caption's middle), made by
+     * the export compiler — blur boxes, background, looks, watermark and burned-in captions exactly as rendered.
+     */
+    suspend fun exactFrame(atMs: Long? = null): io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result {
+        val f = frames ?: return io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Failed(io.github.alalkipgen.autoflow.ui.export.RecapFrames.NO_FFMPEG)
+        val t = atMs ?: withContext(Dispatchers.Default) { f.firstTime() }
+            ?: return io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Failed("Import the movie and write the script first.")
+        return withContext(Dispatchers.Default) { f.frame(t) }
     }
 
     /** Changes the caption look (5B-8): size, colour, box. */
