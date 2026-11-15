@@ -74,9 +74,9 @@ object AudioFilters {
             val atEnd = s.end == null || (totalSec != null && s.end >= totalSec - 0.001)
             if (s.end != null && s.end - s.start <= gap + 1e-6) continue // up to the gap (float noise aside) stays
             when {
-                s.start <= 0.001 && !atEnd -> removed += 0.0 to s.end!! - keep
+                s.start <= 0.001 && !atEnd -> removed += 0.0 to s.end - keep
                 atEnd -> removed += s.start + keep to null
-                else -> removed += s.start + keep / 2 to s.end!! - keep / 2
+                else -> removed += s.start + keep / 2 to s.end - keep / 2
             }
         }
         val kept = mutableListOf<Pair<Double, Double?>>()

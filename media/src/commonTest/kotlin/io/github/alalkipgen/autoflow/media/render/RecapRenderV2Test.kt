@@ -56,7 +56,7 @@ class RecapRenderV2Test {
         val chosen = recap.copy(takes = listOf(old, newer), chosenTakes = mapOf(block.id to old.audio))
         val g = RecapRender.graph(chosen, story, Ratio.R16_9, Quality.PREVIEW, files, null)
         assertEquals(listOf("artifacts/va_000000000old.wav"), g.voice!!.cues.map { it.file })
-        assertEquals(listOf(RecapFit.LEAD_MS), g.voice!!.cues.map { it.startMs })
+        assertEquals(listOf(RecapFit.LEAD_MS), g.voice.cues.map { it.startMs })
         // No choice → the newest (documented fallback).
         val newest = RecapRender.graph(chosen.copy(chosenTakes = emptyMap()), story, Ratio.R16_9, Quality.PREVIEW, files, null)
         assertEquals(listOf("artifacts/va_00000000new0.wav"), newest.voice!!.cues.map { it.file })

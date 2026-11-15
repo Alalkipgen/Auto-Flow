@@ -172,7 +172,7 @@ class RecapMigrationFolderTest {
         val p = openMain()
         assertEquals(r.project, p)
         assertTrue(p.recap!!.storyApproved)
-        assertEquals(storyOf(p).blocks.map { it.id }, p.recap!!.takes.map { it.block })
+        assertEquals(storyOf(p).blocks.map { it.id }, p.recap.takes.map { it.block })
         val once = fs.read(main)
         assertFalse(RecapMigration.migrateFolder(fs, dir, "gemini-3.8-flash-tts"))
         assertContentEquals(once, fs.read(main), "second open is byte-stable")
@@ -193,7 +193,7 @@ class RecapMigrationFolderTest {
         val p = openMain()
         assertEquals(2, p.schemaVersion)
         assertEquals(2, p.recap!!.takes.size)
-        assertTrue(p.recap!!.storyApproved)
+        assertTrue(p.recap.storyApproved)
         assertContentEquals(before, fs.read(backup))
     }
 

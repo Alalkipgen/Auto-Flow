@@ -105,7 +105,7 @@ object RenderCompiler {
                     imgBg -> {
                         // IMAGE background (D-51): a still image opens as a separate input, blurred and scaled to cover the
                         // frame; the movie picture is fitted on top (like BLUR but the backing comes from a file, not the movie).
-                        val bi = input("-loop", "1", "-i", graph.backgroundImageFile!!)
+                        val bi = input("-loop", "1", "-i", graph.backgroundImageFile)
                         chains += "[$bi:v]scale=${out.width}:${out.height}:force_original_aspect_ratio=increase,crop=${out.width}:${out.height},gblur=sigma=4,setsar=1[imgbg$tag]"
                         // Scale movie to fit, then overlay on the blurred image background
                         "scale=${out.width}:${out.height}:force_original_aspect_ratio=decrease,setsar=1[mfg$tag];[imgbg$tag][mfg$tag]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2,"

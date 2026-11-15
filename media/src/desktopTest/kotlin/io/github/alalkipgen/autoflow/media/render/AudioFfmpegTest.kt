@@ -96,7 +96,7 @@ class AudioFfmpegTest {
             val fc = render[render.indexOf("-filter_complex") + 1]
             assertTrue(AudioFilters.loudnormApply(m, -14.0) in fc, "pass 2 does not use the measured numbers: $fc")
             assertEquals(m, done.loudness?.measured)
-            assertTrue(done.loudness!!.twoPass && done.loudness!!.note == null)
+            assertTrue(done.loudness!!.twoPass && done.loudness.note == null)
 
             // The output: −14 LUFS within 1 LU (EBU R128's ±1 LU; AAC and the 4:2 gating move it a little), true
             // peak under the −1.5 dBTP ceiling with 0.5 dB for the AAC encode.
