@@ -16,9 +16,52 @@ class RenderJobRunner(
     private val ffmpeg: FfmpegRunner,
     private val probe: MediaProbe,
 ) {
-    suspend fun run(job: RenderJob, onProgress: (FfmpegProgress.Progress) -> Unit = {}): RenderState {
+    /** Compiled [graph] of [job] with its [env]; or why it cannot be compiled. */
+    private sealed interface Prepared {
+        data class Ready(val env: RenderCompiler.Env, val compiled: RenderCompiler.Compiled.Ok) : Prepared
+
+        data class Failed(val state: RenderState.Failed) : Prepared
+    }
+
+    /**
+     * "Exact frame" (D-42, [ExactFrame]): the still at [atMs] of [job]'s output, written to [image] (relative to the
+     * project folder or absolute; `.png` or `.jpg`). Only the clip under [atMs] is decoded. A failure never leaves a
+     * half-written image: ffmpeg writes `<name>.part.<ext>` first.
+     */
+    suspend fun frame(job: RenderJob, atMs: Long, image: String): RenderState {
         val abs = { p: String -> if (isAbsolute(p)) p else joinPath(job.workDir, p) }
-        val graph = job.graph
+        val window = ExactFrame.window(job.graph, atMs)
+        val target = abs(image)
+        val ext = target.substringAfterLast('.', "png")
+        val part = target.removeSuffix(".$ext") + ".part.$ext"
+        val (env, compiled) = when (val p = prepare(job, window.graph, assPath = "$target.ass", outputPath = part)) {
+            is Prepared.Failed -> return p.state
+            is Prepared.Ready -> p.env to p.compiled
+        }
+        try {
+            fs.createDirectories(target.substringBeforeLast('/', "."))
+            compiled.ass?.let { fs.writeDurably(env.assPath, it.encodeToByteArray()) }
+        } catch (e: Exception) {
+            return RenderState.Failed("cannot write to ${target.substringBeforeLast('/')}: ${e.message}")
+        }
+        val args = ExactFrame.stillArgs(compiled.args, window.seekMs, part)
+        return when (val r = ffmpeg.render(args, job.workDir, compiled.durationMs)) {
+            is FfmpegRunner.Outcome.CannotStart -> RenderState.Failed("ffmpeg cannot start: ${r.message}")
+            is FfmpegRunner.Outcome.Failed ->
+                RenderState.Failed(if (r.timedOut) "ffmpeg took too long and was stopped" else "ffmpeg failed (exit ${r.exitCode})", r.tail)
+            is FfmpegRunner.Outcome.Rendered -> try {
+                if (!fs.exists(part)) return RenderState.Failed("ffmpeg wrote no frame at ${RenderCompiler.sec(atMs)} s")
+                fs.atomicMove(part, target)
+                RenderState.Done(target, r.wallMs, compiled.durationMs, r.maxRssKb)
+            } catch (e: Exception) {
+                RenderState.Failed("cannot save $target: ${e.message}")
+            }
+        }
+    }
+
+    /** Probes the clips (for sound) and the sources, reads the font factors and compiles [graph]. */
+    private suspend fun prepare(job: RenderJob, graph: RenderGraph, assPath: String, outputPath: String): Prepared {
+        val abs = { p: String -> if (isAbsolute(p)) p else joinPath(job.workDir, p) }
         val clipSound = graph.voice?.let { it.clipsVolume > 0 } ?: (graph.audio == null || !graph.audio.muteClips)
         val media = mutableMapOf<ArtifactId, RenderCompiler.ClipMedia>()
         for (id in graph.clips.mapNotNull { it.artifact }.distinct()) {
@@ -26,7 +69,7 @@ class RenderJobRunner(
             val hasAudio = if (clipSound) {
                 when (val r = probe.probe(path, job.workDir)) {
                     is MediaProbe.Result.Ok -> r.info.hasAudio
-                    is MediaProbe.Result.Failed -> return RenderState.Failed("cannot read the video $id: ${r.reason}")
+                    is MediaProbe.Result.Failed -> return Prepared.Failed(RenderState.Failed("cannot read the video $id: ${r.reason}"))
                 }
             } else {
                 false
@@ -40,7 +83,7 @@ class RenderJobRunner(
             val hasAudio = if (clipSound) {
                 when (val r = probe.probe(path, job.workDir)) {
                     is MediaProbe.Result.Ok -> r.info.hasAudio
-                    is MediaProbe.Result.Failed -> return RenderState.Failed("cannot read $src: ${r.reason}")
+                    is MediaProbe.Result.Failed -> return Prepared.Failed(RenderState.Failed("cannot read $src: ${r.reason}"))
                 }
             } else {
                 false
@@ -49,13 +92,12 @@ class RenderJobRunner(
         }
         val fontsDir = abs(job.fontsDir)
         val scales = fontScales(fontsDir)
-        val out = abs(job.outputName)
         val env = RenderCompiler.Env(
             resolve = { media[it] },
             songPath = job.songPath?.let(abs),
-            assPath = "$out.ass",
+            assPath = assPath,
             fontsDir = fontsDir,
-            outputPath = "$out.part.mp4",
+            outputPath = outputPath,
             assScale = { scales[it] },
             placeholderFont = job.placeholderFont,
             resolveSource = { sources[it] },
@@ -64,9 +106,19 @@ class RenderJobRunner(
             // Watermark and other image layers: resolve relative paths against workDir (D-52).
             resolveLayerImage = { imageId -> abs(imageId).takeIf { p -> fs.exists(p) } },
         )
-        val compiled = when (val c = RenderCompiler.compile(graph, env)) {
-            is RenderCompiler.Compiled.Invalid -> return RenderState.Failed(c.reason)
-            is RenderCompiler.Compiled.Ok -> c
+        return when (val c = RenderCompiler.compile(graph, env)) {
+            is RenderCompiler.Compiled.Invalid -> Prepared.Failed(RenderState.Failed(c.reason))
+            is RenderCompiler.Compiled.Ok -> Prepared.Ready(env, c)
+        }
+    }
+
+    suspend fun run(job: RenderJob, onProgress: (FfmpegProgress.Progress) -> Unit = {}): RenderState {
+        val abs = { p: String -> if (isAbsolute(p)) p else joinPath(job.workDir, p) }
+        val graph = job.graph
+        val out = abs(job.outputName)
+        val (env, compiled) = when (val p = prepare(job, graph, assPath = "$out.ass", outputPath = "$out.part.mp4")) {
+            is Prepared.Failed -> return p.state
+            is Prepared.Ready -> p.env to p.compiled
         }
         try {
             fs.createDirectories(out.substringBeforeLast('/', "."))

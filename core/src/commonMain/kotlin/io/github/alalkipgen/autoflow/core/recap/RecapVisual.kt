@@ -100,6 +100,10 @@ object RecapVisuals {
 
     fun strength(v: RecapVisual, s: MaskStrength): RecapVisual = v.copy(masks = v.masks.map { it.copy(strength = s) })
 
+    /** Puts the box of [preset] at [rect] (a drag / pinch on the live preview, 5A-8), kept inside the picture. */
+    fun setRect(v: RecapVisual, preset: MaskPreset, rect: List<Float>): RecapVisual =
+        if (rect.size != 4 || rect.any { !it.isFinite() }) v else edit(v, preset) { rect }
+
     /** Moves the box of [preset] by [dy] (0–1 of the picture), kept inside the picture. */
     fun move(v: RecapVisual, preset: MaskPreset, dy: Float): RecapVisual = edit(v, preset) { r -> listOf(r[0], r[1] + dy, r[2], r[3]) }
 

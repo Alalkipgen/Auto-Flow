@@ -15,17 +15,13 @@ import io.github.alalkipgen.autoflow.core.recap.PublishKit
 import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
-import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
-import io.github.alalkipgen.autoflow.core.recap.VoiceTake
 import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.toV1Script
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.render.BatteryReader
-import io.github.alalkipgen.autoflow.media.render.FontInfo
 import io.github.alalkipgen.autoflow.media.render.ProjectRender
 import io.github.alalkipgen.autoflow.media.render.Quality
-import io.github.alalkipgen.autoflow.media.render.RecapRender
 import io.github.alalkipgen.autoflow.media.render.RenderJob
 import io.github.alalkipgen.autoflow.media.render.RenderGraph
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
@@ -36,7 +32,6 @@ import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.storyboard.text
-import io.github.alalkipgen.autoflow.ui.theme.UiFont
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -112,7 +107,11 @@ class ExportModel(
     private val scope: CoroutineScope,
     private val clipboard: io.github.alalkipgen.autoflow.platform.Clipboard? = null,
     private val builtInFonts: io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts? = null,
+    frames: RecapFrames? = null,
 ) {
+    /** The recap job and its Exact frames (D-42), the same graph as the Recap screen's Style preview. */
+    private val frames = frames ?: RecapFrames(session, settings, fs, null, builtInFonts)
+
     private val _state = MutableStateFlow(ExportUiState())
     val state: StateFlow<ExportUiState> = _state.asStateFlow()
     private var watching: Job? = null
@@ -130,7 +129,7 @@ class ExportModel(
             return
         }
         val p = open.project
-        val font = font()
+        val font = frames.font()
         recapExport(open)?.let { r ->
             _state.value = ExportUiState(
                 projectName = p.name,
@@ -204,20 +203,13 @@ class ExportModel(
         val q = queue ?: return
         val open = session.open ?: return
         if (!_state.value.canRender) return
-        val font = font()
-        val fontsDir = joinPath(ProjectSession.CACHE_DIR, "fonts")
-        if (font != null) {
-            val copied = runCatching {
-                fs.createDirectories(joinPath(open.dir, fontsDir))
-                val target = joinPath(joinPath(open.dir, fontsDir), font.fileName)
-                fs.writeDurably("$target.tmp", font.bytes)
-                fs.atomicMove("$target.tmp", target)
-            }
-            if (copied.isFailure) return say("Cannot copy the font into the project: ${copied.exceptionOrNull()?.message}")
-        }
+        val font = frames.font()
+        val fontsDir = RecapFrames.FONTS_DIR
+        frames.installFont(open, font)?.let { return say(it) }
         val name = if (quality == Quality.PREVIEW) PREVIEW_NAME else EXPORT_NAME
         if (isRecap(open.project)) {
-            val job = recapJob(open, quality, font?.family, fontsDir, name) ?: return say("The recap script cannot be read.")
+            val job = frames.job(open, quality, font?.family, joinPath(EXPORTS_DIR, name), "${open.project.name} · ${label(quality)}")
+                ?: return say("The recap script cannot be read.")
             return start(q, job, open, quality, name)
         }
         val song = session.songPath()?.let { relative(open.dir, it) }
@@ -250,17 +242,6 @@ class ExportModel(
     private fun recapStory(): RecapStory? =
         session.open?.project?.recap?.story?.let { (session.readJson(it, RecapStory.serializer()) as? CoreResult.Ok)?.value }
 
-    private fun recapScript(): RecapScript? = recapStory()?.toV1Script()
-
-    /** The take's audio, `artifacts/<file>`, when the file is there. */
-    private fun takeFile(open: OpenProject, take: VoiceTake): String? = artifactFile(open, take.audio)
-
-    /** `artifacts/<file>` of [id] when the file is there. */
-    private fun artifactFile(open: OpenProject, id: ArtifactId): String? {
-        val artifact = (session.artifacts()?.get(id) as? CoreResult.Ok)?.value ?: return null
-        return joinPath(ArtifactStore.ARTIFACTS_DIR, artifact.file).takeIf { fs.exists(joinPath(open.dir, it)) }
-    }
-
     private fun recapExport(open: OpenProject): RecapExport? {
         if (!isRecap(open.project)) return null
         val recapV2 = open.project.recap!!
@@ -281,22 +262,6 @@ class ExportModel(
             quality = recap.quality,
             publishKit = recap.publishKit ?: PublishKit(),
             preflight = PreflightCheck.check(recap, script),
-        )
-    }
-
-    /** The recap render (spec §6): movie clips, takes, looks, captions (burned in when wanted and a font is set) + `.srt`. */
-    private fun recapJob(open: OpenProject, quality: Quality, font: String?, fontsDir: String, name: String): RenderJob? {
-        val recapV2 = open.project.recap ?: return null
-        val story = recapStory()
-        val recap = recapV2.toV1(story)
-        val script = story?.toV1Script() ?: return null
-        // D-56: use per-recap output ratio when set; fall back to project-level ratio.
-        val ratio = recap.visual.outputRatio ?: open.project.settings.ratio
-        return RecapRender.job(
-            recap, script, ratio, open.dir, quality, { takeFile(open, it) }, font, fontsDir,
-            outputName = joinPath(EXPORTS_DIR, name),
-            title = "${open.project.name} · ${label(quality)}",
-            bgmFile = recap.audio.bgm?.let { artifactFile(open, it) },
         )
     }
 
@@ -354,23 +319,6 @@ class ExportModel(
 
     private fun say(message: String?) {
         _state.value = _state.value.copy(message = message, messageOk = false)
-    }
-
-    private class LyricFont(val family: String, val fileName: String, val bytes: ByteArray)
-
-    /** The Burmese font (Pyidaungsu, else Noto Sans Myanmar; regular weight first) from Settings or built in, or null. */
-    private fun font(): LyricFont? {
-        val paths = io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts.withBuiltIns(settings.state.value.fontPaths, builtInFonts)
-        val read = paths.mapNotNull { path ->
-            val bytes = runCatching { fs.read(path) }.getOrNull() ?: return@mapNotNull null
-            val info = FontInfo.parse(bytes) ?: return@mapNotNull null
-            Triple(path, bytes, UiFont.Candidate(path, info.family, FontInfo.weightClass(bytes) ?: 400))
-        }
-        val best = UiFont.pick(read.map { it.third }).firstOrNull() ?: return null
-        val (path, bytes, _) = read.first { it.first == best.path }
-        val ext = path.substringAfterLast('.', "ttf").lowercase().takeIf { it == "ttf" || it == "otf" } ?: "ttf"
-        val safe = best.family.filter { it.isLetterOrDigit() }.ifEmpty { "lyrics" }
-        return LyricFont(best.family, "$safe.$ext", bytes)
     }
 
     private fun videoFile(open: OpenProject, id: ArtifactId): String? {

@@ -10,7 +10,7 @@ object AssWriter {
 
     /** [assScale] maps a font family to its [FontInfo.assScale]; unknown families use 1.0. */
     fun write(overlays: List<Overlay>, output: Output, assScale: (String) -> Double?): String {
-        val styles = overlays.map { StyleKey(it.font, fontSize(it, assScale), assColor(it.color), it.box, it.strokeWidth, assColor(it.strokeColour)) }.distinct()
+        val styles = overlays.map { key(it, assScale) }.distinct()
         val w = output.width
         val h = output.height
         return buildString {
@@ -37,7 +37,7 @@ object AssWriter {
             append("\n[Events]\n")
             append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
             overlays.sortedBy { it.startMs }.forEach { o ->
-                val style = styles.indexOf(StyleKey(o.font, fontSize(o, assScale), assColor(o.color), o.box)) + 1
+                val style = styles.indexOf(key(o, assScale)) + 1
                 val centreY = o.centerY
                 val (an, x, y) = if (centreY != null) Triple(5, w / 2, (h * centreY.coerceIn(0.05f, 0.95f)).toInt()) else when (o.position) {
                     Pos.TOP -> Triple(8, w / 2, h * MARGIN_PERCENT / 100)
@@ -89,6 +89,10 @@ object AssWriter {
 
     private fun fontSize(o: Overlay, assScale: (String) -> Double?): Int =
         maxOf(1, kotlin.math.round(o.sizePx * (assScale(o.font) ?: 1.0)).toInt())
+
+    /** The style an overlay uses; the Style lines and each Dialogue's `sN` come from this one key. */
+    private fun key(o: Overlay, assScale: (String) -> Double?) =
+        StyleKey(o.font, fontSize(o, assScale), assColor(o.color), o.box, o.strokeWidth, assColor(o.strokeColour))
 
     private data class StyleKey(val font: String, val size: Int, val color: String, val box: Boolean = false, val strokeWidth: Int = 0, val strokeColour: String = "&H00000000")
 

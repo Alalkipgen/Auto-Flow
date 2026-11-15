@@ -117,4 +117,49 @@ class PreviewGeometryTest {
         assertTrue(active.any { it.id == "l_1" })
         assertTrue(active.any { it.id == "l_2" })
     }
+
+    // ── 5A-8 drag / pinch ────────────────────────────────────────────────────
+
+    @Test
+    fun hit_picksTopmostRectUnderThePoint() {
+        val strip = listOf(0f, 0.8f, 1f, 0.17f)
+        val logo = listOf(0.7f, 0.75f, 0.2f, 0.2f)
+        assertEquals(1, PreviewGeometry.hit(listOf(strip, logo), 0.8f, 0.85f), "overlap → the one drawn last")
+        assertEquals(0, PreviewGeometry.hit(listOf(strip, logo), 0.2f, 0.9f))
+        assertEquals(null, PreviewGeometry.hit(listOf(strip, logo), 0.2f, 0.5f))
+        assertEquals(0, PreviewGeometry.hit(listOf(strip), 0.5f, 0.79f, slop = 0.02f), "slop grabs a thin strip")
+    }
+
+    @Test
+    fun transform_dragMovesAndStopsAtTheEdge() {
+        val r = PreviewGeometry.transform(listOf(0.1f, 0.1f, 0.2f, 0.2f), dx = 0.3f, dy = 0.05f, zoom = 1f, cx = 0f, cy = 0f)
+        assertTrue(approx(0.4f, r[0]) && approx(0.15f, r[1]) && approx(0.2f, r[2]) && approx(0.2f, r[3]), "$r")
+        val edge = PreviewGeometry.transform(listOf(0.1f, 0.1f, 0.2f, 0.2f), dx = 2f, dy = 2f, zoom = 1f, cx = 0f, cy = 0f)
+        assertTrue(approx(0.8f, edge[0]) && approx(0.8f, edge[1]), "kept inside: $edge")
+    }
+
+    @Test
+    fun transform_pinchKeepsThePointUnderTheFingers() {
+        // Box 0.2..0.6 × 0.2..0.6, pinch ×1.5 around (0.3, 0.3): that point stays put, the box grows away from it.
+        val r = PreviewGeometry.transform(listOf(0.2f, 0.2f, 0.4f, 0.4f), dx = 0f, dy = 0f, zoom = 1.5f, cx = 0.3f, cy = 0.3f)
+        assertTrue(approx(0.15f, r[0]) && approx(0.15f, r[1]) && approx(0.6f, r[2]) && approx(0.6f, r[3]), "$r")
+        // The relative position of the centre point inside the box is unchanged (1/4 of the way in).
+        assertTrue(approx(0.25f, (0.3f - r[0]) / r[2]), "$r")
+    }
+
+    @Test
+    fun transform_pinchInStopsAtTheMinimumAndAStripStaysFullWidth() {
+        val tiny = PreviewGeometry.transform(listOf(0.4f, 0.4f, 0.1f, 0.1f), 0f, 0f, zoom = 0.1f, cx = 0.45f, cy = 0.45f)
+        assertTrue(approx(0.05f, tiny[2]) && approx(0.05f, tiny[3]), "$tiny")
+        val strip = PreviewGeometry.transform(listOf(0f, 0.8f, 1f, 0.17f), 0f, 0f, zoom = 1.2f, cx = 0.5f, cy = 0.885f)
+        assertTrue(approx(0f, strip[0]) && approx(1f, strip[2]), "strip stays full width: $strip")
+        assertTrue(strip[3] > 0.2f && strip[1] + strip[3] <= 1f + eps, "taller, still inside: $strip")
+    }
+
+    @Test
+    fun transform_ignoresABrokenZoom() {
+        val r = listOf(0.1f, 0.1f, 0.3f, 0.3f)
+        assertEquals(r, PreviewGeometry.transform(r, 0f, 0f, Float.NaN, 0.5f, 0.5f))
+        assertEquals(r, PreviewGeometry.transform(r, 0f, 0f, 0f, 0.5f, 0.5f))
+    }
 }

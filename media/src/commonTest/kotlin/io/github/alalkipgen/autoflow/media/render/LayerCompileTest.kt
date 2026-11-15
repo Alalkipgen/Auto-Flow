@@ -105,6 +105,16 @@ class LayerCompileTest {
         assertContains(filterComplex(r), "[vlayer]")
     }
 
+    @Test fun textLayer_onItsRect() {
+        // 5B-10 thumbnail title: a rect smaller than the frame puts the text on the rect's centre line, sized to it.
+        val layer = Layer("t", LayerType.TEXT, rect = listOf(0.05f, 0.05f, 0.9f, 0.2f),
+            params = LayerParams(textMy = "ခေါင်းစဉ်", style = "Pyidaungsu"))
+        val ass = assertNotNull(compile(Ratio.R9_16, layer).ass)
+        // 1080 × 1920: centre line 0.15 × 1920 = 288; one line in 0.2 × 1920 = 384 px → 384 / 1.5 = 256 px.
+        assertContains(ass, "{\\an5\\pos(540,288)}ခေါင်းစဉ်")
+        assertContains(ass, "Style: s1,Pyidaungsu,256,")
+    }
+
     // ── BORDER ────────────────────────────────────────────────────────────────
 
     @Test fun borderLayer_16x9() { borderLayer(Ratio.R16_9) }
