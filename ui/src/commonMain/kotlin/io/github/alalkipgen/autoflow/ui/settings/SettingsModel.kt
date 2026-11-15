@@ -63,7 +63,9 @@ class SettingsModel(
     private val bundledFeatures: String? = null,
     /** Keeps the S5 sample for ▶; returns its path or null. */
     private val saveTtsSample: (ByteArray) -> String? = { null },
+    private val builtInFonts: BuiltInFonts? = null,
 ) {
+    val builtInFontPaths: List<String> get() = builtInFonts?.paths.orEmpty()
     val canTestTts: Boolean get() = testTtsCall != null
 
     private val _state = MutableStateFlow(snapshot(message = settings.problem ?: models.problem))
@@ -116,6 +118,9 @@ class SettingsModel(
         val newOverrides = if (on == bundledDefault) it.featureOverrides - key else it.featureOverrides + (key to on)
         it.copy(featureOverrides = newOverrides)
     }
+
+    /** Reopening Settings after Self-test must show overrides saved by the other settings model. */
+    fun refresh() { _state.value = snapshot(message = settings.problem ?: models.problem) }
 
     fun setUseFakes(fake: Boolean) = change { it.copy(useFakeProviders = fake) }
 

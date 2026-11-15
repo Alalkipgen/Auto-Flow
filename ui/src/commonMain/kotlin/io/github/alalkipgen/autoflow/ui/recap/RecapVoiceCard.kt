@@ -46,15 +46,8 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
         }
         script!!
         val idle = !state.busy && state.recording == null
-        WrapRow {
-            AfChip("🎙 Recorded", recap.voiceSource == VoiceSource.RECORDED, { if (idle) model.setVoiceSource(VoiceSource.RECORDED) })
-            AfChip("🔊 Gemini TTS", recap.voiceSource == VoiceSource.TTS, { if (idle) model.setVoiceSource(VoiceSource.TTS) })
-        }
-        if (recap.voiceSource == VoiceSource.TTS) {
-            AfText("Voice", muted = true, size = 12.sp)
-            WrapRow {
-                RecapModel.TTS_VOICES.forEach { (name, kind) -> AfChip("$name · $kind", recap.ttsVoice == name, { if (idle) model.setTtsVoice(name) }) }
-            }
+        VoiceLockControls(model, state, recap, idle)
+        run {
             val eta = state.speakAllEta
             if (eta != null) {
                 // ETA confirmation card (5A-5, D-51): show before the loop starts
@@ -67,12 +60,7 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
             } else {
                 AfButton(SPEAK_ALL, { model.speakAll() }, kind = ButtonKind.Primary, enabled = idle)
             }
-            AfText("Uses your Gemini key; one request per scene. A new voice or style is used for the scenes spoken next.", muted = true, size = 12.sp)
-        } else {
-            AfText(
-                if (model.canRecord) "Tap $RECORD on a scene, read its text, then $STOP. Or import an audio file." else "Import an audio file for each scene.",
-                muted = true, size = 12.sp,
-            )
+            AfText("One request per missing/stale block; the locked model and voice are used. Voice & Audio also offers recording and import.", muted = true, size = 12.sp)
         }
         val voiced = script.segments.indices.count { state.currentTake(it) != null }
         AfText("Voiced $voiced of ${script.segments.size} scenes", bold = true, color = if (voiced == script.segments.size) AutoFlowColors.Green else null)
@@ -105,14 +93,14 @@ private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: RecapV2, scr
                 else -> AfText("No voice", muted = true, size = 12.sp)
             }
         }
+        TakeVoiceLabel(recap.takeFor(state.story!!.blocks[i].id), recap.voiceLock)
         AfText(seg.textMy, size = 12.sp)
         WrapRow {
             if (state.recording == i) {
                 AfButton(STOP, { model.stopRecording() }, kind = ButtonKind.Danger)
                 AfButton("Cancel", { model.cancelRecording() })
-            } else if (recap.voiceSource == VoiceSource.TTS) {
-                AfButton("🔊", { model.speak(i) }, enabled = idle && seg.textMy.isNotBlank())
             } else {
+                AfButton("🔊", { model.speak(i) }, enabled = idle && seg.textMy.isNotBlank())
                 if (model.canRecord) AfButton(RECORD, { model.startRecording(i) }, kind = ButtonKind.Primary, enabled = idle && seg.textMy.isNotBlank())
                 AfButton("Import file", { model.importTake(i) }, enabled = idle && seg.textMy.isNotBlank())
             }

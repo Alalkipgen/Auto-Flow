@@ -65,7 +65,6 @@ import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
-import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
@@ -117,8 +116,10 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val backup = koinInject<BackupModel>().takeIf { it.available }
     val settingsStore = koinInject<SettingsStore>()
     val settings by settingsStore.state.collectAsState()
-    val settingsModel = koinInject<SettingsModel>()
-    val settingsState by settingsModel.state.collectAsState()
+    val bundledFeatures = remember(koin) { koin.get<io.github.alalkipgen.autoflow.ui.settings.BundledConfig>().featuresJson() }
+    val features = remember(settings.featureOverrides, bundledFeatures) {
+        io.github.alalkipgen.autoflow.core.flags.FeatureFlags.load(bundledFeatures, settings.featureOverrides)
+    }
     val fontPaths = settings.fontPaths
     val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
     val builtInFonts = remember(koin) { koin.getOrNull<io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts>() }
@@ -165,7 +166,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
             }
         }
         CompositionLocalProvider(LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
-            if (settingsState.features.studioV2) {
+            if (features.studioV2) {
                 StudioV2App(
                     status = status,
                     projectName = project?.project?.name,

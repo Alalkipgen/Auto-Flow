@@ -70,7 +70,7 @@ var projectScreen by remember { mutableStateOf<String?>(null) }
 - `AiJobStore` persists to `AppDirs.aiJobs` (filesDir/ai-jobs/)
 - `AiJobRunner` interface in `:core`; desktop impl = `DesktopAiJobRunner` in `ui/desktopMain/`
 - `RpmPacer` token-bucket RPM limiter used by the runner
-- Android runner uses WorkManager (device spike S10; not in CI)
+- Android runner uses WorkManager (real-device lifecycle checks remain PHONE_PENDING; S10 is Compose/ffmpeg parity)
 
 ### Library
 - `Library` / `BrandKit` / `SavedVoice` / `MusicItem` / `FontItem` / `Preset` in `:core/library/`
