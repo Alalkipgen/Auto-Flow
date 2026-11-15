@@ -97,6 +97,8 @@ class AudioFfmpegTest {
             assertTrue(AudioFilters.loudnormApply(m, -14.0) in fc, "pass 2 does not use the measured numbers: $fc")
             assertEquals(m, done.loudness?.measured)
             assertTrue(done.loudness!!.twoPass && done.loudness.note == null)
+            // 5B-4: the same result is kept beside the real mp4 for the Export screen after a restart.
+            assertEquals(done.loudness, assertNotNull(RenderResult.read(LocalFs(), done.output)).loudness)
 
             // The output: −14 LUFS within 1 LU (EBU R128's ±1 LU; AAC and the 4:2 gating move it a little), true
             // peak under the −1.5 dBTP ceiling with 0.5 dB for the AAC encode.
@@ -126,6 +128,9 @@ class AudioFfmpegTest {
             val loud = assertNotNull(done.loudness)
             assertNull(loud.measured)
             assertTrue(!loud.twoPass && loud.note!!.contains("one-pass"), loud.toString())
+            val kept = assertNotNull(RenderResult.read(LocalFs(), done.output)).loudness
+            assertEquals(loud, kept)
+            assertTrue(kept != null && !kept.twoPass, "the record must not claim two-pass: $kept")
             val render = rec.calls.filter { it.first.first() == ffmpeg }.last().first
             val fc = render[render.indexOf("-filter_complex") + 1]
             assertTrue(AudioFilters.loudnormSinglePass(-14.0) + "," in fc && "measured_I" !in fc, fc)
