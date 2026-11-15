@@ -162,13 +162,33 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
 @Composable
 private fun SegmentRow(model: RecapModel, index: Int, seg: RecapSegment, enabled: Boolean) {
     var editing by remember(seg) { mutableStateOf(false) }
+    var editTiming by remember(seg) { mutableStateOf(false) }
     var draft by remember(seg) { mutableStateOf(seg.textMy) }
+    var startDraft by remember(seg) { mutableStateOf(mmss(seg.startMs)) }
+    var endDraft by remember(seg) { mutableStateOf(mmss(seg.endMs)) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("#${index + 1} · ${clock(seg.startMs)}–${clock(seg.endMs)} · ${(seg.durationMs + 500) / 1000} s", Modifier.weight(1f), muted = true, size = 12.sp)
-            if (!editing) AfButton("✎", { editing = true }, enabled = enabled)
+            if (!editing && !editTiming) {
+                AfButton("✎", { editing = true }, enabled = enabled)
+                AfButton("⏱", { editTiming = true }, enabled = enabled)
+            }
         }
-        if (editing) {
+        if (editTiming) {
+            AfText("Timing (mm:ss or hh:mm:ss)", muted = true, size = 11.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                io.github.alalkipgen.autoflow.ui.components.AfTextField(startDraft, { startDraft = it }, "Start", Modifier.weight(1f))
+                io.github.alalkipgen.autoflow.ui.components.AfTextField(endDraft, { endDraft = it }, "End", Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfButton("Save timing", {
+                    val s = parseMs(startDraft) ?: return@AfButton
+                    val e = parseMs(endDraft) ?: return@AfButton
+                    if (model.saveSegmentTiming(index, s, e)) editTiming = false
+                }, kind = ButtonKind.Primary)
+                AfButton("Back", { editTiming = false; startDraft = mmss(seg.startMs); endDraft = mmss(seg.endMs) })
+            }
+        } else if (editing) {
             AfTextField(draft, { draft = it }, "Narration for scene ${index + 1}", Modifier.fillMaxWidth(), lines = 3, mono = false)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfButton("Save", { if (model.saveSegment(index, draft)) editing = false }, kind = ButtonKind.Primary)
@@ -177,5 +197,26 @@ private fun SegmentRow(model: RecapModel, index: Int, seg: RecapSegment, enabled
         } else {
             AfText(seg.textMy.ifBlank { "(empty — tap ✎ to write)" }, muted = seg.textMy.isBlank())
         }
+    }
+}
+
+/** Format ms as `hh:mm:ss` for display. */
+private fun clock(ms: Long): String {
+    val s = ms / 1000; return "${s / 3600}:${(s / 60 % 60).toString().padStart(2,'0')}:${(s % 60).toString().padStart(2,'0')}"
+}
+
+/** Format ms as `mm:ss` for editing (simpler for short clips). */
+private fun mmss(ms: Long): String {
+    val s = ms / 1000; return "${s / 60}:${(s % 60).toString().padStart(2,'0')}"
+}
+
+/** Parse `[[h:]m:]ss` → ms; returns null on bad input. */
+private fun parseMs(input: String): Long? {
+    val parts = input.trim().split(':').mapNotNull { it.toLongOrNull() }
+    return when (parts.size) {
+        1 -> parts[0] * 1000
+        2 -> (parts[0] * 60 + parts[1]) * 1000
+        3 -> (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000
+        else -> null
     }
 }
