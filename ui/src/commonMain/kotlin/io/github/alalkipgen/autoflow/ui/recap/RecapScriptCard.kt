@@ -37,7 +37,7 @@ const val APPROVE_SCRIPT = "✓ Approve script"
 
 /** Card 3 · Script (docs/specs/recap.md §4): summary, subtitles, style, Gemini or manual script, edit, approve. */
 @Composable
-internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null) {
     AfCard("3 · Script") {
         RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let {
             AfText(it.text(), muted = true)
@@ -149,7 +149,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
         val story = state.story
         val current = story != null && RecapRulesV2.isCurrent(recap, story)
         if (!current) AfText(RecapRulesV2.canApproveScript(recap, story).blockers.first().text(), color = AutoFlowColors.Amber, bold = true)
-        script.segments.forEachIndexed { i, seg -> SegmentRow(model, state, i, seg, enabled = current && !state.busy) }
+        script.segments.forEachIndexed { i, seg -> if (blockIndex == null || i == blockIndex) SegmentRow(model, state, i, seg, enabled = current && !state.busy) }
         if (recap.scriptApproved && current) {
             AfText("✓ Script approved. Next: Voice.", color = AutoFlowColors.Green, bold = true)
         } else if (current) {

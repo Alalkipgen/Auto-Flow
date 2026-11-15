@@ -93,7 +93,7 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
 }
 
 @Composable
-private fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     AfCard("1 · Movie") {
         val movie = recap.movie
         if (movie == null) {
@@ -110,7 +110,7 @@ private fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
 }
 
 @Composable
-private fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2, selectedScene: Int? = null) {
     AfCard("2 · Scenes") {
         val gate = RecapRulesV2.canFindScenes(recap)
         if (!gate.allowed) {
@@ -141,7 +141,7 @@ private fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
             AfSwitch("Show picked only", pickedOnly, { pickedOnly = it })
             if (recap.picked.isNotEmpty()) AfButton("Clear picks", { model.clearPicks() }, kind = ButtonKind.Danger)
         }
-        val rows = recap.scenes.withIndex().filter { !pickedOnly || it.value.picked }
+        val rows = recap.scenes.withIndex().filter { (selectedScene == null || it.index == selectedScene) && (!pickedOnly || it.value.picked) }
         val pages = maxOf(1, (rows.size + SCENES_PER_PAGE - 1) / SCENES_PER_PAGE)
         val shown = rows.drop(page * SCENES_PER_PAGE).take(SCENES_PER_PAGE)
         shown.forEach { (i, scene) -> SceneRow(model, i, scene) }

@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -69,7 +71,7 @@ fun StudioV2Shell(
     val useRail = windowWidthDp >= RAIL_WIDTH.value
     val useThreePane = windowWidthDp >= THREE_PANE_WIDTH.value
     if (useThreePane) {
-        // Three-pane: narrow rail (60 dp) + content fills the rest (5A-6).
+        // Leave room for project list/editor/preview panes inside the project route.
         Row(modifier.fillMaxSize()) {
             V2NavRailCompact(selected, onSelect, jobsBadge)
             Box(Modifier.fillMaxSize()) { content() }
@@ -116,6 +118,8 @@ private fun V2NavRailCompact(
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .semantics { contentDescription = dest.label }
                     .selectable(selected = on, role = Role.Tab) { onSelect(dest) }
                     .padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -155,6 +159,8 @@ private fun V2NavRail(
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .semantics { contentDescription = dest.label }
                     .selectable(selected = on, role = Role.Tab) { onSelect(dest) }
                     .padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -181,6 +187,8 @@ private fun V2BottomNav(
             Column(
                 Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .semantics { contentDescription = dest.label }
                     .selectable(selected = on, role = Role.Tab) { onSelect(dest) }
                     .padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -216,8 +224,7 @@ private fun JobsBadgeLabel(
             fontSize = fontSize,
             fontFamily = LocalUiFontFamily.current,
         ),
-        maxLines = 1,
-        overflow = TextOverflow.Clip,
-        autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = fontSize, stepSize = 0.5.sp),
+        maxLines = 3,
+        overflow = TextOverflow.Visible,
     )
 }

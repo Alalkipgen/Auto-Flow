@@ -37,7 +37,7 @@ const val STOP = "■ Stop"
 
 /** Card 4 · Voice (docs/specs/recap.md §5, D-34): recorded or Gemini TTS narration per segment. */
 @Composable
-internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null) {
     AfCard("4 · Voice") {
         val script = state.script
         RecapRulesV2.canVoice(recap, state.story).blockers.firstOrNull()?.let {
@@ -64,15 +64,15 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
         }
         val voiced = script.segments.indices.count { state.currentTake(it) != null }
         AfText("Voiced $voiced of ${script.segments.size} scenes", bold = true, color = if (voiced == script.segments.size) AutoFlowColors.Green else null)
-        var playing by remember { mutableStateOf<Int?>(null) }
+        var playing by remember(state.projectDir, blockIndex) { mutableStateOf<Int?>(null) }
         // Block detail: tap "Voice & Audio" on a row to open the teleprompter / tab view (5B-5).
-        var blockDetail by remember { mutableStateOf<Int?>(null) }
+        var blockDetail by remember(state.projectDir, blockIndex) { mutableStateOf<Int?>(null) }
         if (blockDetail != null) {
             VoiceBlockCard(model, state, recap, script, blockDetail!!, onClose = { blockDetail = null })
             return@AfCard
         }
         script.segments.forEachIndexed { i, _ ->
-            VoiceRow(model, state, recap, script, i, idle, playing == i,
+            if (blockIndex == null || i == blockIndex) VoiceRow(model, state, recap, script, i, idle, playing == i,
                 onPlay = { playing = if (playing == i) null else i },
                 onOpenBlock = { blockDetail = i })
         }
