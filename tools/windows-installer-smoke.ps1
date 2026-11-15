@@ -95,6 +95,7 @@ public static class AfWindows {
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
     public static List<string> Visible() {
         var result = new List<string>();
         EnumWindows((h, l) => {
@@ -107,6 +108,20 @@ public static class AfWindows {
             return true;
         }, IntPtr.Zero);
         return result;
+    }
+    // WM_CLOSE to every visible top-level window of `pid` titled `title` (what the title-bar X sends).
+    public static int Close(uint pid, string title) {
+        int sent = 0;
+        EnumWindows((h, l) => {
+            if (!IsWindowVisible(h)) return true;
+            uint owner; GetWindowThreadProcessId(h, out owner);
+            if (owner != pid) return true;
+            var sb = new StringBuilder(512);
+            GetWindowText(h, sb, 512);
+            if (sb.ToString() == title && PostMessage(h, 0x0010, IntPtr.Zero, IntPtr.Zero)) sent++;
+            return true;
+        }, IntPtr.Zero);
+        return sent;
     }
 }
 '@
@@ -155,7 +170,7 @@ try {
     $bytes = $null
 
     # 2. Clean starting point, plus a user-data sentinel that uninstall must not touch.
-    $before = Get-AutoFlowUninstallEntries
+    $before = @(Get-AutoFlowUninstallEntries)
     if ($before.Count -ne 0) { throw "Auto Flow is already installed on this runner: $($before | ConvertTo-Json -Compress)" }
     New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
     Set-Content -Path $sentinel -Value "installer smoke $([guid]::NewGuid())" -Encoding utf8
@@ -169,7 +184,7 @@ try {
     $report.steps.install = [ordered]@{ exitCode = $code; rebootRequired = ($code -eq 3010); seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1) }
 
     # 4. Windows registered exactly one product with the expected version.
-    $entries = Get-AutoFlowUninstallEntries
+    $entries = @(Get-AutoFlowUninstallEntries)
     if ($entries.Count -ne 1) { throw "expected one Auto Flow uninstall entry after install, found $($entries.Count)" }
     $entry = $entries[0]
     if ($entry.key -notmatch '^\{[0-9A-Fa-f-]{36}\}$') { throw "uninstall entry key is not an MSI product code: $($entry.key)" }
@@ -215,7 +230,7 @@ try {
     if ($fonts.Count -eq 0) { throw 'no built-in Burmese font (config/fonts/*.ttf, D-49) is installed' }
     $report.steps.files = [ordered]@{
         installDir = $installDir; launcherSha256 = $launcherSha; runtime = $javaVersion; jarCount = $jars.Count
-        foundBy = $foundBy; mainJar = $mainJar; coroutinesSwing = $swingJar.Name; fonts = $fonts; shortcuts = Get-AutoFlowShortcuts
+        foundBy = $foundBy; mainJar = $mainJar; coroutinesSwing = $swingJar.Name; fonts = $fonts; shortcuts = @(Get-AutoFlowShortcuts)
     }
     if (-not (Get-AutoFlowShortcuts | Where-Object { $_ -like "$([Environment]::GetFolderPath('Programs'))*" })) { throw 'no per-user Start menu shortcut was created' }
 
@@ -251,12 +266,16 @@ try {
         userDataEntries = @(Get-ChildItem $dataDir -Force | ForEach-Object { $_.Name })
     }
 
-    # 7. Close it like a user would (WM_CLOSE on the main window), then look for startup/shutdown exceptions.
-    $proc.Refresh()
-    $null = $proc.CloseMainWindow()
+    # 7. Close it like a user would (WM_CLOSE to the titled window, as the title-bar X does), then look for
+    #    startup/shutdown exceptions. Process.CloseMainWindow() is not used: its "main window" guess is not
+    #    guaranteed to be the Compose frame (the first CI run, 6980992, timed out with it).
+    $closeSent = [AfWindows]::Close([uint32]$proc.Id, $WindowTitle)
     $graceful = $proc.WaitForExit(30000)
     if (-not $graceful) { Stop-Process -Id $proc.Id -Force; $proc.WaitForExit(10000) | Out-Null }
-    $report.steps.close = [ordered]@{ graceful = $graceful; exitCode = $(if ($proc.HasExited) { $proc.ExitCode } else { $null }) }
+    $report.steps.close = [ordered]@{
+        wmCloseSentTo = $closeSent; graceful = $graceful
+        exitCode = $(if ($proc.HasExited) { $proc.ExitCode } else { $null })
+    }
     if (-not $graceful) { Write-Output '::warning title=Windows installer smoke::the installed app did not exit within 30 s of closing its window' }
     $appLog = (@($appOut, $appErr) | Where-Object { Test-Path $_ } | ForEach-Object { Get-Content $_ -Raw }) -join "`n"
     if ($appLog -match 'Main dispatcher is missing|Exception in thread|Could not create instance') { throw 'the installed app logged a startup exception (see app-stderr.log)' }
@@ -265,8 +284,10 @@ try {
     $uninstallLog = Join-Path $OutDir 'uninstall.log'
     $code = Invoke-Msi 'msiexec.exe' @('/x', $state.productCode, '/qn', '/norestart', '/l*v', "`"$uninstallLog`"") 'uninstall'
     $state.uninstalled = $true
-    $after = Get-AutoFlowUninstallEntries
-    $shortcutsLeft = Get-AutoFlowShortcuts
+    $after = @(Get-AutoFlowUninstallEntries)
+    # @(...) at the call site: PowerShell unrolls a returned empty/one-item array to $null/a scalar, and
+    # StrictMode then rejects .Count on it (the first CI run failed exactly here, after a clean uninstall).
+    $shortcutsLeft = @(Get-AutoFlowShortcuts)
     $left = @()
     if (Test-Path $installDir) { $left = @(Get-ChildItem $installDir -Recurse -Force | ForEach-Object { $_.FullName }) }
     $sentinelAfter = if (Test-Path $sentinel) { (Get-FileHash $sentinel -Algorithm SHA256).Hash } else { $null }
@@ -291,7 +312,7 @@ try {
     if ($state.proc -and -not $state.proc.HasExited) { Stop-Process -Id $state.proc.Id -Force -ErrorAction SilentlyContinue }
     if ($state.installAttempted -and -not $state.uninstalled) {
         $code = $state.productCode
-        if (-not $code) { $e = Get-AutoFlowUninstallEntries; if ($e.Count -eq 1) { $code = $e[0].key } }
+        if (-not $code) { $e = @(Get-AutoFlowUninstallEntries); if ($e.Count -eq 1) { $code = $e[0].key } }
         if ($code) {
             try { $report.cleanupUninstallExit = Invoke-Msi 'msiexec.exe' @('/x', $code, '/qn', '/norestart', '/l*v', "`"$(Join-Path $OutDir 'cleanup-uninstall.log')`"") 'cleanup uninstall' }
             catch { $report.cleanupUninstallExit = "$($_.Exception.Message)" }
