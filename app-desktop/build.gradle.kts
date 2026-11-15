@@ -61,13 +61,22 @@ compose.desktop {
     application {
         mainClass = "io.github.alalkipgen.autoflow.desktop.MainKt"
         nativeDistributions {
-            // ARCHITECTURE.md §2 says MSIX, but jpackage only builds MSI/EXE — see docs/PLAN.md Q-01.
-            targetFormats(TargetFormat.Msi)
+            // Q-01 / D-65 / D-66: a real Windows EXE installer built by jpackage + WiX on Windows (CI job
+            // `windows-installer`). jpackage cannot cross-build it, so `packageExe` only works on a Windows host.
+            targetFormats(TargetFormat.Exe)
             packageName = "AutoFlow"
-            packageVersion = "0.2.0"
+            // Same as app-android versionName (an upgrade from the stale 0.2.0; Windows: MAJOR.MINOR.BUILD).
+            packageVersion = "0.4.2"
+            description = "Auto Flow"
+            vendor = "Auto Flow"
             windows {
                 menuGroup = "Auto Flow"
-                // Fixed forever so future MSI versions upgrade in place.
+                // D-66: per-user install (no admin/UAC prompt) into %LOCALAPPDATA%\AutoFlow, Start menu + desktop
+                // shortcut. User data stays in ~/.autoflow and is never removed by uninstall.
+                perUserInstall = true
+                menu = true
+                shortcut = true
+                // Fixed forever so future installer versions upgrade in place.
                 upgradeUuid = "5f0c6a3e-2b8d-4c1e-9a77-3d6b1f0e8c42"
             }
         }

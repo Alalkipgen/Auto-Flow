@@ -16,7 +16,7 @@
 :media       RenderGraph → ffmpeg compiler, ffmpeg runner (progress), probe, frame grab — all common code (D-23) over the `ToolRunner` port, which the apps bind to `:platform` ProcessRunner (desktop: located binary; android: bundled binary) · player · folder watcher
 :platform    JvmFs (core FileSystem on java.nio, D-18) · secure storage (DPAPI, D-19) · file pickers · open-URL · clipboard · app dirs
 :ui          Compose Multiplatform screens + ViewModels (shared)
-:app-desktop Compose Desktop entry, jpackage (MSIX)
+:app-desktop Compose Desktop entry, jpackage EXE installer (per-user, unsigned; Q-01 / D-66)
 :app-android Android entry, bundled ffmpeg (D-23), share-sheet receiver, WorkManager render worker, Self-test (1F, D-22)
 spikes/      throwaway experiments (not in main build)
 ```

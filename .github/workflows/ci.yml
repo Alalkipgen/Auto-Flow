@@ -63,6 +63,85 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: windows-screenshots, path: ui/build/screenshots, if-no-files-found: warn }
+      - uses: actions/upload-artifact@v4
+        # Test reports for diagnosis: job logs are not readable without a login.
+        if: failure()
+        with: { name: windows-test-results, path: "*/build/test-results/**/*.xml", if-no-files-found: warn }
+
+  windows-installer:
+    # Q-01 / D-65 / D-66: the real Windows EXE installer (jpackage + WiX on Windows; it cannot be cross-built), then
+    # install -> launch the INSTALLED app -> close -> uninstall on this disposable runner (tools/windows-installer-smoke.ps1).
+    # Unsigned and labelled so; an Actions artifact only, never a release. The SHA-256 is also printed as an annotation
+    # because artifact downloads need a GitHub login.
+    runs-on: windows-latest
+    timeout-minutes: 50
+    env:
+      WIX_URL: https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip
+      WIX_SHA256: 6ac824e1642d6f7277d0ed7ea09411a508f6116ba6fae0aa5f2c7daa2ff43d31
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "25" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: WiX Toolset v3.14.1 (pinned SHA-256; Compose uses it through WIX_PATH)
+        shell: pwsh
+        run: |
+          # The runner context is not available in job-level env, so the output folders are exported from here.
+          $env:SMOKE_DIR = Join-Path $env:RUNNER_TEMP 'installer-smoke'; $env:DIST_DIR = Join-Path $env:RUNNER_TEMP 'exe'
+          New-Item -ItemType Directory -Force $env:SMOKE_DIR, $env:DIST_DIR | Out-Null
+          "SMOKE_DIR=$env:SMOKE_DIR", "DIST_DIR=$env:DIST_DIR" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $zip = Join-Path $env:RUNNER_TEMP 'wix314-binaries.zip'
+          Invoke-WebRequest -Uri $env:WIX_URL -OutFile $zip
+          $h = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($h -ne $env:WIX_SHA256) { throw "WiX download SHA-256 $h does not match the pinned $env:WIX_SHA256" }
+          $dir = Join-Path $env:RUNNER_TEMP 'wix314'
+          Expand-Archive $zip -DestinationPath $dir
+          "WIX_PATH=$dir" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $out = Join-Path $env:SMOKE_DIR 'toolchain.txt'
+          "wix candle.exe $((Get-Item (Join-Path $dir 'candle.exe')).VersionInfo.FileVersion), light.exe $((Get-Item (Join-Path $dir 'light.exe')).VersionInfo.FileVersion), zip sha256 $h" | Out-File -Encoding utf8 $out
+          & java -version 2>&1 | Out-File -Append -Encoding utf8 $out
+          & javac -version 2>&1 | Out-File -Append -Encoding utf8 $out
+          "jpackage $(& jpackage --version)" | Out-File -Append -Encoding utf8 $out
+          "jmods/java.base.jmod present: $(Test-Path (Join-Path $env:JAVA_HOME 'jmods\java.base.jmod'))" | Out-File -Append -Encoding utf8 $out
+          "runner: $env:ImageOS $env:ImageVersion" | Out-File -Append -Encoding utf8 $out
+          Get-Content $out
+      - name: Build the EXE installer (:app-desktop:packageExe)
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew :app-desktop:packageExe -Pcompose.desktop.verbose=true 2>&1 | tee "$SMOKE_DIR/package-exe.log"
+          test "${PIPESTATUS[0]}" -eq 0
+      - name: Label the unsigned EXE, SHA-256 and manifest
+        shell: pwsh
+        run: |
+          $built = @(Get-ChildItem app-desktop/build/compose/binaries/main/exe -Filter *.exe)
+          if ($built.Count -ne 1) { throw "expected exactly one EXE, found $($built.Count)" }
+          if ($built[0].Name -notmatch '^AutoFlow-(\d+\.\d+\.\d+)\.exe$') { throw "unexpected EXE name $($built[0].Name)" }
+          $version = $Matches[1]
+          $name = "AutoFlow-$version-$($env:GITHUB_SHA.Substring(0, 7))-unsigned-setup.exe"
+          $exe = Join-Path $env:DIST_DIR $name
+          Copy-Item $built[0].FullName $exe
+          $sha = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha *$name" | Out-File -Encoding ascii -NoNewline "$exe.sha256"
+          @("Auto Flow $version Windows installer - UNSIGNED test build (Windows SmartScreen will warn). Not a release.",
+            "file: $name", "bytes: $((Get-Item $exe).Length)", "sha256: $sha", "source commit: $env:GITHUB_SHA",
+            "run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID",
+            "install: per-user (no admin), %LOCALAPPDATA%\AutoFlow; uninstall from Settings > Apps; user data in %USERPROFILE%\.autoflow is kept.",
+            "", "toolchain:") + (Get-Content (Join-Path $env:SMOKE_DIR 'toolchain.txt')) | Out-File -Encoding utf8 (Join-Path $env:DIST_DIR 'MANIFEST.txt')
+          "EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "EXE_VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "EXE_ARTIFACT=autoflow-windows-exe-unsigned-$($env:GITHUB_SHA.Substring(0, 7))" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          Write-Output "::notice title=Windows EXE (unsigned) SHA-256::$sha  $name"
+      - name: Install -> launch the installed app -> uninstall (disposable runner only)
+        shell: pwsh
+        env: { AUTOFLOW_DISPOSABLE_RUNNER: "1" }
+        run: pwsh -NoProfile -File tools/windows-installer-smoke.ps1 -Exe $env:EXE -OutDir $env:SMOKE_DIR -ExpectedVersion $env:EXE_VERSION
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: windows-installer-smoke, path: "${{ env.SMOKE_DIR }}", if-no-files-found: warn }
+      - uses: actions/upload-artifact@v4
+        # Only an EXE that passed the install/launch/uninstall check is offered for download.
+        with: { name: "${{ env.EXE_ARTIFACT }}", path: "${{ env.DIST_DIR }}", if-no-files-found: error }
 
   android:
     # D-24: every push builds a debug APK (Actions artifact); a v0.* tag, or a change to .github/release-tag.txt on main,
@@ -129,6 +208,9 @@ jobs:
           cp app-android/build/outputs/apk/debug/app-android-debug.apk "$APK"
           echo "APK=$APK" >> "$GITHUB_ENV"
           ls -l "$APK"
+          # The artifact zip digest is not the APK's hash: publish the APK's own SHA-256 (artifact downloads need a login).
+          mkdir -p apk-dist && cp "$APK" apk-dist/ && (cd apk-dist && sha256sum "$APK" > "$APK.sha256")
+          echo "::notice title=Debug APK SHA-256::$(cat "apk-dist/$APK.sha256") (source $GITHUB_SHA)"
       - name: Show the build error as an annotation
         if: failure()
         run: |
@@ -137,7 +219,7 @@ jobs:
             tail -n 80 "$RUNNER_TEMP/$f.log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed "s/^/::error title=$f log::/"; echo
           done
       - uses: actions/upload-artifact@v4
-        with: { name: "${{ env.APK }}", path: "${{ env.APK }}", if-no-files-found: error }
+        with: { name: "${{ env.APK }}", path: apk-dist, if-no-files-found: error }
       - name: GitHub Release (tag v0.* or .github/release-tag.txt on main)
         if: startsWith(github.ref, 'refs/tags/v0.') || github.ref == 'refs/heads/main'
         env: { GH_TOKEN: "${{ github.token }}" }

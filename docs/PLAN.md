@@ -149,7 +149,7 @@ Rules (D-65, owner 2026-11-16): one coherent task/subtask per PR; automated chec
 
 ## Open Questions
 - ~~Q-02 S4: supported approach for Burmese text in exports?~~ Resolved → libass primary, Skia PNG overlay fallback (S4 README); specs updated (render-graph.md overlays, flow-handoff.md image inbox, ai-providers.md ManualImageProvider).
-- ~~Q-01 Windows installer format~~ Resolved by owner (2026-11-16, D-65): real EXE via Compose/jpackage and supported Windows WiX toolchain. Install/installed-app launch/uninstall and unsigned artifact remain separate verification gates; no release authorized.
+- ~~Q-01 Windows installer format~~ Resolved by owner (2026-11-16, D-65): real EXE via Compose/jpackage and supported Windows WiX toolchain. Install/installed-app launch/uninstall and unsigned artifact remain separate verification gates; no release authorized. Implemented (D-66): `TargetFormat.Exe`, per-user, version 0.4.2, CI job `windows-installer` (Temurin 25 + pinned WiX 3.14.1) builds the EXE and runs install → installed-app launch → uninstall with `tools/windows-installer-smoke.ps1`; the unsigned EXE + SHA-256 + manifest are an Actions artifact. CI result: see the stacked PR; not checked on the owner's PC.
 - ~~Q-03 S2: Gemini image models have zero free-tier quota for this key.~~ Resolved → D-14.
 - ~~Q-04 S1: model ids drift and frequent 503s.~~ Resolved → D-15.
 - ~~Q-05 S3 packaging: bundle trimmed VLC or require an installed VLC?~~ Resolved → D-16 (separate install).
