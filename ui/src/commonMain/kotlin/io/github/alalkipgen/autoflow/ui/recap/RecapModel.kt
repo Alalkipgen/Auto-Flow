@@ -17,7 +17,11 @@ import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.media.audio.AudioFilters
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
+import io.github.alalkipgen.autoflow.core.recap.BlockTake
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
+import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.core.recap.TakeSource
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
@@ -55,7 +59,7 @@ import kotlinx.coroutines.withContext
 /** What the Movie Recap screen shows besides the project itself. [job] = a long step is running ([progress] 0…1 when known). */
 data class RecapUiState(
     val projectDir: String? = null,
-    val recap: Recap? = null,
+    val recap: io.github.alalkipgen.autoflow.core.recap.RecapV2? = null,
     val movieName: String? = null,
     val job: String? = null,
     val progress: Double? = null,
@@ -119,7 +123,7 @@ class RecapModel(
         _state.value = RecapUiState(
             projectDir = open?.dir,
             recap = recap,
-            script = recap?.script?.let { id -> (session.readJson(id, RecapScript.serializer()) as? CoreResult.Ok)?.value },
+            script = recap?.story?.let { id -> storyToScript(session.readJson(id, io.github.alalkipgen.autoflow.core.recap.RecapStory.serializer())) },
             summary = if (open == null) "" else session.readSource(SUMMARY_FILE),
             recording = keep?.recording,
             takeFiles = takeFiles(open?.dir, recap),
@@ -135,7 +139,7 @@ class RecapModel(
     /** Picks a movie file and streams it into `source/` (spec §2); clears scenes, script and takes. */
     fun importMovie(): Job? {
         val recap = recap() ?: return null
-        RecapRules.canImportMovie(recap).blockers.firstOrNull()?.let { say(it.text()); return null }
+        RecapRulesV2.canImportMovie(recap).blockers.firstOrNull()?.let { say(it.text()); return null }
         val p = picker ?: run { say("Choosing files is not available here"); return null }
         if (_state.value.busy) return null
         return scope.launch {
@@ -160,7 +164,7 @@ class RecapModel(
                 height = info.height ?: 0,
                 hasAudio = info.hasAudio,
             )
-            val saved = update { it.copy(movie = movie, scenes = emptyList(), script = null, scriptApproved = false, takes = emptyList()) }
+            val saved = update { it.copy(movie = movie, scenes = emptyList(), story = null, storyApproved = false, takes = emptyList()) }
             done(if (saved) "Movie ready: ${clock(movie.durationMs)}. Next: Find scenes." else null, ok = saved)
         }
     }
@@ -168,7 +172,7 @@ class RecapModel(
     /** Runs `scdet` over the movie ([threshold]: [Scenes.THRESHOLD_MORE] … [Scenes.THRESHOLD_FEWER]). */
     fun findScenes(threshold: Int = Scenes.THRESHOLD_NORMAL): Job? {
         val recap = recap() ?: return null
-        RecapRules.canFindScenes(recap).blockers.firstOrNull()?.let { say(it.text()); return null }
+        RecapRulesV2.canFindScenes(recap).blockers.firstOrNull()?.let { say(it.text()); return null }
         val movie = recap.movie ?: return null
         val runner = media?.runner
         val ffmpeg = media?.ffmpeg()
@@ -184,7 +188,7 @@ class RecapModel(
                 is SceneDetect.Result.Failed -> done("Cannot find scenes: ${r.reason}")
                 is SceneDetect.Result.Ok -> {
                     val scenes = Scenes.fromCuts(r.cutsMs, movie.durationMs, recap().orEmptyScenes())
-                    val saved = update { it.copy(scenes = scenes, sceneThreshold = threshold, scriptApproved = false) }
+                    val saved = update { it.copy(scenes = scenes, sceneThreshold = threshold, storyApproved = false) }
                     done(if (saved) "Found ${scenes.size} scenes. Tick the ones to tell the story with." else null, ok = saved)
                 }
             }
@@ -251,54 +255,66 @@ class RecapModel(
             val cues = Srt.parse(text)
             if (cues.isEmpty()) return@launch say("No subtitle lines were found in this file. Is it an .srt file?")
             (session.writeSource(SUBTITLES_FILE, text) as? CoreResult.Err)?.let { return@launch say(it.error.message) }
-            if (update { it.copy(subtitles = "${ProjectSession.SOURCE_DIR}/$SUBTITLES_FILE") }) {
+            if (update { it.copy(sources = it.sources.copy(subtitles = "${ProjectSession.SOURCE_DIR}/$SUBTITLES_FILE")) }) {
                 done("Subtitles ready: ${cues.size} lines.", ok = true)
             }
         }
     }
 
     fun removeSubtitles() {
-        update { it.copy(subtitles = null, subtitleTrack = null) }
+        update { it.copy(sources = it.sources.copy(subtitles = null, subtitleTrack = null)) }
     }
 
     /** Sets the selected subtitle stream track index (5B-1). */
     fun setSubtitleTrack(index: Int?) {
-        update { it.copy(subtitleTrack = index) }
+        update { it.copy(sources = it.sources.copy(subtitleTrack = index)) }
     }
 
+    // style/register are now per-story; kept as local state until writeScript() is called
+    private var _style: RecapStyle = RecapStyle.PLAIN
+    private var _register: RecapRegister = RecapRegister.SPOKEN
+
     fun setStyle(style: RecapStyle) {
-        update { it.copy(style = style) }
+        _style = style
     }
 
     /** Spoken (casual) vs Written (formal) Burmese register for TTS (5B-7). */
     fun setRegister(register: RecapRegister) {
-        update { it.copy(register = register) }
+        _register = register
     }
 
     /** ✨ Write script (Gemini): one narration text per picked scene; the new `rs` replaces the current one, not approved. */
     fun writeScript(): Job? {
         val recap = recap() ?: return null
         val summary = _state.value.summary
-        val cues = recap.subtitles?.let { Srt.parse(session.readSource(SUBTITLES_FILE)) }.orEmpty()
-        val gate = RecapRules.canGenerateScript(recap, summary, if (cues.isEmpty()) "" else "srt")
+        val subtitlePath = recap.sources.subtitles
+        val cues = subtitlePath?.let { Srt.parse(session.readSource(SUBTITLES_FILE)) }.orEmpty()
+        val gate = RecapRulesV2.canGenerateScript(recap, summary, if (cues.isEmpty()) "" else "srt")
         gate.blockers.firstOrNull()?.let { say(it.text()); return null }
         val gen = generator ?: run { say("Gemini is not available here"); return null }
         if (_state.value.busy) return null
+        val picked = RecapRulesV2.pickedScenes(recap)
         val brief = RecapBrief(
             title = project()?.name.orEmpty(),
             summary = summary,
-            style = recap.style,
-            register = recap.register,
-            scenes = recap.picked.map { SceneBrief(it.startMs, it.endMs, Srt.textIn(cues, it.startMs, it.endMs, RecapPrompts.DIALOGUE_CHARS)) },
+            style = _style,
+            register = _register,
+            scenes = picked.map { SceneBrief(it.startMs, it.endMs, Srt.textIn(cues, it.startMs, it.endMs, RecapPrompts.DIALOGUE_CHARS)) },
         )
         busy(WRITING)
         return scope.launch {
             try {
                 when (val r = gen.write(brief)) {
                     is AiResult.Ok -> {
-                        val segments = recap.picked.zip(r.value) { scene, text -> RecapSegment(scene.startMs, scene.endMs, text) }
-                        val saved = saveScript(RecapScript(source = RecapScript.SOURCE_GEMINI, style = recap.style, segments = segments))
-                        done(if (saved) "✨ Script written: ${segments.size} segments. Read and fix them, then ✓ Approve." else null, ok = saved)
+                        val blocks = picked.zip(r.value) { scene, text ->
+                            io.github.alalkipgen.autoflow.core.recap.RecapBlock(
+                                id = io.github.alalkipgen.autoflow.core.recap.migratedBlockId(picked.indexOf(scene), scene.startMs, scene.endMs),
+                                clips = listOf(io.github.alalkipgen.autoflow.core.recap.RecapClip(scene.startMs, scene.endMs)),
+                                textMy = text,
+                            )
+                        }
+                        val saved = saveStory(RecapStory(source = RecapStory.SOURCE_GEMINI, style = _style, register = _register, blocks = blocks))
+                        done(if (saved) "✨ Script written: ${blocks.size} segments. Read and fix them, then ✓ Approve." else null, ok = saved)
                     }
                     is AiResult.RateLimited -> done(RATE_LIMITED)
                     is AiResult.Failed -> done("Gemini: ${r.msg}")
@@ -317,15 +333,21 @@ class RecapModel(
         done("Stopped. The script did not change.")
     }
 
-    /** ✎ Write it myself: a script with one empty segment per picked scene. */
+    /** ✎ Write it myself: a story with one empty block per picked scene. */
     fun writeManually(): Boolean {
         val recap = recap() ?: return false
-        RecapRules.canWriteManually(recap).blockers.firstOrNull()?.let { say(it.text()); return false }
-        val segments = recap.picked.map { RecapSegment(it.startMs, it.endMs) }
-        return saveScript(RecapScript(source = RecapScript.SOURCE_MANUAL, style = recap.style, segments = segments))
+        RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let { say(it.text()); return false }
+        val picked = RecapRulesV2.pickedScenes(recap)
+        val blocks = picked.mapIndexed { i, scene ->
+            io.github.alalkipgen.autoflow.core.recap.RecapBlock(
+                id = io.github.alalkipgen.autoflow.core.recap.migratedBlockId(i, scene.startMs, scene.endMs),
+                clips = listOf(io.github.alalkipgen.autoflow.core.recap.RecapClip(scene.startMs, scene.endMs)),
+            )
+        }
+        return saveStory(RecapStory(source = RecapStory.SOURCE_MANUAL, style = _style, register = _register, blocks = blocks))
     }
 
-    /** Saves segment [index] with [text] as a new `rs`; approval is cleared. */
+    /** Saves block [index] with [text]; approval is cleared. */
     fun saveSegment(index: Int, text: String): Boolean {
         val script = _state.value.script ?: return false
         if (index !in script.segments.indices) return false
@@ -335,8 +357,6 @@ class RecapModel(
 
     /**
      * Edit the timing of segment [index] (per-chunk caption timing, D-52): shifts [startMs] and [endMs].
-     * The new start is clamped to 0 and the new end must be > the new start. Adjacent segments are NOT
-     * automatically adjusted — the owner sets each one explicitly in the edit UI.
      */
     fun saveSegmentTiming(index: Int, startMs: Long, endMs: Long): Boolean {
         val script = _state.value.script ?: return false
@@ -344,21 +364,47 @@ class RecapModel(
         if (endMs <= startMs) { say("End must be after start"); return false }
         val clamped = startMs.coerceAtLeast(0L)
         val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(startMs = clamped, endMs = endMs) else s }
-        return if (saveScript(script.copy(segments = segments))) { say("Timing saved", ); true } else false
+        return if (saveScript(script.copy(segments = segments))) { say("Timing saved"); true } else false
     }
 
-    /** ✓ Approve script ([RecapRules.canApproveScript]). */
+    /** ✓ Approve script. */
     fun approveScript(): Boolean {
         val recap = recap() ?: return false
-        RecapRules.canApproveScript(recap, _state.value.script).blockers.firstOrNull()?.let { say(it.text()); return false }
-        return update { it.copy(scriptApproved = true) }
+        val story = currentStory()
+        RecapRulesV2.canApproveScript(recap, story).blockers.firstOrNull()?.let { say(it.text()); return false }
+        return update { it.copy(storyApproved = true) }
+    }
+
+    private fun currentStory(): RecapStory? =
+        recap()?.story?.let { id -> (session.readJson(id, RecapStory.serializer()) as? CoreResult.Ok)?.value }
+
+    /** Converts a [CoreResult] from reading a RecapStory artifact to a v1-compatible RecapScript for UI backward compat. */
+    private fun storyToScript(result: CoreResult<RecapStory>): RecapScript? {
+        val story = (result as? CoreResult.Ok)?.value ?: return null
+        return RecapScript(
+            source = story.source,
+            style = story.style,
+            segments = story.blocks.mapIndexed { i, b ->
+                val clip = b.clips.firstOrNull()
+                RecapSegment(startMs = clip?.inMs ?: (i * 10_000L), endMs = clip?.outMs ?: ((i + 1) * 10_000L), textMy = b.textMy)
+            },
+        )
+    }
+
+    private fun saveStory(story: RecapStory): Boolean {
+        val store = session.artifacts() ?: return false
+        val bytes = CoreJson.encodeToString(RecapStory.serializer(), story).encodeToByteArray()
+        return when (val r = store.put(bytes, ArtifactKind.RECAP_SCRIPT, "json", provider = story.source)) {
+            is CoreResult.Ok -> update { it.copy(story = r.value.id, storyApproved = false) }
+            is CoreResult.Err -> { say(r.error.message); false }
+        }
     }
 
     private fun saveScript(script: RecapScript): Boolean {
         val store = session.artifacts() ?: return false
         val bytes = CoreJson.encodeToString(RecapScript.serializer(), script).encodeToByteArray()
         return when (val r = store.put(bytes, ArtifactKind.RECAP_SCRIPT, "json", provider = script.source)) {
-            is CoreResult.Ok -> update { it.copy(script = r.value.id, scriptApproved = false) }
+            is CoreResult.Ok -> update { it.copy(story = r.value.id, storyApproved = false) }
             is CoreResult.Err -> { say(r.error.message); false }
         }
     }
@@ -369,11 +415,12 @@ class RecapModel(
 
     fun setVoiceSource(source: VoiceSource) {
         if (source == VoiceSource.REPLICATED) return // hidden: needs a paid tier (D-34)
-        update { it.copy(voiceSource = source) }
+        // v2: voiceSource is implicit from voiceLock; this is a no-op for now
     }
 
     fun setTtsVoice(voice: String) {
-        update { it.copy(ttsVoice = voice) }
+        // v2: voice is stored in voiceLock
+        update { r -> r.copy(voiceLock = r.voiceLock?.copy(voice = voice) ?: io.github.alalkipgen.autoflow.core.recap.VoiceLock(provider = "gemini", model = "", voice = voice, lang = "my")) }
     }
 
     /** ● Record segment [index] into `.cache/` (stopped with [stopRecording]). */
@@ -467,10 +514,13 @@ class RecapModel(
     fun speakAll(confirmed: Boolean = false): Job? {
         val recap = recap() ?: return null
         val script = _state.value.script ?: return null
-        RecapRules.canVoice(recap, script).blockers.firstOrNull()?.let { say(it.text()); return null }
+        RecapRulesV2.canVoice(recap, currentStory()).blockers.firstOrNull()?.let { say(it.text()); return null }
         if (tts == null) { say("Text to speech is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
-        val todo = script.segments.indices.filter { RecapRules.currentTake(recap, script, it) == null && script.segments[it].textMy.isNotBlank() }
+        val todo = script.segments.indices.filter { i ->
+            val blockId = recap.story?.let { storyId -> (session.readJson(storyId, RecapStory.serializer()) as? CoreResult.Ok)?.value?.blocks?.getOrNull(i)?.id }
+            (if (blockId != null) RecapRulesV2.currentTakeFor(recap, blockId) else null) == null && script.segments[i].textMy.isNotBlank()
+        }
         if (todo.isEmpty()) { say("Every scene already has its voice."); return null }
         // Show ETA card first; user confirms before the loop starts (5A-5).
         if (!confirmed) {
@@ -504,13 +554,15 @@ class RecapModel(
         val recap = recap() ?: return "No project is open"
         val text = voiceText(index) ?: return _state.value.message
         val provider = tts ?: return "Text to speech is not available here"
-        val style = when (recap.style) {
+        val story = currentStory()
+        val style = when (story?.style ?: _style) {
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.PLAIN -> "calm, clear movie recap narrator"
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.COMMENTARY -> "lively movie recap narrator with feeling"
         }
         // Voice lock enforcement (D-35, audit): pass the locked model so the provider never switches.
         val lockedModel = recap.voiceLock?.model
-        return when (val r = provider.speak(text, VoiceRef(recap.ttsVoice), "my", style, lockedModel)) {
+        val ttsVoice = recap.voiceLock?.voice ?: "Kore"
+        return when (val r = provider.speak(text, VoiceRef(ttsVoice), "my", style, lockedModel)) {
             is AiResult.Ok -> {
                 val ms = PcmWav.parse(r.value)?.durationMs ?: return "The speech audio cannot be read"
                 if (saveTake(index, r.value, "wav", VoiceSource.TTS, ms)) null else _state.value.message ?: "Cannot save the voice"
@@ -525,7 +577,7 @@ class RecapModel(
     private fun voiceText(index: Int): String? {
         val recap = recap() ?: return null
         val script = _state.value.script
-        RecapRules.canVoice(recap, script).blockers.firstOrNull()?.let { say(it.text()); return null }
+        RecapRulesV2.canVoice(recap, currentStory()).blockers.firstOrNull()?.let { say(it.text()); return null }
         val written = script!!.segments.getOrNull(index)?.textMy?.trim().orEmpty()
         if (written.isEmpty()) { say("Scene ${index + 1} has no narration text"); return null }
         // Apply lexicon substitutions before TTS (5B-7): captions show the written text, TTS speaks the spoken form.
@@ -564,9 +616,18 @@ class RecapModel(
         val text = _state.value.script?.segments?.getOrNull(index)?.textMy ?: return false
         val store = session.artifacts() ?: return false
         val hash = RecapRules.textHash(text)
+        val story = currentStory()
+        val blockId = story?.blocks?.getOrNull(index)?.id ?: "b_seg$index"
         val inputs = mapOf("segment" to index.toString(), "textHash" to hash)
+        val ttsSource = when (source) {
+            VoiceSource.TTS, VoiceSource.REPLICATED -> TakeSource.TTS
+            VoiceSource.RECORDED -> TakeSource.RECORDED
+        }
         return when (val r = store.put(bytes, io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, ext, inputs = inputs, provider = source.name.lowercase())) {
-            is CoreResult.Ok -> update { RecapRules.withTake(it, VoiceTake(index, r.value.id, source, durationMs, hash)) }
+            is CoreResult.Ok -> {
+                val take = BlockTake(block = blockId, audio = r.value.id, source = ttsSource, durationMs = durationMs, spokenHash = hash)
+                update { recap -> recap.copy(takes = recap.takes.filter { it.block != blockId } + take) }
+            }
             is CoreResult.Err -> { say(r.error.message); false }
         }
     }
@@ -576,7 +637,7 @@ class RecapModel(
     /** The movie's sound under the narration: [MOVIE_VOLUMES] (Off 0 · Low 0.2 · Full 1.0). */
     fun setMovieVolume(volume: Double) {
         if (_state.value.busy) return
-        update { it.copy(movieVolume = volume.coerceIn(0.0, 1.0)) }
+        update { it.copy(audio = it.audio.copy(movieVolume = volume.coerceIn(0.0, 1.0))) }
     }
 
     /** Changes the sound settings (5B-4); used when the video is rendered. */
@@ -627,13 +688,14 @@ class RecapModel(
 
     fun setBurnCaptions(on: Boolean) {
         if (_state.value.busy) return
-        update { it.copy(burnCaptions = on) }
+        update { it.copy(captions = it.captions.copy(burn = on)) }
     }
 
     /** Sets the Smart Fit choice for segment [index] (5A-8, studio-v2 §8). */
     fun setFitChoice(index: Int, choice: io.github.alalkipgen.autoflow.core.recap.FitChoice) {
         if (_state.value.busy) return
-        update { it.copy(fit = it.fit + (index to choice)) }
+        val blockId = currentStory()?.blocks?.getOrNull(index)?.id ?: "b_seg$index"
+        update { it.copy(fit = it.fit + (blockId to choice.name)) }
     }
 
     // --- Brand Kit (5B-3, D-51) -------------------------------------------------------------------------
@@ -720,7 +782,8 @@ class RecapModel(
     fun cleanTake(index: Int): Job? {
         if (_state.value.busy || _state.value.recording != null) return null
         val recap = recap() ?: return null
-        val take = io.github.alalkipgen.autoflow.core.recap.RecapRules.currentTake(recap, _state.value.script ?: return null, index)
+        val blockId = currentStory()?.blocks?.getOrNull(index)?.id ?: "b_seg$index"
+        val take = RecapRulesV2.currentTakeFor(recap, blockId)
             ?: return say("No take for this block").let { null }
         val dir = session.open?.dir ?: return null
         val artifactStore = ArtifactStore(fs, dir)
@@ -734,7 +797,8 @@ class RecapModel(
                 ?: return@launch done("Cannot read take file")
             val ext = file.substringAfterLast('.', "wav")
             val (cleaned, cleanExt, cleanMs) = trimPauses(index, bytes, ext, take.durationMs)
-            if (!storeTake(index, cleaned, cleanExt, take.source, cleanMs))
+            val srcVoice = if (take.source == TakeSource.RECORDED) VoiceSource.RECORDED else VoiceSource.TTS
+            if (!storeTake(index, cleaned, cleanExt, srcVoice, cleanMs))
                 return@launch done("Could not save the cleaned take")
             done("Take ${ index + 1 } cleaned: silence trimmed", ok = true)
         }
@@ -825,11 +889,12 @@ class RecapModel(
     private suspend fun durationOf(path: String, bytes: ByteArray): Long? =
         PcmWav.parse(bytes)?.durationMs ?: probe(path)?.takeIf { it.hasAudio && it.durationMs > 0 }?.durationMs
 
-    private fun takeFiles(dir: String?, recap: Recap?): Map<Int, String> {
+    private fun takeFiles(dir: String?, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2?): Map<Int, String> {
         if (dir == null || recap == null || recap.takes.isEmpty()) return emptyMap()
         val store = ArtifactStore(fs, dir)
-        return recap.takes.mapNotNull { t ->
-            (store.get(t.audio) as? CoreResult.Ok)?.value?.file?.let { t.segment to joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), it) }
+        // Map block index (position in story blocks) to file path for playback
+        return recap.takes.mapIndexedNotNull { i, t ->
+            (store.get(t.audio) as? CoreResult.Ok)?.value?.file?.let { i to joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), it) }
         }.toMap()
     }
 
@@ -841,12 +906,12 @@ class RecapModel(
 
     // --- helpers -----------------------------------------------------------------------------------------------
 
-    private fun recap(): Recap? = session.open?.project?.recap
+    private fun recap(): io.github.alalkipgen.autoflow.core.recap.RecapV2? = session.open?.project?.recap
 
-    private fun Recap?.orEmptyScenes(): List<RecapScene> = this?.scenes.orEmpty()
+    private fun io.github.alalkipgen.autoflow.core.recap.RecapV2?.orEmptyScenes(): List<RecapScene> = this?.scenes.orEmpty()
 
     /** Applies [change] to `project.recap` and saves; false (with the message shown) when saving failed. */
-    internal fun update(change: (Recap) -> Recap): Boolean {
+    internal fun update(change: (io.github.alalkipgen.autoflow.core.recap.RecapV2) -> io.github.alalkipgen.autoflow.core.recap.RecapV2): Boolean {
         val project = session.open?.project ?: return false
         val recap = project.recap ?: return false
         return when (val r = session.save(project.copy(recap = change(recap)))) {

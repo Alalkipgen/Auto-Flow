@@ -80,8 +80,8 @@ class ProjectStoreTest {
         val fixture = readTestResource("fixtures/project-v1.json")
         fs.writeDurably("$dir/project.json", fixture.replace("\"timeline\": null", "\"timeline\": null, \"extra\": 1").encodeToByteArray())
         assertIs<CoreError.Corrupt>(store.open(dir).err())
-        fs.writeDurably("$dir/project.json", fixture.replace("\"schemaVersion\": 1", "\"schemaVersion\": 2").encodeToByteArray())
-        assertEquals(CoreError.UnsupportedSchema("$dir/project.json", 2, Project.SCHEMA_VERSION), store.open(dir).err())
+        fs.writeDurably("$dir/project.json", fixture.replace("\"schemaVersion\": 1", "\"schemaVersion\": 3").encodeToByteArray())
+        assertEquals(CoreError.UnsupportedSchema("$dir/project.json", 3, Project.SCHEMA_VERSION), store.open(dir).err())
     }
 
     @Test

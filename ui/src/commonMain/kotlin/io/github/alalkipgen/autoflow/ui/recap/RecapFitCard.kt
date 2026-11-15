@@ -11,8 +11,10 @@ import io.github.alalkipgen.autoflow.core.recap.FitChoice
 import io.github.alalkipgen.autoflow.core.recap.FitRow
 import io.github.alalkipgen.autoflow.core.recap.FitStatus
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfChip
@@ -43,20 +45,20 @@ fun FitRow.label(): String = when (status) {
 }
 
 /** Footer: "Recap 4:51 (target 5:00) · 12 of 14 voiced". */
-fun fitFooter(recap: Recap, rows: List<FitRow>): String =
+fun fitFooter(recap: RecapV2, rows: List<FitRow>): String =
     "Recap ${clock(RecapFit.totalMs(rows))} (target ${clock(recap.targetMs)}) · ${rows.count { it.takeMs != null }} of ${rows.size} voiced"
 
 /** Card 5 · Fit check (docs/specs/recap.md §6): one row per scene, movie sound, looks, captions, then Export. */
 @Composable
-internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoToExport: () -> Unit) {
+internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onGoToExport: () -> Unit) {
     AfCard("5 · Fit check") {
         val script = state.script
-        RecapRules.canVoice(recap, script).blockers.firstOrNull()?.let {
+        RecapRules.canVoice(recap.toV1(), script).blockers.firstOrNull()?.let {
             AfText(it.text(), muted = true)
             return@AfCard
         }
         script!!
-        val rows = RecapFit.rows(recap, script)
+        val rows = RecapFit.rows(recap.toV1(), script)
         rows.forEach { row ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfText("${row.segment + 1}", muted = true, mono = true)
@@ -73,7 +75,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
             }
             // Smart Fit choices (5A-8): shown when the take runs over by > 400 ms
             if (row.status == FitStatus.RUNS_ON && row.overMs > 400) {
-                val current = recap.fit[row.segment] ?: FitChoice.EXTEND
+                val current = recap.fitChoice(row.segment) ?: FitChoice.EXTEND
                 AfText("Fix (+${seconds(row.overMs)} over):", muted = true, size = 11.sp)
                 WrapRow {
                     listOf(
@@ -134,7 +136,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
             AfButton("Cancel", { brandKitName = "" })
         }
     }
-        val render = RecapRules.canRender(recap, script)
+        val render = RecapRules.canRender(recap.toV1(), script)
         render.blockers.firstOrNull()?.let { AfText(it.text(), color = AutoFlowColors.Amber) }
         AfButton(GO_TO_EXPORT, onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
     }

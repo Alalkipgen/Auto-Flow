@@ -50,3 +50,6 @@ object Scenes {
 
     private val SCD_TIME = Regex("""lavfi\.scd\.time:\s*([0-9]+(?:\.[0-9]+)?)""")
 }
+
+// RecapV2 overload
+fun Scenes.offTarget(recap: RecapV2): Boolean = offTarget(recap.toV1())

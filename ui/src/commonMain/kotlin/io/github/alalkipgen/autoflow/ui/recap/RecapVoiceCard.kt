@@ -13,7 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.VoiceSource
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -35,10 +37,10 @@ const val STOP = "■ Stop"
 
 /** Card 4 · Voice (docs/specs/recap.md §5, D-34): recorded or Gemini TTS narration per segment. */
 @Composable
-internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: Recap) {
+internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     AfCard("4 · Voice") {
         val script = state.script
-        RecapRules.canVoice(recap, script).blockers.firstOrNull()?.let {
+        RecapRules.canVoice(recap.toV1(), script).blockers.firstOrNull()?.let {
             AfText(it.text(), muted = true)
             return@AfCard
         }
@@ -72,7 +74,7 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: Recap) {
                 muted = true, size = 12.sp,
             )
         }
-        val voiced = script.segments.indices.count { RecapRules.currentTake(recap, script, it) != null }
+        val voiced = script.segments.indices.count { RecapRules.currentTake(recap.toV1(), script, it) != null }
         AfText("Voiced $voiced of ${script.segments.size} scenes", bold = true, color = if (voiced == script.segments.size) AutoFlowColors.Green else null)
         var playing by remember { mutableStateOf<Int?>(null) }
         // Block detail: tap "Voice & Audio" on a row to open the teleprompter / tab view (5B-5).
@@ -90,10 +92,10 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: Recap) {
 }
 
 @Composable
-private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: Recap, script: RecapScript, i: Int, idle: Boolean, playing: Boolean, onPlay: () -> Unit, onOpenBlock: () -> Unit = {}) {
+private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: RecapV2, script: RecapScript, i: Int, idle: Boolean, playing: Boolean, onPlay: () -> Unit, onOpenBlock: () -> Unit = {}) {
     val seg = script.segments[i]
-    val take = RecapRules.currentTake(recap, script, i)
-    val stale = RecapRules.isStale(recap, script, i)
+    val take = RecapRules.currentTake(recap.toV1(), script, i)
+    val stale = RecapRules.isStale(recap.toV1(), script, i)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("#${i + 1} · ${clock(seg.startMs)} · scene ${seconds(seg.durationMs)}", Modifier.weight(1f), muted = true, size = 12.sp)

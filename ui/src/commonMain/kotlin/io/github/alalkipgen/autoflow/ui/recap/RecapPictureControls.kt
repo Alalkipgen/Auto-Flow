@@ -32,6 +32,7 @@ import io.github.alalkipgen.autoflow.core.recap.MaskStrength
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
 import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -57,7 +58,7 @@ const val CAPTIONS_ON_BOX = "Put my captions on the bottom box"
  * differs from the video's, and captions on the bottom box. Applied when the video is rendered.
  */
 @Composable
-internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel) {
+internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapModel) {
     val v = recap.visual
     // ── 🎬 Output ──────────────────────────────────────────────────────────────
     AfCard("🎬 Output") {
@@ -219,7 +220,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
 
 /** A frame of the first picked scene with the blur boxes drawn on it (what the render will hide). */
 @Composable
-private fun MaskPreview(recap: Recap, model: RecapModel) {
+private fun MaskPreview(recap: RecapV2, model: RecapModel) {
     val scene = recap.picked.firstOrNull() ?: recap.scenes.firstOrNull() ?: return
     val image by produceState<ImageBitmap?>(null, scene.startMs, scene.endMs) { value = model.thumbnail(scene)?.let(::decodeImage) }
     val movie = recap.movie

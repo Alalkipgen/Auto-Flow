@@ -31,7 +31,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.Scenes
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -91,7 +93,7 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
 }
 
 @Composable
-private fun MovieCard(model: RecapModel, state: RecapUiState, recap: Recap) {
+private fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     AfCard("1 · Movie") {
         val movie = recap.movie
         if (movie == null) {
@@ -100,7 +102,7 @@ private fun MovieCard(model: RecapModel, state: RecapUiState, recap: Recap) {
             AfText("${state.movieName ?: movie.file} · ${clock(movie.durationMs)} · ${movie.width}×${movie.height}" +
                 (if (movie.hasAudio) "" else " · no sound") + " · ${movie.sizeBytes / (1024 * 1024)} MB")
         }
-        val gate = RecapRules.canImportMovie(recap)
+        val gate = RecapRules.canImportMovie(recap.toV1())
         if (!gate.allowed) AfText(gate.blockers.first().text(), color = AutoFlowColors.Amber)
         AfButton(if (movie == null) IMPORT_MOVIE else "Replace movie", { model.importMovie() },
             kind = if (movie == null) ButtonKind.Primary else ButtonKind.Secondary, enabled = gate.allowed && !state.busy)
@@ -108,9 +110,9 @@ private fun MovieCard(model: RecapModel, state: RecapUiState, recap: Recap) {
 }
 
 @Composable
-private fun ScenesCard(model: RecapModel, state: RecapUiState, recap: Recap) {
+private fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     AfCard("2 · Scenes") {
-        val gate = RecapRules.canFindScenes(recap)
+        val gate = RecapRules.canFindScenes(recap.toV1())
         if (!gate.allowed) {
             AfText(gate.blockers.first().text(), muted = true)
             return@AfCard
@@ -130,7 +132,7 @@ private fun ScenesCard(model: RecapModel, state: RecapUiState, recap: Recap) {
         WrapRow {
             Recap.TARGETS_MS.forEach { t -> AfChip("${t / 60_000} min", recap.targetMs == t, { model.setTarget(t) }) }
         }
-        val off = Scenes.offTarget(recap)
+        val off = Scenes.offTarget(recap.toV1())
         AfText("Picked ${recap.picked.size} scenes · ${clock(recap.pickedMs)} of target ${clock(recap.targetMs)}",
             color = if (off) AutoFlowColors.Amber else null, bold = true)
         var pickedOnly by remember { mutableStateOf(false) }

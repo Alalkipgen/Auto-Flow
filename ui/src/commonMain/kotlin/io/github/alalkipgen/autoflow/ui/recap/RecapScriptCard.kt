@@ -15,8 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapRegister
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -36,9 +38,9 @@ const val APPROVE_SCRIPT = "✓ Approve script"
 
 /** Card 3 · Script (docs/specs/recap.md §4): summary, subtitles, style, Gemini or manual script, edit, approve. */
 @Composable
-internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: Recap) {
+internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     AfCard("3 · Script") {
-        RecapRules.canWriteManually(recap).blockers.firstOrNull()?.let {
+        RecapRules.canWriteManually(recap.toV1()).blockers.firstOrNull()?.let {
             AfText(it.text(), muted = true)
             return@AfCard
         }
@@ -100,7 +102,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: Recap) {
                 AfButton("Back", { confirming = null })
             }
         } else {
-            val gate = RecapRules.canGenerateScript(recap, state.summary, if (recap.subtitles != null) "srt" else "")
+            val gate = RecapRules.canGenerateScript(recap.toV1(), state.summary, if (recap.subtitles != null) "srt" else "")
             if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
             WrapRow {
                 AfButton(WRITE_SCRIPT, { if (script == null) model.writeScript() else confirming = WRITE_SCRIPT },
@@ -109,13 +111,13 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: Recap) {
             }
         }
         if (script == null) return@AfCard
-        val current = RecapRules.isCurrent(recap, script)
-        if (!current) AfText(RecapRules.canApproveScript(recap, script).blockers.first().text(), color = AutoFlowColors.Amber, bold = true)
+        val current = RecapRules.isCurrent(recap.toV1(), script)
+        if (!current) AfText(RecapRules.canApproveScript(recap.toV1(), script).blockers.first().text(), color = AutoFlowColors.Amber, bold = true)
         script.segments.forEachIndexed { i, seg -> SegmentRow(model, i, seg, enabled = current && !state.busy) }
         if (recap.scriptApproved && current) {
             AfText("✓ Script approved. Next: Voice.", color = AutoFlowColors.Green, bold = true)
         } else if (current) {
-            val gate = RecapRules.canApproveScript(recap, script)
+            val gate = RecapRules.canApproveScript(recap.toV1(), script)
             if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
             AfButton(APPROVE_SCRIPT, { model.approveScript() }, kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
         }
