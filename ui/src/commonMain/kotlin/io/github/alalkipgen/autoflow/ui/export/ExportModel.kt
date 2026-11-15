@@ -116,6 +116,7 @@ class ExportModel(
 
     init {
         refresh()
+        this.frames.lexicon?.let { changes -> scope.launch { changes.collect { refresh() } } }
     }
 
     /** Re-reads the open project, the song, the font and the battery (the screen calls it when it opens). */
@@ -245,8 +246,9 @@ class ExportModel(
         val recap = open.project.recap!!
         val story = recapStory()
         // v2 rules (audit F07): fit rows by block id with every clip and the chosen take — what the render plays.
-        val gate = RecapRulesV2.canRender(recap, story)
-        val rows = story?.takeIf { RecapRulesV2.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it) }.orEmpty()
+        val lexicon = frames.lexicon?.value ?: io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY
+        val gate = RecapRulesV2.canRender(recap, story, lexicon)
+        val rows = story?.takeIf { RecapRulesV2.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it, lexicon) }.orEmpty()
         return RecapExport(
             segments = rows.size,
             voiced = rows.count { it.takeMs != null },
@@ -258,7 +260,7 @@ class ExportModel(
             blocker = gate.blockers.firstOrNull()?.text() ?: if (recap.movie == null) "Import the movie first (Movie Recap → 1 · Movie)." else null,
             quality = recap.quality,
             publishKit = recap.publishKit ?: PublishKit(),
-            preflight = PreflightCheck.check(recap, story),
+            preflight = PreflightCheck.check(recap, story, lexicon),
         )
     }
 

@@ -58,7 +58,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         }
         story!!
         // v2 rows (audit F07): by block id, every clip of a block, the chosen take.
-        val rows = RecapFit.rows(recap, story)
+        val rows = RecapFit.rows(recap, story, state.lexicon)
         rows.forEach { row ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfText("${row.segment + 1}", muted = true, mono = true)
@@ -137,7 +137,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
             AfButton("Cancel", { brandKitName = "" })
         }
     }
-        val render = RecapRulesV2.canRender(recap, story)
+        val render = RecapRulesV2.canRender(recap, story, state.lexicon)
         render.blockers.firstOrNull()?.let { AfText(it.text(), color = AutoFlowColors.Amber) }
         AfButton(GO_TO_EXPORT, onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
     }

@@ -5,6 +5,8 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.core.recap.Lexicon
+import kotlinx.coroutines.flow.StateFlow
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
 import io.github.alalkipgen.autoflow.media.render.ExactFrame
@@ -35,6 +37,8 @@ class RecapFrames(
     private val fs: FileSystem,
     private val media: MediaTools? = null,
     private val builtInFonts: BuiltInFonts? = null,
+    /** The Library snapshot used by preview, Exact frames, export and their stale checks. */
+    val lexicon: StateFlow<Lexicon>? = null,
 ) {
     private val lock = Mutex()
 
@@ -103,6 +107,7 @@ class RecapFrames(
             bgmFile = recap.audio.bgm?.let { artifactFile(open, it) },
             // Layer images are artifacts (`im_…`, spec §4); the watermark is a project path the runner finds itself.
             imageFile = { id -> ArtifactId(id).takeIf { it.isWellFormed }?.let { artifactFile(open, it) } },
+            lexicon = lexicon?.value ?: Lexicon.EMPTY,
         )
     }
 

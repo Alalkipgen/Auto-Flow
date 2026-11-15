@@ -80,6 +80,8 @@ data class RecapUiState(
      * read it by block id (audit F05 / F07), never the v1 shape.
      */
     val story: RecapStory? = null,
+    /** The same Library pronunciation snapshot used by synthesis and export; captions remain written. */
+    val lexicon: Lexicon = Lexicon.EMPTY,
     /** `source/summary.txt`. */
     val summary: String = "",
     /** Segment being recorded now. */
@@ -106,14 +108,14 @@ data class SpeakAllEta(val count: Int, val etaSeconds: Long?)
 fun RecapUiState.currentTake(index: Int): BlockTake? {
     val r = recap ?: return null
     val block = story?.blocks?.getOrNull(index) ?: return null
-    return RecapRulesV2.currentTake(r, block)
+    return RecapRulesV2.currentTake(r, block, lexicon)
 }
 
 /** Block [index] has a take, but for another text (⚠ Stale). */
 fun RecapUiState.isStale(index: Int): Boolean {
     val r = recap ?: return false
     val block = story?.blocks?.getOrNull(index) ?: return false
-    return RecapRulesV2.isStale(r, block)
+    return RecapRulesV2.isStale(r, block, lexicon)
 }
 
 /**
@@ -147,7 +149,7 @@ class RecapModel(
     private val generator: RecapScriptGenerator? = null,
     private val tts: TtsProvider? = null,
     private val recorder: VoiceRecorder? = null,
-    /** Pronunciation fixes applied before TTS (5B-7); empty until Library is wired (5A-7). */
+    /** Initial pronunciation snapshot for callers without a Library (e.g. isolated tests). */
     private val lexicon: Lexicon = Lexicon.EMPTY,
     /** Library for Brand Kit save/apply and BGM picker (D-51: 5B-3, 5B-4, 5B-8). */
     private val library: LibraryModel? = null,
@@ -160,7 +162,10 @@ class RecapModel(
      * null only where no runner exists (tests): Speak All then runs the same per-block step in this model's scope.
      */
     private val jobs: AiJobRunner? = null,
+    /** Production supplies LibraryStore.lexicon; each request captures its value before suspending. */
+    private val lexicons: StateFlow<Lexicon>? = null,
 ) {
+    private val pronunciation: Lexicon get() = lexicons?.value ?: lexicon
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
     private val thumbs = Mutex()
@@ -174,6 +179,7 @@ class RecapModel(
 
     init {
         refresh()
+        lexicons?.let { changes -> scope.launch { changes.collect { refresh() } } }
     }
 
     /** Re-reads the open project (the screen calls it when it opens). A running job of the same project stays. */
@@ -185,6 +191,7 @@ class RecapModel(
         _state.value = RecapUiState(
             projectDir = open?.dir,
             recap = recap,
+            lexicon = pronunciation,
             script = story?.let(::storyToScript),
             story = (story as? CoreResult.Ok)?.value,
             summary = if (open == null) "" else session.readSource(SUMMARY_FILE),
@@ -655,6 +662,7 @@ class RecapModel(
         val recap = session.projectAt(dir)?.recap ?: return false
         val story = storyOf(dir, recap) ?: return false
         val block = story.blocks.firstOrNull { it.id == blockId } ?: return true
+        val lexicon = pronunciation
         if (SpokenText.of(block, lexicon).isEmpty()) return true
         return recap.takeFor(blockId)?.let { !SpokenText.isStale(it, block, lexicon) } == true
     }
@@ -666,23 +674,25 @@ class RecapModel(
         val story = storyOf(dir, recap)
         RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { error("${project.name}: ${it.text()}") }
         val block = story!!.blocks.firstOrNull { it.id == blockId } ?: return null
-        val spoken = SpokenText.of(block, lexicon).takeIf { it.isNotEmpty() } ?: return null
-        val target = VoiceTarget(dir, project.id, block.id, spoken, SpokenText.hash(block, lexicon), recap.audio.trimSilence)
+        val spoken = SpokenText.of(block, pronunciation).takeIf { it.isNotEmpty() } ?: return null
+        val target = VoiceTarget(dir, project.id, block.id, spoken, RecapRules.textHash(spoken), recap.audio.trimSilence)
         return Triple(target, recap.voiceLock, story.style)
     }
 
-    /** True when the last [speakOne] failure was a busy model (job pauses) rather than a hard failure. */
+    /** True when the last [speakInto] failure was a busy model (job pauses) rather than a hard failure. */
     private var lastSpeakBusy = false
 
     /** 🔊 one segment with Gemini TTS. */
     fun speak(index: Int): Job? {
         if (tts == null) { say("Text to speech is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
-        voiceTarget(index) ?: return null
+        val target = voiceTarget(index) ?: return null
+        val lock = recap()?.voiceLock
+        val style = currentStory()?.style ?: _style
         busy("Speaking #${index + 1}…")
         return scope.launch {
             try {
-                val msg = speakOne(index)
+                val msg = speakInto(target, lock, style)
                 done(msg ?: "Spoken #${index + 1}.", ok = msg == null)
             } finally {
                 if (_state.value.job != null) done(null)
@@ -709,6 +719,7 @@ class RecapModel(
         RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { say(it.text()); return null }
         if (tts == null) { say("Text to speech is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
+        val lexicon = pronunciation
         val todo = story!!.blocks.withIndex().filter { (_, b) ->
             SpokenText.of(b, lexicon).isNotEmpty() && recap.takeFor(b.id).let { it == null || SpokenText.isStale(it, b, lexicon) }
         }.map { it.index }
@@ -776,15 +787,6 @@ class RecapModel(
     /** Dismiss the Speak All ETA card without starting. */
     fun cancelSpeakAll() {
         _state.value = _state.value.copy(speakAllEta = null)
-    }
-
-    /** null when done, else the message. */
-    private suspend fun speakOne(index: Int): String? {
-        val recap = recap() ?: return "No project is open"
-        if (tts == null) return "Text to speech is not available here"
-        // Everything the result needs is fixed now, before the call suspends (audit F03).
-        val target = voiceTarget(index) ?: return _state.value.message ?: "Scene ${index + 1} cannot be voiced"
-        return speakInto(target, recap.voiceLock, currentStory()?.style ?: _style)
     }
 
     /** Speaks [target] with Gemini TTS under [lock] and stores the take in [target]'s project. null = saved. */
@@ -860,9 +862,9 @@ class RecapModel(
         val story = currentStory()
         RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { say(it.text()); return null }
         val block = story!!.blocks.getOrNull(index) ?: run { say("Scene ${index + 1} is not in the script"); return null }
-        val spoken = SpokenText.of(block, lexicon)
+        val spoken = SpokenText.of(block, pronunciation)
         if (spoken.isEmpty()) { say("Scene ${index + 1} has no narration text"); return null }
-        return VoiceTarget(open.dir, open.project.id, block.id, spoken, SpokenText.hash(block, lexicon), recap.audio.trimSilence)
+        return VoiceTarget(open.dir, open.project.id, block.id, spoken, RecapRules.textHash(spoken), recap.audio.trimSilence)
     }
 
     /** A new take: long pauses cut first when Sound → "Cut long pauses" is on (5B-4), then saved. null = saved. */
@@ -1130,7 +1132,7 @@ class RecapModel(
             ?: return say("Take file not found").let { null }
         val file = joinPath(joinPath(open.dir, ArtifactStore.ARTIFACTS_DIR), artifactFile)
         if (!fs.exists(file)) return say("Take file not found").let { null }
-        val target = VoiceTarget(open.dir, open.project.id, block.id, SpokenText.of(block, lexicon), take.spokenHash, trimSilence = true)
+        val target = VoiceTarget(open.dir, open.project.id, block.id, SpokenText.of(block, pronunciation), take.spokenHash, trimSilence = true)
         val made = Provenance(take.provider, take.model, take.voice)
         return scope.launch {
             busy("Cleaning take ${ index + 1 }…")
