@@ -126,8 +126,9 @@ Export rules checked with a real ffmpeg (audit F08 / F12, `LayerMatrixFfmpegTest
 - IMAGE (and BACKGROUND IMAGE) must resolve to the project's file; a missing or unchosen image fails the render
   (it is never silently left out).
 - TEXT sits in its rect (x / y; centred in the rect's width) and is sized to fit the rect width; no `style` = the
-  captions' font. Limitation: TEXT is a libass event drawn in the captions pass, so it is above every filtergraph
-  layer whatever its list position.
+  captions' font. Each TEXT layer has a libass sidecar/filter at its list position, so later IMAGE / BLUR / BORDER
+  layers cover it and reversing the list reverses the drawing order. Actual captions use the final ASS pass.
+  `TextOrderFfmpegTest` checks pixels, rect/timing, captions-last and Exact frames at all three ratios (D-63).
 
 Preview: rect × preview size, drawn in Compose over ExoPlayer; text with the same font file and `CaptionChunks`
 breaks. "Exact frame": the compiled graph with `-ss <t> … -frames:v 1` → `.cache/frames/<t>.png`.

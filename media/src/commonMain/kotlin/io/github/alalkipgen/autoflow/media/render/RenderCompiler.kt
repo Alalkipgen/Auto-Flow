@@ -17,7 +17,7 @@ import io.github.alalkipgen.autoflow.core.recap.RecapMask
  * source filters in the graph — no `-f lavfi` inputs), scale/pad to the output, fps, exact
  * length; clips joined with `concat` (cuts) and `xfade` (crossfades); `.ass` overlays (libass, fonts only from
  * `fontsdir`); song with offset / fades, alone or mixed over the clips' sound; `-t` = graph length.
- * The caller writes [Compiled.Ok.ass] to [Env.assPath] before running ffmpeg and adds progress flags itself.
+ * The caller writes [Compiled.Ok.ass] and [Compiled.Ok.layerAssFiles] before running ffmpeg and adds progress flags.
  */
 object RenderCompiler {
     /** A resolved video artifact: the file to read and whether it has an audio stream (from the probe). */
@@ -48,10 +48,17 @@ object RenderCompiler {
 
     sealed interface Compiled {
         /**
-         * [args] start after the binary name; [ass] is null when nothing is drawn; [measureArgs] = the audio-only
+         * [args] start after the binary name; [ass] is the final captions/labels pass (null when absent); [measureArgs] = the audio-only
          * loudness pass 1 when the graph asks for a loudness target (its `loudnorm` prints the JSON to parse).
          */
-        data class Ok(val args: List<String>, val ass: String?, val durationMs: Long, val measureArgs: List<String>? = null) : Compiled
+        data class Ok(
+            val args: List<String>,
+            val ass: String?,
+            val durationMs: Long,
+            val measureArgs: List<String>? = null,
+            /** Per-TEXT ASS sidecars, applied in layer order, before the final captions pass. */
+            val layerAssFiles: Map<String, String> = emptyMap(),
+        ) : Compiled
 
         data class Invalid(val reason: String) : Compiled
     }
@@ -187,6 +194,7 @@ object RenderCompiler {
         // Compile composited layers (5A-4); images for layers follow the base clips and song in the input list.
         // BACKGROUND layers are already behind each clip's picture; the rest is drawn over the strip in list order.
         // A TEXT layer without a style uses the captions' font (else the placeholder font), never an unknown family.
+        val layerAssFiles = mutableMapOf<String, String>()
         val layerResult = LayerCompiler.compile(
             layers = graph.layers.filter { it.type != LayerType.BACKGROUND },
             output = out,
@@ -194,13 +202,19 @@ object RenderCompiler {
             resolveImage = env.resolveLayerImage,
             baseInputCount = index,
             textFont = graph.overlays.firstOrNull()?.font ?: env.placeholderFont,
+            textFilter = { k, event ->
+                // Index-based names cannot escape the work folder, even if a persisted layer id is untrusted.
+                val path = "${env.assPath}.layer-$k.ass"
+                layerAssFiles[path] = AssWriter.write(listOf(event), out, env.assScale)
+                "ass=filename=${filterPath(path)}:fontsdir=${filterPath(env.fontsDir)}"
+            },
         )
         layerResult.inputPaths.forEach { path -> input("-i", path) }
         chains += layerResult.chains
 
         // After layers, apply ASS overlays. The video label entering ASS is [vlayer] when layers exist, else [vseq].
         val preAssLabel = if (layerResult.chains.isNotEmpty()) "vlayer" else "vseq"
-        val drawn = graph.overlays + labels + layerResult.assEvents
+        val drawn = graph.overlays + labels
         val ass = if (drawn.isEmpty()) null else AssWriter.write(drawn, out, env.assScale)
         chains += if (ass == null) "[$preAssLabel]null[vout]" else "[$preAssLabel]ass=filename=${filterPath(env.assPath)}:fontsdir=${filterPath(env.fontsDir)}[vout]"
 
@@ -274,7 +288,7 @@ object RenderCompiler {
             addAll(listOf("-filter_complex", (sound + narrated(voice, ",${AudioFilters.loudnormMeasure(lufs)}")).joinToString(";")))
             addAll(listOf("-map", "[aout]", "-vn", "-sn", "-t", sec(total), "-f", "null", "-"))
         } else null
-        return Compiled.Ok(args, ass, total, measure)
+        return Compiled.Ok(args, ass, total, measure, layerAssFiles)
     }
 
     /** `[p0][p1]concat…` for cuts only, else a pairwise chain (`xfade` / `acrossfade` at crossfades, `concat` at cuts). */

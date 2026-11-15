@@ -4,14 +4,14 @@ import io.github.alalkipgen.autoflow.core.recap.Layer
 import io.github.alalkipgen.autoflow.core.recap.LayerType
 
 /**
- * Compiles a list of [Layer]s into extra ffmpeg filter chains and ASS events that sit on top of the base video
+ * Compiles a list of [Layer]s into extra ffmpeg filter chains that sit on top of the base video
  * strip (spec §4, D-37).  Called by [RenderCompiler.compile] after the base strip is assembled.
  *
  * The compiled output is designed to be appended to [RenderCompiler]'s `chains` list.  The final output label is
  * always `[vlayer]`, which the caller replaces `[vout]` with when any layers are present.
  *
  * Layer order = drawing order (spec: "List order = drawing order; captions are drawn last").
- * TEXT layers contribute ASS events (returned separately); they are merged with the existing ASS file.
+ * TEXT uses a separate ASS filter at its position in the chain; actual captions are drawn afterwards.
  */
 object LayerCompiler {
 
@@ -20,8 +20,6 @@ object LayerCompiler {
         val chains: List<String>,
         /** Additional input file paths that must be prepended to [RenderCompiler]'s input list (image files). */
         val inputPaths: List<String>,
-        /** ASS events for TEXT layers; merged into the existing ASS file. */
-        val assEvents: List<Overlay>,
     )
 
     /**
@@ -30,7 +28,8 @@ object LayerCompiler {
      * @param totalMs Total render duration.
      * @param resolveImage Maps a Layer.params.image id to an absolute file path (or null if missing).
      * @param baseInputCount Number of input streams already added by [RenderCompiler] (images get index baseInputCount + k).
-     * @param textFont The font family for a TEXT layer without a [LayerParams.style] (the captions' font).
+     * @param textFont The font family for a TEXT layer without an explicit style (the captions' font).
+     * @param textFilter Builds an ASS sidecar/filter for this layer index and its positioned/timed text.
      */
     fun compile(
         layers: List<Layer>,
@@ -39,12 +38,12 @@ object LayerCompiler {
         resolveImage: (String) -> String?,
         baseInputCount: Int,
         textFont: String? = null,
+        textFilter: (Int, Overlay) -> String,
     ): LayerResult {
-        if (layers.isEmpty()) return LayerResult(emptyList(), emptyList(), emptyList<Overlay>())
+        if (layers.isEmpty()) return LayerResult(emptyList(), emptyList())
 
         val chains = mutableListOf<String>()
         val inputPaths = mutableListOf<String>()
-        val assEvents = mutableListOf<Overlay>()
         var inputIdx = baseInputCount
         var prev = "vseq"   // label coming out of the base strip
 
@@ -96,7 +95,7 @@ object LayerCompiler {
                 }
 
                 LayerType.TEXT -> {
-                    // TEXT layers generate ASS events; no filtergraph change needed. A whole-frame rect (the
+                    // A TEXT layer is drawn here, not in the final captions pass. A whole-frame rect (the
                     // default) keeps the centred caption size; a smaller rect centres the text in the rect (x and y,
                     // audit F08) and sizes the lines to fill its height (e.g. the Publish Kit thumbnail title, 5B-10).
                     val whole = layer.rect.size != 4 || (layer.rect[2] >= 1f && layer.rect[3] >= 1f)
@@ -105,7 +104,7 @@ object LayerCompiler {
                     val widest = lines.maxOf { emWidth(it) }.coerceAtLeast(1f)
                     val fontSize = if (whole) (h / 18).coerceAtLeast(12)
                     else minOf(layer.rect[3] * h / (lines.size * 1.5f), layer.rect[2] * w / widest).toInt().coerceIn(12, h / 4)
-                    assEvents += Overlay(
+                    val event = Overlay(
                         text = p.textMy,
                         startMs = from,
                         endMs = to,
@@ -117,7 +116,7 @@ object LayerCompiler {
                         centerX = if (whole) null else layer.rect[0] + layer.rect[2] / 2,
                         strokeWidth = if (whole) 0 else maxOf(2, fontSize / 14),
                     )
-                    chains += "[$prev]null[$next]"
+                    chains += "[$prev]${textFilter(k, event)}[$next]"
                 }
 
                 LayerType.BORDER -> {
@@ -141,9 +140,10 @@ object LayerCompiler {
                     chains += "[$prev]null[$next]"
                 }
             }
+            prev = next
         }
 
-        return LayerResult(chains, inputPaths, assEvents)
+        return LayerResult(chains, inputPaths)
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────

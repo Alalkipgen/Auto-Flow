@@ -13,6 +13,8 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -104,9 +106,9 @@ class LayerCompileTest {
         val layer = Layer("l1", LayerType.TEXT,
             params = LayerParams(textMy = "မင်္ဂလာပါ", style = "Pyidaungsu"))
         val r = compile(ratio, layer)
-        // TEXT layers generate ASS events; the ASS file must be non-null
-        assertNotNull(r.ass, "TEXT layer must produce an ASS file")
-        assertContains(r.ass, "မင်္ဂလာပါ")
+        // TEXT has its own sidecar at its list position; it must not leak into the final captions pass.
+        assertNull(r.ass)
+        assertContains(r.layerAssFiles.values.single(), "မင်္ဂလာပါ")
         assertContains(filterComplex(r), "[vlayer]")
     }
 
@@ -114,7 +116,7 @@ class LayerCompileTest {
         // 5B-10 thumbnail title: a rect smaller than the frame puts the text on the rect's centre line, sized to it.
         val layer = Layer("t", LayerType.TEXT, rect = listOf(0.05f, 0.05f, 0.9f, 0.2f),
             params = LayerParams(textMy = "ခေါင်းစဉ်", style = "Pyidaungsu"))
-        val ass = assertNotNull(compile(Ratio.R9_16, layer).ass)
+        val ass = compile(Ratio.R9_16, layer).layerAssFiles.values.single()
         // 1080 × 1920: centre line 0.15 × 1920 = 288; one line in 0.2 × 1920 = 384 px → 384 / 1.5 = 256 px tall, but
         // 7 spacing Burmese letters × 0.6 em must fit 0.9 × 1080 = 972 px → 231 px.
         assertContains(ass, "{\\an5\\pos(540,288)}ခေါင်းစဉ်")
@@ -127,10 +129,13 @@ class LayerCompileTest {
         val caption = Overlay("cap", 0, 1_000, "Padauk", 60)
         val g = RenderGraph(clips = listOf(Clip(clip, trimOutMs = 10_000)), output = RenderPresets.export(Ratio.R16_9),
             overlays = listOf(caption), layers = listOf(layer))
-        val ass = assertNotNull(assertIs<Compiled.Ok>(RenderCompiler.compile(g, env(Ratio.R16_9))).ass)
+        val compiled = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env(Ratio.R16_9)))
+        assertContains(assertNotNull(compiled.ass), "cap")
+        assertFalse(compiled.ass.contains("AUDIT"), "Only real captions belong in the final pass")
+        val ass = compiled.layerAssFiles.values.single()
         // 1920 × 1080: centre (0.17 × 1920, 0.095 × 1080) = (326, 102); 0.15 × 1080 / 1.5 = 108 px.
         assertContains(ass, "{\\an5\\pos(326,102)}AUDIT")
-        assertContains(ass, "Style: s2,Padauk,108,")
+        assertContains(ass, "Style: s1,Padauk,108,")
     }
 
     // ── BORDER ────────────────────────────────────────────────────────────────

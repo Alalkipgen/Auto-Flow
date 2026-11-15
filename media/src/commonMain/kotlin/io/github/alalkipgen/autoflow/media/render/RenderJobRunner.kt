@@ -42,6 +42,7 @@ class RenderJobRunner(
         try {
             fs.createDirectories(target.substringBeforeLast('/', "."))
             compiled.ass?.let { fs.writeDurably(env.assPath, it.encodeToByteArray()) }
+            compiled.layerAssFiles.forEach { (path, text) -> fs.writeDurably(path, text.encodeToByteArray()) }
         } catch (e: Exception) {
             return RenderState.Failed("cannot write to ${target.substringBeforeLast('/')}: ${e.message}")
         }
@@ -125,6 +126,7 @@ class RenderJobRunner(
         try {
             fs.createDirectories(out.substringBeforeLast('/', "."))
             compiled.ass?.let { fs.writeDurably(env.assPath, it.encodeToByteArray()) }
+            compiled.layerAssFiles.forEach { (path, text) -> fs.writeDurably(path, text.encodeToByteArray()) }
             fs.writeDurably("$out.rendergraph.json", CoreJson.encodeToString(RenderGraph.serializer(), graph).encodeToByteArray())
         } catch (e: Exception) {
             return RenderState.Failed("cannot write to ${out.substringBeforeLast('/')}: ${e.message}")
