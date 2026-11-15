@@ -61,15 +61,16 @@ object LayerCompiler {
                     val (rx, ry, rw, rh) = rectPx(layer.rect, w, h)
                     val sigma = p.sigma.coerceAtLeast(1f)
                     val enableExpr = enableExpr(from, to)
-                    // Feather: extract alpha, apply fade on all 4 edges with geq, merge back.
-                    // vignette has no x0/y0/x1/y1 options (audit fix) — use geq luma per-pixel fade instead.
+                    // Feather: give the blurred box an alpha plane and fade it in over [fade] px from every edge,
+                    // so overlay blends the blur softly into the picture. geq's luma option is `lum` (there is
+                    // no `luma`); p(X,Y) keeps each colour plane as it is. Alpha is 0–255: distance to the
+                    // nearest edge (+1), capped at [fade], scaled to 255 — checked with a real ffmpeg
+                    // (LayerFfmpegRenderTest).
                     val featherChain = if (p.feather > 0f) {
                         val fade = (p.feather * h).toInt().coerceAtLeast(1)
-                        // geq: 1 at centre, fades to 0 within [fade] px of each edge of the cropped box.
-                        val geq = "geq=luma='p(X,Y)':" +
-                            "a='min(1,min(min(X,$fade-1),min(Y,$fade-1))+" +
-                            "min(min(W-1-X,$fade-1),min(H-1-Y,$fade-1))+1)/$fade'"
-                        ",alphaextract,$geq,alphamerge"
+                            .coerceAtMost((minOf(rw, rh) / 2).coerceAtLeast(1))
+                        ",format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':" +
+                            "a='min(min(min(X,W-1-X),min(Y,H-1-Y))+1,$fade)/$fade*255'"
                     } else ""
                     chains += "[$prev]split[bg$k][fg$k];" +
                         "[fg$k]crop=$rw:$rh:$rx:$ry,gblur=sigma=$sigma$featherChain[blur$k];" +
