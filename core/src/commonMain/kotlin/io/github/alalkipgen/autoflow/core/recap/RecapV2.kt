@@ -41,6 +41,20 @@ enum class RecapRegister {
     @SerialName("WRITTEN") WRITTEN,
 }
 
+/** Hook style for the first narration block (5B-7). */
+@Serializable
+@SerialName("RecapHookStyle")
+enum class RecapHookStyle {
+    /** Open with a question that teases the main conflict. */
+    @SerialName("QUESTION") QUESTION,
+    /** Open with a striking quote or line of dialogue from the movie. */
+    @SerialName("QUOTE") QUOTE,
+    /** Open by dropping straight into the action with no setup. */
+    @SerialName("ACTION") ACTION,
+    /** No specific hook instruction; let the AI decide. */
+    @SerialName("DEFAULT") DEFAULT,
+}
+
 /** One narration block: movie [clips] played in order; captions show [textMy], TTS speaks [speakMy] when set. */
 @Serializable
 @SerialName("RecapBlock")
@@ -152,6 +166,10 @@ data class RecapV2(
     val captionStyle: CaptionStyle = CaptionStyle(),
     /** Publish Kit text (docs/specs/studio-v2.md §9, 5B-10). */
     val publishKit: PublishKit? = null,
+    /** Hook style for the first narration block (5B-7). */
+    val hookStyle: RecapHookStyle = RecapHookStyle.DEFAULT,
+    /** Credit / source line appended to the last block (5B-7). Empty = no credit. */
+    val creditLine: String = "",
 ) {
     /** Convenience: whether captions are burned (delegates to [captions]). */
     val burnCaptions: Boolean get() = captions.burn

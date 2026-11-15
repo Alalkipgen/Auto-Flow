@@ -26,6 +26,19 @@ data class RecapBrief(
     val scenes: List<SceneBrief>,
     /** Spoken (casual) vs Written (formal) Burmese; affects the prompt and TTS (5B-7). */
     val register: io.github.alalkipgen.autoflow.core.recap.RecapRegister = io.github.alalkipgen.autoflow.core.recap.RecapRegister.SPOKEN,
+    /**
+     * Character names (Burmese + English) from the Character Bible (5B-7).
+     * Each entry: "နာမည် (English Name)" or just the Burmese name. Inserted into the prompt so the AI
+     * uses them consistently instead of making up romanisations.
+     */
+    val names: List<String> = emptyList(),
+    /** Hook style for the first block (5B-7). [io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT] = no instruction. */
+    val hookStyle: io.github.alalkipgen.autoflow.core.recap.RecapHookStyle = io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT,
+    /**
+     * Source / credit line appended to the last block (5B-7).
+     * Example: "ကား — The Avengers (2012) မှ". Empty = no credit.
+     */
+    val creditLine: String = "",
 )
 
 /**
@@ -122,6 +135,22 @@ object RecapPrompts {
         )
         appendLine("Each textMy must take about the scene's length to read aloud (about $SYLLABLES_PER_SECOND Burmese syllables per second); never much longer.")
         appendLine("The segments together must tell the story in order; do not repeat the same sentence. scene = the number below.")
+        if (brief.names.isNotEmpty()) {
+            appendLine("Character names (use exactly these spellings in textMy, never invent alternatives):")
+            appendLine(brief.names.joinToString(", "))
+        }
+        if (brief.hookStyle != io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT) {
+            val hookInstruction = when (brief.hookStyle) {
+                io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUESTION -> "Open segment 1 with a question that teases the main conflict — do not reveal the answer yet."
+                io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUOTE -> "Open segment 1 with a memorable quote or line of dialogue from the movie."
+                io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.ACTION -> "Open segment 1 by dropping straight into the action with no setup or introduction."
+                io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT -> ""
+            }
+            if (hookInstruction.isNotBlank()) appendLine("Hook for segment 1: $hookInstruction")
+        }
+        if (brief.creditLine.isNotBlank()) {
+            appendLine("Credit: append this exact text at the very end of the last segment's textMy (after a line break): ${brief.creditLine}")
+        }
         if (brief.summary.isNotBlank()) {
             appendLine("Story summary from the owner (follow it; it may be Burmese or English):")
             appendLine(brief.summary.trim())

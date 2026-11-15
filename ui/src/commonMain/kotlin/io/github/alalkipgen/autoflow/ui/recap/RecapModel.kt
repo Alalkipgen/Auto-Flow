@@ -328,6 +328,16 @@ class RecapModel(
         _register = register
     }
 
+    /** Hook style for the first narration block (5B-7). Persisted to [RecapV2.hookStyle]. */
+    fun setHookStyle(hook: io.github.alalkipgen.autoflow.core.recap.RecapHookStyle) {
+        update { it.copy(hookStyle = hook) }
+    }
+
+    /** Credit / source line appended to the last block (5B-7). Persisted to [RecapV2.creditLine]. */
+    fun setCreditLine(credit: String) {
+        update { it.copy(creditLine = credit) }
+    }
+
     /** ✨ Write script (Gemini): one narration text per picked scene; the new `rs` replaces the current one, not approved. */
     fun writeScript(): Job? {
         val recap = recap() ?: return null
@@ -339,12 +349,19 @@ class RecapModel(
         val gen = generator ?: run { say("Gemini is not available here"); return null }
         if (_state.value.busy) return null
         val picked = RecapRulesV2.pickedScenes(recap)
+        val characters = project()?.characters.orEmpty()
+        val names = characters.mapNotNull { c ->
+            if (c.nameMy.isBlank()) null else "${c.nameMy} (${c.token})"
+        }
         val brief = RecapBrief(
             title = project()?.name.orEmpty(),
             summary = summary,
             style = _style,
             register = _register,
             scenes = picked.map { SceneBrief(it.startMs, it.endMs, Srt.textIn(cues, it.startMs, it.endMs, RecapPrompts.DIALOGUE_CHARS)) },
+            names = names,
+            hookStyle = recap.hookStyle,
+            creditLine = recap.creditLine,
         )
         busy(WRITING)
         return scope.launch {

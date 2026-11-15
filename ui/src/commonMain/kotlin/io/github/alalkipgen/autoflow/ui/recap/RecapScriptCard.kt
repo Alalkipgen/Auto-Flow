@@ -93,6 +93,29 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
             AfChip("Spoken (casual)", recap.register == RecapRegister.SPOKEN, onClick = { model.setRegister(RecapRegister.SPOKEN) })
             AfChip("Written (formal)", recap.register == RecapRegister.WRITTEN, onClick = { model.setRegister(RecapRegister.WRITTEN) })
         }
+        // Hook style (5B-7): opening tone for segment 1
+        AfText("Opening hook for segment 1", muted = true, size = 12.sp)
+        WrapRow {
+            io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.entries.forEach { hook ->
+                val label = when (hook) {
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT -> "AI decides"
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUESTION -> "Question"
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUOTE -> "Quote"
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.ACTION -> "Action"
+                }
+                AfChip(label, recap.hookStyle == hook, onClick = { model.setHookStyle(hook) })
+            }
+        }
+        // Credit line (5B-7)
+        AfText("Source / credit line (appended to last segment)", muted = true, size = 12.sp)
+        var creditDraft by remember(recap.creditLine) { mutableStateOf(recap.creditLine) }
+        io.github.alalkipgen.autoflow.ui.components.AfTextField(
+            creditDraft, { creditDraft = it }, "e.g. ကား — The Avengers (2012) မှ",
+            Modifier.fillMaxWidth(), enabled = !state.busy,
+        )
+        if (creditDraft != recap.creditLine) {
+            AfButton("Save credit", { model.setCreditLine(creditDraft) })
+        }
         val script = state.script
         var confirming by remember { mutableStateOf<String?>(null) }
         val running = state.job == RecapModel.WRITING
