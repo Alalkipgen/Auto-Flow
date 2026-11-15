@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.shell
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class V2NavTest {
     @Test
@@ -36,8 +35,13 @@ class V2NavTest {
     }
 
     @Test
-    fun musicVideoProjectsReachEveryClassicScreen() {
+    fun musicVideoUsesTheShotSheetAndKeepsTheClassicStepsBehindOneEntry() {
         assertEquals(listOf("Recap", "Export"), v2ProjectScreens(recap = true))
-        assertTrue(v2ProjectScreens(recap = false).containsAll(listOf("Input", "Storyboard", "Shots", "Flow Handoff", "Export")))
+        assertEquals(listOf("Input", SHOT_SHEET, "Inbox", "Export", MV_CLASSIC), v2ProjectScreens(recap = false))
+        assertEquals(listOf("Storyboard", "Shots", "References", "Flow Handoff"), MV_CLASSIC_SCREENS)
+        // Back: a classic screen → the classic list → the shot sheet → the project list.
+        for (s in MV_CLASSIC_SCREENS) assertEquals(V2Nav(StudioV2Dest.PROJECTS, MV_CLASSIC), v2Back(V2Nav(StudioV2Dest.PROJECTS, s), recap = false))
+        assertEquals(V2Nav(StudioV2Dest.PROJECTS, SHOT_SHEET), v2Back(V2Nav(StudioV2Dest.PROJECTS, MV_CLASSIC), recap = false))
+        assertEquals(V2Nav(StudioV2Dest.PROJECTS, null), v2Back(V2Nav(StudioV2Dest.PROJECTS, SHOT_SHEET), recap = false))
     }
 }

@@ -198,14 +198,23 @@ fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Export" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Classic Recap" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Recap" && recap && nav.recapStep.previous() != null -> nav.copy(recapStep = nav.recapStep.previous()!!)
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen in MV_CLASSIC_SCREENS && !recap -> nav.copy(projectScreen = MV_CLASSIC)
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == MV_CLASSIC && !recap -> nav.copy(projectScreen = SHOT_SHEET)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null -> nav.copy(projectScreen = null)
     nav.dest != StudioV2Dest.HOME -> V2Nav(projectScreen = nav.projectScreen)
     else -> null
 }
 
-/** Project screens reachable in Studio v2, per project mode (Music Video keeps the classic steps until 5B-12). */
+/** Music Video in Studio v2 (5B-12): one shot sheet instead of the Storyboard / Shots / References / Flow Handoff tabs. */
+const val SHOT_SHEET = "Shot sheet"
+
+/** The classic Music Video steps, kept for one release behind this entry (like Classic Recap, D-41). */
+const val MV_CLASSIC = "Classic steps"
+val MV_CLASSIC_SCREENS = listOf("Storyboard", "Shots", "References", "Flow Handoff")
+
+/** Project screens reachable in Studio v2, per project mode. */
 fun v2ProjectScreens(recap: Boolean): List<String> =
-    if (recap) listOf("Recap", "Export") else listOf("Input", "Storyboard", "Shots", "References", "Flow Handoff", "Inbox", "Export")
+    if (recap) listOf("Recap", "Export") else listOf("Input", SHOT_SHEET, "Inbox", "Export", MV_CLASSIC)
 
 /**
  * Studio v2 root (5A-6): Home · Projects · Library · Jobs with adaptive shell.
@@ -307,7 +316,7 @@ private fun StudioV2App(
                             }
                         } else {
                             V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
-                            Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen) { openProjectScreen(it) } }
+                            Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen, windowWidthDp) { openProjectScreen(it) } }
                         }
                     }
                 }
@@ -317,7 +326,7 @@ private fun StudioV2App(
                 when (source) {
                     io.github.alalkipgen.autoflow.ui.jobs.JobSource.RECAP -> openProjectScreen("Recap")
                     io.github.alalkipgen.autoflow.ui.jobs.JobSource.RENDER -> openProjectScreen("Export")
-                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.STORYBOARD -> openProjectScreen("Storyboard")
+                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.STORYBOARD -> openProjectScreen(SHOT_SHEET)
                     io.github.alalkipgen.autoflow.ui.jobs.JobSource.AI -> Unit
                 }
             })
@@ -344,10 +353,20 @@ private fun StudioV2App(
 
 /** One project screen inside Studio v2; [go] moves to another one. */
 @Composable
-private fun V2ProjectScreen(screen: String, go: (String) -> Unit) {
+private fun V2ProjectScreen(screen: String, windowWidthDp: Float, go: (String) -> Unit) {
     when (screen) {
         "Recap", "Classic Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { go("Export") })
-        "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { go("Storyboard") })
+        "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { go(SHOT_SHEET) })
+        SHOT_SHEET -> {
+            val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+            io.github.alalkipgen.autoflow.ui.shotsheet.ShotSheetScreen(
+                storyboard = koinInject(), jobs = koinInject(), shots = koinInject(), refs = koinInject(), handoff = koinInject(),
+                readBytes = { path -> runCatching { fs.read(path) }.getOrNull() },
+                windowWidthDp = windowWidthDp,
+                onGoToInput = { go("Input") },
+            )
+        }
+        MV_CLASSIC -> MvClassicSteps(go)
         "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { go("Input") })
         "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
         "References" -> {
@@ -361,6 +380,20 @@ private fun V2ProjectScreen(screen: String, go: (String) -> Unit) {
         "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
         "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
         else -> ScreenPlaceholder(screen)
+    }
+}
+
+/** The classic Music Video steps for one release (5B-12): each opens its old screen; Back returns here. */
+@Composable
+private fun MvClassicSteps(go: (String) -> Unit) {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AfText(MV_CLASSIC, bold = true)
+        AfText("The shot sheet does all of this per shot. The old screens stay for one release.", muted = true)
+        io.github.alalkipgen.autoflow.ui.components.WrapRow {
+            MV_CLASSIC_SCREENS.forEach { s ->
+                io.github.alalkipgen.autoflow.ui.components.AfButton(s, { go(s) }, Modifier.heightIn(min = 48.dp))
+            }
+        }
     }
 }
 

@@ -83,7 +83,7 @@ Wizard: movie → length chips (1 · 3 · 5 · 10 min) → style (Brand Kit / pr
 Library: Brand Kits · Voices · Lexicon · Music · Fonts · Presets; "Apply" copies into the project (D-39). Jobs: renders and AI jobs with project, progress, ETA, Pause / Resume / Cancel, failure reason + Retry, today's quota.
 
 ### Music Video
-Shot sheet per shot: storyboard text (edit / approve), prompt (copy), Ref A / B, Flow handoff (open Flow, import video), video versions, accept. The shots list keeps the §3 cards and badges.
+Shot sheet per shot: storyboard text (edit / approve), prompt (copy), Ref A / B, Flow handoff (open Flow, import video), video versions, accept. The shots list keeps the §3 cards and badges. *As implemented (5B-12)*: five numbered sections on one sheet (1 Storyboard · 2 Prompt · 3 Ref A / B · 4 Flow handoff · 5 Videos · accept) with ← / → shot buttons; ≥ 840 dp: shots list (+ "All shots") · sheet · media preview. The classic tabs stay one release behind "Classic steps".
 
 ### Accessibility
 Check every screen at font scale 1.0, 1.3 and 2.0 (the owner uses a large font); touch targets ≥ 48 dp; Burmese text wraps, never cut inside a syllable.
