@@ -174,4 +174,45 @@ class LayerCompileTest {
         assertContains(fc, "[vseq]")
         assertTrue(!fc.contains("[vlayer]"), "No vlayer label without layers")
     }
+
+    // ── Audit regression tests (audit items 2 & 3) ────────────────────────────
+
+    /**
+     * Audit item 2: BACKGROUND-IMAGE filtergraph must NOT feed two inputs into scale.
+     * Old code: `[$prev][idx:v]scale=...` → scale got 2 inputs → ffmpeg exit 234.
+     * New code: `[idx:v]scale=...[bgimg];[$prev][bgimg]overlay=...`
+     */
+    @Test fun backgroundImage_scaleHasOneInput() {
+        val layer = Layer("l1", LayerType.BACKGROUND,
+            params = LayerParams(mode = BackgroundMode.IMAGE, image = imgId))
+        val r = compile(Ratio.R9_16, layer)
+        val fc = filterComplex(r)
+        // The scale filter must be preceded by exactly one stream label (the image input index).
+        // Pattern `[prev][N:v]scale` would have TWO labels before scale — must NOT exist.
+        val twoInputsBeforeScale = Regex("""\[[^\]]+]\[[^\]]+]scale""").containsMatchIn(fc)
+        assertTrue(!twoInputsBeforeScale,
+            "scale must have exactly one input label (not two). Graph: $fc")
+        assertContains(fc, "overlay=")
+        assertContains(fc, "[vlayer]")
+        assertContains(r.args, imgPath)
+    }
+
+    /**
+     * Audit item 3: BLUR feather must not emit vignette with unsupported x0/y0/x1/y1 options.
+     * Old code: `vignette=angle=PI/2:x0=...:y0=...:x1=...:y1=...` → ffmpeg "Option not found".
+     * New code: geq-based per-pixel alpha fade.
+     */
+    @Test fun blurFeather_noVignetteXY() {
+        val layer = Layer("l1", LayerType.BLUR,
+            rect = listOf(0f, 0.5f, 1f, 0.3f),
+            params = LayerParams(sigma = 10f, feather = 0.1f))
+        val r = compile(Ratio.R9_16, layer)
+        val fc = filterComplex(r)
+        assertTrue(!fc.contains("vignette="), "vignette must not appear in feather graph. Graph: $fc")
+        assertTrue(!fc.contains("x0=") && !fc.contains("x1="),
+            "Unsupported vignette x0/x1 options must not appear. Graph: $fc")
+        assertTrue(fc.contains("geq="), "geq must be used for feather. Graph: $fc")
+        assertContains(fc, "alphaextract")
+        assertContains(fc, "[vlayer]")
+    }
 }

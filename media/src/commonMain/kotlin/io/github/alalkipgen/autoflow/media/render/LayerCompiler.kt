@@ -61,9 +61,15 @@ object LayerCompiler {
                     val (rx, ry, rw, rh) = rectPx(layer.rect, w, h)
                     val sigma = p.sigma.coerceAtLeast(1f)
                     val enableExpr = enableExpr(from, to)
+                    // Feather: extract alpha, apply fade on all 4 edges with geq, merge back.
+                    // vignette has no x0/y0/x1/y1 options (audit fix) — use geq luma per-pixel fade instead.
                     val featherChain = if (p.feather > 0f) {
                         val fade = (p.feather * h).toInt().coerceAtLeast(1)
-                        ",alphaextract,vignette=angle=PI/2:x0=$rx:y0=$ry:x1=${rx + rw}:y1=${ry + rh}:eval=frame,alphamerge"
+                        // geq: 1 at centre, fades to 0 within [fade] px of each edge of the cropped box.
+                        val geq = "geq=luma='p(X,Y)':" +
+                            "a='min(1,min(min(X,$fade-1),min(Y,$fade-1))+" +
+                            "min(min(W-1-X,$fade-1),min(H-1-Y,$fade-1))+1)/$fade'"
+                        ",alphaextract,$geq,alphamerge"
                     } else ""
                     chains += "[$prev]split[bg$k][fg$k];" +
                         "[fg$k]crop=$rw:$rh:$rx:$ry,gblur=sigma=$sigma$featherChain[blur$k];" +
@@ -140,7 +146,8 @@ object LayerCompiler {
                             } else {
                                 val idx = inputIdx++
                                 inputPaths += path
-                                chains += "[$prev][${idx}:v]scale=${w}:${h}:force_original_aspect_ratio=increase," +
+                                // Scale background image alone (audit fix: scale must have one input only).
+                                chains += "[${idx}:v]scale=${w}:${h}:force_original_aspect_ratio=increase," +
                                     "crop=${w}:${h}[bgimg$k];" +
                                     "[bgimg$k][$prev]overlay=0:0:enable='$enableExpr'[$next]"
                             }

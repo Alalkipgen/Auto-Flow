@@ -89,8 +89,8 @@ class ProviderRegistry(
         override val capabilities: TtsCapabilities
             get() = if (usingFakes) fakeTts.capabilities else TtsCapabilities(replication = config.tts.replicationAvailability)
 
-        override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?): AiResult<ByteArray> =
-            (if (usingFakes) fakeTts else geminiTts).speak(text, voice, lang, style)
+        override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?, lockedModel: String?): AiResult<ByteArray> =
+            (if (usingFakes) fakeTts else geminiTts).speak(text, voice, lang, style, lockedModel)
     }
 
     val transcribe: TranscribeProvider = object : TranscribeProvider {

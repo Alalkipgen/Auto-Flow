@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "studioV2": true,
-  "quickRecap": false,
+  "quickRecap": true,
   "labs": {
     "voiceClone": false,
     "dubbing": false,

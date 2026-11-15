@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.projects
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -163,7 +164,12 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
         .clip(AutoFlowShapes.Card)
         .background(AutoFlowColors.Panel)
         .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
-        .clickable(enabled = !row.missing, role = Role.Button, onClick = onOpen)
+        .combinedClickable(
+            enabled = !row.missing,
+            role = Role.Button,
+            onClick = onOpen,
+            onLongClick = { confirmDelete = true },
+        )
         .padding(horizontal = 16.dp, vertical = 12.dp)
     val mode = if (e.mode == Mode.MUSIC_VIDEO) "Music Video" else "Movie Recap"
     val shots = "${e.acceptedShots}/${e.totalShots} shots"
@@ -184,7 +190,7 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
                     AfText(e.ratio.label, muted = true)
                     AfText(shots, color = shotsColor)
                     AfText(relativeTime(e.lastOpenedAt, now), muted = true)
-                    AfButton("🗑", { confirmDelete = true }, kind = ButtonKind.Danger)
+                    // Long-press the row to remove. No visible delete button — cleaner UI.
                 }
             }
         }
@@ -203,7 +209,6 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             AfText(e.ratio.label, muted = true)
             AfText(shots, color = shotsColor)
             AfText(relativeTime(e.lastOpenedAt, now), muted = true)
-            AfButton("🗑", { confirmDelete = true }, kind = ButtonKind.Danger)
         }
     }
 }

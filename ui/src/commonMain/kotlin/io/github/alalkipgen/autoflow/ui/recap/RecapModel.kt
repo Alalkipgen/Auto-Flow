@@ -508,7 +508,9 @@ class RecapModel(
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.PLAIN -> "calm, clear movie recap narrator"
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.COMMENTARY -> "lively movie recap narrator with feeling"
         }
-        return when (val r = provider.speak(text, VoiceRef(recap.ttsVoice), "my", style)) {
+        // Voice lock enforcement (D-35, audit): pass the locked model so the provider never switches.
+        val lockedModel = recap.voiceLock?.model
+        return when (val r = provider.speak(text, VoiceRef(recap.ttsVoice), "my", style, lockedModel)) {
             is AiResult.Ok -> {
                 val ms = PcmWav.parse(r.value)?.durationMs ?: return "The speech audio cannot be read"
                 if (saveTake(index, r.value, "wav", VoiceSource.TTS, ms)) null else _state.value.message ?: "Cannot save the voice"

@@ -21,7 +21,12 @@ interface ImageProvider {
 
 /** Speech synthesis. Audio is returned as a PCM WAV file. */
 interface TtsProvider {
-    suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String? = null): AiResult<ByteArray>
+    /**
+     * Speak [text] in [voice] and [lang].
+     * [lockedModel] — when non-null, restricts the call to exactly that model; never falls back to another
+     * candidate (voice lock, D-35 audit). Pass null when no lock is active.
+     */
+    suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String? = null, lockedModel: String? = null): AiResult<ByteArray>
     val capabilities: TtsCapabilities
 }
 

@@ -29,13 +29,27 @@ class GeminiTtsProvider(
     override val capabilities: TtsCapabilities = TtsCapabilities(replication = Availability.UNAVAILABLE),
     private val chain: ModelChain = ModelChain(),
     private val baseUrl: String = GeminiTextProvider.DEFAULT_BASE_URL,
+    /**
+     * Voice lock (D-35, audit fix): when non-null, [speak] uses ONLY this model — never falls back to
+     * another candidate. On failure the call returns an error; the job pauses visibly rather than
+     * silently switching to a different model or voice (spec studio-v2 §3: "No automatic model or voice
+     * change, ever").
+     */
+    val lockedModel: String? = null,
 ) : TtsProvider {
-    override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?): AiResult<ByteArray> {
+    override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?, lockedModel: String?): AiResult<ByteArray> {
         val key = apiKey()?.trim().orEmpty()
         if (key.isEmpty()) return AiResult.Failed("no_api_key", "Add a Gemini API key in Settings")
         if (text.isBlank()) return AiResult.Failed("empty_text", "There is no text to speak")
-        // Use only models that declare they can speak this language (voice lock language filter, D-35).
-        val eligible = allCandidates.filter { it.speaksLanguage(lang) }.map { it.id }
+        // Voice-lock enforcement (D-35, audit): when a model is locked (per-call or field), restrict to
+        // that model only — never fall back to another candidate on 503/429/404.
+        val lock = lockedModel ?: this.lockedModel
+        val eligible = if (lock != null) {
+            listOf(lock)
+        } else {
+            // No lock: use all models that declare they can speak this language.
+            allCandidates.filter { it.speaksLanguage(lang) }.map { it.id }
+        }
         if (eligible.isEmpty()) return AiResult.Failed(
             "no_tts_model_for_lang",
             "No TTS model in config/models.json supports language \"$lang\"",

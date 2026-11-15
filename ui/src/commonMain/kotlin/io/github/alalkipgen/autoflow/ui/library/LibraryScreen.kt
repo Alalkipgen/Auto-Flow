@@ -25,9 +25,15 @@ import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
@@ -78,15 +84,38 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
             AfText("No brand kits saved yet. Use the button above to save the current project's settings.", muted = true)
         } else {
             items.forEach { kit ->
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                var confirmDeleteKit by remember(kit.id) { mutableStateOf(false) }
+                if (confirmDeleteKit) {
+                    androidx.compose.ui.window.Dialog(onDismissRequest = { confirmDeleteKit = false }) {
+                        Column(
+                            Modifier
+                                .fillMaxWidth(0.85f)
+                                .clip(AutoFlowShapes.Card)
+                                .background(AutoFlowColors.Panel)
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            AfText("Delete \"${kit.name}\"?", bold = true)
+                            AfText("This removes the Brand Kit from the Library.", muted = true)
+                            WrapRow {
+                                AfButton("Delete", { model.deleteBrandKit(kit.id); confirmDeleteKit = false }, kind = ButtonKind.Danger)
+                                AfButton("Cancel", { confirmDeleteKit = false })
+                            }
+                        }
+                    }
+                }
+                Column(
+                    Modifier.fillMaxWidth()
+                        .combinedClickable(onClick = {}, onLongClick = { confirmDeleteKit = true })
+                        .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     AfText(kit.name, bold = true)
                     if (kit.colours.isNotEmpty()) AfText("Colours: ${kit.colours.joinToString()}", muted = true, size = 12.sp)
                     if (kit.captionStyle != null) AfText("Caption style: saved", muted = true, size = 12.sp)
                     if (kit.watermark != null) AfText("Watermark: ${kit.watermark!!.substringAfterLast('/')}", muted = true, size = 12.sp)
-                    WrapRow {
-                        AfButton("Apply to current project", { model.applyBrandKit(kit.id) })
-                        AfButton("🗑 Delete", { model.deleteBrandKit(kit.id) }, kind = ButtonKind.Danger)
-                    }
+                    AfButton("Apply to current project", { model.applyBrandKit(kit.id) })
+                    AfText("Long-press to delete", muted = true, size = 11.sp)
                 }
             }
         }

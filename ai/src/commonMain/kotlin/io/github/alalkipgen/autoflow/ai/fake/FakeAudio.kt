@@ -32,7 +32,7 @@ class FakeTtsProvider(
         designedVoices = true,
     )
 
-    override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?): AiResult<ByteArray> {
+    override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?, lockedModel: String?): AiResult<ByteArray> {
         calls++
         if (delayMs > 0) delay(delayMs)
         if (text.isBlank()) return AiResult.Failed("empty_text", "Nothing to speak")
