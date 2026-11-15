@@ -200,7 +200,8 @@ class LayerCompileTest {
     /**
      * Audit item 3: BLUR feather must not emit vignette with unsupported x0/y0/x1/y1 options.
      * Old code: `vignette=angle=PI/2:x0=...:y0=...:x1=...:y1=...` → ffmpeg "Option not found".
-     * New code: geq-based per-pixel alpha fade.
+     * New code: geq-based per-pixel alpha fade. The pixels are checked with a real ffmpeg in
+     * LayerFfmpegRenderTest (desktopTest).
      */
     @Test fun blurFeather_noVignetteXY() {
         val layer = Layer("l1", LayerType.BLUR,
@@ -212,7 +213,8 @@ class LayerCompileTest {
         assertTrue(!fc.contains("x0=") && !fc.contains("x1="),
             "Unsupported vignette x0/x1 options must not appear. Graph: $fc")
         assertTrue(fc.contains("geq="), "geq must be used for feather. Graph: $fc")
-        assertContains(fc, "alphaextract")
+        assertTrue(!fc.contains("luma="), "geq has no `luma` option (it is `lum`). Graph: $fc")
+        assertContains(fc, "format=yuva420p")
         assertContains(fc, "[vlayer]")
     }
 }
