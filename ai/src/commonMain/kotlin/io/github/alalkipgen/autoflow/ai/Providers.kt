@@ -36,7 +36,18 @@ interface TtsProvider {
  */
 interface TranscribeProvider {
     suspend fun transcribe(audio: ByteArray, lang: String, mime: String = "audio/wav", lines: List<String> = emptyList()): AiResult<Transcript>
+
+    /**
+     * Scene transcription (5B-1, D-44): [audio] is picked movie scenes joined one after another, [scenes] their times
+     * in that audio, in order. Ok = for each scene, in the same order, its spoken lines in audio time inside the
+     * scene (none when nobody speaks), in the language spoken — [lang] is only a hint. Providers without it fail.
+     */
+    suspend fun transcribeScenes(audio: ByteArray, mime: String, scenes: List<SceneSpan>, lang: String? = null): AiResult<List<List<TranscriptSegment>>> =
+        AiResult.Failed("unsupported", "This provider cannot transcribe scenes")
 }
+
+/** One scene of a [TranscribeProvider.transcribeScenes] request, in the request audio's time. */
+data class SceneSpan(val startMs: Long, val endMs: Long)
 
 /** Provider-specific voice id (a designed voice name, or a replicated voice id when available). */
 @JvmInline

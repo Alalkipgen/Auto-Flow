@@ -97,9 +97,30 @@ data class RecapUiState(
     val speakAllEta: SpeakAllEta? = null,
     /** Subtitle tracks found in the imported movie (5B-1). Populated after movie import or on demand. */
     val movieSubtitleTracks: List<io.github.alalkipgen.autoflow.core.recap.SubtitleTrack> = emptyList(),
+    /** "Transcribe picked scenes" (5B-1): what is left, the confirm card and the project's last unfinished job. */
+    val transcribe: TranscribeUi = TranscribeUi(),
 ) {
     val busy: Boolean get() = job != null
 }
+
+/**
+ * The Script card's Transcribe section (5B-1, D-44). [todoScenes] picked scenes have no `.srt` line and no
+ * transcript yet ([requests] requests); [lines] / [transcribedScenes] are in the project's transcript. [confirm] =
+ * the card shown before anything is sent; [job] = this project's TRANSCRIBE job that is running, paused or failed
+ * (Cancel / Retry), null when none.
+ */
+data class TranscribeUi(
+    val available: Boolean = false,
+    val todoScenes: Int = 0,
+    val requests: Int = 0,
+    val transcribedScenes: Int = 0,
+    val lines: Int = 0,
+    val confirm: TranscribeConfirm? = null,
+    val job: AiJob? = null,
+)
+
+/** Shown before Transcribe sends anything: [scenes] scenes, [requests] requests, [audioMs] of sound, [usedToday] requests so far today (null = not known). */
+data class TranscribeConfirm(val scenes: Int, val requests: Int, val audioMs: Long, val usedToday: Int? = null)
 
 /** ETA shown before Speak All starts (5A-5). */
 data class SpeakAllEta(val count: Int, val etaSeconds: Long?)
@@ -165,8 +186,15 @@ class RecapModel(
     /** Production supplies LibraryStore.lexicon; each request captures its value before suspending. */
     private val lexicons: StateFlow<Lexicon>? = null,
     modelConfig: io.github.alalkipgen.autoflow.ai.config.ModelConfig? = null,
+    /** 5B-1 scene transcription (Gemini audio input, D-44); null = not offered here. */
+    transcriber: io.github.alalkipgen.autoflow.ai.TranscribeProvider? = null,
+    /** Today's request counts, shown on the Transcribe confirm card. */
+    private val usage: io.github.alalkipgen.autoflow.ai.usage.UsageCounter? = null,
+    /** Cuts the scenes' sound for Transcribe; null = ffmpeg from [media]. */
+    sceneAudio: SceneAudioCutter? = null,
 ) {
     private val pronunciation: Lexicon get() = lexicons?.value ?: lexicon
+    private val scenesTx = SceneTranscriber(session, fs, media, transcriber, sceneAudio, clock)
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
     val voiceSettings = RecapVoiceSettings(session, modelConfig, jobs, ::refresh)
@@ -201,6 +229,7 @@ class RecapModel(
             takeFiles = takeFiles(open?.dir, recap, (story as? CoreResult.Ok)?.value),
             bgmName = recap?.audio?.bgm?.let { id -> session.artifacts()?.get(id)?.let { (it as? CoreResult.Ok)?.value?.inputs?.get(BGM_NAME_INPUT) } },
             movieName = session.moviePath()?.substringAfterLast('/'),
+            transcribe = transcribeUi(open?.dir, recap, keep?.transcribe),
             job = keep?.job,
             progress = keep?.progress,
             message = keep?.message,
@@ -382,6 +411,168 @@ class RecapModel(
         }
     }
 
+    // --- Transcribe picked scenes (5B-1, D-44, spec §7) ----------------------------------------------------------
+
+    private fun transcribeUi(dir: String?, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2?, keep: TranscribeUi?): TranscribeUi {
+        if (dir == null || recap == null) return TranscribeUi(available = scenesTx.available)
+        val transcript = scenesTx.transcriptOf(dir, recap)
+        val plan = scenesTx.plan(dir, recap)
+        val unfinished = jobs?.jobs?.value?.lastOrNull { it.project == dir && it.kind == AiJobKind.TRANSCRIBE && it.state !in FINISHED_JOB_STATES }
+        return TranscribeUi(
+            available = scenesTx.available,
+            todoScenes = plan?.scenes?.size ?: 0,
+            requests = plan?.requests ?: 0,
+            transcribedScenes = transcript?.scenes?.size ?: 0,
+            lines = transcript?.lines?.size ?: 0,
+            confirm = keep?.confirm,
+            job = unfinished ?: keep?.job?.takeIf { it.project == dir && it.state !in FINISHED_JOB_STATES },
+        )
+    }
+
+    private fun setTranscribe(change: (TranscribeUi) -> TranscribeUi) {
+        _state.value = _state.value.copy(transcribe = change(_state.value.transcribe))
+    }
+
+    /**
+     * "Transcribe picked scenes": the picked scenes without `.srt` lines and not transcribed yet. First call shows the
+     * confirm card (scenes, requests, today's usage); call again with [confirmed] = true after Start.
+     *
+     * With the app's [jobs] runner this is a TRANSCRIBE job of this project (audit F11, spec §5): one item per request,
+     * paced, resumable, cancelled from here or from Jobs; the lines are saved into this project even when another one
+     * is opened, and a scene already transcribed is never sent again. Without a runner the same items run here.
+     */
+    fun transcribeScenes(confirmed: Boolean = false): Job? {
+        val open = session.open ?: return null
+        val recap = open.project.recap ?: return null
+        if (!scenesTx.available) { say(SceneTranscriber.UNAVAILABLE); return null }
+        val movie = recap.movie ?: run { say("Import the movie first"); return null }
+        if (!movie.hasAudio) { say(SceneTranscriber.NO_SOUND); return null }
+        if (_state.value.busy || _state.value.recording != null) return null
+        val plan = scenesTx.plan(open.dir, recap) ?: return null
+        if (plan.scenes.isEmpty()) {
+            say(if (RecapRulesV2.pickedScenes(recap).isEmpty()) "Pick scenes first." else "Every picked scene already has subtitles or a transcript.")
+            return null
+        }
+        if (!confirmed) {
+            setTranscribe { it.copy(confirm = TranscribeConfirm(plan.scenes.size, plan.requests, plan.audioMs)) }
+            val counter = usage ?: return null
+            return scope.launch {
+                val today = runCatching { counter.today().values.sum() }.getOrNull()
+                setTranscribe { t -> t.copy(confirm = t.confirm?.copy(usedToday = today)) }
+            }
+        }
+        setTranscribe { it.copy(confirm = null) }
+        busy(TRANSCRIBING, 0.0)
+        val runner = jobs
+        val items = plan.items
+        return scope.launch {
+            try {
+                if (runner != null) {
+                    val job = AiJob(
+                        id = "tx-${open.project.id}-${clock.now().toEpochMilliseconds()}-${kotlin.random.Random.nextInt(0x1000000).toString(16)}",
+                        kind = AiJobKind.TRANSCRIBE, project = open.dir, items = items, rpm = TRANSCRIBE_RPM,
+                    )
+                    return@launch followTranscribeJob(runner, open.dir, open.project, job)
+                }
+                for ((n, item) in items.withIndex()) {
+                    if (session.open?.dir != open.dir) return@launch done("Transcribe stopped: another project was opened ($n of ${items.size} requests done).")
+                    _state.value = _state.value.copy(job = "Transcribing: request ${n + 1} of ${items.size}…", progress = n.toDouble() / items.size)
+                    try {
+                        scenesTx.runItem(open.dir, item)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        refresh()
+                        return@launch done(e.message)
+                    }
+                }
+                refresh()
+                done(transcribedMessage(), ok = true)
+            } finally {
+                if (_state.value.job != null) done(null)
+            }
+        }.also { scriptJob = it }
+    }
+
+    /** Closes the Transcribe confirm card; nothing is sent. */
+    fun dismissTranscribe() = setTranscribe { it.copy(confirm = null) }
+
+    /** Stops Transcribe: the job is cancelled (scenes already saved stay in the project). */
+    fun cancelTranscribe() {
+        val runner = jobs
+        val id = _state.value.transcribe.job?.id
+        if (runner != null && id != null) {
+            scope.launch { runner.cancel(id) }
+        } else if (_state.value.job?.startsWith(TRANSCRIBING_PREFIX) == true) {
+            scriptJob?.cancel()
+            scriptJob = null
+            refresh()
+            done("Transcribe stopped. Scenes already transcribed stay.")
+        }
+    }
+
+    /** Retry / Resume this project's paused or failed Transcribe job: only its remaining requests are sent. */
+    fun retryTranscribe(): Job? {
+        val open = session.open ?: return null
+        val runner = jobs ?: return null
+        val job = _state.value.transcribe.job?.takeIf { it.project == open.dir && (it.state == AiJobState.FAILED || it.state == AiJobState.PAUSED) } ?: return null
+        if (_state.value.busy || _state.value.recording != null) return null
+        busy(TRANSCRIBING, 0.0)
+        return scope.launch {
+            try {
+                followTranscribeJob(runner, open.dir, open.project, job)
+            } finally {
+                if (_state.value.job != null) done(null)
+            }
+        }.also { scriptJob = it }
+    }
+
+    /** Enqueues (or resumes) [job] and shows its progress here until it ends or another project is opened. */
+    private suspend fun followTranscribeJob(runner: AiJobRunner, dir: String, project: Project, job: AiJob) {
+        val total = job.items.size.coerceAtLeast(1)
+        val id = runner.enqueue(job)
+        setTranscribe { it.copy(job = job.copy(id = id)) }
+        var seen: AiJob? = null
+        var left = false
+        runner.jobs.first { list ->
+            val j = list.firstOrNull { it.id == id }
+            if (session.open?.dir != dir) { left = true; return@first true }
+            if (j != null) {
+                seen = j
+                val n = total - j.items.size
+                _state.value = _state.value.copy(
+                    job = "Transcribing: request ${minOf(n + 1, total)} of $total… (Jobs)", progress = n.toDouble() / total,
+                    transcribe = _state.value.transcribe.copy(job = j),
+                )
+            }
+            (j == null && seen != null) || j?.state in ENDED_JOB_STATES
+        }
+        val end = runner.jobs.value.firstOrNull { it.id == id }
+        if (left) return done("Transcribe goes on for ${project.name}: see Jobs.")
+        setTranscribe { it.copy(job = end?.takeIf { e -> e.state !in FINISHED_JOB_STATES }) }
+        refresh()
+        when {
+            end == null || end.state == AiJobState.CANCELLED -> done("Transcribe cancelled. Scenes already transcribed stay.")
+            end.state == AiJobState.DONE -> done(transcribedMessage(), ok = true)
+            end.state == AiJobState.PAUSED -> done(end.error ?: "Gemini is busy. Retry later: only the scenes left are sent.")
+            else -> done((end.error ?: "Transcribe stopped.") + " Retry sends only the scenes left.")
+        }
+    }
+
+    private fun transcribedMessage(): String {
+        val t = _state.value.transcribe
+        return "Transcribed: ${t.lines} lines from ${t.transcribedScenes} scene(s). The script writer uses them like subtitles."
+    }
+
+    /** One TRANSCRIBE job item of the project in [dir] ([RecapJobProcessor], both platforms); see [SceneTranscriber.runItem]. */
+    suspend fun transcribeJobItem(dir: String, item: String) {
+        scenesTx.runItem(dir, item)
+        if (session.open?.dir == dir) refresh()
+    }
+
+    /** Whether [item]'s scenes are already in the transcript of the project in [dir] (no request then). */
+    fun isTranscribeItemDone(dir: String, item: String): Boolean = scenesTx.isItemDone(dir, item)
+
     // style/register are now per-story; kept as local state until writeScript() is called
     private var _style: RecapStyle = RecapStyle.PLAIN
     private var _register: RecapRegister = RecapRegister.SPOKEN
@@ -411,7 +602,9 @@ class RecapModel(
         val summary = _state.value.summary
         val subtitlePath = recap.sources.subtitles
         val cues = subtitlePath?.let { Srt.parse(session.readSource(SUBTITLES_FILE)) }.orEmpty()
-        val gate = RecapRulesV2.canGenerateScript(recap, summary, if (cues.isEmpty()) "" else "srt")
+        // 5B-1: transcribed scene lines are used like `.srt` lines (spec §7, ≤ 600 characters per scene).
+        val transcript = session.open?.dir?.let { scenesTx.transcriptOf(it, recap) }?.takeIf { it.lines.isNotEmpty() }
+        val gate = RecapRulesV2.canGenerateScript(recap, summary, if (cues.isEmpty() && transcript == null) "" else "srt")
         gate.blockers.firstOrNull()?.let { say(it.text()); return null }
         val gen = generator ?: run { say("Gemini is not available here"); return null }
         if (_state.value.busy) return null
@@ -425,7 +618,10 @@ class RecapModel(
             summary = summary,
             style = _style,
             register = _register,
-            scenes = picked.map { SceneBrief(it.startMs, it.endMs, Srt.textIn(cues, it.startMs, it.endMs, RecapPrompts.DIALOGUE_CHARS)) },
+            scenes = picked.map { s ->
+                val dialogue = Srt.textIn(cues, s.startMs, s.endMs, RecapPrompts.DIALOGUE_CHARS)
+                SceneBrief(s.startMs, s.endMs, dialogue.ifEmpty { transcript?.textIn(s.startMs, s.endMs, RecapPrompts.DIALOGUE_CHARS).orEmpty() })
+            },
             names = names,
             hookStyle = recap.hookStyle,
             creditLine = recap.creditLine,
@@ -1308,6 +1504,11 @@ class RecapModel(
         /** TTS requests per minute per model (spec §3 `tts.rpm`): the Speak All job's pacing and its ETA. */
         const val TTS_RPM = 3
         private val ENDED_JOB_STATES = setOf(AiJobState.DONE, AiJobState.PAUSED, AiJobState.FAILED, AiJobState.CANCELLED)
+        private val FINISHED_JOB_STATES = setOf(AiJobState.DONE, AiJobState.CANCELLED)
+        private const val TRANSCRIBING_PREFIX = "Transcribing"
+        const val TRANSCRIBING = "$TRANSCRIBING_PREFIX picked scenes…"
+        /** Requests per minute for TRANSCRIBE jobs (text model with audio input). */
+        const val TRANSCRIBE_RPM = 10
         /** Movie sound chips (spec §6). */
         val MOVIE_VOLUMES = listOf("Off" to 0.0, "Low" to Recap.MOVIE_VOLUME_LOW, "Full" to 1.0)
 

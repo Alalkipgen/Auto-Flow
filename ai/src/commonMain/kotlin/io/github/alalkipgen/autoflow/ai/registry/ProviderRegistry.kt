@@ -6,7 +6,9 @@ import io.github.alalkipgen.autoflow.ai.ImageProvider
 import io.github.alalkipgen.autoflow.ai.JsonSchema
 import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.Transcript
+import io.github.alalkipgen.autoflow.ai.SceneSpan
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
+import io.github.alalkipgen.autoflow.ai.TranscriptSegment
 import io.github.alalkipgen.autoflow.ai.TtsCapabilities
 import io.github.alalkipgen.autoflow.ai.TtsProvider
 import io.github.alalkipgen.autoflow.ai.VoiceRef
@@ -96,6 +98,9 @@ class ProviderRegistry(
     val transcribe: TranscribeProvider = object : TranscribeProvider {
         override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> =
             (if (usingFakes) fakeTranscribe else geminiTranscribe).transcribe(audio, lang, mime, lines)
+
+        override suspend fun transcribeScenes(audio: ByteArray, mime: String, scenes: List<SceneSpan>, lang: String?): AiResult<List<List<TranscriptSegment>>> =
+            (if (usingFakes) fakeTranscribe else geminiTranscribe).transcribeScenes(audio, mime, scenes, lang)
     }
 
     /** What the UI may offer right now. Fakes can do everything offline. */
