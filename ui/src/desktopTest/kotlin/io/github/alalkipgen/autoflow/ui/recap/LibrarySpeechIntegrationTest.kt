@@ -97,14 +97,15 @@ class LibrarySpeechIntegrationTest {
                 assertEquals(RecapRules.textHash(speech.sent[i]), model.state.value.recap!!.takeFor(b.id)!!.spokenHash)
             }
 
+            val export = k.get<ExportModel>()
+            export.refresh()
+            assertTrue(export.state.value.canRender)
             lib.save(lib.load().copy(lexicon = listOf(LexiconEntry("written", "updated"))))
             runCurrent()
             assertTrue(model.state.value.isStale(0), "Library edit must invalidate affected old takes without restart")
             assertTrue(model.state.value.isStale(1))
             assertFalse(model.isJobItemDone("/P", "first"), "job reconciliation must not skip an affected take")
-            val export = k.get<ExportModel>()
-            export.refresh()
-            assertFalse(export.state.value.canRender, "preview/export must not accept old pronunciation")
+            assertFalse(export.state.value.canRender, "open preview/export must refresh after a Library edit, without restarting")
             model.speakAll()
             assertEquals(2, model.state.value.speakAllEta!!.count)
             model.speakAll(confirmed = true)!!.join()

@@ -68,13 +68,23 @@ class ProjectSaveConcurrencyTest {
         assertTrue(aWroteTmp.await(20, TimeUnit.SECONDS))
         val writerB = Thread({ b.set(store.save(dir, original.copy(name = "B"))) }, "writer-B").apply { start() }
         assertTrue(bAsked.await(20, TimeUnit.SECONDS))
-        Thread.sleep(300)
-        // A is paused between writing its temp file and renaming it: B must be waiting, not writing the same temp file.
-        assertFalse(bInside.get(), "B entered the folder while A's save was in progress")
-        releaseA.countDown()
+        try {
+            // Wait for an actual blocked lock attempt, not an arbitrary sleep or B writing a temp file (a deadlock).
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
+            while (writerB.isAlive && !bInside.get() && writerB.state != Thread.State.WAITING && writerB.state != Thread.State.BLOCKED) {
+                check(System.nanoTime() < deadline) { "B never attempted the folder lock" }
+                Thread.yield()
+            }
+            assertFalse(bInside.get(), "B entered the folder while A's save was in progress")
+            assertTrue(writerB.state == Thread.State.WAITING || writerB.state == Thread.State.BLOCKED, "B must actually wait for A")
+        } finally {
+            releaseA.countDown()
+        }
         writerA.join(20_000)
         writerB.join(20_000)
 
+        assertFalse(writerA.isAlive)
+        assertFalse(writerB.isAlive)
         val savedA = a.get().ok()
         assertEquals("A", savedA.name)
         assertEquals(CoreError.Conflict("$dir/project.json"), assertIs<CoreResult.Err>(b.get()).error)
@@ -131,7 +141,10 @@ class ProjectSaveConcurrencyTest {
             assertEquals("original", store.open(dir).ok().name)
             release.createNewFile()
             saver.join(20_000)
-            assertEquals("after the other process", result.get().ok().name)
+            assertFalse(saver.isAlive)
+            val saved = result.get().ok()
+            assertEquals("after the other process", saved.name)
+            assertEquals(CoreJson.encodeToString(saved), File(dir, "project.json").readText())
             assertTrue(child.waitFor(20, TimeUnit.SECONDS))
             assertEquals(0, child.exitValue())
         } finally {
