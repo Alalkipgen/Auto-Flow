@@ -26,6 +26,9 @@ dependencies {
     implementation(project(":media"))
     implementation(project(":platform"))
     implementation(compose.desktop.currentOs)
+    // Dispatchers.Main on desktop (D-61): :ui models use MainScope(); without this the packaged app dies at start
+    // with "Module with the Main dispatcher is missing". Same version as kotlinx-coroutines-core.
+    implementation(libs.kotlinx.coroutines.swing)
     testImplementation(libs.kotlin.test)
 }
 

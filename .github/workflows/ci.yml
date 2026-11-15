@@ -24,6 +24,25 @@ jobs:
         # chmod: files pushed via the GitHub API/web UI lose the executable bit.
         run: chmod +x gradlew && ./gradlew :core:check :ai:check :media:check :platform:check :platform:compileAndroidMain :ui:desktopTest :app-desktop:test
 
+  desktop-smoke:
+    # D-61: build the packaged desktop app (jpackage app image) and launch it under Xvfb; fail on an error dialog,
+    # a missing "Auto Flow" window, an early exit or a startup exception (e.g. "Main dispatcher is missing").
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Package the desktop app (app image)
+        run: chmod +x gradlew && ./gradlew :app-desktop:createDistributable
+      - name: Launch the packaged app headlessly (smoke test)
+        env: { SMOKE_OUT: "${{ runner.temp }}/desktop-smoke" }
+        run: bash tools/desktop-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: desktop-smoke, path: "${{ runner.temp }}/desktop-smoke", if-no-files-found: warn }
+
   windows:
     # D-19: real DPAPI round trip (AUTOFLOW_EXPECT_DPAPI makes the test fail if it is not on Windows), and JvmFs on NTFS.
     # UI tests on Windows too: a system font must cover Myanmar, and screenshots are uploaded for review.
