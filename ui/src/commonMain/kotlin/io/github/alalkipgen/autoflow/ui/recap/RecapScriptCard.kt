@@ -55,20 +55,32 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
                 AfButton("Remove", { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
             }
         }
-        // Subtitle track selection (5B-1): when the movie has embedded tracks, let the owner pick one.
+        // Subtitle track selection (5B-1): show embedded tracks found in the movie.
         if (recap.movie != null && recap.subtitles == null) {
-            AfText("Or extract from movie", muted = true, size = 12.sp)
-            AfText("Track index (0-based ffprobe stream index, leave blank to auto-detect):", muted = true, size = 11.sp)
-            var trackInput by remember { mutableStateOf(recap.subtitleTrack?.toString() ?: "") }
-            WrapRow {
-                io.github.alalkipgen.autoflow.ui.components.AfTextField(
-                    trackInput, { trackInput = it }, "Track index",
-                    Modifier, enabled = !state.busy,
-                )
-                AfButton("Set track", {
-                    model.setSubtitleTrack(trackInput.trim().toIntOrNull())
-                }, enabled = !state.busy)
-                recap.subtitleTrack?.let { AfText("Selected: track $it", color = AutoFlowColors.Cyan, size = 12.sp) }
+            val movieTracks = state.movieSubtitleTracks
+            if (movieTracks.isNotEmpty()) {
+                AfText("Or extract from movie", muted = true, size = 12.sp)
+                WrapRow {
+                    movieTracks.forEach { track ->
+                        val label = buildString {
+                            append("Track ${track.index}")
+                            track.language?.let { append(" [$it]") }
+                            track.title?.let { append(" — $it") }
+                            append(if (track.isText) "" else " (image)")
+                        }
+                        AfChip(label, false, onClick = {
+                            if (!state.busy) {
+                                if (track.isText) model.extractSubtitleTrack(track)
+                                else model.setSubtitleTrack(track.index)
+                            }
+                        })
+                    }
+                }
+                if (movieTracks.any { !it.isText }) {
+                    AfText("Image-based subtitle tracks cannot be extracted automatically. Use Transcribe instead.", muted = true, size = 11.sp)
+                }
+            } else if (recap.movie != null) {
+                AfText("No embedded subtitle tracks found in this movie.", muted = true, size = 12.sp)
             }
         }
         AfText("Style", muted = true, size = 12.sp)
@@ -80,6 +92,29 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
         WrapRow {
             AfChip("Spoken (casual)", recap.register == RecapRegister.SPOKEN, onClick = { model.setRegister(RecapRegister.SPOKEN) })
             AfChip("Written (formal)", recap.register == RecapRegister.WRITTEN, onClick = { model.setRegister(RecapRegister.WRITTEN) })
+        }
+        // Hook style (5B-7): opening tone for segment 1
+        AfText("Opening hook for segment 1", muted = true, size = 12.sp)
+        WrapRow {
+            io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.entries.forEach { hook ->
+                val label = when (hook) {
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT -> "AI decides"
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUESTION -> "Question"
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUOTE -> "Quote"
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.ACTION -> "Action"
+                }
+                AfChip(label, recap.hookStyle == hook, onClick = { model.setHookStyle(hook) })
+            }
+        }
+        // Credit line (5B-7)
+        AfText("Source / credit line (appended to last segment)", muted = true, size = 12.sp)
+        var creditDraft by remember(recap.creditLine) { mutableStateOf(recap.creditLine) }
+        io.github.alalkipgen.autoflow.ui.components.AfTextField(
+            creditDraft, { creditDraft = it }, "e.g. ကား — The Avengers (2012) မှ",
+            Modifier.fillMaxWidth(), enabled = !state.busy,
+        )
+        if (creditDraft != recap.creditLine) {
+            AfButton("Save credit", { model.setCreditLine(creditDraft) })
         }
         val script = state.script
         var confirming by remember { mutableStateOf<String?>(null) }
@@ -127,13 +162,33 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
 @Composable
 private fun SegmentRow(model: RecapModel, index: Int, seg: RecapSegment, enabled: Boolean) {
     var editing by remember(seg) { mutableStateOf(false) }
+    var editTiming by remember(seg) { mutableStateOf(false) }
     var draft by remember(seg) { mutableStateOf(seg.textMy) }
+    var startDraft by remember(seg) { mutableStateOf(mmss(seg.startMs)) }
+    var endDraft by remember(seg) { mutableStateOf(mmss(seg.endMs)) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("#${index + 1} · ${clock(seg.startMs)}–${clock(seg.endMs)} · ${(seg.durationMs + 500) / 1000} s", Modifier.weight(1f), muted = true, size = 12.sp)
-            if (!editing) AfButton("✎", { editing = true }, enabled = enabled)
+            if (!editing && !editTiming) {
+                AfButton("✎", { editing = true }, enabled = enabled)
+                AfButton("⏱", { editTiming = true }, enabled = enabled)
+            }
         }
-        if (editing) {
+        if (editTiming) {
+            AfText("Timing (mm:ss or hh:mm:ss)", muted = true, size = 11.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                io.github.alalkipgen.autoflow.ui.components.AfTextField(startDraft, { startDraft = it }, "Start", Modifier.weight(1f))
+                io.github.alalkipgen.autoflow.ui.components.AfTextField(endDraft, { endDraft = it }, "End", Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfButton("Save timing", {
+                    val s = parseMs(startDraft) ?: return@AfButton
+                    val e = parseMs(endDraft) ?: return@AfButton
+                    if (model.saveSegmentTiming(index, s, e)) editTiming = false
+                }, kind = ButtonKind.Primary)
+                AfButton("Back", { editTiming = false; startDraft = mmss(seg.startMs); endDraft = mmss(seg.endMs) })
+            }
+        } else if (editing) {
             AfTextField(draft, { draft = it }, "Narration for scene ${index + 1}", Modifier.fillMaxWidth(), lines = 3, mono = false)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfButton("Save", { if (model.saveSegment(index, draft)) editing = false }, kind = ButtonKind.Primary)
@@ -142,5 +197,26 @@ private fun SegmentRow(model: RecapModel, index: Int, seg: RecapSegment, enabled
         } else {
             AfText(seg.textMy.ifBlank { "(empty — tap ✎ to write)" }, muted = seg.textMy.isBlank())
         }
+    }
+}
+
+/** Format ms as `hh:mm:ss` for display. */
+private fun clock(ms: Long): String {
+    val s = ms / 1000; return "${s / 3600}:${(s / 60 % 60).toString().padStart(2,'0')}:${(s % 60).toString().padStart(2,'0')}"
+}
+
+/** Format ms as `mm:ss` for editing (simpler for short clips). */
+private fun mmss(ms: Long): String {
+    val s = ms / 1000; return "${s / 60}:${(s % 60).toString().padStart(2,'0')}"
+}
+
+/** Parse `[[h:]m:]ss` → ms; returns null on bad input. */
+private fun parseMs(input: String): Long? {
+    val parts = input.trim().split(':').mapNotNull { it.toLongOrNull() }
+    return when (parts.size) {
+        1 -> parts[0] * 1000
+        2 -> (parts[0] * 60 + parts[1]) * 1000
+        3 -> (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000
+        else -> null
     }
 }
