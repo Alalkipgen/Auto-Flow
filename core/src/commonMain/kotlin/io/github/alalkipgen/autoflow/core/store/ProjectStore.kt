@@ -10,6 +10,7 @@ import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.microseconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.serialization.json.Json
@@ -21,6 +22,11 @@ import kotlinx.serialization.json.jsonPrimitive
  * Project folder create/open and atomic `project.json` writes (specs/project-format.md).
  * Save = serialize → `project.json.tmp` (fsync) → copy current to `project.json.bak` → rename tmp over `project.json`.
  * A crash at any step leaves a readable `project.json` (old or new) in place.
+ *
+ * Audit F04: the whole read → check → write → backup → rename runs under [FileSystem.withFolderLock], so the temp
+ * files belong to one save at a time (threads and, with JvmFs, processes), and `updatedAt` is the revision: a save
+ * whose copy has another `updatedAt` than the file on disk is refused with [CoreError.Conflict] instead of
+ * overwriting newer work, and every save stamps a strictly later `updatedAt`. [update] re-reads under the lock.
  */
 class ProjectStore(
     private val fs: FileSystem,
@@ -46,21 +52,53 @@ class ProjectStore(
     /** Opens `project.json.bak` (the previous save) without changing anything on disk. */
     fun openBackup(dir: String): CoreResult<Project> = read(dir, BACKUP_FILE)
 
-    /** Saves [project] into [dir]; sets `updatedAt` and recomputes `globalStyle.hash`. Returns what was written. */
+    /**
+     * Saves [project] into [dir]; sets `updatedAt` and recomputes `globalStyle.hash`. Returns what was written.
+     * [CoreError.Conflict] (nothing written) when `project.json` was saved by someone else since [project] was read.
+     */
     fun save(dir: String, project: Project): CoreResult<Project> {
         val main = joinPath(dir, PROJECT_FILE)
+        return io(main) { fs.withFolderLock(dir) { commit(dir, project) } }
+    }
+
+    /**
+     * Read-modify-write under the folder lock: [change] gets `project.json` as it is on disk now, so a change made
+     * elsewhere in between is never lost. Returns what was written (or the file as it is when [change] changed
+     * nothing: no write), or why the file could not be read / written.
+     */
+    fun update(dir: String, change: (Project) -> Project): CoreResult<Project> {
+        val main = joinPath(dir, PROJECT_FILE)
         return io(main) {
-            val saved = project.copy(updatedAt = clock.now(), globalStyle = project.globalStyle.withComputedHash())
-            val tmp = joinPath(dir, "$PROJECT_FILE.tmp")
-            fs.writeDurably(tmp, CoreJson.encodeToString(saved).encodeToByteArray())
-            if (fs.exists(main)) {
-                val bakTmp = joinPath(dir, "$BACKUP_FILE.tmp")
-                fs.writeDurably(bakTmp, fs.read(main))
-                fs.atomicMove(bakTmp, joinPath(dir, BACKUP_FILE))
+            fs.withFolderLock(dir) {
+                when (val r = read(dir, PROJECT_FILE)) {
+                    is CoreResult.Err -> r
+                    is CoreResult.Ok -> {
+                        val changed = change(r.value)
+                        if (changed == r.value) r else commit(dir, changed.copy(updatedAt = r.value.updatedAt))
+                    }
+                }
             }
-            fs.atomicMove(tmp, main)
-            CoreResult.Ok(saved)
         }
+    }
+
+    /** Called with the folder lock held. */
+    private fun commit(dir: String, project: Project): CoreResult<Project> {
+        val main = joinPath(dir, PROJECT_FILE)
+        val onDisk = if (fs.exists(main)) (decode(main, fs.read(main).decodeToString(), false) as? CoreResult.Ok)?.value else null
+        if (onDisk != null && onDisk.updatedAt != project.updatedAt) return CoreResult.Err(CoreError.Conflict(main))
+        val now = clock.now()
+        val stamp = if (onDisk != null && now <= onDisk.updatedAt) onDisk.updatedAt + 1.microseconds else now
+        val saved = project.copy(updatedAt = stamp, globalStyle = project.globalStyle.withComputedHash())
+        val tmp = joinPath(dir, "$PROJECT_FILE.tmp")
+        fs.writeDurably(tmp, CoreJson.encodeToString(saved).encodeToByteArray())
+        // Only a readable project becomes the backup: a damaged file must not replace the last good .bak.
+        if (onDisk != null) {
+            val bakTmp = joinPath(dir, "$BACKUP_FILE.tmp")
+            fs.copyDurably(main, bakTmp)
+            fs.atomicMove(bakTmp, joinPath(dir, BACKUP_FILE))
+        }
+        fs.atomicMove(tmp, main)
+        return CoreResult.Ok(saved)
     }
 
     private fun read(dir: String, fileName: String): CoreResult<Project> {

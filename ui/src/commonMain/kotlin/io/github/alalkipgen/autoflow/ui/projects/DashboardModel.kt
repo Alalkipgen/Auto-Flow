@@ -141,7 +141,8 @@ class DashboardModel(
     fun open(dir: String): Boolean {
         val burmeseTtsModel = modelConfig?.tts?.chainFor("my")?.firstOrNull()
         try {
-            RecapMigration.migrateFolder(fs, dir, burmeseTtsModel)
+            // Under the folder lock (audit F04): no save of another window can land between the check and the write.
+            fs.withFolderLock(dir) { RecapMigration.migrateFolder(fs, dir, burmeseTtsModel) }
         } catch (e: MigrationException) {
             return fail("Cannot update this project to the new format: ${e.message}. The project was not changed.")
         } catch (e: Exception) {
@@ -150,7 +151,7 @@ class DashboardModel(
         val firstTry = store.open(dir)
         if (firstTry is CoreResult.Ok) return opened(dir, firstTry.value)
         val recovery = try {
-            RecapMigration.recoverFromBackup(fs, dir, burmeseTtsModel)
+            fs.withFolderLock(dir) { RecapMigration.recoverFromBackup(fs, dir, burmeseTtsModel) }
         } catch (e: Exception) {
             RecapMigration.Recovery.Failed("Recovering from ${RecapMigration.BACKUP_FILE} failed (${e.message ?: e::class.simpleName})")
         }
