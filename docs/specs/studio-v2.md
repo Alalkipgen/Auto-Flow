@@ -189,7 +189,18 @@ Execution (audit F11, the same on both platforms):
   joined, `-c:a aac -b:a 32k` chunks ≤ 10 min (`.cache/transcribe/<n>.m4a`); the prompt lists "scene i: start–end s"
   in chunk time; output `{scenes:[{scene, lines:[{start, end, text}]}]}`; a missing scene or a time outside its scene
   → retry once, then fail. Saved as `tx` `{schemaVersion: 2, source: "gemini-scenes", lang, lines:[{startMs, endMs,
-  text}]}` (movie time). The script writer takes the lines inside each block's clips (≤ 600 characters per scene).
+  text}], scenes:[{inMs, outMs}]}` (movie time; `scenes` = the ranges already transcribed, also those without
+  speech, so a scene is never sent twice; older files without it read as none). The script writer takes the lines
+  inside each block's clips (≤ 600 characters per scene).
+- As implemented (5B-1): one TRANSCRIBE job (§5) per Start, one item per request, item = `m<movie size>-<movie
+  length>:<in>-<out>,…` (movie ms). An item whose ranges are all in the project's `scenes` is done without a request
+  (resume, retry, a lost checkpoint); a movie imported since the job started fails the item ("The movie changed…")
+  and nothing is saved. The lines are merged into the job's own project under its folder lock (lines whose middle
+  lies in a range sent again are replaced). `lang` = `und` (the movie's own language; the prompt says "do not
+  translate"). Busy model (429 / 5xx after the D-15 retries) → PAUSED; an answer invalid twice → FAILED
+  ("invalid_scenes"); Retry sends only the items left. Cut sound: `-ss <in> -t <length> -i <movie>` per range,
+  `concat`, `-ac 1 -ar 16000 -c:a aac -b:a 32k -f mp4` → `.cache/transcribe/<hash>.m4a` (cache files are not
+  deleted: the app never deletes, AGENTS.md §1; each is ≤ ≈ 2.4 MB).
 
 ## 8. Smart Fit (D-46)
 When take + 0.4 s > block length, the block shows the fixes in order:

@@ -12,8 +12,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapRegister
@@ -82,6 +84,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
                 AfText("No embedded subtitle tracks found in this movie.", muted = true, size = 12.sp)
             }
         }
+        TranscribeSection(model, state, recap)
         AfText("Style", muted = true, size = 12.sp)
         WrapRow {
             AfChip("Plain", recap.style == RecapStyle.PLAIN, onClick = { model.setStyle(RecapStyle.PLAIN) })
@@ -136,7 +139,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
                 AfButton("Back", { confirming = null })
             }
         } else {
-            val gate = RecapRulesV2.canGenerateScript(recap, state.summary, if (recap.subtitles != null) "srt" else "")
+            val gate = RecapRulesV2.canGenerateScript(recap, state.summary, if (recap.subtitles != null || state.transcribe.lines > 0) "srt" else "")
             if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
             WrapRow {
                 AfButton(WRITE_SCRIPT, { if (script == null) model.writeScript() else confirming = WRITE_SCRIPT },
@@ -156,6 +159,59 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
             val gate = RecapRulesV2.canApproveScript(recap, story)
             if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
             AfButton(APPROVE_SCRIPT, { model.approveScript() }, kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
+        }
+    }
+}
+
+/**
+ * "Transcribe picked scenes" (5B-1, D-44): offered for picked scenes without `.srt` lines; a confirm card (scenes,
+ * requests, today's usage) before anything is sent; progress with Cancel; Retry for a paused or failed job (only the
+ * requests left are sent).
+ */
+@Composable
+private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+    val t = state.transcribe
+    if (!t.available || recap.movie == null) return
+    if (t.lines > 0 || t.transcribedScenes > 0) {
+        AfText("🎙 Transcript ✓ ${t.lines} lines from ${t.transcribedScenes} scene(s)", Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
+    }
+    val running = state.job?.startsWith("Transcribing") == true
+    val confirm = t.confirm
+    val job = t.job
+    when {
+        running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText(state.job.orEmpty(), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfButton("Cancel", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+        }
+        confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            AfText(
+                "Transcribe ${confirm.scenes} picked scene(s) without subtitles: ${confirm.requests} Gemini request(s), " +
+                    "${clock(confirm.audioMs)} of sound. Only these scenes' sound is sent — never the picture or the whole movie. " +
+                    "Today so far: ${confirm.usedToday?.toString() ?: "…"} request(s).",
+                Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfButton("Start", { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
+                AfButton("Back", { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
+            }
+        }
+        job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            AfText(
+                (job.error ?: "Transcribe stopped.") + " ${job.items.size} request(s) left.",
+                Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfButton("Retry", { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
+                AfButton("Cancel job", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+            }
+        }
+        job != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText("Transcribe is running (${job.items.size} request(s) left): see Jobs.", Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfButton("Cancel", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+        }
+        t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            AfText("${t.todoScenes} picked scene(s) have no subtitles. Gemini can transcribe just their sound for the script.", muted = true, size = 12.sp)
+            AfButton("🎙 Transcribe picked scenes", { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)
         }
     }
 }
