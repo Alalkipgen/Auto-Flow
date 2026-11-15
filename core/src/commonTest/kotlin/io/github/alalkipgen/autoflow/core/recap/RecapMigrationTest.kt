@@ -6,6 +6,7 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.readTestResource
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -90,13 +91,26 @@ class RecapMigrationTest {
     }
 
     @Test
-    fun missingScriptGivesNoStoryAndNoApproval() {
-        val out = RecapMigration.migrate(v1, readScript = { null }, writeStory = { error("not called") }, burmeseTtsModel = null)
+    fun absentScriptGivesNoStoryAndNoApproval() {
+        val recap = v1["recap"]!!.jsonObject.toMutableMap().apply { remove("script") }
+        val project = JsonObject(v1.toMutableMap().apply { put("recap", JsonObject(recap)) })
+        val out = RecapMigration.migrate(project, readScript = { error("not called") }, writeStory = { error("not called") }, burmeseTtsModel = null)
         val r = recapOf(out)
         assertNull(r.story)
         assertFalse(r.storyApproved)
         assertTrue(r.takes.isEmpty())
         assertNull(r.voiceLock) // no Burmese TTS model known
+    }
+
+    /** Audit F02: a referenced script that cannot be read stops the migration instead of dropping the story. */
+    @Test
+    fun unreadableReferencedScriptStopsTheMigration() {
+        for (read in listOf<(ArtifactId) -> RecapScript?>({ null }, { throw IllegalStateException("io") })) {
+            val e = assertFailsWith<MigrationException> {
+                RecapMigration.migrate(v1, readScript = read, writeStory = { error("must not write a story") }, burmeseTtsModel = null)
+            }
+            assertTrue("rs_0123456789ab" in e.message!!)
+        }
     }
 
     @Test
