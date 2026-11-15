@@ -24,6 +24,8 @@ data class MediaInfo(
     val fps: Double?,
     val videoCodec: String?,
     val audioCodec: String?,
+    /** Subtitle streams found in the file (5B-1). Empty when none or not yet probed. */
+    val subtitleTracks: List<io.github.alalkipgen.autoflow.core.recap.SubtitleTrack> = emptyList(),
 ) {
     val hasVideo: Boolean get() = videoCodec != null
     val hasAudio: Boolean get() = audioCodec != null
@@ -72,6 +74,16 @@ class MediaProbe(private val tools: ToolRunner, private val ffprobe: String) {
             val turned = video?.let { rotation(it) }?.let { abs(it) % 180 == 90 } == true
             val w = video?.get("width")?.jsonPrimitive?.intOrNull
             val h = video?.get("height")?.jsonPrimitive?.intOrNull
+            val subtitleTracks = streams
+                .filter { it.str("codec_type") == "subtitle" }
+                .mapIndexed { _, s ->
+                    val idx = s["index"]?.jsonPrimitive?.intOrNull ?: 0
+                    val codec = s.str("codec_name") ?: "unknown"
+                    val tags = (s["tags"] as? JsonObject)
+                    val lang = tags?.str("language")
+                    val title = tags?.str("title")
+                    io.github.alalkipgen.autoflow.core.recap.SubtitleTrack(idx, codec, lang, title)
+                }
             MediaInfo(
                 durationMs = (seconds * 1000).toLong(),
                 width = if (turned) h else w,
@@ -79,6 +91,7 @@ class MediaProbe(private val tools: ToolRunner, private val ffprobe: String) {
                 fps = video?.let { rate(it.str("avg_frame_rate")) ?: rate(it.str("r_frame_rate")) },
                 videoCodec = video?.str("codec_name"),
                 audioCodec = audio?.str("codec_name"),
+                subtitleTracks = subtitleTracks,
             )
         }.getOrNull()
 

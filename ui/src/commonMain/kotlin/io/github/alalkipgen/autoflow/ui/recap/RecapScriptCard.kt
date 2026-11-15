@@ -55,20 +55,32 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
                 AfButton("Remove", { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
             }
         }
-        // Subtitle track selection (5B-1): when the movie has embedded tracks, let the owner pick one.
+        // Subtitle track selection (5B-1): show embedded tracks found in the movie.
         if (recap.movie != null && recap.subtitles == null) {
-            AfText("Or extract from movie", muted = true, size = 12.sp)
-            AfText("Track index (0-based ffprobe stream index, leave blank to auto-detect):", muted = true, size = 11.sp)
-            var trackInput by remember { mutableStateOf(recap.subtitleTrack?.toString() ?: "") }
-            WrapRow {
-                io.github.alalkipgen.autoflow.ui.components.AfTextField(
-                    trackInput, { trackInput = it }, "Track index",
-                    Modifier, enabled = !state.busy,
-                )
-                AfButton("Set track", {
-                    model.setSubtitleTrack(trackInput.trim().toIntOrNull())
-                }, enabled = !state.busy)
-                recap.subtitleTrack?.let { AfText("Selected: track $it", color = AutoFlowColors.Cyan, size = 12.sp) }
+            val movieTracks = state.movieSubtitleTracks
+            if (movieTracks.isNotEmpty()) {
+                AfText("Or extract from movie", muted = true, size = 12.sp)
+                WrapRow {
+                    movieTracks.forEach { track ->
+                        val label = buildString {
+                            append("Track ${track.index}")
+                            track.language?.let { append(" [$it]") }
+                            track.title?.let { append(" — $it") }
+                            append(if (track.isText) "" else " (image)")
+                        }
+                        AfChip(label, false, onClick = {
+                            if (!state.busy) {
+                                if (track.isText) model.extractSubtitleTrack(track)
+                                else model.setSubtitleTrack(track.index)
+                            }
+                        })
+                    }
+                }
+                if (movieTracks.any { !it.isText }) {
+                    AfText("Image-based subtitle tracks cannot be extracted automatically. Use Transcribe instead.", muted = true, size = 11.sp)
+                }
+            } else if (recap.movie != null) {
+                AfText("No embedded subtitle tracks found in this movie.", muted = true, size = 12.sp)
             }
         }
         AfText("Style", muted = true, size = 12.sp)

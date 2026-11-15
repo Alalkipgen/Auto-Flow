@@ -80,6 +80,8 @@ data class RecapUiState(
      * Null = no pending ETA card.
      */
     val speakAllEta: SpeakAllEta? = null,
+    /** Subtitle tracks found in the imported movie (5B-1). Populated after movie import or on demand. */
+    val movieSubtitleTracks: List<io.github.alalkipgen.autoflow.core.recap.SubtitleTrack> = emptyList(),
 ) {
     val busy: Boolean get() = job != null
 }
@@ -165,7 +167,9 @@ class RecapModel(
                 hasAudio = info.hasAudio,
             )
             val saved = update { it.copy(movie = movie, scenes = emptyList(), story = null, storyApproved = false, takes = emptyList()) }
-            done(if (saved) "Movie ready: ${clock(movie.durationMs)}. Next: Find scenes." else null, ok = saved)
+            if (saved) _state.value = _state.value.copy(movieSubtitleTracks = info.subtitleTracks)
+            val trackHint = if (info.subtitleTracks.isNotEmpty()) " Found ${info.subtitleTracks.size} subtitle track(s)." else ""
+            done(if (saved) "Movie ready: ${clock(movie.durationMs)}.$trackHint Next: Find scenes." else null, ok = saved)
         }
     }
 
@@ -268,6 +272,47 @@ class RecapModel(
     /** Sets the selected subtitle stream track index (5B-1). */
     fun setSubtitleTrack(index: Int?) {
         update { it.copy(sources = it.sources.copy(subtitleTrack = index)) }
+    }
+
+    /**
+     * Extracts subtitle track [track] from the imported movie via ffmpeg (5B-1).
+     * Writes `source/subtitles.srt` and sets `recap.sources.subtitles`.
+     */
+    fun extractSubtitleTrack(track: io.github.alalkipgen.autoflow.core.recap.SubtitleTrack): Job? {
+        val recap = recap() ?: return null
+        val movie = recap.movie ?: run { say("Import the movie first"); return null }
+        val runner = media?.runner
+        val ffmpeg = media?.ffmpeg()
+        val dir = session.open?.dir ?: return null
+        if (runner == null || ffmpeg == null) { say(NO_FFMPEG); return null }
+        if (_state.value.busy) return null
+        return scope.launch {
+            busy("Extracting subtitle track ${track.index}…")
+            val moviePath = io.github.alalkipgen.autoflow.core.io.joinPath(dir, movie.file)
+            val sourceDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, ProjectSession.SOURCE_DIR)
+            val outPath = io.github.alalkipgen.autoflow.core.io.joinPath(sourceDir, SUBTITLES_FILE)
+            fs.createDirectories(sourceDir)
+            val args = listOf(
+                ffmpeg, "-y", "-i", moviePath,
+                "-map", "0:${track.index}", "-c:s", "srt",
+                outPath,
+            )
+            val r = withContext(kotlinx.coroutines.Dispatchers.Default) {
+                runner.run(args, dir, 120_000L, keepOutput = true) {}
+            }
+            if (r is io.github.alalkipgen.autoflow.media.tool.ToolExec.Done && r.exitCode == 0 && fs.exists(outPath)) {
+                val srtText = fs.read(outPath).decodeToString()
+                val cues = Srt.parse(srtText)
+                if (cues.isEmpty()) return@launch done("Track extracted but no subtitle lines found.")
+                (session.writeSource(SUBTITLES_FILE, srtText) as? CoreResult.Err)?.let { return@launch say(it.error.message) }
+                if (update { it.copy(sources = it.sources.copy(subtitles = "${ProjectSession.SOURCE_DIR}/$SUBTITLES_FILE", subtitleTrack = track.index)) }) {
+                    done("Extracted ${cues.size} subtitle lines from track ${track.index}.", ok = true)
+                }
+            } else {
+                val msg = (r as? io.github.alalkipgen.autoflow.media.tool.ToolExec.Done)?.tail?.lastOrNull() ?: "ffmpeg failed"
+                done("Cannot extract subtitle track: $msg")
+            }
+        }
     }
 
     // style/register are now per-story; kept as local state until writeScript() is called
