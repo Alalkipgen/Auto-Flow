@@ -269,14 +269,31 @@ try {
     # 7. Close it like a user would (WM_CLOSE to the titled window, as the title-bar X does), then look for
     #    startup/shutdown exceptions. Process.CloseMainWindow() is not used: its "main window" guess is not
     #    guaranteed to be the Compose frame (the first CI run, 6980992, timed out with it).
-    $closeSent = [AfWindows]::Close([uint32]$proc.Id, $WindowTitle)
+    #    The message goes to the process that owns the titled window ($windowPid, already checked to be the
+    #    installed launcher), which is not necessarily the PID Start-Process returned.
+    $closeSent = [AfWindows]::Close([uint32]$windowPid, $WindowTitle)
+    $closeWatch = [Diagnostics.Stopwatch]::StartNew()
     $graceful = $proc.WaitForExit(30000)
-    if (-not $graceful) { Stop-Process -Id $proc.Id -Force; $proc.WaitForExit(10000) | Out-Null }
+    if ($graceful -and $windowPid -ne $proc.Id) {
+        $graceful = -not (Get-Process -Id $windowPid -ErrorAction SilentlyContinue)
+    }
+    $closeSeconds = [math]::Round($closeWatch.Elapsed.TotalSeconds, 1)
+    $leftWindows = @(Get-VisibleWindows | Where-Object { $_.pid -eq $windowPid -or $_.pid -eq $proc.Id } | ForEach-Object { $_.title })
+    if (-not $graceful) {
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        if ($windowPid -ne $proc.Id) { Stop-Process -Id $windowPid -Force -ErrorAction SilentlyContinue }
+        $proc.WaitForExit(10000) | Out-Null
+    }
     $report.steps.close = [ordered]@{
-        wmCloseSentTo = $closeSent; graceful = $graceful
+        launcherPid = $proc.Id; windowPid = $windowPid; wmCloseSentTo = $closeSent; graceful = $graceful
+        secondsToExit = $(if ($graceful) { $closeSeconds } else { $null }); windowsLeftAfterClose = $leftWindows
         exitCode = $(if ($proc.HasExited) { $proc.ExitCode } else { $null })
     }
-    if (-not $graceful) { Write-Output '::warning title=Windows installer smoke::the installed app did not exit within 30 s of closing its window' }
+    if ($graceful) {
+        Write-Output "::notice title=Windows installer smoke::graceful close: WM_CLOSE sent to $closeSent window(s), exited in $closeSeconds s (code $($proc.ExitCode))"
+    } else {
+        Write-Output "::warning title=Windows installer smoke::the installed app did not exit within 30 s of closing its window (WM_CLOSE sent to $closeSent window(s); launcher pid $($proc.Id), window pid $windowPid; windows left: $($leftWindows -join ' | '))"
+    }
     $appLog = (@($appOut, $appErr) | Where-Object { Test-Path $_ } | ForEach-Object { Get-Content $_ -Raw }) -join "`n"
     if ($appLog -match 'Main dispatcher is missing|Exception in thread|Could not create instance') { throw 'the installed app logged a startup exception (see app-stderr.log)' }
 
