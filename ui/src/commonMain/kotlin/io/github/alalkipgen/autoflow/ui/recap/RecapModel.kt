@@ -14,6 +14,11 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.recap.AiItemPaused
+import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.core.recap.AiJobKind
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.Look
 import io.github.alalkipgen.autoflow.media.audio.SilenceTrim
 import io.github.alalkipgen.autoflow.core.recap.Recap
@@ -50,6 +55,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -149,6 +155,11 @@ class RecapModel(
     private val frames: io.github.alalkipgen.autoflow.ui.export.RecapFrames? = null,
     /** Take times (`BlockTake.createdAt`) and artifact times. */
     private val clock: Clock = Clock.System,
+    /**
+     * The app's AI job runner (5A-5, audit F11): Speak All becomes a persistent, paced, resumable TTS_ALL job there.
+     * null only where no runner exists (tests): Speak All then runs the same per-block step in this model's scope.
+     */
+    private val jobs: AiJobRunner? = null,
 ) {
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
@@ -619,14 +630,45 @@ class RecapModel(
     }
 
     /**
-     * Called by [AiWorker] (5A-5, D-51) to speak one segment from a WorkManager AI job.
-     * Throws on failure so the worker can mark the job FAILED.
+     * One item of a TTS_ALL job (audit F11, spec §5; [RecapJobProcessor] on both platforms): speaks block [blockId]
+     * of the project in [dir] — that project as it is on disk, whichever project is open now — with that project's
+     * voice lock and style, and stores the take there. Returns when the take is saved or there is nothing to do (the
+     * block is gone or has no text, or it already has a current take: [isJobItemDone]). Throws [AiItemPaused] when the
+     * locked model is busy (429 / 5xx after retries: the job pauses, never another model, spec §3), otherwise an
+     * exception with the reason (the job fails).
      */
-    suspend fun speakForJob(index: Int) {
-        val msg = speakOne(index) ?: return
-        // Locked model busy (429 / 5xx after retries) → the job pauses, never another model (spec §3).
-        if (lastSpeakBusy) throw io.github.alalkipgen.autoflow.core.recap.AiItemPaused(msg)
+    suspend fun speakJobItem(dir: String, blockId: String) {
+        if (isJobItemDone(dir, blockId)) return
+        val (target, lock, style) = jobTarget(dir, blockId) ?: return
+        val msg = speakInto(target, lock, style) ?: return
+        if (msg == BLOCK_GONE) return
+        if (lastSpeakBusy) throw AiItemPaused(msg)
         error(msg)
+    }
+
+    /**
+     * Whether block [blockId] of the project in [dir] needs no voice now (spec §5: "finished items are found from the
+     * project"): it has a current take (its spoken text has not changed since), no text, or is no longer in the story.
+     * False when the project cannot be read (the item then fails with the reason).
+     */
+    fun isJobItemDone(dir: String, blockId: String): Boolean {
+        val recap = session.projectAt(dir)?.recap ?: return false
+        val story = storyOf(dir, recap) ?: return false
+        val block = story.blocks.firstOrNull { it.id == blockId } ?: return true
+        if (SpokenText.of(block, lexicon).isEmpty()) return true
+        return recap.takeFor(blockId)?.let { !SpokenText.isStale(it, block, lexicon) } == true
+    }
+
+    /** The voice target of a job item, from the project on disk; null = the block is gone or has no text. */
+    private fun jobTarget(dir: String, blockId: String): Triple<VoiceTarget, io.github.alalkipgen.autoflow.core.recap.VoiceLock?, RecapStyle>? {
+        val project = session.projectAt(dir) ?: error("The project in $dir cannot be read")
+        val recap = project.recap ?: error("${project.name} is not a Movie Recap")
+        val story = storyOf(dir, recap)
+        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { error("${project.name}: ${it.text()}") }
+        val block = story!!.blocks.firstOrNull { it.id == blockId } ?: return null
+        val spoken = SpokenText.of(block, lexicon).takeIf { it.isNotEmpty() } ?: return null
+        val target = VoiceTarget(dir, project.id, block.id, spoken, SpokenText.hash(block, lexicon), recap.audio.trimSilence)
+        return Triple(target, recap.voiceLock, story.style)
     }
 
     /** True when the last [speakOne] failure was a busy model (job pauses) rather than a hard failure. */
@@ -650,10 +692,15 @@ class RecapModel(
 
     /**
      * 🔊 Speak all: every scene with text and without a current take — none, or one whose spoken text has changed
-     * since ([SpokenText.isStale], audit F10) — in order; stops at the first failure or when another project is
-     * opened (each take still goes to the project it was spoken for).
+     * since ([SpokenText.isStale], audit F10) — in order.
      * Shows an ETA card ("N scenes, ~T s — Start / Cancel") before beginning (5A-5, D-51).
      * Call again with [confirmed]=true after the user taps Start.
+     *
+     * Audit F11: with the app's [jobs] runner this is a TTS_ALL job of this project and these block ids (spec §5):
+     * saved, paced per model, resumed after a restart, cancelled from Jobs, each take stored in this project even
+     * when another one is opened. The returned coroutine follows the job until it ends (or another project is
+     * opened: the job goes on, see Jobs). Without a runner the same per-block step ([speakJobItem]) runs here,
+     * stopping at the first failure.
      */
     fun speakAll(confirmed: Boolean = false): Job? {
         val open = session.open ?: return null
@@ -668,25 +715,62 @@ class RecapModel(
         if (todo.isEmpty()) { say("Every scene already has its voice."); return null }
         // Show ETA card first; user confirms before the loop starts (5A-5).
         if (!confirmed) {
-            val rpm = 3L // free-tier TTS is ~3 req/min; shown as a rough ETA
-            val etaSec = todo.size * 60L / rpm
+            val etaSec = todo.size * 60L / TTS_RPM // spec §5: remaining items × 60 / rpm
             _state.value = _state.value.copy(speakAllEta = SpeakAllEta(todo.size, etaSec))
             return null
         }
         _state.value = _state.value.copy(speakAllEta = null)
         busy("Speaking…", 0.0)
+        val blocks = todo.map { story.blocks[it].id }
+        val runner = jobs
         return scope.launch {
             try {
-                for ((n, i) in todo.withIndex()) {
-                    if (session.open?.dir != open.dir) return@launch done("Speak All stopped: another project was opened ($n of ${todo.size} spoken).")
-                    _state.value = _state.value.copy(job = "Speaking #${i + 1} (${n + 1} of ${todo.size})…", progress = n.toDouble() / todo.size)
-                    speakOne(i)?.let { return@launch done(it) }
+                if (runner != null) return@launch followSpeakAllJob(runner, open.dir, open.project, blocks)
+                for ((n, id) in blocks.withIndex()) {
+                    if (session.open?.dir != open.dir) return@launch done("Speak All stopped: another project was opened ($n of ${blocks.size} spoken).")
+                    _state.value = _state.value.copy(job = "Speaking #${todo[n] + 1} (${n + 1} of ${blocks.size})…", progress = n.toDouble() / blocks.size)
+                    try {
+                        speakJobItem(open.dir, id)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        return@launch done(e.message)
+                    }
                 }
-                done("🔊 Spoken ${todo.size} scenes.", ok = true)
+                done("🔊 Spoken ${blocks.size} scenes.", ok = true)
             } finally {
                 if (_state.value.job != null) done(null)
             }
         }.also { scriptJob = it }
+    }
+
+    /** Enqueues Speak All as a TTS_ALL job and shows its progress here until it ends (see [speakAll]). */
+    private suspend fun followSpeakAllJob(runner: AiJobRunner, dir: String, project: Project, blocks: List<String>) {
+        val job = AiJob(
+            id = "tts-${project.id}-${clock.now().toEpochMilliseconds()}-${kotlin.random.Random.nextInt(0x1000000).toString(16)}",
+            kind = AiJobKind.TTS_ALL, project = dir,
+            items = blocks, rpm = TTS_RPM,
+        )
+        val id = runner.enqueue(job)
+        var seen: AiJob? = null
+        var left = false
+        runner.jobs.first { list ->
+            val j = list.firstOrNull { it.id == id }
+            if (j != null) seen = j
+            if (session.open?.dir != dir) { left = true; return@first true }
+            j?.let {
+                val n = blocks.size - it.items.size
+                _state.value = _state.value.copy(job = "Speaking ${n + 1} of ${blocks.size}… (Jobs)", progress = n.toDouble() / blocks.size)
+            }
+            (j == null && seen != null) || j?.state in ENDED_JOB_STATES
+        }
+        val end = runner.jobs.value.firstOrNull { it.id == id }
+        when {
+            left -> done("Speak All goes on for ${project.name}: see Jobs.")
+            end == null -> done("Speak All cancelled.")
+            end.state == AiJobState.DONE -> done("🔊 Spoken ${blocks.size} scenes.", ok = true)
+            else -> done(end.error ?: "Speak All stopped (${end.state}).")
+        }
     }
 
     /** Dismiss the Speak All ETA card without starting. */
@@ -697,18 +781,24 @@ class RecapModel(
     /** null when done, else the message. */
     private suspend fun speakOne(index: Int): String? {
         val recap = recap() ?: return "No project is open"
-        val provider = tts ?: return "Text to speech is not available here"
+        if (tts == null) return "Text to speech is not available here"
         // Everything the result needs is fixed now, before the call suspends (audit F03).
         val target = voiceTarget(index) ?: return _state.value.message ?: "Scene ${index + 1} cannot be voiced"
-        val style = when (currentStory()?.style ?: _style) {
+        return speakInto(target, recap.voiceLock, currentStory()?.style ?: _style)
+    }
+
+    /** Speaks [target] with Gemini TTS under [lock] and stores the take in [target]'s project. null = saved. */
+    private suspend fun speakInto(target: VoiceTarget, lock: io.github.alalkipgen.autoflow.core.recap.VoiceLock?, storyStyle: RecapStyle): String? {
+        val provider = tts ?: return "Text to speech is not available here"
+        val style = when (storyStyle) {
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.PLAIN -> "calm, clear movie recap narrator"
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.COMMENTARY -> "lively movie recap narrator with feeling"
         }
         // Voice lock (D-35, spec §3): pass the locked model so the provider never switches. A lock made by a voice
         // chip before any take has model "" — that means "no model yet" (the provider uses the default lock), never
         // a model called "".
-        val lockedModel = recap.voiceLock?.model?.takeIf { it.isNotBlank() }
-        val ttsVoice = recap.voiceLock?.voice ?: "Kore"
+        val lockedModel = lock?.model?.takeIf { it.isNotBlank() }
+        val ttsVoice = lock?.voice ?: "Kore"
         // The speak-as text with the lexicon (SpokenText, audit F10): the same text the take's hash is made of.
         val r = provider.speak(target.spoken, VoiceRef(ttsVoice), "my", style, lockedModel)
         lastSpeakBusy = r.isBusy()
@@ -719,7 +809,7 @@ class RecapModel(
                 // say), the voice it spoke with, now. The first TTS take sets the lock if it has no model yet.
                 val answered = r.usage?.model?.takeIf { it.isNotBlank() }
                 val made = Provenance(
-                    provider = recap.voiceLock?.provider?.takeIf { it.isNotBlank() } ?: TTS_PROVIDER,
+                    provider = lock?.provider?.takeIf { it.isNotBlank() } ?: TTS_PROVIDER,
                     model = answered ?: lockedModel,
                     voice = ttsVoice,
                     lockIfNone = if (lockedModel == null && answered != null) {
@@ -1206,6 +1296,9 @@ class RecapModel(
         /** The provider of every TTS take and voice lock this app makes (Gemini TTS, spec §3). */
         const val TTS_PROVIDER = "gemini"
         const val BLOCK_GONE = "This scene was removed or replaced while its voice was made; the take was not saved"
+        /** TTS requests per minute per model (spec §3 `tts.rpm`): the Speak All job's pacing and its ETA. */
+        const val TTS_RPM = 3
+        private val ENDED_JOB_STATES = setOf(AiJobState.DONE, AiJobState.PAUSED, AiJobState.FAILED, AiJobState.CANCELLED)
         /** Movie sound chips (spec §6). */
         val MOVIE_VOLUMES = listOf("Off" to 0.0, "Low" to Recap.MOVIE_VOLUME_LOW, "Full" to 1.0)
 

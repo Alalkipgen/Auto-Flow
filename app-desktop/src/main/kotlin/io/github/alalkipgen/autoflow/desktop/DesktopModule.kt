@@ -21,6 +21,8 @@ import io.github.alalkipgen.autoflow.platform.UrlOpener
 import io.github.alalkipgen.autoflow.platform.desktop
 import io.github.alalkipgen.autoflow.platform.desktopSecureStorage
 import io.github.alalkipgen.autoflow.ui.jobs.DesktopAiJobRunner
+import io.github.alalkipgen.autoflow.ui.jobs.RecapJobProcessor
+import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.media.InProcessRenderQueue
 import io.github.alalkipgen.autoflow.ui.settings.BundledConfig
 import java.awt.Frame
@@ -51,9 +53,14 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     // Export on Windows (PLAN 1C): renders in this process, one at a time; Open plays the result.
     single<RenderQueue> { InProcessRenderQueue(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
     single<FileShare> { DesktopFileShare() }
-    // AI job runner (5A-5): in-process coroutine runner for desktop.
+    // AI job runner (5A-5, audit F11): in-process runner with the project-bound TTS processor; created at start so
+    // jobs a closed app left QUEUED / RUNNING resume. The processor finds the RecapModel when an item runs (the
+    // model takes the runner for Speak All).
     single { AiJobStore(get(), get<AppDirs>().aiJobs) }
-    single<AiJobRunner> { DesktopAiJobRunner(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
+    single<AiJobRunner>(createdAtStart = true) {
+        val koin = getKoin()
+        DesktopAiJobRunner(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), RecapJobProcessor { koin.getOrNull<RecapModel>() })
+    }
     // D-52: exit hook; on desktop the Window's onCloseRequest handles it, so this is a no-op stub.
     single<AppExit> { AppExit { /* desktop exits via Window.onCloseRequest */ } }
 }

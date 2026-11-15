@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.platform
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -65,7 +66,12 @@ object ProcessRunner {
                     delay(POLL_MS)
                 }
             } finally {
-                if (process.isAlive) process.destroyForcibly()
+                // Cancel / timeout: kill it and wait until it is really gone (audit F16), so the caller's clean-up of
+                // the files it was writing runs after its last write and no ffmpeg is left behind.
+                if (process.isAlive) {
+                    process.destroyForcibly()
+                    process.waitFor(KILL_WAIT_MS, TimeUnit.MILLISECONDS)
+                }
             }
         }
         val code = process.waitFor()
@@ -99,4 +105,5 @@ object ProcessRunner {
 
     private const val TAIL_LINES = 30
     private const val POLL_MS = 200L
+    private const val KILL_WAIT_MS = 5_000L
 }

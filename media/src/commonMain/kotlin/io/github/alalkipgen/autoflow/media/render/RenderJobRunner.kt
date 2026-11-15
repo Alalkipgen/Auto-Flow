@@ -118,7 +118,7 @@ class RenderJobRunner(
         val abs = { p: String -> if (isAbsolute(p)) p else joinPath(job.workDir, p) }
         val graph = job.graph
         val out = abs(job.outputName)
-        val (env, compiled) = when (val p = prepare(job, graph, assPath = "$out.ass", outputPath = "$out.part.mp4")) {
+        val (env, compiled) = when (val p = prepare(job, graph, assPath = "$out.ass", outputPath = partPath(job))) {
             is Prepared.Failed -> return p.state
             is Prepared.Ready -> p.env to p.compiled
         }
@@ -168,5 +168,14 @@ class RenderJobRunner(
             .associate { it.family to it.assScale }
     }.getOrDefault(emptyMap())
 
-    private fun isAbsolute(p: String) = p.startsWith("/") || (p.length > 2 && p[1] == ':' && (p[2] == '/' || p[2] == '\\'))
+    companion object {
+        /**
+         * Where [run] writes [job]'s video before the rename: `<workDir>/<outputName>.part.mp4`. Owned by that job
+         * alone, so the queue deletes it after a cancel or a failure (audit F16) — never the finished `<name>.mp4`.
+         */
+        fun partPath(job: RenderJob): String =
+            job.outputName.let { if (isAbsolute(it)) it else joinPath(job.workDir, it) } + ".part.mp4"
+
+        private fun isAbsolute(p: String) = p.startsWith("/") || (p.length > 2 && p[1] == ':' && (p[2] == '/' || p[2] == '\\'))
+    }
 }

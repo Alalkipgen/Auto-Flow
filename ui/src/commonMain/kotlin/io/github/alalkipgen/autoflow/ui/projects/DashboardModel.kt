@@ -81,6 +81,9 @@ class DashboardModel(
             project.copy(
                 recap = RecapV2(
                     rightsConfirmed = true,
+                    // Audit F15: the chosen length is the recap's own target (what the Scenes header, the fit check
+                    // and the target chips read), not only a copy inside the Quick Recap state.
+                    targetMs = targetMs,
                     quick = quickJson,
                 )
             )

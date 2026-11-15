@@ -7,13 +7,18 @@ import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.QuickRecap
 import io.github.alalkipgen.autoflow.core.recap.RecapMigration
+import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
+import io.github.alalkipgen.autoflow.core.recap.Scenes
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.ui.recap.fitFooter
 import io.github.alalkipgen.autoflow.ui.settings.FakePicker
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import kotlin.test.Test
@@ -128,6 +133,30 @@ class DashboardModelTest {
         assertTrue(model.createQuickRecap(180_000, RecapStyle.PLAIN))
         assertEquals("Quick Recap 2", current.state.value!!.project.name)
         assertEquals("/videos/Quick Recap 2.autoflow", current.state.value!!.dir)
+    }
+
+    /** Audit F15: the chosen 1 min reaches the recap itself, is saved, survives a reopen and drives the consumers. */
+    @Test
+    fun quickRecapMustApplyChosenDurationToActualRecap() {
+        settings.update { it.copy(projectsDir = "/videos") }
+        assertTrue(model.createQuickRecap(60_000, RecapStyle.PLAIN))
+        val dir = current.state.value!!.dir
+        val recap = current.state.value!!.project.recap!!
+        assertEquals(60_000L, recap.targetMs)
+        assertEquals(60_000L, CoreJson.decodeFromJsonElement(QuickRecap.serializer(), recap.quick!!).targetMs)
+
+        val onDisk = (store.open(dir) as CoreResult.Ok).value.recap!!
+        assertEquals(60_000L, onDisk.targetMs, "saved in project.json")
+        current.set(null)
+        assertTrue(model.open(dir))
+        val reopened = current.state.value!!.project.recap!!
+        assertEquals(60_000L, reopened.targetMs, "after a reopen")
+
+        // The consumers: the fit-check footer and the Scenes header's off-target rule (v1 adapter).
+        assertEquals("Recap 0:00 (target 1:00) · 0 of 0 voiced", fitFooter(reopened, emptyList()))
+        val v1 = reopened.toV1().copy(scenes = listOf(RecapScene(0, 60_000, picked = true)))
+        assertFalse(Scenes.offTarget(v1), "60 s picked is on a 60 s target")
+        assertTrue(Scenes.offTarget(v1.copy(scenes = listOf(RecapScene(0, 300_000, picked = true)))), "5 min picked is off it")
     }
 
     @Test

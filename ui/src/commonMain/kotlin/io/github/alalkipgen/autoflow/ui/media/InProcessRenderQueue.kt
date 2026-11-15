@@ -11,12 +11,14 @@ import io.github.alalkipgen.autoflow.media.render.RenderState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Desktop [RenderQueue] (PLAN 1C Export on Windows): renders in this process, one job at a time in enqueue order,
@@ -25,11 +27,16 @@ import kotlinx.coroutines.sync.withLock
  * service is needed. Cancel: a queued job is skipped, a running one stops ffmpeg (cancelling the coroutine kills
  * the process, ToolRunner contract); the jobs behind keep their place. Call [enqueue], [observe] and [cancel] from
  * one thread (the UI).
+ *
+ * Audit F16: a job that does not end Done (cancelled, failed, crashed) deletes its own half-written
+ * `<name>.part.mp4` ([RenderJobRunner.partPath]) with [deleteFile], after ffmpeg has stopped and even while the
+ * coroutine is being cancelled; an earlier finished `<name>.mp4` is never touched (the rename only happens on Done).
  */
 class InProcessRenderQueue(
     private val fs: FileSystem,
     private val tools: MediaTools,
     private val scope: CoroutineScope,
+    private val deleteFile: (String) -> Unit = { deleteScratchFile(it) },
 ) : RenderQueue {
     private val states = mutableMapOf<String, MutableStateFlow<RenderState>>()
     private val jobs = mutableMapOf<String, Job>()
@@ -44,13 +51,19 @@ class InProcessRenderQueue(
             serial.withLock {
                 if (state.value != RenderState.Queued) return@withLock // cancelled while waiting
                 state.value = RenderState.Running(0.0, null)
-                val result = try {
-                    render(job) { p -> if (!state.value.finished) state.value = RenderState.Running(p.fraction, p.speed) }
-                } catch (e: CancellationException) {
-                    state.value = RenderState.Cancelled
-                    throw e
-                } catch (e: Throwable) {
-                    RenderState.Failed("the render crashed: ${e::class.simpleName}: ${e.message}")
+                var result: RenderState = RenderState.Cancelled
+                try {
+                    result = try {
+                        render(job) { p -> if (!state.value.finished) state.value = RenderState.Running(p.fraction, p.speed) }
+                    } catch (e: CancellationException) {
+                        state.value = RenderState.Cancelled
+                        throw e
+                    } catch (e: Throwable) {
+                        RenderState.Failed("the render crashed: ${e::class.simpleName}: ${e.message}")
+                    }
+                } finally {
+                    // ffmpeg is stopped by now (ProcessRunner waits for it); the cancel is rethrown after this.
+                    if (result !is RenderState.Done) withContext(NonCancellable) { runCatching { deleteFile(RenderJobRunner.partPath(job)) } }
                 }
                 // A Cancel that ffmpeg's runner turned into a failure stays a Cancel.
                 if (state.value != RenderState.Cancelled) state.value = result

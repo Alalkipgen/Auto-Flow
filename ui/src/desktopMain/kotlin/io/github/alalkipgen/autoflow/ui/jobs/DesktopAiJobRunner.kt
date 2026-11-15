@@ -1,116 +1,125 @@
 package io.github.alalkipgen.autoflow.ui.jobs
 
-import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.recap.AiItemProcessor
 import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.core.recap.AiJobExecutor
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.AiJobStore
-import io.github.alalkipgen.autoflow.core.recap.AiItemPaused
-import io.github.alalkipgen.autoflow.core.recap.AiItemProcessor
 import io.github.alalkipgen.autoflow.core.recap.RpmPacer
+import io.github.alalkipgen.autoflow.core.recap.RpmPacers
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
- * Desktop (in-process) [AiJobRunner] (5A-5, studio-v2.md §5).
+ * Desktop (in-process) [AiJobRunner] (5A-5, studio-v2.md §5): the shared [AiJobExecutor] loop in [scope], one job
+ * at a time in enqueue order (the provider limit is shared, [RpmPacers]).
  *
- * Runs jobs sequentially using coroutines in [scope]. Each job's items are processed one at a time
- * through [processor], paced by [RpmPacer]. Finished items are removed from the job's item list.
- * On cancel or failure the job is persisted as CANCELLED / FAILED before returning.
+ * Audit F11:
+ * - [processor] null → every job FAILS ("nothing can run this job"); nothing is ever reported DONE unprocessed.
+ *   The app passes the project-bound TTS processor (`RecapJobProcessor`).
+ * - Restart recovery: on start, jobs left QUEUED or RUNNING (the app was closed while they ran) run again from their
+ *   remaining items; enqueue of such a job resumes it too. PAUSED / FAILED wait for Resume (= [enqueue] again);
+ *   DONE / CANCELLED stay as they are. Items already done in the project are checked off without a request.
+ * - [cancel] marks the job CANCELLED first, then stops its coroutine; the executor never overwrites CANCELLED.
+ * - A busy locked model → PAUSED (PR #137); a coroutine cancel is rethrown, never turned into a state.
  *
  * [store] = `AppDirs.aiJobs` directory.
- * [processor] is injected by the DI module; a no-op default lets the runner be registered without
- * a concrete AI backend.
  */
-class DesktopAiJobRunner(
+class DesktopAiJobRunner internal constructor(
     private val store: AiJobStore,
     private val scope: CoroutineScope,
-    private val processor: AiItemProcessor = AiItemProcessor { _, _ -> },
+    private val processor: AiItemProcessor?,
+    /** Tests: a pacer of their own (the shared one is per process). */
+    private val pacer: (AiJob) -> RpmPacer,
 ) : AiJobRunner {
+    constructor(store: AiJobStore, scope: CoroutineScope, processor: AiItemProcessor? = null) :
+        this(store, scope, processor, { RpmPacers.forJob(it) })
 
     private val _jobs = MutableStateFlow<List<AiJob>>(emptyList())
     override val jobs: StateFlow<List<AiJob>> = _jobs.asStateFlow()
 
+    /** Guards [running]. */
     private val mutex = Mutex()
-    /** Active coroutine job per ai-job id. */
+
+    /** One job at a time. */
+    private val serial = Mutex()
+
+    /** Active coroutine per ai-job id. */
     private val running = mutableMapOf<String, Job>()
 
     init {
-        scope.launch { refresh() }
+        scope.launch {
+            refresh()
+            recover()
+        }
     }
 
     override suspend fun refresh() {
         _jobs.value = store.loadAll().filter { it.state != AiJobState.CANCELLED }
     }
 
-    override suspend fun enqueue(job: AiJob): String {
-        val toRun = mutex.withLock {
-            val existing = store.load(job.id)
-            val resolved = when {
-                existing == null -> job.copy(state = AiJobState.QUEUED)
-                existing.state in listOf(AiJobState.PAUSED, AiJobState.FAILED) ->
-                    existing.copy(state = AiJobState.QUEUED)
-                else -> return@withLock null // already running or done
-            }
-            store.save(resolved)
-            refresh()
-            resolved
-        } ?: return job.id
+    /** Starts every job a previous run of the app left QUEUED or RUNNING (not already running here). */
+    suspend fun recover() {
+        for (job in store.loadAll().filter { it.state == AiJobState.QUEUED || it.state == AiJobState.RUNNING }) {
+            mutex.withLock { if (running[job.id]?.isActive != true) launchLocked(job.id) }
+        }
+    }
 
-        val coroutine = scope.launch { runJob(toRun) }
-        mutex.withLock { running[job.id] = coroutine }
-        return job.id
+    /** Returns the id the job runs under: [job]'s, or `<id>-r` when a damaged file of that id is kept aside. */
+    override suspend fun enqueue(job: AiJob): String {
+        val id = mutex.withLock {
+            if (running[job.id]?.isActive == true) return job.id
+            val toRun = when (val existing = store.read(job.id)) {
+                AiJobStore.Read.Missing -> job.copy(state = AiJobState.QUEUED, error = null)
+                // A damaged file is kept aside, never overwritten in place; the new job starts from its own items
+                // (finished ones are found from the project).
+                is AiJobStore.Read.Damaged -> job.copy(id = "${job.id}-r", state = AiJobState.QUEUED, error = null)
+                is AiJobStore.Read.Ok -> when (existing.job.state) {
+                    AiJobState.PAUSED, AiJobState.FAILED -> existing.job.copy(state = AiJobState.QUEUED, error = null)
+                    AiJobState.QUEUED, AiJobState.RUNNING -> existing.job // left by a closed app: resume it
+                    AiJobState.DONE, AiJobState.CANCELLED -> return job.id
+                }
+            }
+            store.save(toRun)
+            launchLocked(toRun.id)
+            toRun.id
+        }
+        refresh()
+        return id
     }
 
     override suspend fun cancel(id: String) {
+        store.update(id) { if (it.state == AiJobState.DONE) it else it.copy(state = AiJobState.CANCELLED) }
         mutex.withLock { running.remove(id) }?.cancel()
-        val existing = store.load(id) ?: return
-        store.save(existing.copy(state = AiJobState.CANCELLED))
         refresh()
     }
 
-    private suspend fun runJob(job: AiJob) {
-        val pacer = RpmPacer(job.rpm)
-        var current = job.copy(state = AiJobState.RUNNING)
-        store.save(current)
-        refresh()
-
-        for (item in job.items.toList()) {
-            // Check if cancelled externally
-            if (store.load(job.id)?.state == AiJobState.CANCELLED) return
-
-            pacer.pace()
-            val t0 = kotlin.time.Clock.System.now().toEpochMilliseconds()
-            runCatching { processor.process(current, item) }
-                .onSuccess {
-                    val elapsed = kotlin.time.Clock.System.now().toEpochMilliseconds() - t0
-                    current = current.copy(
-                        items = current.items - item,
-                        msPerItem = elapsed,
-                    )
-                    store.save(current)
+    /** Call with [mutex] held: registers the coroutine before it can run, so a job never runs twice at once. */
+    private fun launchLocked(id: String) {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                serial.withLock {
+                    AiJobExecutor(store, processor, pacer, onChange = { _jobs.value = store.loadAll().filter { j -> j.state != AiJobState.CANCELLED } }).run(id)
+                }
+            } finally {
+                val me = coroutineContext[Job]
+                withContext(NonCancellable) {
+                    mutex.withLock { if (running[id] === me) running.remove(id) }
                     refresh()
                 }
-                .onFailure { e ->
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    // Busy locked model → PAUSED (Resume re-enqueues); anything else → FAILED (spec §3).
-                    val state = if (e is AiItemPaused) AiJobState.PAUSED else AiJobState.FAILED
-                    current = current.copy(state = state, error = e.message)
-                    store.save(current)
-                    refresh()
-                    return
-                }
+            }
         }
-
-        current = current.copy(state = AiJobState.DONE, items = emptyList())
-        store.save(current)
-        refresh()
-        mutex.withLock { running.remove(job.id) }
+        running[id] = job
+        job.start()
     }
 }
