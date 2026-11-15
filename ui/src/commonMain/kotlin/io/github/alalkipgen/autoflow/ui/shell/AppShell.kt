@@ -1,6 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -187,12 +190,14 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
 }
 
 /** Where Studio v2 is: tab, project screen (null = the project list) and whether Settings is open over it. */
-data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false)
+data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE)
 
 /** Android Back in Studio v2: closes Settings, then steps project screen → list, then any tab → Home; null = leave. */
 fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
     nav.settings -> nav.copy(settings = false)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Export" && recap -> nav.copy(projectScreen = "Recap")
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Classic Recap" && recap -> nav.copy(projectScreen = "Recap")
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Recap" && recap && nav.recapStep.previous() != null -> nav.copy(recapStep = nav.recapStep.previous()!!)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null -> nav.copy(projectScreen = null)
     nav.dest != StudioV2Dest.HOME -> V2Nav(projectScreen = nav.projectScreen)
     else -> null
@@ -235,7 +240,8 @@ private fun StudioV2App(
         if (back != null) nav = back
         else showExitDialog = true
     }
-    fun openProjectScreen(screen: String?) { nav = V2Nav(StudioV2Dest.PROJECTS, screen) }
+    fun openProjectScreen(screen: String?) { nav = V2Nav(StudioV2Dest.PROJECTS, screen,
+        recapStep = if (screen == "Export" && isRecap) io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE else io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE) }
 
     val content: @Composable () -> Unit = {
         if (nav.settings) {
@@ -272,8 +278,37 @@ private fun StudioV2App(
                     })
                 } else {
                     Column(Modifier.fillMaxSize()) {
-                        V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
-                        Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen) { openProjectScreen(it) } }
+                        if (isRecap && screen in listOf("Recap", "Export")) {
+                            io.github.alalkipgen.autoflow.ui.components.WrapRow {
+                                io.github.alalkipgen.autoflow.ui.components.AfButton("← Projects", { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
+                                projectName?.let { AfText(it, bold = true) }
+                            }
+                            io.github.alalkipgen.autoflow.ui.recap.RecapStepHeader(
+                                if (screen == "Export") io.github.alalkipgen.autoflow.ui.recap.RecapStep.EXPORT else nav.recapStep,
+                                onBack = { nav = v2Back(nav, true) ?: nav },
+                                onNext = {
+                                    val next = nav.recapStep.next()
+                                    if (next == io.github.alalkipgen.autoflow.ui.recap.RecapStep.EXPORT) nav = nav.copy(projectScreen = "Export")
+                                    else if (next != null) nav = nav.copy(recapStep = next)
+                                },
+                                onClassic = { nav = nav.copy(projectScreen = "Classic Recap") },
+                            )
+                            Box(Modifier.fillMaxWidth().weight(1f)) {
+                                if (screen == "Recap") io.github.alalkipgen.autoflow.ui.recap.StudioRecapScreen(koinInject(), nav.recapStep, windowWidthDp) {
+                                    nav = nav.copy(projectScreen = "Export", recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE)
+                                } else {
+                                    val recapModel = koinInject<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()
+                                    io.github.alalkipgen.autoflow.ui.recap.ProjectPanes(windowWidthDp,
+                                        list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText("Export", bold = true); AfText("Preflight → render → save / share", muted = true) } },
+                                        editor = { io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject()) },
+                                        preview = { Column(Modifier.verticalScroll(rememberScrollState())) { io.github.alalkipgen.autoflow.ui.recap.ExactFrameCard(recapModel) } },
+                                    )
+                                }
+                            }
+                        } else {
+                            V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
+                            Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen) { openProjectScreen(it) } }
+                        }
                     }
                 }
             }
@@ -311,7 +346,7 @@ private fun StudioV2App(
 @Composable
 private fun V2ProjectScreen(screen: String, go: (String) -> Unit) {
     when (screen) {
-        "Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { go("Export") })
+        "Recap", "Classic Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { go("Export") })
         "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { go("Storyboard") })
         "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { go("Input") })
         "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())

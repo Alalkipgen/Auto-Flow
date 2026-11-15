@@ -328,7 +328,7 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
  * watermark, burned-in captions with the real font) — the preview above is close, this is exact.
  */
 @Composable
-private fun ExactFrameCard(model: RecapModel) {
+internal fun ExactFrameCard(model: RecapModel) {
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
     var working by remember { mutableStateOf(false) }
