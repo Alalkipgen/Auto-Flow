@@ -63,6 +63,15 @@ enum class MaskPreset(val label: String, val rect: List<Float>) {
     @SerialName("TOP") TOP("Top strip", listOf(0f, 0.03f, 1f, 0.12f)),
     @SerialName("LOGO_TL") LOGO_TL("Logo top-left", listOf(0.02f, 0.03f, 0.22f, 0.13f)),
     @SerialName("LOGO_TR") LOGO_TR("Logo top-right", listOf(0.76f, 0.03f, 0.22f, 0.13f)),
+    /**
+     * A box the user places anywhere (5B-2 "custom box"): starts in the upper middle (centre above half, so captions
+     * stay in their usual place until it is moved into the lower half), then drag / pinch / the buttons.
+     */
+    @SerialName("CUSTOM") CUSTOM("Custom box", listOf(0.3f, 0.3f, 0.4f, 0.2f)),
+    ;
+
+    /** Full-width strips move only up / down; the other boxes also move sideways and change width. */
+    val isStrip: Boolean get() = this == BOTTOM || this == TOP
 }
 
 @Serializable
@@ -106,6 +115,13 @@ object RecapVisuals {
 
     /** Moves the box of [preset] by [dy] (0–1 of the picture), kept inside the picture. */
     fun move(v: RecapVisual, preset: MaskPreset, dy: Float): RecapVisual = edit(v, preset) { r -> listOf(r[0], r[1] + dy, r[2], r[3]) }
+
+    /** Moves the box of [preset] sideways by [dx] (0–1 of the picture), kept inside the picture. */
+    fun moveX(v: RecapVisual, preset: MaskPreset, dx: Float): RecapVisual = edit(v, preset) { r -> listOf(r[0] + dx, r[1], r[2], r[3]) }
+
+    /** Makes the box of [preset] wider (+) or narrower (−) by [dw] around its centre, kept inside the picture. */
+    fun resizeW(v: RecapVisual, preset: MaskPreset, dw: Float): RecapVisual =
+        edit(v, preset) { r -> listOf(r[0] - dw / 2, r[1], r[2] + dw, r[3]) }
 
     /** Makes the box of [preset] taller (+) or shorter (−) by [dh] around its centre, kept inside the picture. */
     fun resize(v: RecapVisual, preset: MaskPreset, dh: Float): RecapVisual =
