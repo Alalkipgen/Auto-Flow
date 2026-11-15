@@ -25,8 +25,16 @@ object RecapRulesV2 {
 
     fun canWriteManually(recap: RecapV2): Gate = Gate.of(pickedScenes(recap).isNotEmpty() to Blocker.NO_PICKED_SCENES)
 
+    /** True when story block clip ranges match the current picked-scene ranges. */
+    fun isCurrent(recap: RecapV2, story: RecapStory): Boolean {
+        val pickedRanges = pickedScenes(recap).map { it.startMs to it.endMs }
+        val storyRanges = story.blocks.map { b -> b.clips.firstOrNull()?.let { it.inMs to it.outMs } }
+        return storyRanges.map { it } == pickedRanges.map { it as Pair<Long, Long>? }
+    }
+
     fun canApproveScript(recap: RecapV2, story: RecapStory?): Gate = when {
         story == null -> Gate(listOf(Blocker.NO_SCRIPT))
+        !isCurrent(recap, story) -> Gate(listOf(Blocker.SCRIPT_OUTDATED))
         story.blocks.any { it.textMy.isBlank() } -> Gate(listOf(Blocker.BLANK_SEGMENT))
         else -> Gate.ALLOWED
     }

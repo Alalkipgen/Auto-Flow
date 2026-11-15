@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.recap
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.Scenes
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
@@ -61,7 +62,7 @@ class RecapModelTest {
 
     private fun openRecap() {
         val p = (store.create("/p/R.autoflow", "R", Mode.MOVIE_RECAP) as io.github.alalkipgen.autoflow.core.CoreResult.Ok).value
-        current.set(OpenProject("/p/R.autoflow", p.copy(recap = Recap(rightsConfirmed = true))))
+        current.set(OpenProject("/p/R.autoflow", p.copy(recap = RecapV2(rightsConfirmed = true))))
         fs.createDirectories("/dl")
         fs.writeDurably("/dl/film.MP4", ByteArray(2048) { 7 })
     }
@@ -111,7 +112,7 @@ class RecapModelTest {
     @Test
     fun withoutTheRightsTickNothingIsImported() = runTest {
         openRecap()
-        current.set(current.state.value!!.copy(project = current.state.value!!.project.copy(recap = Recap())))
+        current.set(current.state.value!!.copy(project = current.state.value!!.project.copy(recap = RecapV2())))
         val m = model(this)
         assertNull(m.importMovie())
         assertEquals("Tick the rights box (New Movie Recap) first", m.state.value.message)

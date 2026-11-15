@@ -4,11 +4,13 @@ import io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
-import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
+import io.github.alalkipgen.autoflow.core.recap.TakeSource
 import io.github.alalkipgen.autoflow.core.recap.VoiceSource
+import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.VoiceRecorder
@@ -62,7 +64,7 @@ class RecapVoiceTest {
     private fun open(m: RecapModel) {
         val p = (store.create("/p/R.autoflow", "R", Mode.MOVIE_RECAP) as CoreResult.Ok).value
         val scenes = listOf(RecapScene(0, 4_000, picked = true), RecapScene(4_000, 9_000, picked = true))
-        current.set(OpenProject("/p/R.autoflow", p.copy(recap = Recap(rightsConfirmed = true, movie = RecapMovie("source/movie.mp4", 9, 9_000), scenes = scenes))))
+        current.set(OpenProject("/p/R.autoflow", p.copy(recap = RecapV2(rightsConfirmed = true, movie = RecapMovie("source/movie.mp4", 9, 9_000), scenes = scenes))))
         m.refresh()
         assertTrue(m.writeManually())
         m.saveSegment(0, "ကောင်လေး စောင့်နေတယ်")
@@ -87,8 +89,8 @@ class RecapVoiceTest {
         assertEquals(0, m.state.value.recording)
         m.stopRecording()!!.join()
         assertNull(m.state.value.recording)
-        val take = assertNotNull(recap().takes.single())
-        assertEquals(VoiceSource.RECORDED, take.source)
+        val take: io.github.alalkipgen.autoflow.core.recap.BlockTake = assertNotNull(recap().takes.singleOrNull())
+        assertEquals(TakeSource.RECORDED, take.source)
         assertEquals(1_500L, take.durationMs, "from the WAV, not the clock")
         assertTrue(m.state.value.takeFiles[0]!!.endsWith(".wav"))
         assertTrue(fs.exists(m.state.value.takeFiles[0]!!))
@@ -102,16 +104,16 @@ class RecapVoiceTest {
         assertEquals(1, tts.calls, "only the scene without a voice")
         assertEquals("🔊 Spoken 1 scenes.", m.state.value.message)
         val script = m.state.value.script!!
-        assertEquals(listOf(VoiceSource.RECORDED, VoiceSource.TTS), (0..1).map { RecapRules.currentTake(recap(), script, it)!!.source })
-        assertTrue(RecapRules.canRender(recap(), script).allowed)
+        assertEquals(listOf(VoiceSource.RECORDED, VoiceSource.TTS), (0..1).map { RecapRules.currentTake(recap().toV1(), script, it)!!.source })
+        assertTrue(RecapRules.canRender(recap().toV1(), script).allowed)
 
         // Editing a text makes its take stale (and clears the approval).
         m.saveSegment(1, "သူငယ်ချင်း နောက်ကျပြီး ရောက်လာတယ်")
-        assertFalse(recap().scriptApproved)
-        assertTrue(RecapRules.isStale(recap(), m.state.value.script!!, 1))
+        assertFalse(recap().storyApproved)
+        assertTrue(RecapRules.isStale(recap().toV1(), m.state.value.script!!, 1))
         assertTrue(m.approveScript())
         m.speak(1)!!.join()
-        assertFalse(RecapRules.isStale(recap(), m.state.value.script!!, 1))
+        assertFalse(RecapRules.isStale(recap().toV1(), m.state.value.script!!, 1))
         assertEquals(2, tts.calls)
     }
 }

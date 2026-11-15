@@ -347,24 +347,38 @@ class RecapModel(
         return saveStory(RecapStory(source = RecapStory.SOURCE_MANUAL, style = _style, register = _register, blocks = blocks))
     }
 
-    /** Saves block [index] with [text]; approval is cleared. */
+    /** Saves block [index] with [text]; approval is cleared. Updates v2 RecapStory. */
     fun saveSegment(index: Int, text: String): Boolean {
-        val script = _state.value.script ?: return false
-        if (index !in script.segments.indices) return false
-        val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(textMy = text.trim()) else s }
-        return saveScript(script.copy(segments = segments))
+        val story = currentStory() ?: run {
+            // Fallback: v1 RecapScript path (legacy)
+            val script = _state.value.script ?: return false
+            if (index !in script.segments.indices) return false
+            val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(textMy = text.trim()) else s }
+            return saveScript(script.copy(segments = segments))
+        }
+        if (index !in story.blocks.indices) return false
+        val blocks = story.blocks.mapIndexed { i, b -> if (i == index) b.copy(textMy = text.trim()) else b }
+        return saveStory(story.copy(blocks = blocks))
     }
 
     /**
      * Edit the timing of segment [index] (per-chunk caption timing, D-52): shifts [startMs] and [endMs].
      */
     fun saveSegmentTiming(index: Int, startMs: Long, endMs: Long): Boolean {
-        val script = _state.value.script ?: return false
-        if (index !in script.segments.indices) return false
+        val story = currentStory() ?: run {
+            val script = _state.value.script ?: return false
+            if (index !in script.segments.indices) return false
+            if (endMs <= startMs) { say("End must be after start"); return false }
+            val clamped = startMs.coerceAtLeast(0L)
+            val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(startMs = clamped, endMs = endMs) else s }
+            return if (saveScript(script.copy(segments = segments))) { say("Timing saved"); true } else false
+        }
+        if (index !in story.blocks.indices) return false
         if (endMs <= startMs) { say("End must be after start"); return false }
         val clamped = startMs.coerceAtLeast(0L)
-        val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(startMs = clamped, endMs = endMs) else s }
-        return if (saveScript(script.copy(segments = segments))) { say("Timing saved"); true } else false
+        val clip = io.github.alalkipgen.autoflow.core.recap.RecapClip(clamped, endMs)
+        val blocks = story.blocks.mapIndexed { i, b -> if (i == index) b.copy(clips = listOf(clip)) else b }
+        return if (saveStory(story.copy(blocks = blocks))) { say("Timing saved"); true } else false
     }
 
     /** ✓ Approve script. */
@@ -513,8 +527,8 @@ class RecapModel(
      */
     fun speakAll(confirmed: Boolean = false): Job? {
         val recap = recap() ?: return null
-        val script = _state.value.script ?: return null
         RecapRulesV2.canVoice(recap, currentStory()).blockers.firstOrNull()?.let { say(it.text()); return null }
+        val script = _state.value.script ?: return null
         if (tts == null) { say("Text to speech is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val todo = script.segments.indices.filter { i ->
