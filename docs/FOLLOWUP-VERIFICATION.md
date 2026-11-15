@@ -84,7 +84,8 @@ and after copying and refuses a detected change; it is not a transactional snaps
 
 Validation before success: original content hashes and copied bytes; transitive artifact sidecar identities, content
 hashes, JSON and required project-relative files; v1 script → v2 story; all take indices/counts, provenance and hashes;
-approval and other mapped fields. No configured model is guessed when absent. Missing/corrupt backup/artifact/movie,
+approval and other mapped fields. Typed artifact pointers must also have a valid id and the expected kind: the
+ArtifactId serializer alone does not enforce this. No configured model is guessed when absent. Missing/corrupt backup/artifact/movie,
 unsafe references/links, unsupported fields, orphan take/fit indices or any destination collision produce
 `RECOVERY REFUSED`/nonzero exit, with no published destination. Only the tool's unpublished staging directory is
 cleaned. Missing data must be recovered from another genuine backup, never invented. `.cache` is rebuildable and
@@ -93,6 +94,7 @@ not copied. No recovery UI, automatic overwrite or owner-edits merge workflow is
 `V1ProjectCopyTest` exercises a genuinely lossy synthetic current v2 manifest with later valuable edits; compares
 all source/backup/artifact hashes, migrated fields, takes/approvals/references; rejects missing/corrupt/non-v1 backup,
 unknown fields, missing/corrupt artifacts/movie, orphan indices, collisions, nested destination and escaping refs.
+Malformed/wrong-kind pointers in both the recap and the preserved root fields are explicitly refused.
 Linux also exercises a symlink destination; Windows may require privileges for symlink creation.
 
 ## Fresh final gates

@@ -155,6 +155,36 @@ class V1ProjectCopyTest {
         assertContains(refused(snapshot(source)), "orphan")
     }
 
+    @Test fun malformedAndWrongKindRecapReferencesAreRefused() {
+        val f = fixture()
+        val bad = ArtifactId("not-an-artifact")
+        val cases = listOf(
+            f.v1.copy(transcript = bad),
+            f.v1.copy(takes = f.v1.takes.map { it.copy(audio = bad) }),
+            f.v1.copy(audio = f.v1.audio.copy(bgm = bad)),
+            f.v1.copy(script = bad),
+            f.v1.copy(transcript = f.v1.takes.first().audio),
+            f.v1.copy(takes = f.v1.takes.map { it.copy(audio = f.v1.script!!) }),
+            f.v1.copy(audio = f.v1.audio.copy(bgm = f.v1.script)),
+        )
+        for (recap in cases) {
+            File(source, RecapMigration.BACKUP_FILE).writeText(JsonObject(f.raw.toMutableMap().apply {
+                put("recap", CoreJson.encodeToJsonElement(Recap.serializer(), recap))
+            }).toString())
+            assertContains(refused(snapshot(source)), "artifact reference")
+        }
+    }
+
+    @Test fun malformedAndWrongKindRootReferencesAreRefused() {
+        val f = fixture()
+        for (id in listOf(ArtifactId("invalid-analysis"), f.v1.takes.first().audio)) {
+            File(source, RecapMigration.BACKUP_FILE).writeText(JsonObject(f.raw.toMutableMap().apply {
+                put("analysis", JsonPrimitive(id.value))
+            }).toString())
+            assertContains(refused(snapshot(source)), "artifact reference")
+        }
+    }
+
     @Test fun existingFileDirectoryAndSymlinkDestinationsAreNeverReplaced() {
         fixture(); val before = snapshot(source)
         dest.writeText("existing file")

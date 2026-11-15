@@ -2,8 +2,10 @@ package io.github.alalkipgen.autoflow.platform
 
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMigration
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
@@ -67,6 +69,10 @@ object V1ProjectCopy {
                 "The backup is not a v1 Movie Recap project"
             }
             val v1 = CoreJson.decodeFromJsonElement(Recap.serializer(), raw["recap"] ?: error("The backup has no recap"))
+            reference(v1.script, ArtifactKind.RECAP_SCRIPT)
+            reference(v1.transcript, ArtifactKind.TRANSCRIPT)
+            reference(v1.audio.bgm, ArtifactKind.AUDIO)
+            v1.takes.forEach { reference(it.audio, ArtifactKind.AUDIO) }
             val fs = JvmFs()
             val dir = staging.toString().replace('\\', '/')
             val store = ArtifactStore(fs, dir)
@@ -86,6 +92,7 @@ object V1ProjectCopy {
                 require(Files.size(requiredFile(staging, it.file)) == it.sizeBytes) { "The movie size does not match the backup" }
             }
             val (migrated, project) = RecapMigration.migrateInFolder(fs, dir, raw, burmeseTtsModel = null)
+            validateRootReferences(project)
             val recap = requireNotNull(project.recap)
             val story = recap.story?.let { CoreJson.decodeFromString(RecapStory.serializer(), store.readBytes(it).required().decodeToString()) }
             check(story == script?.let { RecapMigration.storyFrom(it, v1.register) }) { "The recovered story differs from the original script" }
@@ -107,6 +114,27 @@ object V1ProjectCopy {
             if (Files.exists(staging, NOFOLLOW_LINKS)) {
                 Files.walk(staging).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach { Files.delete(it) } }
             }
+        }
+    }
+
+    /** ArtifactId's inline serializer accepts any string: never silently skip a malformed typed pointer. */
+    private fun reference(id: ArtifactId?, expected: ArtifactKind) {
+        require(id == null || id.isWellFormed && id.kind == expected) { "Invalid artifact reference: $id (expected ${expected.code})" }
+    }
+
+    private fun validateRootReferences(project: Project) {
+        reference(project.analysis, ArtifactKind.ANALYSIS)
+        reference(project.lyricTiming, ArtifactKind.TRANSCRIPT)
+        reference(project.currentStoryboard, ArtifactKind.STORYBOARD)
+        project.storyboards.forEach { reference(it, ArtifactKind.STORYBOARD) }
+        project.characters.forEach { c -> c.refImages.forEach { reference(it, ArtifactKind.IMAGE) } }
+        project.shots.forEach { s ->
+            reference(s.spec, ArtifactKind.SHOT_SPEC)
+            reference(s.promptIr, ArtifactKind.PROMPT_IR)
+            reference(s.chosenRef, ArtifactKind.IMAGE)
+            reference(s.acceptedVideo, ArtifactKind.VIDEO)
+            s.refImages.forEach { reference(it, ArtifactKind.IMAGE) }
+            s.videos.forEach { reference(it, ArtifactKind.VIDEO) }
         }
     }
 
