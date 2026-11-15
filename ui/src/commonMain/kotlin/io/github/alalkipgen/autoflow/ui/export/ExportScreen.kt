@@ -1,10 +1,13 @@
 package io.github.alalkipgen.autoflow.ui.export
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +37,8 @@ import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.decodeImage
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.projects.RIGHTS_NOTICE
@@ -101,10 +107,12 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
         // Pre-flight (5B-9): blockers and warnings shown before export
         state.recap?.let { recap ->
             if (recap.preflight.isNotEmpty()) PreflightCard(recap.preflight)
+            // Exact-frame thumbnails (5B-9): stills made by the export compiler itself.
+            ExactFramesCard(state.thumbs, canMake = recap.movieFile != null && !state.busy, model)
         }
         // Publish Kit (5B-10): only for Recap projects
         state.recap?.let { recap ->
-            PublishKitCard(recap.publishKit, model)
+            PublishKitCard(recap.publishKit, recap.chapters, state.publishThumb, model)
         }
     }
 }
@@ -199,11 +207,48 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
 }
 
 /**
- * Publish Kit (5B-10, studio-v2 §9): edit title / description / hashtags, copy each item, share the full text file.
- * Thumbnail generation (Exact frame + TEXT layer) is deferred to 5A-8 (live preview).
+ * Exact-frame thumbnails (5B-9, D-42): up to six stills of the recap made by the export compiler (blur boxes,
+ * background, looks, layers, burned-in captions exactly as rendered) at caption times; any one can become the
+ * Publish Kit thumbnail. Marked out of date when the recap changes after they were made.
  */
 @Composable
-private fun PublishKitCard(kit: PublishKit, model: ExportModel) {
+private fun ExactFramesCard(thumbs: ExportThumbs?, canMake: Boolean, model: ExportModel) {
+    AfCard("Exact frames") {
+        AfText("Stills made by the export itself at caption times — what the video will really show.", muted = true, size = 12.sp)
+        val working = thumbs?.working == true
+        val label = when {
+            thumbs == null -> "Make exact frames"
+            working -> "Making ${minOf(thumbs.frames.size + 1, thumbs.times.size)} of ${thumbs.times.size}…"
+            else -> "Make again"
+        }
+        AfButton(label, { model.makeThumbnails() }, Modifier.testTag("export-thumbs-make"), enabled = canMake && !working)
+        if (thumbs == null) return@AfCard
+        if (thumbs.stale) AfText("⚠ The recap changed after these were made: make them again.", Modifier.testTag("export-thumbs-stale"), color = AutoFlowColors.Amber, size = 12.sp)
+        thumbs.failed?.let { AfText(it, Modifier.testTag("export-thumbs-failed"), color = AutoFlowColors.Amber, size = 12.sp) }
+        WrapRow {
+            thumbs.frames.forEachIndexed { i, f ->
+                Column(Modifier.width(176.dp).testTag("export-thumb-$i"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val bmp = remember(f) { decodeImage(f.bytes) }
+                    if (bmp != null) {
+                        Image(bmp, "Exact frame at ${PublishKitText.timestamp(f.atMs)}", Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height).clip(AutoFlowShapes.Card))
+                    } else {
+                        AfText("This frame cannot be shown.", color = AutoFlowColors.Amber, size = 11.sp)
+                    }
+                    AfText(RecapModel.seconds(f.atMs), muted = true, size = 11.sp)
+                    AfButton("Use for thumbnail", { model.makePublishThumbnail(f.atMs) }, Modifier.testTag("export-thumb-use-$i"), enabled = !thumbs.stale)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Publish Kit (5B-10, studio-v2 §9): edit title / description / hashtags, copy each item, share the full text file;
+ * chapters come from the story blocks' start times when the kit has none of its own; the thumbnail
+ * (`exports/export.thumb.jpg`) is an export-size Exact frame with the saved title as a TEXT layer.
+ */
+@Composable
+private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter>, thumb: PublishThumb?, model: ExportModel) {
     val scope = rememberCoroutineScope()
     var title by remember(kit.title) { mutableStateOf(kit.title) }
     var description by remember(kit.description) { mutableStateOf(kit.description) }
@@ -213,9 +258,15 @@ private fun PublishKitCard(kit: PublishKit, model: ExportModel) {
         AfTextField(title, { title = it }, "Video title (Burmese)", Modifier.fillMaxWidth())
         AfButton("Copy title", { model.copyPublishText(title, "title") })
         AfText("Description", muted = true, size = 12.sp)
-        AfText("Chapters are added automatically from the script blocks.", muted = true, size = 11.sp)
+        val posted = PublishKitText.withChapters(kit, chapters)
+        val chapterLines = PublishKitText.chapterLines(posted.chapters)
+        AfText(
+            if (chapterLines.isEmpty()) "Chapters: none yet (they come from the script blocks once the script is approved)."
+            else "Chapters (from the script blocks):\n" + chapterLines.joinToString("\n"),
+            Modifier.testTag("publish-chapters"), muted = true, size = 11.sp,
+        )
         AfTextField(description, { description = it }, "Description (Burmese)", Modifier.fillMaxWidth(), lines = 4, mono = false)
-        AfButton("Copy description", { model.copyPublishText(PublishKitText.description(kit.copy(description = description)), "description") })
+        AfButton("Copy description", { model.copyPublishText(PublishKitText.description(posted.copy(description = description)), "description") })
         AfText("Hashtags (space-separated, # optional)", muted = true, size = 12.sp)
         AfTextField(hashtags, { hashtags = it }, "#မြန်မာ #movie", Modifier.fillMaxWidth())
         WrapRow {
@@ -224,6 +275,37 @@ private fun PublishKitCard(kit: PublishKit, model: ExportModel) {
                 model.setPublishKit(kit.copy(title = title, description = description, hashtags = parsedHashtags))
             }, kind = ButtonKind.Primary)
             AfButton("Share file…", { scope.launch { model.sharePublishFile("export") } })
+        }
+        PublishThumbSection(kit, thumb, model)
+    }
+}
+
+/** Thumbnail (5B-10): make it from the saved title (and the chosen Exact frame time), see it, share it. */
+@Composable
+private fun PublishThumbSection(kit: PublishKit, thumb: PublishThumb?, model: ExportModel) {
+    AfText("Thumbnail (frame + title)", muted = true, size = 12.sp)
+    val working = thumb?.working == true
+    WrapRow {
+        AfButton(
+            if (working) "Making thumbnail…" else if (thumb?.frame == null) "Make thumbnail" else "Make thumbnail again",
+            { model.makePublishThumbnail() }, Modifier.testTag("publish-thumb-make"), enabled = !working && kit.title.isNotBlank(),
+        )
+        AfButton("Share thumbnail…", { model.sharePublishThumbnail() }, Modifier.testTag("publish-thumb-share"), enabled = !working && thumb?.frame != null)
+    }
+    if (kit.title.isBlank()) AfText("Write the title and press Save to make a thumbnail.", muted = true, size = 11.sp)
+    thumb ?: return
+    thumb.failed?.let { AfText(it, Modifier.testTag("publish-thumb-failed"), color = AutoFlowColors.Amber, size = 12.sp) }
+    thumb.frame?.let { f ->
+        val bmp = remember(f) { decodeImage(f.bytes) }
+        if (bmp != null) {
+            Image(bmp, "Thumbnail", Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height).clip(AutoFlowShapes.Card).testTag("publish-thumb-image"))
+        }
+        AfText(
+            "${PublishKitText.thumbPath(ExportModel.EXPORT_NAME)} · ${bmp?.let { "${it.width}×${it.height} · " }.orEmpty()}frame at ${RecapModel.seconds(thumb.atMs)}",
+            Modifier.testTag("publish-thumb-info"), muted = true, size = 11.sp,
+        )
+        if (thumb.stale && !working) {
+            AfText("⚠ The title or the picture changed after this thumbnail was made: make it again.", Modifier.testTag("publish-thumb-stale"), color = AutoFlowColors.Amber, size = 12.sp)
         }
     }
 }

@@ -22,6 +22,28 @@ data class PublishChapter(val atMs: Long, val title: String)
 object PublishKitText {
     fun path(exportName: String): String = "exports/$exportName.publish.txt"
 
+    /** The thumbnail beside it (frame + title layer, 5B-10). */
+    fun thumbPath(exportName: String): String = "exports/$exportName.thumb.jpg"
+
+    /**
+     * Chapters from the story blocks (5B-10 "from block times"): each block starts where the ones before it end in
+     * the export ([blockLengthsMs], output order) and is named by the start of its text ([chapterTitle]).
+     */
+    fun chaptersFromBlocks(blockLengthsMs: List<Long>, blockTexts: List<String>): List<PublishChapter> =
+        chapters(blockStartsMs(blockLengthsMs), blockTexts.map(::chapterTitle))
+
+    /** First line of [text] up to its first sentence end (`။` / `.` / `?` / `!`), at most [max] characters + "…". */
+    fun chapterTitle(text: String, max: Int = 40): String {
+        val line = text.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+        val end = line.indexOfFirst { it == '\u104B' || it == '.' || it == '?' || it == '!' }
+        val sentence = (if (end > 0) line.substring(0, end) else line).trim()
+        return if (sentence.length <= max) sentence else sentence.take(max).trimEnd() + "…"
+    }
+
+    /** [kit] as posted: its own chapters when it has any, else [auto] (made from the blocks). */
+    fun withChapters(kit: PublishKit, auto: List<PublishChapter>): PublishKit =
+        if (kit.chapters.isNotEmpty()) kit else kit.copy(chapters = auto)
+
     /** Start of each block in the export, from the block lengths in output order (first = 0). */
     fun blockStartsMs(blockLengthsMs: List<Long>): List<Long> = blockLengthsMs.runningFold(0L) { acc, ms -> acc + ms }.dropLast(1)
 

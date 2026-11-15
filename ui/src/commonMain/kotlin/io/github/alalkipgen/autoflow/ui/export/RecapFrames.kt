@@ -1,11 +1,16 @@
 package io.github.alalkipgen.autoflow.ui.export
 
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.core.recap.Layer
+import io.github.alalkipgen.autoflow.core.recap.LayerParams
+import io.github.alalkipgen.autoflow.core.recap.LayerType
 import io.github.alalkipgen.autoflow.core.recap.Lexicon
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.StateFlow
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
@@ -83,12 +88,16 @@ class RecapFrames(
         return copied.exceptionOrNull()?.let { "Cannot copy the font into the project: ${it.message}" }
     }
 
-    private fun story(open: OpenProject): RecapStory? =
-        open.project.recap?.story?.let { (session.readJson(it, RecapStory.serializer()) as? CoreResult.Ok)?.value }
+    /** The story of [open] — read from [open]'s own folder, not whichever project is open by the time this runs. */
+    private fun story(open: OpenProject): RecapStory? {
+        val id = open.project.recap?.story ?: return null
+        val bytes = (ArtifactStore(fs, open.dir).readBytes(id) as? CoreResult.Ok)?.value ?: return null
+        return runCatching { io.github.alalkipgen.autoflow.core.model.CoreJson.decodeFromString(RecapStory.serializer(), bytes.decodeToString()) }.getOrNull()
+    }
 
-    /** `artifacts/<file>` of [id] when the file is there. */
+    /** `artifacts/<file>` of [id] in [open]'s folder when the file is there. */
     private fun artifactFile(open: OpenProject, id: ArtifactId): String? {
-        val artifact = (session.artifacts()?.get(id) as? CoreResult.Ok)?.value ?: return null
+        val artifact = (ArtifactStore(fs, open.dir).get(id) as? CoreResult.Ok)?.value ?: return null
         return joinPath(ArtifactStore.ARTIFACTS_DIR, artifact.file).takeIf { fs.exists(joinPath(open.dir, it)) }
     }
 
@@ -115,33 +124,39 @@ class RecapFrames(
      * Output times worth a look (pre-flight thumbnails, 5B-9): the middle of each caption cue, else of each clip —
      * at most [max], spread over the whole recap.
      */
-    fun sampleTimes(max: Int = 6): List<Long> {
-        val open = session.open ?: return emptyList()
+    fun sampleTimes(max: Int = 6, open: OpenProject? = session.open): List<Long> {
+        open ?: return emptyList()
         val job = job(open, Quality.PREVIEW, font()?.family, "exports/preview", "frames") ?: return emptyList()
-        val captions = job.srt?.let { srtMids(it) }.orEmpty()
-        val times = captions.ifEmpty {
-            var at = 0L
-            job.graph.clips.map { c -> (at + c.durationMs / 2).also { at += c.durationMs } }
-        }
-        if (times.size <= max) return times
-        return (0 until max).map { i -> times[i * (times.size - 1) / (max - 1)] }
+        return spread(sampleCandidates(job), max)
     }
 
     /** The time the Style preview's Exact frame shows: the first caption's middle, else the first clip's. */
-    fun firstTime(): Long? = sampleTimes(1).firstOrNull()
+    fun firstTime(open: OpenProject? = session.open): Long? = sampleTimes(1, open).firstOrNull()
+
+    /**
+     * What a frame of [open] would show, as a stable hash of its Preview render job (graph, files, captions): equal
+     * hashes = the same picture, so a thumbnail made from another hash is out of date. Null = no job (yet).
+     */
+    fun fingerprint(open: OpenProject? = session.open): String? {
+        open ?: return null
+        val job = job(open, Quality.PREVIEW, font()?.family, "exports/preview", "frames") ?: return null
+        return Sha256.hex(FINGERPRINT_JSON.encodeToString(RenderJob.serializer(), job).encodeToByteArray())
+    }
 
     /**
      * Renders the still at [atMs] of the recap ([quality]: Preview = 540p, quick; Export = the export size) into
      * [image] (relative to the project; default `.cache/frames/<t>.png`). [extra] may add to the graph (the Publish
-     * Kit's title layer).
+     * Kit's title layer). [open] = the project to render (default: the one open now); its own folder is used
+     * throughout, so a project switched to meanwhile is never read or written.
      */
     suspend fun frame(
         atMs: Long,
         quality: Quality = Quality.PREVIEW,
         image: String = joinPath(FRAMES_DIR, ExactFrame.cacheName(atMs)),
         extra: (RenderJob) -> RenderJob = { it },
+        open: OpenProject? = session.open,
     ): Result {
-        val open = session.open ?: return Result.Failed("No project is open.")
+        open ?: return Result.Failed("No project is open.")
         val tools = media ?: return Result.Failed(NO_FFMPEG)
         val runner = tools.runner ?: return Result.Failed(NO_FFMPEG)
         val ffmpeg = tools.ffmpeg() ?: return Result.Failed(NO_FFMPEG)
@@ -152,7 +167,7 @@ class RecapFrames(
         return lock.withLock {
             val ffprobe = tools.ffprobe() ?: ffmpeg
             when (val r = RenderJobRunner(fs, FfmpegRunner(runner, ffmpeg), MediaProbe(runner, ffprobe)).frame(job, atMs, image)) {
-                is RenderState.Done -> session.readFile(r.output)?.let { Result.Ok(Frame(atMs, r.output, it)) }
+                is RenderState.Done -> runCatching { fs.read(r.output) }.getOrNull()?.let { Result.Ok(Frame(atMs, r.output, it)) }
                     ?: Result.Failed("The frame was made but cannot be read.")
                 is RenderState.Failed -> Result.Failed(listOf(r.reason, r.tail.lastOrNull { it.isNotBlank() }.orEmpty()).filter { it.isNotBlank() }.joinToString(": "))
                 else -> Result.Failed("The frame was not made.")
@@ -160,9 +175,53 @@ class RecapFrames(
         }
     }
 
+    /**
+     * The Publish Kit thumbnail (5B-10): the export-size frame of [open] at [atMs] with [title] as a TEXT layer on
+     * the lower third and no burned-in captions (they would cover the title), into [image] (`exports/<name>.thumb.jpg`).
+     */
+    suspend fun thumbnail(open: OpenProject, atMs: Long, title: String, image: String): Result {
+        if (title.isBlank()) return Result.Failed("Write the video title first.")
+        val family = font()?.family
+        return frame(atMs, Quality.EXPORT, image, extra = { withTitle(it, title, family) }, open = open)
+    }
+
     companion object {
         const val FONTS_DIR = ".cache/fonts"
         const val FRAMES_DIR = ".cache/frames"
+        private val FINGERPRINT_JSON = Json { encodeDefaults = true }
+
+        /** Where the thumbnail's title goes: the lower third, inside the frame ([x, y, w, h] of the output). */
+        val TITLE_RECT = listOf(0.06f, 0.64f, 0.88f, 0.28f)
+
+        /**
+         * [job] with [title] as the topmost TEXT layer over the whole output, in [font] (the captions' Burmese font;
+         * named on the layer because the captions it would otherwise borrow it from are taken out).
+         */
+        fun withTitle(job: RenderJob, title: String, font: String?): RenderJob {
+            val family = font ?: job.graph.overlays.firstOrNull()?.font ?: job.placeholderFont
+            val layer = Layer("publish-title", LayerType.TEXT, rect = TITLE_RECT, params = LayerParams(textMy = title.trim(), style = family.orEmpty()))
+            return job.copy(graph = job.graph.copy(overlays = emptyList(), layers = job.graph.layers + layer))
+        }
+
+        /** Caption middles, else clip middles, of [job]'s output (ms). */
+        fun sampleCandidates(job: RenderJob): List<Long> {
+            val captions = job.srt?.let { srtMids(it) }.orEmpty()
+            return captions.ifEmpty {
+                var at = 0L
+                job.graph.clips.map { c -> (at + c.durationMs / 2).also { at += c.durationMs } }
+            }
+        }
+
+        /**
+         * At most [max] of [times], first and last included, evenly spread. One = the first (it used to divide by
+         * `max - 1` = 0 and throw, so "Exact frame" crashed on a recap with two or more captions).
+         */
+        fun spread(times: List<Long>, max: Int): List<Long> = when {
+            max <= 0 -> emptyList()
+            times.size <= max -> times
+            max == 1 -> times.take(1)
+            else -> (0 until max).map { i -> times[i * (times.size - 1) / (max - 1)] }
+        }
         const val NO_FFMPEG = "ffmpeg was not found: set its path in Settings → Tools (or add it to PATH)"
 
         /** Middle of every cue of an `.srt` (ms). */
