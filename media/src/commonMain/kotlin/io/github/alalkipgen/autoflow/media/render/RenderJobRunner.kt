@@ -156,7 +156,11 @@ class RenderJobRunner(
             is FfmpegRunner.Outcome.Rendered -> try {
                 fs.atomicMove(env.outputPath, "$out.mp4")
                 job.srt?.let { fs.writeDurably("$out.srt", it.encodeToByteArray()) }
-                RenderState.Done("$out.mp4", r.wallMs, compiled.durationMs, r.maxRssKb, loudness)
+                RenderState.Done("$out.mp4", r.wallMs, compiled.durationMs, r.maxRssKb, loudness).also { done ->
+                    // 5B-4: how this render ended, beside the mp4 for the Export screen after a restart. Best effort:
+                    // the video is already saved, and a missing or stale record is simply not shown (RenderResult.read).
+                    runCatching { fs.writeDurably(RenderResult.path(done.output), RenderResult.of(done, fs.size(done.output)).encode()) }
+                }
             } catch (e: Exception) {
                 RenderState.Failed("cannot save $out.mp4: ${e.message}")
             }

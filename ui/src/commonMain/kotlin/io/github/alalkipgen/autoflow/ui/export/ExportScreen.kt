@@ -95,6 +95,7 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
             }
             AfText("Preview is fast and small; Export is the full-quality video. Rendering goes on with the screen off.", muted = true)
             state.run?.let { RunStatus(it, model, state.savingToGallery) }
+            if (state.run == null) state.lastRenders.forEach { LastRenderStatus(it, model) }
             state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
         // Pre-flight (5B-9): blockers and warnings shown before export
@@ -139,6 +140,27 @@ private fun RecapSummary(recap: RecapExport, font: String?, model: ExportModel) 
     }
 }
 
+/** Audit F09 / 5B-4: two-pass only when the pass-1 numbers are there; otherwise the fallback and why. */
+internal fun loudnessLine(l: RenderState.Loudness): String =
+    if (l.twoPass) "Loudness: two-pass to ${l.targetLufs} LUFS (measured ${l.measured!!.inputI} LUFS)" else "Loudness: ${l.note ?: "one-pass to ${l.targetLufs} LUFS"}"
+
+/** A finished render read back from its `exports/<name>.result.json` (5B-4), e.g. after the app restarted. */
+@Composable
+private fun LastRenderStatus(last: LastRender, model: ExportModel) {
+    val r = last.result
+    AfText(
+        "Last ${ExportModel.label(last.quality)} ✓ · ${InputModel.formatDuration(r.durationMs)} · rendered in ${r.wallMs / 1000} s",
+        Modifier.testTag("export-last"),
+        color = AutoFlowColors.Green,
+    )
+    AfText("exports/${r.output}", muted = true, mono = true)
+    r.loudness?.let { AfText(loudnessLine(it), Modifier.testTag("export-last-loudness"), muted = true, size = 11.sp) }
+    WrapRow {
+        AfButton("Open", { model.openLast(last) })
+        AfButton("Share…", { model.shareLast(last) })
+    }
+}
+
 @Composable
 private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
     val what = ExportModel.label(run.quality)
@@ -161,10 +183,7 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
             )
             AfText(s.output.substringAfterLast('/').let { "exports/$it" }, muted = true, mono = true)
             // Audit F09: say how the loudness target was met — never claim two-pass when it fell back.
-            s.loudness?.let { l ->
-                val line = if (l.twoPass) "Loudness: two-pass to ${l.targetLufs} LUFS" else "Loudness: ${l.note ?: "one-pass to ${l.targetLufs} LUFS"}"
-                AfText(line, Modifier.testTag("export-loudness"), muted = true, size = 11.sp)
-            }
+            s.loudness?.let { AfText(loudnessLine(it), Modifier.testTag("export-loudness"), muted = true, size = 11.sp) }
             WrapRow {
                 AfButton("Open", model::open, kind = ButtonKind.Primary)
                 AfButton("Share…", model::share)

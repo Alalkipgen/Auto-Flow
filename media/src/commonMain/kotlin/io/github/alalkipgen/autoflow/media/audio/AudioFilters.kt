@@ -186,6 +186,7 @@ object AudioFilters {
 }
 
 /** `loudnorm` pass-1 numbers (LUFS / dBTP / LU). */
+@kotlinx.serialization.Serializable
 data class LoudnessMeasurement(
     val inputI: Double,
     val inputTp: Double,

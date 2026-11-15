@@ -42,6 +42,7 @@ sealed interface RenderState {
      * A loudness target of [targetLufs]: two-pass with the pass-1 [measured] numbers, or — [measured] null — the
      * one-pass `loudnorm` fallback, with [note] saying why (audit F09: never reported as two-pass when it was not).
      */
+    @Serializable
     data class Loudness(val targetLufs: Double, val measured: LoudnessMeasurement?, val note: String?) {
         val twoPass: Boolean get() = measured != null
     }

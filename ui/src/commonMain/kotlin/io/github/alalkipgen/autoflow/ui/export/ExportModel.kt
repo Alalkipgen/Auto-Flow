@@ -23,6 +23,7 @@ import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderJob
 import io.github.alalkipgen.autoflow.media.render.RenderGraph
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
+import io.github.alalkipgen.autoflow.media.render.RenderResult
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -37,6 +38,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
+
+/**
+ * A finished render of [quality] found in [projectDir]'s `exports/` with its [RenderResult] record (5B-4): shown when
+ * no render of this session is on screen, e.g. after the app restarted. [output] is the mp4 (absolute).
+ */
+data class LastRender(val projectDir: String, val quality: Quality, val output: String, val result: RenderResult)
 
 /** One render started from this screen; [output] is the mp4 it writes (absolute). */
 data class ExportRun(val projectDir: String, val quality: Quality, val id: String, val output: String, val state: RenderState)
@@ -82,6 +89,8 @@ data class ExportUiState(
     val savingToGallery: Boolean = false,
     /** Set in a Movie Recap project; then the music-video fields above stay empty. */
     val recap: RecapExport? = null,
+    /** Finished Preview / Export of the open project read back from `exports/<name>.result.json` (5B-4). */
+    val lastRenders: List<LastRender> = emptyList(),
 ) {
     val busy: Boolean get() = run != null && !run.state.finished
     val canRender: Boolean
@@ -129,6 +138,7 @@ class ExportModel(
         }
         val p = open.project
         val font = frames.font()
+        val last = lastRenders(open.dir)
         recapExport(open)?.let { r ->
             _state.value = ExportUiState(
                 projectName = p.name,
@@ -137,6 +147,7 @@ class ExportModel(
                 unavailable = if (queue == null) NO_QUEUE else null,
                 run = run,
                 recap = r,
+                lastRenders = last,
             )
             return
         }
@@ -155,7 +166,26 @@ class ExportModel(
             lowBattery = battery?.read()?.lowWarning == true,
             unavailable = if (queue == null) NO_QUEUE else null,
             run = run,
+            lastRenders = last,
         )
+    }
+
+    /** The Preview and Export of [dir] that left a matching result record (absent, stale or damaged ones are skipped). */
+    private fun lastRenders(dir: String): List<LastRender> = listOf(Quality.PREVIEW to PREVIEW_NAME, Quality.EXPORT to EXPORT_NAME).mapNotNull { (q, name) ->
+        val mp4 = joinPath(joinPath(dir, EXPORTS_DIR), "$name.mp4")
+        runCatching { RenderResult.read(fs, mp4) }.getOrNull()?.let { LastRender(dir, q, mp4, it) }
+    }
+
+    /** Plays [last] (a render found after a restart) in another app; only while its project is open. */
+    fun openLast(last: LastRender) {
+        if (session.open?.dir != last.projectDir) return
+        result(share?.open(last.output, MP4) ?: PlatformResult.Unsupported(NO_SHARE))
+    }
+
+    /** Share sheet for [last]; only while its project is open. */
+    fun shareLast(last: LastRender) {
+        if (session.open?.dir != last.projectDir) return
+        result(share?.share(last.output, MP4, "Share the video") ?: PlatformResult.Unsupported(NO_SHARE))
     }
 
     /** Updates the Publish Kit for the current Recap project. */
