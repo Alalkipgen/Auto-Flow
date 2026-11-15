@@ -61,6 +61,9 @@ class RecapVoiceTest {
 
     private fun recap() = current.state.value!!.project.recap!!
 
+    /** The story by block id: the take list is a history (audit F06), so takes map to scenes by block, not position. */
+    private fun story() = (session.readJson(recap().story!!, io.github.alalkipgen.autoflow.core.recap.RecapStory.serializer()) as CoreResult.Ok).value
+
     private fun open(m: RecapModel) {
         val p = (store.create("/p/R.autoflow", "R", Mode.MOVIE_RECAP) as CoreResult.Ok).value
         val scenes = listOf(RecapScene(0, 4_000, picked = true), RecapScene(4_000, 9_000, picked = true))
@@ -104,16 +107,16 @@ class RecapVoiceTest {
         assertEquals(1, tts.calls, "only the scene without a voice")
         assertEquals("🔊 Spoken 1 scenes.", m.state.value.message)
         val script = m.state.value.script!!
-        assertEquals(listOf(VoiceSource.RECORDED, VoiceSource.TTS), (0..1).map { RecapRules.currentTake(recap().toV1(), script, it)!!.source })
-        assertTrue(RecapRules.canRender(recap().toV1(), script).allowed)
+        assertEquals(listOf(VoiceSource.RECORDED, VoiceSource.TTS), (0..1).map { RecapRules.currentTake(recap().toV1(story()), script, it)!!.source })
+        assertTrue(RecapRules.canRender(recap().toV1(story()), script).allowed)
 
         // Editing a text makes its take stale (and clears the approval).
         m.saveSegment(1, "သူငယ်ချင်း နောက်ကျပြီး ရောက်လာတယ်")
         assertFalse(recap().storyApproved)
-        assertTrue(RecapRules.isStale(recap().toV1(), m.state.value.script!!, 1))
+        assertTrue(RecapRules.isStale(recap().toV1(story()), m.state.value.script!!, 1))
         assertTrue(m.approveScript())
         m.speak(1)!!.join()
-        assertFalse(RecapRules.isStale(recap().toV1(), m.state.value.script!!, 1))
+        assertFalse(RecapRules.isStale(recap().toV1(story()), m.state.value.script!!, 1))
         assertEquals(2, tts.calls)
     }
 }

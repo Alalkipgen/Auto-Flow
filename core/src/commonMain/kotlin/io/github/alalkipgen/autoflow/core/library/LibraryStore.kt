@@ -3,6 +3,10 @@ package io.github.alalkipgen.autoflow.core.library
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.CoreJson
+import io.github.alalkipgen.autoflow.core.recap.Lexicon
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Loads and saves the [Library] from `<libraryRoot>/library.json` (5A-7, studio-v2.md §6).
@@ -17,7 +21,13 @@ class LibraryStore(
 ) {
     private val jsonPath get() = joinPath(libraryRoot, "library.json")
 
-    fun load(): Library {
+    private val _lexicon = MutableStateFlow(Lexicon(readLibrary().lexicon.toList()))
+    /** The last successfully loaded/saved pronunciation snapshot, shared by speech, jobs and rendering. */
+    val lexicon: StateFlow<Lexicon> = _lexicon.asStateFlow()
+
+    fun load(): Library = readLibrary().also { _lexicon.value = Lexicon(it.lexicon.toList()) }
+
+    private fun readLibrary(): Library {
         if (!fs.exists(jsonPath)) return Library()
         return runCatching {
             CoreJson.decodeFromString(Library.serializer(), fs.read(jsonPath).decodeToString())
@@ -29,6 +39,7 @@ class LibraryStore(
         val tmp = "$jsonPath.tmp"
         fs.writeDurably(tmp, CoreJson.encodeToString(Library.serializer(), lib).encodeToByteArray())
         fs.atomicMove(tmp, jsonPath)
+        _lexicon.value = Lexicon(lib.lexicon.toList())
     }
 
     /** Path to a library file asset, given its relative path (e.g. `files/logo.png`). */

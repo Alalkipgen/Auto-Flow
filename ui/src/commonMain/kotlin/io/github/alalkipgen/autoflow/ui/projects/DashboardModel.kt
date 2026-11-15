@@ -8,19 +8,12 @@ import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.ai.config.ModelConfig
-import io.github.alalkipgen.autoflow.core.model.ArtifactKind
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.recap.QuickRecap
+import io.github.alalkipgen.autoflow.core.recap.MigrationException
 import io.github.alalkipgen.autoflow.core.recap.RecapMigration
-import io.github.alalkipgen.autoflow.core.recap.RecapScript
-import io.github.alalkipgen.autoflow.core.recap.RecapStory
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
-import io.github.alalkipgen.autoflow.core.store.ArtifactStore
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -88,6 +81,9 @@ class DashboardModel(
             project.copy(
                 recap = RecapV2(
                     rightsConfirmed = true,
+                    // Audit F15: the chosen length is the recap's own target (what the Scenes header, the fit check
+                    // and the target chips read), not only a copy inside the Quick Recap state.
+                    targetMs = targetMs,
                     quick = quickJson,
                 )
             )
@@ -139,65 +135,40 @@ class DashboardModel(
         is PlatformResult.Unsupported -> fail(r.reason)
     }
 
+    /**
+     * Opens [dir]. A v1 project is migrated first ([RecapMigration.migrateFolder]: checked, backed up, then written);
+     * one that cannot be migrated without losing work stays untouched and is not opened (audit F02). When
+     * `project.json` is missing or unreadable, a [RecapMigration.BACKUP_FILE] is validated (and migrated when v1)
+     * before it replaces anything; the damaged file is kept (audit F13).
+     */
     fun open(dir: String): Boolean {
-        // v1 → v2 migration: backup first, then migrate the project.json to schemaVersion 2.
+        val burmeseTtsModel = modelConfig?.tts?.chainFor("my")?.firstOrNull()
         try {
-            migrateProject(dir)
-        } catch (_: Exception) {
-            // Never block opening; store.open reports the real problem.
+            // Under the folder lock (audit F04): no save of another window can land between the check and the write.
+            fs.withFolderLock(dir) { RecapMigration.migrateFolder(fs, dir, burmeseTtsModel) }
+        } catch (e: MigrationException) {
+            return fail("Cannot update this project to the new format: ${e.message}. The project was not changed.")
+        } catch (e: Exception) {
+            return fail("Cannot update this project to the new format (${e.message ?: e::class.simpleName}). The project was not changed.")
         }
         val firstTry = store.open(dir)
         if (firstTry is CoreResult.Ok) return opened(dir, firstTry.value)
-        // Current project.json is unreadable — try restoring migration backup (covers v0.2.0 premature migration).
-        try {
-            val backup = joinPath(dir, RecapMigration.BACKUP_FILE)
-            val main = joinPath(dir, "project.json")
-            if (fs.exists(backup)) {
-                val copy = joinPath(dir, RecapMigration.V2_COPY_FILE)
-                if (!fs.exists(copy)) {
-                    fs.copyDurably(main, "$copy.tmp")
-                    fs.atomicMove("$copy.tmp", copy)
+        val recovery = try {
+            fs.withFolderLock(dir) { RecapMigration.recoverFromBackup(fs, dir, burmeseTtsModel) }
+        } catch (e: Exception) {
+            RecapMigration.Recovery.Failed("Recovering from ${RecapMigration.BACKUP_FILE} failed (${e.message ?: e::class.simpleName})")
+        }
+        val problem = (firstTry as CoreResult.Err).error.toText()
+        return when (recovery) {
+            is RecapMigration.Recovery.Recovered -> when (val reopened = store.open(dir)) {
+                is CoreResult.Ok -> opened(dir, reopened.value).also {
+                    done("Opened from ${RecapMigration.BACKUP_FILE}" + (recovery.kept?.let { "; the damaged project.json was kept as $it" } ?: ""))
                 }
-                fs.copyDurably(backup, "$main.tmp")
-                fs.atomicMove("$main.tmp", main)
-                val r2 = store.open(dir)
-                if (r2 is CoreResult.Ok) return opened(dir, r2.value)
-                // Restore the broken file back so we don't silently lose it.
-                if (fs.exists(copy)) { fs.copyDurably(copy, "$main.tmp"); fs.atomicMove("$main.tmp", main) }
+                is CoreResult.Err -> fail("$problem. Recovering from ${RecapMigration.BACKUP_FILE} did not help: ${reopened.error.toText()}")
             }
-        } catch (_: Exception) { }
-        return fail((firstTry as CoreResult.Err).error.toText())
-    }
-
-    /**
-     * Runs [RecapMigration] on [dir]/project.json when it is still v1. Atomic: backup first, then overwrite.
-     * [modelConfig] provides the first Burmese-capable TTS model for the voice lock (may be null = no lock set).
-     */
-    private fun migrateProject(dir: String) {
-        val projectPath = io.github.alalkipgen.autoflow.core.io.joinPath(dir, "project.json")
-        if (!fs.exists(projectPath)) return
-        val raw = Json.parseToJsonElement(fs.read(projectPath).decodeToString()).jsonObject
-        if (!RecapMigration.needsMigration(raw)) return
-        RecapMigration.backup(fs, dir)
-        val burmeseTtsModel = modelConfig?.tts?.chainFor("my")?.firstOrNull()
-        val artifacts = ArtifactStore(fs, dir)
-        val migrated = RecapMigration.migrate(
-            project = raw,
-            readScript = { id ->
-                try { CoreJson.decodeFromString<RecapScript>(artifacts.readBytes(id).let {
-                    (it as? CoreResult.Ok)?.value?.decodeToString() ?: return@migrate null
-                }) } catch (_: Exception) { null }
-            },
-            writeStory = { story ->
-                val bytes = CoreJson.encodeToString(RecapStory.serializer(), story).encodeToByteArray()
-                (artifacts.put(bytes, ArtifactKind.RECAP_SCRIPT, "json") as? CoreResult.Ok)?.value?.id
-                    ?: throw IllegalStateException("Failed to write migrated story artifact")
-            },
-            burmeseTtsModel = burmeseTtsModel,
-        )
-        val tmp = "$projectPath.mig.tmp"
-        fs.writeDurably(tmp, CoreJson.encodeToString(JsonObject.serializer(), migrated).encodeToByteArray())
-        fs.atomicMove(tmp, projectPath)
+            is RecapMigration.Recovery.Failed -> fail("$problem. ${recovery.reason}; nothing was changed.")
+            RecapMigration.Recovery.NoBackup -> fail(problem)
+        }
     }
 
     fun remove(dir: String) {

@@ -1,15 +1,14 @@
 package io.github.alalkipgen.autoflow.media.audio
 
-import io.github.alalkipgen.autoflow.core.recap.RecapAudio
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * ffmpeg audio filter text for the Recap Audio step (5B-4, spec §2 `recap.audio`): voice polish, silence trim,
- * background music (volume, loop, fades), ducking under the narration and two-pass `loudnorm`.
- * Pure strings so the render compiler and tests share one source; nothing here runs ffmpeg.
+ * ffmpeg audio filter text for the Recap Audio step (5B-4, spec §2 `recap.audio`): voice polish, silence trim
+ * (pause finder + cut, [SilenceTrim] runs them), background music (volume, loop, fades), ducking under the narration
+ * and two-pass `loudnorm`. Pure strings so the render compiler and tests share one source; nothing here runs ffmpeg.
  */
 object AudioFilters {
     const val DEFAULT_LUFS = -14.0
@@ -25,14 +24,84 @@ object AudioFilters {
         "highpass=f=80,afftdn=nf=-25,acompressor=threshold=-18dB:ratio=3:attack=5:release=80:makeup=2"
 
     /**
-     * Shortens every pause longer than [gapMs] to [keepMs] (D-46 fix 1). Leading silence is cut to [keepMs] too;
-     * speech is never touched.
+     * The pause finder for the silence trim (D-46 fix 1, studio-v2 §8): ffmpeg arguments (after the binary) whose
+     * `silencedetect` log lists every pause of at least [gapMs] below [thresholdDb] in [input] ([parseSilences]).
+     * Audio only, nothing is written.
      */
-    fun trimSilence(gapMs: Long = SILENCE_GAP_MS, keepMs: Long = SILENCE_KEEP_MS, thresholdDb: Int = SILENCE_THRESHOLD_DB): String {
+    fun silenceDetectArgs(input: String, gapMs: Long = SILENCE_GAP_MS, thresholdDb: Int = SILENCE_THRESHOLD_DB): List<String> =
+        listOf("-hide_banner", "-nostdin", "-nostats", "-i", input, "-vn", "-af", "silencedetect=n=${thresholdDb}dB:d=${sec(gapMs)}", "-f", "null", "-")
+
+    /** A pause found by `silencedetect`, in seconds of the input; [end] null = it runs to the end. */
+    data class Silence(val start: Double, val end: Double?)
+
+    private val SilenceStart = Regex("""silence_start:\s*(-?[0-9.]+)""")
+    private val SilenceEnd = Regex("""silence_end:\s*(-?[0-9.]+)""")
+    private val InputDuration = Regex("""Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)""")
+
+    /** The pauses in a [silenceDetectArgs] log, in order; a start without an end runs to the end of the input. */
+    fun parseSilences(log: String): List<Silence> {
+        val out = mutableListOf<Silence>()
+        var open: Double? = null
+        for (line in log.lineSequence()) {
+            SilenceStart.find(line)?.let { open = it.groupValues[1].toDoubleOrNull()?.coerceAtLeast(0.0) }
+            SilenceEnd.find(line)?.let { m -> open?.let { s -> m.groupValues[1].toDoubleOrNull()?.let { out += Silence(s, it) }; open = null } }
+        }
+        open?.let { out += Silence(it, null) }
+        return out
+    }
+
+    /** The input's length in seconds from ffmpeg's `Duration:` line, or null. */
+    fun parseInputDuration(log: String): Double? = InputDuration.find(log)?.groupValues?.let { g ->
+        g[1].toDouble() * 3600 + g[2].toDouble() * 60 + g[3].toDouble()
+    }
+
+    /**
+     * The parts of the input to keep (seconds; end null = to the end): every pause longer than [gapMs] becomes
+     * [keepMs] long — half after the speech before it, half before the speech after it; a pause at the start keeps
+     * only its last [keepMs], one at the end (it reaches [totalSec], or has no end) only its first [keepMs]. Shorter
+     * pauses and all speech stay as they are. One range `0 → end` = nothing to cut.
+     */
+    fun keptRanges(
+        silences: List<Silence>,
+        totalSec: Double? = null,
+        gapMs: Long = SILENCE_GAP_MS,
+        keepMs: Long = SILENCE_KEEP_MS,
+    ): List<Pair<Double, Double?>> {
         require(gapMs > keepMs) { "gapMs must be longer than keepMs" }
-        val t = "${thresholdDb}dB"
-        return "silenceremove=start_periods=1:start_duration=0:start_threshold=$t:start_silence=${sec(keepMs)}" +
-            ":stop_periods=-1:stop_duration=${sec(gapMs)}:stop_threshold=$t:stop_silence=${sec(keepMs)}"
+        val gap = gapMs / 1000.0; val keep = keepMs / 1000.0
+        val removed = mutableListOf<Pair<Double, Double?>>()
+        for (s in silences) {
+            val atEnd = s.end == null || (totalSec != null && s.end >= totalSec - 0.001)
+            if (s.end != null && s.end - s.start <= gap + 1e-6) continue // up to the gap (float noise aside) stays
+            when {
+                s.start <= 0.001 && !atEnd -> removed += 0.0 to s.end - keep
+                atEnd -> removed += s.start + keep to null
+                else -> removed += s.start + keep / 2 to s.end - keep / 2
+            }
+        }
+        val kept = mutableListOf<Pair<Double, Double?>>()
+        var from = 0.0
+        for ((a, b) in removed) {
+            if (a > from) kept += from to a
+            from = b ?: return kept
+        }
+        kept += from to null
+        return kept
+    }
+
+    /**
+     * ffmpeg arguments (after the binary) that write the [kept] ranges of [input] one after the other (sample exact
+     * `atrim` + `concat`) as a mono 48 kHz 16-bit WAV [output] — the take's real new length.
+     */
+    fun cutArgs(input: String, output: String, kept: List<Pair<Double, Double?>>): List<String> {
+        require(kept.isNotEmpty()) { "nothing to keep" }
+        fun trim(r: Pair<Double, Double?>) = "atrim=start=${secs(r.first)}" + (r.second?.let { ":end=${secs(it)}" } ?: "") + ",asetpts=PTS-STARTPTS"
+        val graph = if (kept.size == 1) "[0:a]${trim(kept[0])}[out]" else
+            "[0:a]asplit=${kept.size}" + kept.indices.joinToString("") { "[k$it]" } + ";" +
+                kept.indices.joinToString(";") { "[k$it]${trim(kept[it])}[c$it]" } + ";" +
+                kept.indices.joinToString("") { "[c$it]" } + "concat=n=${kept.size}:v=0:a=1[out]"
+        return listOf("-hide_banner", "-y", "-nostdin", "-i", input, "-filter_complex", graph, "-map", "[out]",
+            "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "1", output)
     }
 
     /**
@@ -101,19 +170,13 @@ object AudioFilters {
         )
     }
 
-    /**
-     * ffmpeg arguments (after the binary) that write [input] with its long pauses cut ([trimSilence]) as a mono
-     * 48 kHz 16-bit WAV [output] — done once when a take is made, so its length (and the fit check) is the real one.
-     */
-    fun trimArgs(input: String, output: String): List<String> =
-        listOf("-hide_banner", "-y", "-nostdin", "-i", input, "-vn", "-af", trimSilence(), "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "1", output)
-
-    /** The narration chain for one take as [RecapAudio] asks: polish, then silence trim (either may be off). */
-    fun narration(audio: RecapAudio): String? =
-        listOfNotNull(voicePolish().takeIf { audio.polish }, trimSilence().takeIf { audio.trimSilence })
-            .joinToString(",").ifEmpty { null }
-
     private fun sec(ms: Long): String = "${ms / 1000}.${(ms % 1000).toString().padStart(3, '0')}"
+
+    /** Seconds with six decimals (microseconds), never in exponent form. */
+    private fun secs(v: Double): String {
+        val us = kotlin.math.round(maxOf(0.0, v) * 1_000_000).toLong()
+        return "${us / 1_000_000}.${(us % 1_000_000).toString().padStart(6, '0')}"
+    }
 
     private fun num(v: Double): String {
         val r = kotlin.math.round(v * 1000) / 1000

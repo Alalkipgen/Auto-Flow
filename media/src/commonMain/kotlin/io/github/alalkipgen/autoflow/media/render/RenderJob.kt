@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.media.render
 
+import io.github.alalkipgen.autoflow.media.audio.LoudnessMeasurement
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -34,7 +35,16 @@ sealed interface RenderState {
 
     data class Running(val fraction: Double, val speed: Double?) : RenderState
 
-    data class Done(val output: String, val wallMs: Long, val durationMs: Long, val maxRssKb: Long?) : RenderState
+    /** [loudness] = how a loudness target was met (null = none asked). */
+    data class Done(val output: String, val wallMs: Long, val durationMs: Long, val maxRssKb: Long?, val loudness: Loudness? = null) : RenderState
+
+    /**
+     * A loudness target of [targetLufs]: two-pass with the pass-1 [measured] numbers, or — [measured] null — the
+     * one-pass `loudnorm` fallback, with [note] saying why (audit F09: never reported as two-pass when it was not).
+     */
+    data class Loudness(val targetLufs: Double, val measured: LoudnessMeasurement?, val note: String?) {
+        val twoPass: Boolean get() = measured != null
+    }
 
     /** [tail] = ffmpeg's last error lines, for the error card and Copy. */
     data class Failed(val reason: String, val tail: List<String> = emptyList()) : RenderState

@@ -11,15 +11,21 @@ object PreflightCheck {
 
     enum class Kind { BLOCKER, WARNING, INFO }
 
-    /**
-     * Runs all pre-flight checks for [recap] and its [script].
-     * [freeBytes] = available disk space (null = unknown); [estimatedOutputBytes] = rough output size estimate.
-     */
+    /** v1 shape: the same checks on [Recap.toV2] (lossless). */
     fun check(recap: Recap, script: RecapScript?): List<Item> {
-        val items = mutableListOf<Item>()
-        if (script == null) return items  // script not approved; blockers shown elsewhere
+        if (script == null) return emptyList()
+        val (v2, story) = recap.toV2(script)
+        return check(v2, story)
+    }
 
-        val rows = RecapFit.rows(recap, script)
+    /**
+     * Runs all pre-flight checks for [recap] and its [story] (v2, audit F07: by block, with the chosen takes).
+     */
+    fun check(recap: RecapV2, story: RecapStory?, lexicon: Lexicon = Lexicon.EMPTY): List<Item> {
+        val items = mutableListOf<Item>()
+        if (story == null) return items  // script not approved; blockers shown elsewhere
+
+        val rows = RecapFit.rows(recap, story, lexicon)
 
         // 1. Segments with no voice at all
         val unvoiced = rows.count { it.takeMs == null }
@@ -32,7 +38,7 @@ object PreflightCheck {
         }
 
         // 2. Stale takes (text changed after recording)
-        val stale = script.segments.indices.count { RecapRules.isStale(recap, script, it) }
+        val stale = story.blocks.count { RecapRulesV2.isStale(recap, it, lexicon) }
         if (stale > 0) {
             items += Item(
                 "$stale take${if (stale == 1) "" else "s"} are stale (the script changed after recording).",

@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
-import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
 import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.Scenes
@@ -57,7 +57,7 @@ const val SCENES_PER_PAGE = 30
 
 /**
  * Movie Recap screen (docs/specs/recap.md §7): numbered cards 1 Movie · 2 Scenes · 3 Script · 4 Voice · 5 Fit check,
- * whose button calls [onGoToExport]. Locked cards say what to do first ([RecapRules]).
+ * whose button calls [onGoToExport]. Locked cards say what to do first ([RecapRulesV2]).
  */
 @Composable
 fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: () -> Unit = {}) {
@@ -102,7 +102,7 @@ private fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
             AfText("${state.movieName ?: movie.file} · ${clock(movie.durationMs)} · ${movie.width}×${movie.height}" +
                 (if (movie.hasAudio) "" else " · no sound") + " · ${movie.sizeBytes / (1024 * 1024)} MB")
         }
-        val gate = RecapRules.canImportMovie(recap.toV1())
+        val gate = RecapRulesV2.canImportMovie(recap)
         if (!gate.allowed) AfText(gate.blockers.first().text(), color = AutoFlowColors.Amber)
         AfButton(if (movie == null) IMPORT_MOVIE else "Replace movie", { model.importMovie() },
             kind = if (movie == null) ButtonKind.Primary else ButtonKind.Secondary, enabled = gate.allowed && !state.busy)
@@ -112,7 +112,7 @@ private fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
 @Composable
 private fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     AfCard("2 · Scenes") {
-        val gate = RecapRules.canFindScenes(recap.toV1())
+        val gate = RecapRulesV2.canFindScenes(recap)
         if (!gate.allowed) {
             AfText(gate.blockers.first().text(), muted = true)
             return@AfCard

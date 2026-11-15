@@ -6,8 +6,6 @@ import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.recap.RecapRules
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
-import io.github.alalkipgen.autoflow.core.recap.toV1
-import io.github.alalkipgen.autoflow.core.recap.toV1Script
 import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.core.workflow.Pipeline
 import io.github.alalkipgen.autoflow.core.workflow.PipelineStep
@@ -45,9 +43,8 @@ class ShellModel(private val session: ProjectSession) {
     private fun recapShell(p: Project): ShellUiState {
         val recapV2 = p.recap
         val story = recapV2?.story?.let { session.readJson(it, RecapStory.serializer()).getOrNull() }
-        val recap = recapV2?.toV1(story) ?: io.github.alalkipgen.autoflow.core.recap.Recap()
-        val script = story?.toV1Script()
-        val export = RecapRules.canRender(recap, script).blockers.firstOrNull()?.text()
+        val export = io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
+            .canRender(recapV2 ?: io.github.alalkipgen.autoflow.core.recap.RecapV2(), story).blockers.firstOrNull()?.text()
         val locks = SCREEN_STEPS.keys.filter { it != "Export" }.associateWith { RECAP_LOCK } + listOfNotNull(export?.let { "Export" to it })
         return ShellUiState(locks)
     }

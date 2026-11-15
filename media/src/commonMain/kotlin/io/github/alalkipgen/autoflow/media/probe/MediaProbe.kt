@@ -51,11 +51,17 @@ class MediaProbe(private val tools: ToolRunner, private val ffprobe: String) {
 
     companion object {
         private const val TIMEOUT_MS = 60_000L
+
+        /** ffmpeg arguments (after the binary) that write subtitle stream [index] of [movie] as SubRip [srt]. */
+        fun extractSubtitleArgs(movie: String, index: Int, srt: String): List<String> =
+            listOf("-hide_banner", "-y", "-nostdin", "-i", movie, "-map", "0:$index", "-c:s", "srt", srt)
         private val Lenient = Json { ignoreUnknownKeys = true; isLenient = true }
 
         fun args(file: String): List<String> = listOf(
             "-v", "error", "-print_format", "json",
-            "-show_entries", "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,duration:stream_tags=rotate:stream_side_data=rotation",
+            // `index` + `language` / `title` tags: subtitle tracks are extracted by their real stream index (audit F14).
+            "-show_entries", "format=duration:stream=index,codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,duration" +
+                ":stream_tags=rotate,language,title:stream_side_data=rotation",
             file,
         )
 
@@ -74,10 +80,12 @@ class MediaProbe(private val tools: ToolRunner, private val ffprobe: String) {
             val turned = video?.let { rotation(it) }?.let { abs(it) % 180 == 90 } == true
             val w = video?.get("width")?.jsonPrimitive?.intOrNull
             val h = video?.get("height")?.jsonPrimitive?.intOrNull
+            // A subtitle stream without its index cannot be extracted (`-map 0:<index>`), so it is left out — never
+            // given a made-up index (audit F14: both tracks became 0, the video stream).
             val subtitleTracks = streams
                 .filter { it.str("codec_type") == "subtitle" }
-                .mapIndexed { _, s ->
-                    val idx = s["index"]?.jsonPrimitive?.intOrNull ?: 0
+                .mapNotNull { s ->
+                    val idx = s["index"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
                     val codec = s.str("codec_name") ?: "unknown"
                     val tags = (s["tags"] as? JsonObject)
                     val lang = tags?.str("language")

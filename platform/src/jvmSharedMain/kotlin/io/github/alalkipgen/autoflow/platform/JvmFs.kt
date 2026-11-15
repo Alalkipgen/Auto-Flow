@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.platform
 
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.AccessDeniedException
@@ -9,6 +10,8 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * The :core [FileSystem] port on java.nio, shared by desktop and Android (D-18). Paths may use `/` or the native
@@ -83,11 +86,59 @@ class JvmFs internal constructor(
         syncDirectory(dst.toAbsolutePath().parent)
     }
 
+    /**
+     * One [ReentrantLock] per folder for the threads of this process (shared by every JvmFs), plus an OS
+     * `FileChannel.lock` on `<dir>/.cache/project.lock` for other processes; the OS lock is taken once per outermost
+     * call because the JVM refuses a second overlapping lock from the same process. `.cache/` is never backed up.
+     * Never creates [dir] itself. When the folder is missing or read-only, or its file system cannot lock (some
+     * network shares), only the in-process lock is held: a missing or read-only folder cannot be written anyway, and
+     * a share without locks gets no protection from other processes (a documented limit).
+     */
+    override fun <T> withFolderLock(dir: String, block: () -> T): T {
+        val folder = p(dir).toAbsolutePath().normalize()
+        val lock = FOLDER_LOCKS.computeIfAbsent(folder.toString()) { ReentrantLock() }
+        lock.lock()
+        try {
+            if (lock.holdCount > 1) return block()
+            val channel = openLockFile(folder) ?: return block()
+            try {
+                val osLock = try {
+                    channel.lock()
+                } catch (e: IOException) {
+                    null
+                }
+                try {
+                    return block()
+                } finally {
+                    osLock?.release()
+                }
+            } finally {
+                channel.close()
+            }
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private fun openLockFile(folder: Path): FileChannel? {
+        if (!Files.isDirectory(folder)) return null
+        return try {
+            val file = folder.resolve(LOCK_DIR).resolve(LOCK_FILE)
+            Files.createDirectories(file.parent)
+            FileChannel.open(file, StandardOpenOption.CREATE, StandardOpenOption.WRITE)
+        } catch (e: IOException) {
+            null
+        }
+    }
+
     private fun p(path: String): Path = Paths.get(path)
 
     private companion object {
         const val MOVE_ATTEMPTS = 5
         const val RETRY_DELAY_MS = 20L
+        const val LOCK_DIR = ".cache"
+        const val LOCK_FILE = "project.lock"
+        val FOLDER_LOCKS = ConcurrentHashMap<String, ReentrantLock>()
     }
 }
 

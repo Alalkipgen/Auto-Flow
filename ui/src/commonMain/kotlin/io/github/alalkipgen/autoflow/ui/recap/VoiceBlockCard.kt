@@ -24,8 +24,6 @@ import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
-import io.github.alalkipgen.autoflow.core.recap.RecapRules
-import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.VoiceSource
 import io.github.alalkipgen.autoflow.core.recap.VoiceTab
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -57,8 +55,8 @@ fun VoiceBlockCard(
     modifier: Modifier = Modifier,
 ) {
     val seg = script.segments.getOrNull(segmentIndex) ?: return
-    val take = RecapRules.currentTake(recap.toV1(), script, segmentIndex)
-    val stale = RecapRules.isStale(recap.toV1(), script, segmentIndex)
+    val take = state.currentTake(segmentIndex)
+    val stale = state.isStale(segmentIndex)
     val idle = !state.busy && state.recording == null
     var tab by remember { mutableStateOf(
         if (recap.voiceSource == VoiceSource.TTS) VoiceTab.SPEAK else VoiceTab.RECORD
@@ -105,22 +103,32 @@ private fun SpeakTab(
         AfButton("🔊 Speak", { model.speak(index) },
             kind = ButtonKind.Primary, enabled = idle && text.isNotBlank())
     }
-    // Per-chunk caption timing edit (D-52): edit startMs / endMs in mm:ss.s format.
-    TimingEditRow(seg.startMs, seg.endMs) { start, end -> model.saveSegmentTiming(index, start, end) }
+    // Per-chunk caption timing edit (D-53, audit F05): the caption window in voice time (0 = the take starts);
+    // saved as captions.chunkEdits — the movie clips are not changed.
+    val window = state.captionWindow(index) ?: return
+    TimingEditRow(window.first, window.second, state.hasCaptionTiming(index), { model.resetCaptionTiming(index) }) { start, end ->
+        model.saveSegmentTiming(index, start, end)
+    }
 }
 
-/** Inline timing editor: shows current start/end, two text fields, Save button (D-52). */
+/**
+ * Inline caption timing editor (D-53, audit F05): the caption's start / end in the voice take (m:ss.s, 0 = the take
+ * starts), two text fields, Save; "Automatic" drops the owner's timing.
+ */
 @Composable
-private fun TimingEditRow(startMs: Long, endMs: Long, onSave: (Long, Long) -> Unit) {
+internal fun TimingEditRow(startMs: Long, endMs: Long, custom: Boolean, onReset: () -> Unit, onSave: (Long, Long) -> Boolean) {
     var editing by remember(startMs, endMs) { mutableStateOf(false) }
     var startText by remember(startMs) { mutableStateOf(msToField(startMs)) }
     var endText by remember(endMs) { mutableStateOf(msToField(endMs)) }
 
     if (!editing) {
-        AfText("⏱ ${msToField(startMs)} → ${msToField(endMs)}", muted = true, size = 11.sp)
-        AfButton("Edit timing…", { editing = true }, enabled = true)
+        AfText("⏱ Captions ${msToField(startMs)} → ${msToField(endMs)} of the voice${if (custom) "" else " (automatic)"}", muted = true, size = 11.sp)
+        WrapRow {
+            AfButton("Edit caption timing…", { editing = true }, enabled = true)
+            if (custom) AfButton("Automatic", onReset)
+        }
     } else {
-        AfText("Edit timing (mm:ss.s)", bold = true, size = 12.sp)
+        AfText("Caption timing in the voice (m:ss.s)", bold = true, size = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             io.github.alalkipgen.autoflow.ui.components.AfTextField(
                 startText, { startText = it }, "Start",
@@ -136,7 +144,7 @@ private fun TimingEditRow(startMs: Long, endMs: Long, onSave: (Long, Long) -> Un
             AfButton("Save", {
                 val s = fieldToMs(startText)
                 val e = fieldToMs(endText)
-                if (s != null && e != null) { onSave(s, e); editing = false }
+                if (s != null && e != null && onSave(s, e)) editing = false
             }, kind = ButtonKind.Primary)
             AfButton("Cancel", { editing = false })
         }
@@ -171,7 +179,7 @@ private fun RecordTab(
     index: Int,
     idle: Boolean,
     seg: io.github.alalkipgen.autoflow.core.recap.RecapSegment,
-    take: io.github.alalkipgen.autoflow.core.recap.VoiceTake?,
+    take: io.github.alalkipgen.autoflow.core.recap.BlockTake?,
     stale: Boolean,
     playing: Boolean,
     onPlay: () -> Unit,
@@ -203,7 +211,7 @@ private fun CleanTab(
     state: RecapUiState,
     index: Int,
     idle: Boolean,
-    take: io.github.alalkipgen.autoflow.core.recap.VoiceTake?,
+    take: io.github.alalkipgen.autoflow.core.recap.BlockTake?,
 ) {
     if (take == null) {
         AfText("Record or import a take first.", muted = true)

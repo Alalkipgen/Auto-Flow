@@ -160,6 +160,11 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
                 color = AutoFlowColors.Green,
             )
             AfText(s.output.substringAfterLast('/').let { "exports/$it" }, muted = true, mono = true)
+            // Audit F09: say how the loudness target was met — never claim two-pass when it fell back.
+            s.loudness?.let { l ->
+                val line = if (l.twoPass) "Loudness: two-pass to ${l.targetLufs} LUFS" else "Loudness: ${l.note ?: "one-pass to ${l.targetLufs} LUFS"}"
+                AfText(line, Modifier.testTag("export-loudness"), muted = true, size = 11.sp)
+            }
             WrapRow {
                 AfButton("Open", model::open, kind = ButtonKind.Primary)
                 AfButton("Share…", model::share)

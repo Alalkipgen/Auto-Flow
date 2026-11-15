@@ -194,11 +194,9 @@ data class RecapV2(
     val style: RecapStyle get() = RecapStyle.PLAIN
     /** Script register — not stored in RecapV2 directly. */
     val register: RecapRegister get() = RecapRegister.SPOKEN
-    /** Fit choice for segment [index] by blockId or fallback key "b_seg{index}". */
-    fun fitChoice(index: Int): FitChoice? {
-        val byIndex = fit["b_seg$index"] ?: fit.values.toList().getOrNull(index)
-        return byIndex?.let { runCatching { FitChoice.valueOf(it) }.getOrNull() }
-    }
+    /** The Smart Fit choice saved for block [blockId] (`fit` is keyed by block id), null = default (EXTEND). */
+    fun fitChoice(blockId: String): FitChoice? =
+        fit[blockId]?.let { runCatching { FitChoice.valueOf(it) }.getOrNull() }
     /** The chosen take of [blockId], else its newest. */
     fun takeFor(blockId: String): BlockTake? {
         val mine = takes.filter { it.block == blockId }
