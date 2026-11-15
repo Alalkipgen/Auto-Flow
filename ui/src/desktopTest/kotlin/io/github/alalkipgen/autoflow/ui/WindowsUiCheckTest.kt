@@ -110,7 +110,7 @@ class WindowsUiCheckTest {
             dashboard.createMusicVideo(home, "ကျွန်တော် မိုးရွာနေတဲ့ ညမှာ")
             dashboard.createMusicVideo(home, "မိုးရေစက် (Rain drops)")
             koin.get<CurrentProject>().set(null)
-            setContent { CompositionLocalProvider(LocalDensity provides Density(2f)) { App() } }
+            setContent { CompositionLocalProvider(LocalDensity provides Density(2f)) { TestApp() } }
             save(dir, "phone-dashboard")
             onNodeWithText("New Music Video").performClick()
             save(dir, "phone-new-project")

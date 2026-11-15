@@ -124,7 +124,7 @@ class PhoneShellTest {
     fun tabLabelsFitWithALargeFontSize() = runDesktopComposeUiTest(width = 412, height = 900) {
         startPhoneKoin()
         // The owner's phone uses a large font size: "Storyboard" was cut to "Storyboa…" in v0.1.6.
-        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, fontScale = 1.5f)) { App() } }
+        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, fontScale = 1.5f)) { TestApp() } }
         PhoneTabs.forEach { (_, label) ->
             val layouts = mutableListOf<TextLayoutResult>()
             onNode(hasText(label, substring = true) and hasParent(isSelectable()), useUnmergedTree = true).fetchSemanticsNode()
