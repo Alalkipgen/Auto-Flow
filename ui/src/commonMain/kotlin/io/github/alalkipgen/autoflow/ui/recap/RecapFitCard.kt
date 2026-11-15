@@ -101,7 +101,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: Recap, onGoT
         }
         RecapPictureControls(recap, idle, model)
         AfSwitch(BURN_CAPTIONS, recap.burnCaptions, { if (idle) model.setBurnCaptions(it) })
-        if (recap.burnCaptions) CaptionStyleControls(recap.captionStyle, idle, model)
+        // Caption style settings are in RecapPictureControls → ✍️ Captions section (D-58).
         if (recap.burnCaptions) {
         // Brand Kit save (5B-3, D-51) and Caption Preset save (5B-8, D-51)
         var showBrandKitName by remember { mutableStateOf("") }

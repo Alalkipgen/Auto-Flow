@@ -190,6 +190,24 @@ fun AfTextField(
     }
 }
 
+/**
+ * Section heading (H2) — 16 sp bold, used for top-level feature sections inside a screen or card (D-58).
+ * Example: "✍️ Captions", "💧 Watermark"
+ */
+@Composable
+fun AfH2(text: String, modifier: Modifier = Modifier) {
+    AfText(text, modifier, size = 16.sp, bold = true)
+}
+
+/**
+ * Sub-section heading (H3) — 13 sp bold, used for option groups within a section (D-58).
+ * Example: "Colour", "Stroke width"
+ */
+@Composable
+fun AfH3(text: String, modifier: Modifier = Modifier) {
+    AfText(text, modifier, size = 13.sp, bold = true)
+}
+
 /** Panel card with a [title] (DESIGN.md §1: radius 12, 1px border, no shadow). */
 @Composable
 fun AfCard(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {

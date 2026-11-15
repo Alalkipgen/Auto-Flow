@@ -37,6 +37,8 @@ import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfCard
+import io.github.alalkipgen.autoflow.ui.components.AfH2
+import io.github.alalkipgen.autoflow.ui.components.AfH3
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
@@ -59,7 +61,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
     val v = recap.visual
     // ── 🎬 Output ──────────────────────────────────────────────────────────────
     AfCard("🎬 Output") {
-        AfText("Video ratio", muted = true, size = 12.sp)
+        AfH3("Video ratio")
         WrapRow {
             AfChip("9:16 (default)", v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
             Ratio.entries.forEach { r ->
@@ -79,7 +81,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
         if (v.masks.isNotEmpty()) {
             MaskPreview(recap, model)
             WrapRow {
-                AfText("Blur strength", muted = true, size = 12.sp)
+                AfH3("Blur strength")
                 MaskStrength.entries.forEach { s ->
                     AfChip(s.label, v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
                 }
@@ -141,7 +143,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
             }
         }
         if (v.watermarkFile != null) {
-            AfText("Position", muted = true, size = 12.sp)
+            AfH3("Position")
             WrapRow {
                 WatermarkAnchor.entries.forEach { anchor ->
                     AfChip(anchor.label, v.watermarkAnchor == anchor, { if (idle) model.setWatermarkAnchor(anchor) })
@@ -153,7 +155,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
     // ── ✍️ Captions ────────────────────────────────────────────────────────────
     AfCard("✍️ Captions") {
         // Colour presets
-        AfText("Colour", muted = true, size = 12.sp)
+        AfH3("Colour")
         WrapRow {
             CaptionStyle.COLOURS.forEach { (name, hex) ->
                 AfChip(
@@ -164,7 +166,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
             }
         }
         // Custom hex override
-        AfText("Custom colour (#RRGGBB)", muted = true, size = 12.sp)
+        AfH3("Custom colour (#RRGGBB)")
         var colourInput by remember { mutableStateOf(recap.captionStyle.customColour ?: "") }
         WrapRow {
             AfTextField(colourInput, { colourInput = it }, "#RRGGBB")
@@ -176,7 +178,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
             }
         }
         // Size presets + custom factor
-        AfText("Size", muted = true, size = 12.sp)
+        AfH3("Size")
         WrapRow {
             io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { sz ->
                 AfChip(sz.label, recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
@@ -184,7 +186,7 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
                 })
             }
         }
-        AfText("Custom size factor (0.5–3.0)", muted = true, size = 12.sp)
+        AfH3("Custom size factor (0.5–3.0)")
         var sizeInput by remember { mutableStateOf(recap.captionStyle.customSizeFactor?.toString() ?: "") }
         WrapRow {
             AfTextField(sizeInput, { sizeInput = it }, "e.g. 1.5")
@@ -196,14 +198,14 @@ internal fun RecapPictureControls(recap: Recap, idle: Boolean, model: RecapModel
             }
         }
         // Stroke
-        AfText("Outline / Stroke width (0 = auto)", muted = true, size = 12.sp)
+        AfH3("Outline / Stroke width")
         WrapRow {
             listOf("Off" to 0, "Thin" to 1, "Medium" to 3, "Thick" to 6).forEach { (label, px) ->
                 AfChip(label, recap.captionStyle.strokeWidth == px, { if (idle) model.setCaptionStrokeWidth(px) })
             }
         }
         if (recap.captionStyle.strokeWidth > 0) {
-            AfText("Outline colour", muted = true, size = 12.sp)
+            AfH3("Outline colour")
             WrapRow {
                 CaptionStyle.STROKE_COLOURS.forEach { (name, hex) ->
                     AfChip(name, recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStrokeColour(hex) })

@@ -97,6 +97,14 @@ class LibraryModel(
      * The caller (LibraryModel or RecapModel) updates `project.recap` for captionStyle.
      * Returns the decoded [CaptionStyle] when present, so callers can apply it.
      */
+    /** Delete a Brand Kit by id (D-58). */
+    fun deleteBrandKit(id: String) {
+        val lib = store.load()
+        store.save(lib.copy(brandKits = lib.brandKits.filter { it.id != id }))
+        refresh()
+        say("Brand kit deleted.", ok = true)
+    }
+
     fun applyBrandKit(id: String): CaptionStyle? {
         val kit = _state.value.library.brandKits.find { it.id == id } ?: return run { say("Brand kit not found"); null }
         val open = session.open ?: return run { say("No project is open"); null }

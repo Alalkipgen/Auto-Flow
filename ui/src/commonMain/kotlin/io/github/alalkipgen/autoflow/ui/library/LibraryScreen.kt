@@ -82,7 +82,11 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
                     AfText(kit.name, bold = true)
                     if (kit.colours.isNotEmpty()) AfText("Colours: ${kit.colours.joinToString()}", muted = true, size = 12.sp)
                     if (kit.captionStyle != null) AfText("Caption style: saved", muted = true, size = 12.sp)
-                    AfButton("Apply to current project", { model.applyBrandKit(kit.id) })
+                    if (kit.watermark != null) AfText("Watermark: ${kit.watermark!!.substringAfterLast('/')}", muted = true, size = 12.sp)
+                    WrapRow {
+                        AfButton("Apply to current project", { model.applyBrandKit(kit.id) })
+                        AfButton("🗑 Delete", { model.deleteBrandKit(kit.id) }, kind = ButtonKind.Danger)
+                    }
                 }
             }
         }

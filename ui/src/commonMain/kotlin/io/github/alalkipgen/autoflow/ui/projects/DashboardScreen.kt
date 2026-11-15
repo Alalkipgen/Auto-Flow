@@ -137,6 +137,26 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
 
 @Composable
 private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { confirmDelete = false }) {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier
+                    .fillMaxWidth(0.85f)
+                    .clip(AutoFlowShapes.Card)
+                    .background(AutoFlowColors.Panel)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                AfText("Remove \"${row.entry.name}\" from the list?", bold = true)
+                AfText("The folder is not deleted — only removed from the Projects list.", muted = true)
+                WrapRow {
+                    AfButton("Remove", { onRemove(); confirmDelete = false }, kind = ButtonKind.Danger)
+                    AfButton("Cancel", { confirmDelete = false })
+                }
+            }
+        }
+    }
     val e = row.entry
     val box = Modifier
         .fillMaxWidth()
@@ -164,6 +184,7 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
                     AfText(e.ratio.label, muted = true)
                     AfText(shots, color = shotsColor)
                     AfText(relativeTime(e.lastOpenedAt, now), muted = true)
+                    AfButton("🗑", { confirmDelete = true }, kind = ButtonKind.Danger)
                 }
             }
         }
@@ -182,6 +203,7 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             AfText(e.ratio.label, muted = true)
             AfText(shots, color = shotsColor)
             AfText(relativeTime(e.lastOpenedAt, now), muted = true)
+            AfButton("🗑", { confirmDelete = true }, kind = ButtonKind.Danger)
         }
     }
 }
