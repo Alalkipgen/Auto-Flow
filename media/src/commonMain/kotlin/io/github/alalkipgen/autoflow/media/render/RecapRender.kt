@@ -56,13 +56,8 @@ object RecapRender {
         val cues = layout.mapNotNull { p ->
             p.voiced?.let { VoiceCue(it.file, p.startMs + RecapFit.LEAD_MS, speedFactor = p.row.voiceSpeed) }
         }
-        val onMask = captionY(recap, output)
         val overlays = if (font == null || !recap.burnCaptions) emptyList() else captions(layout, recap, story, output).map { c ->
-            Overlay(
-                c.text, c.startMs, c.endMs, font, captionSizePx(output, recap.captionStyle),
-                color = recap.captionStyle.effectiveColour, centerY = onMask, box = recap.captionStyle.box,
-                strokeWidth = recap.captionStyle.strokeWidth, strokeColour = recap.captionStyle.strokeColour,
-            )
+            captionOverlay(recap, output, c, font)
         }
         // Brand Kit watermark layer (5B-3, D-52/D-56): position driven by watermarkAnchor.
         val watermarkLayers = recap.visual.watermarkFile?.let { wf ->
@@ -125,6 +120,53 @@ object RecapRender {
             zoom = Look.ZOOM in recap.looks, fill = Look.FILL in recap.looks,
         )
         return y.takeIf { it in 0.05f..0.95f }
+    }
+
+    /**
+     * Captions on a box are centred on it across too (a Custom box need not be in the middle, S10), after Mirror /
+     * Zoom / Fill like the box; null with no caption box, as [captionY]. A full-width strip's centre is the frame's
+     * centre, as before.
+     */
+    fun captionX(recap: RecapV2, output: Output): Float? {
+        captionY(recap, output) ?: return null
+        val mask = recap.visual.captionMask ?: return null
+        val movie = recap.movie ?: return null
+        // Mirror flips the picture after the boxes are blurred: the box (and its caption) lands on the other side.
+        val x = if (Look.MIRROR in recap.looks) 1f - mask.centerX else mask.centerX
+        return RecapVisuals.outputX(
+            x, movie.width, movie.height, output.width, output.height,
+            zoom = Look.ZOOM in recap.looks, fill = Look.FILL in recap.looks,
+        ).coerceIn(0.05f, 0.95f)
+    }
+
+    /** One burned-in caption cue as the export draws it: size, colour, outline or box, on the caption box or at the bottom. */
+    fun captionOverlay(recap: RecapV2, output: Output, cue: SrtCue, font: String): Overlay = Overlay(
+        cue.text, cue.startMs, cue.endMs, font, captionSizePx(output, recap.captionStyle),
+        color = recap.captionStyle.effectiveColour, centerY = captionY(recap, output), centerX = captionX(recap, output),
+        box = recap.captionStyle.box, strokeWidth = recap.captionStyle.strokeWidth, strokeColour = recap.captionStyle.strokeColour,
+    )
+
+    /**
+     * Where the export draws the captions, in the Recap preview's terms (5A-8 / S10): [x] / [y] in 0–1 of the movie
+     * picture — the centre of the caption, or with [bottom] the centre of its bottom edge (the usual place, ASS `\an2`);
+     * [emOfPicture] = the caption's em size over the movie-picture height. Null when the caption sits outside the
+     * picture (on the bars or the background), where the preview cannot show it.
+     */
+    data class CaptionSpot(val x: Float, val y: Float, val bottom: Boolean, val emOfPicture: Float)
+
+    fun captionSpot(recap: RecapV2, output: Output): CaptionSpot? {
+        val movie = recap.movie ?: return null
+        val zoom = Look.ZOOM in recap.looks
+        val fill = Look.FILL in recap.looks
+        val oy = captionY(recap, output)
+        val ox = captionX(recap, output) ?: 0.5f
+        val y = oy ?: (1f - AssWriter.MARGIN_PERCENT / 100f)
+        val mx = RecapVisuals.movieX(ox, movie.width, movie.height, output.width, output.height, zoom, fill)
+            .let { if (Look.MIRROR in recap.looks) 1f - it else it }
+        val my = RecapVisuals.movieY(y, movie.width, movie.height, output.width, output.height, zoom, fill)
+        if (mx !in 0f..1f || my !in 0f..1f) return null
+        val em = captionSizePx(output, recap.captionStyle) / RecapVisuals.pictureHeightPx(movie.width, movie.height, output.width, output.height, zoom, fill)
+        return CaptionSpot(mx, my, bottom = oy == null, emOfPicture = em)
     }
 
     fun captionY(recap: Recap, output: Output): Float? {

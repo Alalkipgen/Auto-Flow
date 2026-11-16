@@ -105,7 +105,8 @@ object AssWriter {
 
     private fun hex2(v: Int) = v.toString(16).uppercase().padStart(2, '0')
 
-    private const val MARGIN_PERCENT = 8
+    /** The usual top / bottom caption place: this much of the height from the edge. */
+    const val MARGIN_PERCENT = 8
 
     /** Black at about 40 % see-through for caption boxes. */
     private const val BOX_COLOUR = "&H60000000"
