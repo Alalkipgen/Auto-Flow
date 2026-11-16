@@ -153,7 +153,7 @@ class DashboardModelTest {
         assertEquals(60_000L, reopened.targetMs, "after a reopen")
 
         // The consumers: the fit-check footer and the Scenes header's off-target rule (v1 adapter).
-        assertEquals("Recap 0:00 (target 1:00) · 0 of 0 voiced", fitFooter(reopened, emptyList()))
+        assertEquals("Recap 0:00 (ပစ်မှတ် 1:00) · 0 ခုအနက် 0 ခု အသံပါ", fitFooter(reopened, emptyList()))
         val v1 = reopened.toV1().copy(scenes = listOf(RecapScene(0, 60_000, picked = true)))
         assertFalse(Scenes.offTarget(v1), "60 s picked is on a 60 s target")
         assertTrue(Scenes.offTarget(v1.copy(scenes = listOf(RecapScene(0, 300_000, picked = true)))), "5 min picked is off it")

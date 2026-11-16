@@ -38,15 +38,16 @@ import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.i18n.My
 
 /** Human-readable badge label + color for each [ShotStatus]. */
 fun ShotStatus.badgeLabel(): String = when (this) {
-    ShotStatus.DRAFT -> "Draft"
+    ShotStatus.DRAFT -> io.github.alalkipgen.autoflow.ui.i18n.My.DRAFT
     ShotStatus.PROMPT_READY -> "✓ Prompt"
-    ShotStatus.NEEDS_FLOW -> "→ Flow"
-    ShotStatus.IMPORTED -> "Imported"
-    ShotStatus.ACCEPTED -> "✓ Accepted"
-    ShotStatus.STALE -> "⚠ Stale"
+    ShotStatus.NEEDS_FLOW -> "→ ${io.github.alalkipgen.autoflow.ui.i18n.My.NEEDS_FLOW}"
+    ShotStatus.IMPORTED -> io.github.alalkipgen.autoflow.ui.i18n.My.IMPORTED
+    ShotStatus.ACCEPTED -> "✓ ${io.github.alalkipgen.autoflow.ui.i18n.My.ACCEPTED}"
+    ShotStatus.STALE -> "⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}"
 }
 
 fun ShotStatus.badgeColor(): Color = when (this) {
@@ -131,7 +132,7 @@ internal fun ShotRowItem(row: ShotRow, selected: Boolean, onClick: () -> Unit) {
         AfText("Shot ${row.number}", bold = true, size = 13.sp)
         AfText(row.timecode, muted = true, size = 12.sp)
         Box(Modifier.weight(1f)) {
-            AfText(row.lyric.ifBlank { "—" }, muted = row.lyric.isBlank(), size = 12.sp)
+            AfText(My.breakSyllables(row.lyric.ifBlank { "—" }), muted = row.lyric.isBlank(), size = 12.sp)
         }
         StatusBadge(row.status)
     }
@@ -158,7 +159,7 @@ private fun ShotDetailPanel(detail: ShotDetail, model: ShotsModel) {
             AfText(detail.timecode, muted = true, size = 13.sp)
             StatusBadge(detail.status)
         }
-        detail.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 13.sp) }
+        detail.lyric.takeIf { it.isNotBlank() }?.let { AfText(My.breakSyllables(it), size = 13.sp) }
 
         AfText("Pass: ${passLabel(detail.pass)}", muted = true, size = 12.sp)
 
@@ -199,20 +200,20 @@ internal fun PromptSection(detail: ShotDetail, model: ShotsModel) {
             ) {
                 AfText(detail.promptText, size = 12.sp)
             }
-            val approveLabel = if (detail.approvedPrompt) "✓ Approved" else "✓ Approve Prompt"
+            val approveLabel = if (detail.approvedPrompt) "✓ ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVED}" else "✓ Prompt ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVE}"
             WrapRow {
                 AfButton(approveLabel,
                     { model.approvePrompt(detail.number, !detail.approvedPrompt) },
                     kind = if (detail.approvedPrompt) ButtonKind.Primary else ButtonKind.Secondary,
                 )
                 if (confirmCompile) {
-                    AfButton("Recompile? Yes", {
+                    AfButton("ပြန်စုစည်းမလား? ဟုတ်ကဲ့", {
                         confirmCompile = false
                         model.compilePrompt(detail.number)
                     }, kind = ButtonKind.Danger)
-                    AfButton("Cancel", { confirmCompile = false })
+                    AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { confirmCompile = false })
                 } else {
-                    AfButton("↻ Recompile", { confirmCompile = true }, kind = ButtonKind.Secondary)
+                    AfButton("↻ ပြန်စုစည်းမယ်", { confirmCompile = true }, kind = ButtonKind.Secondary)
                 }
             }
         }
@@ -220,10 +221,10 @@ internal fun PromptSection(detail: ShotDetail, model: ShotsModel) {
             AfText("Cannot compile: ${detail.compileError}", color = AutoFlowColors.Amber, size = 12.sp)
         }
         detail.spec != null -> {
-            AfText("Not compiled yet.", muted = true, size = 12.sp)
-            AfButton("Compile Prompt", { model.compilePrompt(detail.number) }, kind = ButtonKind.Primary)
+            AfText("မစုစည်းရသေးပါ။", muted = true, size = 12.sp)
+            AfButton("Prompt စုစည်းမယ်", { model.compilePrompt(detail.number) }, kind = ButtonKind.Primary)
         }
-        else -> AfText("Generate storyboard first.", muted = true, size = 12.sp)
+        else -> AfText("Storyboard အရင် ထုတ်ပါ။", muted = true, size = 12.sp)
     }
 }
 
@@ -252,18 +253,19 @@ internal fun VersionBrowser(detail: ShotDetail, model: ShotsModel) {
 
 internal fun passLabel(pass: Pass): String = if (pass == Pass.FINAL) "Final (Quality)" else "Draft (Fast)"
 
-internal fun versionsTitle(n: Int): String = if (n == 1) "Video (1 version)" else "Videos ($n versions)"
+internal fun versionsTitle(n: Int): String = "ဗွီဒီယို ($n မျိုး)"
 
 /** `v2 · Final (Quality) · 2026-11-12 10:00 · ✓ Accepted`. */
 internal fun versionLine(v: VideoVersion): String = buildList {
     add("v${v.version}")
     v.pass?.let { add(passLabel(it)) }
     if (v.importedAt.isNotBlank()) add(v.importedAt)
-    if (v.accepted) add("✓ Accepted")
+    if (v.accepted) add("✓ ${io.github.alalkipgen.autoflow.ui.i18n.My.ACCEPTED}")
 }.joinToString(" · ")
 
-internal const val PREVIEW_VERSION_BUTTON = "▶ Preview"
-internal const val USE_VERSION_BUTTON = "Use this version"
+internal const val PREVIEW_VERSION_BUTTON = "▶ ကြည့်မယ်"
+/** Accepts this one version (the Flow handoff card's "✓ ဗွီဒီယို လက်ခံမယ်" accepts the newest import). */
+internal const val USE_VERSION_BUTTON = "✓ ဒီဗားရှင်း လက်ခံမယ်"
 internal const val DRAFT_ACCEPTED_HINT =
     "The accepted video is a Draft (Fast). For the final cut: Flow Handoff → Pass: Final (Quality), import the new video, then use it here."
 

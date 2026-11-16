@@ -88,11 +88,11 @@ class AppShellSmokeTest {
     fun previewFeatureChangeFromAnotherSettingsStoreModelUpdatesTheRealShellGate() = runComposeUiTest {
         val koin = startKoin { modules(fakePlatformModule(), uiModule, aiModule) }.koin
         setContent { TestApp() }
-        onNodeWithText("Quick Recap", substring = true).assertDoesNotExist()
+        onNodeWithText("အမြန် Recap", substring = true).assertDoesNotExist()
         // Self-test owns another SettingsModel; App must observe the shared SettingsStore, not a stale snapshot.
         koin.get<io.github.alalkipgen.autoflow.ui.settings.SettingsModel>().setFeature("studioV2", true)
         waitForIdle()
-        onNodeWithText("Home").assertExists()
+        onNodeWithText(io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest.HOME.label).assertExists()
         koin.get<io.github.alalkipgen.autoflow.ui.settings.SettingsModel>().setFeature("studioV2", false)
         waitForIdle()
         onNodeWithText("Dashboard").assertExists()

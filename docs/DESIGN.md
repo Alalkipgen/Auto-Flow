@@ -59,6 +59,8 @@ Bottom nav: Projects · Storyboard · Shots · Inbox · More (Input, References,
 ## 6. Copy (Burmese UI strings — keep these exact)
 Approve = "အတည်ပြုမယ်" · Edit = "ပြင်မယ်" · Regenerate = "ပြန်ထုတ်မယ်" · Copy Prompt = "Prompt ကူးမယ်" · Needs Flow = "Flow မှာ လုပ်ရန်" · Stale = "ပြန်ထုတ်ရန် လိုသည်" · Accept video = "ဗွီဒီယို လက်ခံမယ်"
 
+Studio v2 words (D-67, code: `ui/i18n/My.kt`): nav ပင်မ · ပရောဂျက်များ · စာကြည့်တိုက် · အလုပ်များ; Recap steps ရင်းမြစ် · ဇာတ်လမ်း · အသံ · ပုံစံ · ထုတ်ယူ ("← ယခင်အဆင့်", "နောက်အဆင့်: ပုံစံ →"); chips Export = ထုတ်ယူ, Input = ထည့်သွင်း, Shot sheet = Shot စာရွက်, Inbox = ဝင်စာ, Classic steps = အဆင့်ဟောင်းများ, Classic Recap = "Recap ပုံစံဟောင်း"; "Use this version" = "✓ ဒီဗားရှင်း လက်ခံမယ်" (distinct from Accept video). Product names stay English (Recap, Music Video, Flow, Prompt, Storyboard, Shot, Gemini). Narrow labels and user lyrics carry U+200B between Burmese syllables so a line never breaks inside a syllable.
+
 ## 7. Studio v2 (Phase 5, D-40)
 Mockups: `docs/mockups/phase5.html` — eight AI-drawn screens with English labels (image models garble Burmese); the app uses Burmese strings (§6). Known mockup slips: Quick Recap card numbers repeat (should be 1–5); the desktop script box shows a quote instead of narration.
 
@@ -69,7 +71,7 @@ Home · Projects · Library · Jobs. Phone (< 600 dp): bottom nav. ≥ 600 dp: n
 Continue (last project + its step) · Quick Recap card (movie → length → style → Start; "stops only for your approval") · Create: Recap · Music Video (· Dubbing when Labs is on) · Quick tools: Voice & Audio, Subtitles · Running jobs (progress, ETA).
 
 ### Recap — five steps
-Step header "Voice · 3/5" with back / next (no tab bar: Burmese labels at a large font do not fit). Steps: Source · Story · Voice · Style · Export. Small preview on Story and Voice, big preview on Style.
+Step header "Voice · 3/5" (shown "အသံ · 3/5") with back / next (no tab bar: Burmese labels at a large font do not fit). Steps: Source · Story · Voice · Style · Export. Small preview on Story and Voice, big preview on Style.
 - **Source:** movie card (length, size, sound), subtitle tracks (Extract), `.srt` import, summary, "Transcribe picked scenes" (confirm card: requests, today's usage), scenes with picks and target chips (as Phase 4).
 - **Story:** block list — #, time, thumbnail, first line, chips ✓ Fits · +1.8 s · No voice · ⚠ Stale · Different voice. Tap → block editor: text (written / spoken toggle, speak-as line), clips (trim, add range, split, merge), take (▶, Speak, Record), Smart Fit choice. "Approve story" at the bottom.
 - **Voice:** voice lock card ("Gemini 3.8 Flash TTS · Charon · locked", "Change voice…" says what becomes stale), Speak all (requests + ETA → Jobs), takes per block. Voice & Audio for one block ("← Block 12"): tabs Speak · Record (teleprompter: current line big, next line muted) · Clean (polish, trim silences) · Clone (Labs only).

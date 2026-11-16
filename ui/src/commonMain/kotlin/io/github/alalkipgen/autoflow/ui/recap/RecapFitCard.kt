@@ -32,25 +32,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
-const val GO_TO_EXPORT = "Go to Export →"
-const val BURN_CAPTIONS = "Burn captions into the video"
+const val GO_TO_EXPORT = "ထုတ်ယူ သို့ သွားမယ် →"
+const val BURN_CAPTIONS = "စာတန်းကို ဗွီဒီယိုထဲ မြှုပ်မယ်"
 
 /** What a fit row says (spec §6): "✓ fits", "+1.8 s: the scene runs on", "No voice", "⚠ Stale". */
 fun FitRow.label(): String = when (status) {
-    FitStatus.FITS -> "✓ fits"
-    FitStatus.RUNS_ON -> "+${seconds(overMs)}: the scene runs on"
-    FitStatus.NO_VOICE -> "No voice"
-    FitStatus.STALE -> "⚠ Stale: record or speak it again"
+    FitStatus.FITS -> "✓ ကိုက်တယ်"
+    FitStatus.RUNS_ON -> "+${seconds(overMs)}: ပြကွက်က ပိုရှည်နေတယ်"
+    FitStatus.NO_VOICE -> io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE
+    FitStatus.STALE -> "⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}: ပြန်သွင်း ဒါမှမဟုတ် ပြန်ပြောပါ"
 }
 
 /** Footer: "Recap 4:51 (target 5:00) · 12 of 14 voiced". */
 fun fitFooter(recap: RecapV2, rows: List<FitRow>): String =
-    "Recap ${clock(RecapFit.totalMs(rows))} (target ${clock(recap.targetMs)}) · ${rows.count { it.takeMs != null }} of ${rows.size} voiced"
+    "Recap ${clock(RecapFit.totalMs(rows))} (ပစ်မှတ် ${clock(recap.targetMs)}) · ${rows.size} ခုအနက် ${rows.count { it.takeMs != null }} ခု အသံပါ"
 
 /** Card 5 · Fit check (docs/specs/recap.md §6): one row per scene, movie sound, looks, captions, then Export. */
 @Composable
 internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onGoToExport: () -> Unit) {
-    AfCard("5 · Fit check") {
+    AfCard("5 · ကိုက်ညီမှု စစ်ဆေး") {
         val story = state.story
         RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let {
             AfText(it.text(), muted = true)
@@ -62,7 +62,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         rows.forEach { row ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfText("${row.segment + 1}", muted = true, mono = true)
-                AfText("${seconds(row.sceneMs)} scene" + (row.takeMs?.let { " · ${seconds(it)} voice" } ?: ""), Modifier.weight(1f))
+                AfText("ပြကွက် ${seconds(row.sceneMs)}" + (row.takeMs?.let { " · အသံ ${seconds(it)}" } ?: ""), Modifier.weight(1f))
                 AfText(
                     row.label(),
                     color = when (row.status) {
@@ -77,14 +77,14 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
             if (row.status == FitStatus.RUNS_ON && row.overMs > 400) {
                 val block = row.block ?: story.blocks[row.segment].id
                 val current = recap.fitChoice(block) ?: FitChoice.EXTEND
-                AfText("Fix (+${seconds(row.overMs)} over):", muted = true, size = 11.sp)
+                AfText("ပြင်ရန် (+${seconds(row.overMs)} ပို):", muted = true, size = 11.sp)
                 WrapRow {
                     listOf(
-                        FitChoice.EXTEND to "Extend clip",
-                        FitChoice.NEXT_RANGE to "Next range",
-                        FitChoice.SPEED to "Speed voice",
-                        FitChoice.SLOW_VIDEO to "Slow video",
-                        FitChoice.FREEZE to "Freeze frame",
+                        FitChoice.EXTEND to "Clip ဆန့်မယ်",
+                        FitChoice.NEXT_RANGE to "နောက်အပိုင်း ယူမယ်",
+                        FitChoice.SPEED to "အသံ မြန်စေမယ်",
+                        FitChoice.SLOW_VIDEO to "ဗွီဒီယို နှေးစေမယ်",
+                        FitChoice.FREEZE to "ပုံ ရပ်ထားမယ်",
                     ).forEach { (choice, label) ->
                         AfChip(label, current == choice, onClick = { model.setFitChoice(block, choice) })
                     }
@@ -93,12 +93,12 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         }
         AfText(fitFooter(recap, rows), bold = true)
         val idle = !state.busy && state.recording == null
-        AfText("Movie sound under the voice", muted = true, size = 12.sp)
+        AfText("အသံအောက်က ရုပ်ရှင်အသံ", muted = true, size = 12.sp)
         WrapRow {
             RecapModel.MOVIE_VOLUMES.forEach { (name, v) -> AfChip(name, recap.movieVolume == v, { if (idle) model.setMovieVolume(v) }) }
         }
         RecapSoundControls(recap.audio, state.bgmName, idle, model)
-        AfText("Looks (change the movie picture)", muted = true, size = 12.sp)
+        AfText("Looks (ရုပ်ရှင်ပုံ ပြောင်းမယ်)", muted = true, size = 12.sp)
         WrapRow {
             RecapModel.LOOKS.forEach { (look, name) -> AfChip(name, look in recap.looks, { if (idle) model.toggleLook(look) }) }
         }
@@ -110,31 +110,31 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         var showBrandKitName by remember { mutableStateOf("") }
         var showCaptionPresetName by remember { mutableStateOf("") }
         WrapRow {
-            AfButton("Save caption style…", {
+            AfButton("စာတန်းပုံစံ သိမ်းမယ်…", {
                 showCaptionPresetName = "Caption ${recap.captionStyle.size.label} ${if (recap.captionStyle.box) "box" else "outline"}"
             }, enabled = idle)
         }
         if (showCaptionPresetName.isNotEmpty()) {
-            AfTextField(showCaptionPresetName, { showCaptionPresetName = it }, "Caption preset name")
+            AfTextField(showCaptionPresetName, { showCaptionPresetName = it }, "စာတန်း preset အမည်")
             WrapRow {
-                AfButton("Save to Library", {
+                AfButton("စာကြည့်တိုက်ထဲ သိမ်းမယ်", {
                     if (showCaptionPresetName.isNotBlank()) { model.saveCaptionPreset(showCaptionPresetName); showCaptionPresetName = "" }
                 }, kind = ButtonKind.Primary, enabled = idle && showCaptionPresetName.isNotBlank())
-                AfButton("Cancel", { showCaptionPresetName = "" })
+                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { showCaptionPresetName = "" })
             }
         }
     }
-    AfText("Captions are always saved as an .srt file next to the video, too.", muted = true, size = 12.sp)
+    AfText("စာတန်းကို ဗွီဒီယိုဘေးမှာ .srt ဖိုင်အဖြစ်လည်း အမြဲ သိမ်းတယ်။", muted = true, size = 12.sp)
     // Brand Kit save (5B-3, D-51)
     var brandKitName by remember { mutableStateOf("") }
-    WrapRow { AfButton("💼 Save as Brand Kit…", { brandKitName = "My Brand Kit" }, enabled = idle) }
+    WrapRow { AfButton("💼 Brand Kit အဖြစ် သိမ်းမယ်…", { brandKitName = "My Brand Kit" }, enabled = idle) }
     if (brandKitName.isNotEmpty()) {
-        AfTextField(brandKitName, { brandKitName = it }, "Brand kit name")
+        AfTextField(brandKitName, { brandKitName = it }, "Brand Kit အမည်")
         WrapRow {
-            AfButton("Save to Library", {
+            AfButton("စာကြည့်တိုက်ထဲ သိမ်းမယ်", {
                 if (brandKitName.isNotBlank()) { model.saveBrandKit(brandKitName); brandKitName = "" }
             }, kind = ButtonKind.Primary, enabled = idle && brandKitName.isNotBlank())
-            AfButton("Cancel", { brandKitName = "" })
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { brandKitName = "" })
         }
     }
         val render = RecapRulesV2.canRender(recap, story, state.lexicon)
@@ -146,13 +146,13 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
 /** Sound (5B-4): voice polish, background music with ducking, even loudness. Applied when the video is rendered. */
 @Composable
 private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.RecapAudio, bgmName: String?, idle: Boolean, model: RecapModel) {
-    AfSwitch("Clean up the voice (less noise and rumble, steadier level)", audio.polish, { if (idle) model.setAudio { a -> a.copy(polish = it) } })
-    AfSwitch("Even loudness (${audio.loudnessLufs.toInt()} LUFS, like YouTube / TikTok)", audio.loudness, { if (idle) model.setAudio { a -> a.copy(loudness = it) } })
-    AfSwitch("Cut long pauses in new takes (record, import, speak)", audio.trimSilence, { if (idle) model.setAudio { a -> a.copy(trimSilence = it) } })
-    AfText("Background music", muted = true, size = 12.sp)
+    AfSwitch("အသံ သန့်စင်မယ် (ဆူညံသံ လျော့၊ အသံအဆင့် ငြိမ်)", audio.polish, { if (idle) model.setAudio { a -> a.copy(polish = it) } })
+    AfSwitch("အသံကျယ်မှု ညီအောင် (${audio.loudnessLufs.toInt()} LUFS၊ YouTube / TikTok လို)", audio.loudness, { if (idle) model.setAudio { a -> a.copy(loudness = it) } })
+    AfSwitch("take အသစ်တွေမှာ ရပ်နားချိန်ရှည်တွေ ဖြတ်မယ် (သွင်း၊ ထည့်၊ ပြော)", audio.trimSilence, { if (idle) model.setAudio { a -> a.copy(trimSilence = it) } })
+    AfText("နောက်ခံတေး", muted = true, size = 12.sp)
     WrapRow {
         if (audio.bgm == null) {
-            AfButton("🎵 Add music…", { if (idle) model.importBgm() })
+            AfButton("🎵 တေးဂီတ ထည့်မယ်…", { if (idle) model.importBgm() })
         } else {
             AfText("🎵 ${bgmName ?: "Music"}", size = 12.sp)
             AfButton("Change…", { if (idle) model.importBgm() })
@@ -163,7 +163,7 @@ private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.R
         WrapRow {
             RecapModel.BGM_VOLUMES.forEach { (name, v) -> AfChip(name, audio.bgmVolume == v, { if (idle) model.setAudio { it.copy(bgmVolume = v) } }) }
         }
-        AfSwitch("Lower the music while the voice speaks", audio.duck, { if (idle) model.setAudio { a -> a.copy(duck = it) } })
+        AfSwitch("အသံပြောနေချိန် တေးဂီတ အသံ လျှော့မယ်", audio.duck, { if (idle) model.setAudio { a -> a.copy(duck = it) } })
     }
 }
 

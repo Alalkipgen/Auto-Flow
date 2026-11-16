@@ -61,7 +61,7 @@ class RecapCustomBoxTest {
             val open by current.state.collectAsState()
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
-        onNodeWithText(MaskPreset.CUSTOM.label).performClick()
+        onNodeWithText(maskLabel(MaskPreset.CUSTOM)).performClick()
         waitForIdle()
         assertEquals(listOf(MaskPreset.CUSTOM), visual().masks.map { it.preset })
         assertEquals(MaskPreset.CUSTOM.rect, visual().masks.single().rect)
@@ -69,11 +69,11 @@ class RecapCustomBoxTest {
 
         onNodeWithText("◀").performClick()
         waitForIdle()
-        onNodeWithText("Wider").performClick()
+        onNodeWithText(WIDER).performClick()
         waitForIdle()
         assertEquals(listOf(0.26f, 0.3f, 0.44f, 0.2f), visual().masks.single().rect)
         onNodeWithText("▶").performClick()
-        onNodeWithText("Narrower").performClick()
+        onNodeWithText(NARROWER).performClick()
         waitForIdle()
         assertEquals(listOf(0.3f, 0.3f, 0.4f, 0.2f), visual().masks.single().rect)
 
@@ -92,6 +92,6 @@ class RecapCustomBoxTest {
         onNodeWithText(CAPTIONS_ON_BOX).assertExists()
         assertEquals(visual(), saved(), "saved in the project file")
 
-        onNodeWithText(MaskPreset.CUSTOM.label + ": drag to move · pinch or mouse wheel to resize").assertExists()
+        onNodeWithText(boxHint(MaskPreset.CUSTOM)).assertExists()
     }
 }

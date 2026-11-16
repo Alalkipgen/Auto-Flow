@@ -63,26 +63,26 @@ fun VoiceBlockCard(
     ) }
     var playing by remember { mutableStateOf(false) }
 
-    AfCard("Voice — Block ${segmentIndex + 1}", modifier = modifier) {
+    AfCard("အသံ — အပိုင်း ${segmentIndex + 1}", modifier = modifier) {
         // Back link
-        AfButton("← Back", onClose)
+        AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, onClose)
         AfText("${clock(seg.startMs)}–${clock(seg.endMs)} · ${seconds(seg.durationMs)}", muted = true, size = 12.sp)
         TakeVoiceLabel(recap.takeFor(state.story!!.blocks[segmentIndex].id), recap.voiceLock)
 
         // Tab row
         WrapRow {
             VoiceTab.entries.filter { it != VoiceTab.CLONE }.forEach { t ->
-                AfChip(t.name.lowercase().replaceFirstChar { it.uppercase() }, tab == t, onClick = { tab = t })
+                AfChip(voiceTabLabel(t), tab == t, onClick = { tab = t })
             }
             // Clone: Labs placeholder (always disabled)
-            AfChip("Clone 🔬", false, onClick = {})
+            AfChip("${voiceTabLabel(VoiceTab.CLONE)} 🔬", false, onClick = {})
         }
 
         when (tab) {
             VoiceTab.SPEAK -> SpeakTab(model, state, recap, script, segmentIndex, idle, seg.textMy)
             VoiceTab.RECORD -> RecordTab(model, state, recap, script, segmentIndex, idle, seg, take, stale, playing) { playing = !playing }
             VoiceTab.CLEAN -> CleanTab(model, state, segmentIndex, idle, take)
-            VoiceTab.CLONE -> AfText("Voice Clone is a Labs feature.", muted = true)
+            VoiceTab.CLONE -> AfText("အသံပုံတူ (Voice Clone) က Labs feature ဖြစ်တယ်။", muted = true)
         }
     }
 }
@@ -99,9 +99,9 @@ private fun SpeakTab(
 ) {
     val seg = script.segments[index]
     AfText(seg.textMy, size = 13.sp)
-    AfText("Voice: ${recap.ttsVoice} · ${recap.voiceSource.name}", muted = true, size = 11.sp)
+    AfText("အသံ: ${recap.ttsVoice} · ${recap.voiceSource.name}", muted = true, size = 11.sp)
     WrapRow {
-        AfButton("🔊 Speak", { model.speak(index) },
+        AfButton("🔊 အသံထုတ်မယ်", { model.speak(index) },
             kind = ButtonKind.Primary, enabled = idle && text.isNotBlank())
     }
     // Per-chunk caption timing edit (D-53, audit F05): the caption window in voice time (0 = the take starts);
@@ -123,31 +123,31 @@ internal fun TimingEditRow(startMs: Long, endMs: Long, custom: Boolean, onReset:
     var endText by remember(endMs) { mutableStateOf(msToField(endMs)) }
 
     if (!editing) {
-        AfText("⏱ Captions ${msToField(startMs)} → ${msToField(endMs)} of the voice${if (custom) "" else " (automatic)"}", muted = true, size = 11.sp)
+        AfText("⏱ အသံထဲမှာ စာတန်း ${msToField(startMs)} → ${msToField(endMs)}${if (custom) "" else " (အလိုအလျောက်)"}", muted = true, size = 11.sp)
         WrapRow {
-            AfButton("Edit caption timing…", { editing = true }, enabled = true)
-            if (custom) AfButton("Automatic", onReset)
+            AfButton("စာတန်းချိန် ပြင်မယ်…", { editing = true }, enabled = true)
+            if (custom) AfButton("အလိုအလျောက်", onReset)
         }
     } else {
-        AfText("Caption timing in the voice (m:ss.s)", bold = true, size = 12.sp)
+        AfText("အသံထဲက စာတန်းချိန် (m:ss.s)", bold = true, size = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             io.github.alalkipgen.autoflow.ui.components.AfTextField(
-                startText, { startText = it }, "Start",
+                startText, { startText = it }, "စ",
                 modifier = androidx.compose.ui.Modifier.weight(1f)
             )
             AfText("→", size = 13.sp)
             io.github.alalkipgen.autoflow.ui.components.AfTextField(
-                endText, { endText = it }, "End",
+                endText, { endText = it }, "ဆုံး",
                 modifier = androidx.compose.ui.Modifier.weight(1f)
             )
         }
         WrapRow {
-            AfButton("Save", {
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.SAVE, {
                 val s = fieldToMs(startText)
                 val e = fieldToMs(endText)
                 if (s != null && e != null && onSave(s, e)) editing = false
             }, kind = ButtonKind.Primary)
-            AfButton("Cancel", { editing = false })
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { editing = false })
         }
     }
 }
@@ -192,18 +192,18 @@ private fun RecordTab(
     WrapRow {
         if (state.recording == index) {
             AfButton(STOP, { model.stopRecording() }, kind = ButtonKind.Danger)
-            AfButton("Cancel", { model.cancelRecording() })
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelRecording() })
         } else {
             if (model.canRecord) {
                 AfButton(RECORD, { model.startRecording(index) }, kind = ButtonKind.Primary,
                     enabled = idle && seg.textMy.isNotBlank())
             }
-            AfButton("Import file", { model.importTake(index) }, enabled = idle && seg.textMy.isNotBlank())
+            AfButton("ဖိုင် ထည့်မယ်", { model.importTake(index) }, enabled = idle && seg.textMy.isNotBlank())
         }
         val file = state.takeFiles[index]
         if (take != null && file != null) AudioPlayButton(file, playing, onPlay)
     }
-    if (stale) AfText("⚠ Stale — text changed since this take was recorded", color = AutoFlowColors.Amber, size = 12.sp)
+    if (stale) AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE} — အသံသွင်းပြီးနောက် စာသား ပြောင်းသွားတယ်", color = AutoFlowColors.Amber, size = 12.sp)
 }
 
 @Composable
@@ -215,12 +215,12 @@ private fun CleanTab(
     take: io.github.alalkipgen.autoflow.core.recap.BlockTake?,
 ) {
     if (take == null) {
-        AfText("Record or import a take first.", muted = true)
+        AfText("Take တစ်ခု အရင် သွင်းပါ ဒါမှမဟုတ် ထည့်ပါ။", muted = true)
         return
     }
-    AfText("Clean: trim silence gaps, normalise loudness.", muted = true, size = 12.sp)
+    AfText("သန့်စင်: အသံတိတ်ကြားတွေ ဖြတ်၊ အသံကျယ်မှု ညှိမယ်။", muted = true, size = 12.sp)
     // Polish / trim silence via ffmpeg silenceremove (available after render, D-54).
-    AfButton("✨ Polish (trim silence)", { model.cleanTake(index) }, enabled = idle, kind = ButtonKind.Primary)
+    AfButton("✨ သန့်စင်မယ် (အသံတိတ် ဖြတ်)", { model.cleanTake(index) }, enabled = idle, kind = ButtonKind.Primary)
 }
 
 /**
@@ -243,8 +243,16 @@ private fun TeleprompterDisplay(current: String, next: String?) {
         // Next segment — muted preview
         next?.let {
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(AutoFlowColors.Background).padding(8.dp)) {
-                AfText("Next: $it", size = 13.sp, muted = true)
+                AfText("နောက်တစ်ကြောင်း: $it", size = 13.sp, muted = true)
             }
         }
     }
+}
+
+/** Burmese Voice & Audio tab name (5B-13, DESIGN.md §7 "Voice"). */
+internal fun voiceTabLabel(tab: VoiceTab): String = when (tab) {
+    VoiceTab.SPEAK -> "အသံထုတ်"
+    VoiceTab.RECORD -> "အသံသွင်း"
+    VoiceTab.CLEAN -> "သန့်စင်"
+    VoiceTab.CLONE -> "အသံပုံတူ"
 }

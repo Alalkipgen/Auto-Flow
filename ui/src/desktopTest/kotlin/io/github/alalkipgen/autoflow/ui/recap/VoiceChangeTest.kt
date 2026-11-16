@@ -79,7 +79,7 @@ class VoiceChangeTest {
         onNodeWithTag("voice-change-impact").assertExists()
         onNodeWithTag("voice-keep").performScrollTo().performClick()
         waitForIdle()
-        onNodeWithText("Different voice").assertExists()
+        onNodeWithText(DIFFERENT_VOICE).assertExists()
         val saved = (store.open(dir) as CoreResult.Ok).value.recap!!
         assertEquals(next, saved.voiceLock)
         assertEquals(before.takes, saved.takes)
@@ -94,7 +94,7 @@ class VoiceChangeTest {
         setContent { val s by m.state.collectAsState(); Column(Modifier.verticalScroll(rememberScrollState())) { VoiceCard(m, s, s.recap!!) } }
         onNodeWithTag("change-voice").performClick()
         onNodeWithText("Kore · Firm").performClick()
-        onNodeWithText("Re-speak 1 blocks (≈ 1 min)").assertExists()
+        onNodeWithText("အပိုင်း 1 ခု ပြန်ပြောမယ် (≈ 1 မိနစ်)").assertExists()
         onNodeWithTag("voice-regenerate").performScrollTo().performClick()
         waitForIdle()
         assertEquals<List<Pair<String, String?>>>(listOf("Kore" to "test-my"), sent)

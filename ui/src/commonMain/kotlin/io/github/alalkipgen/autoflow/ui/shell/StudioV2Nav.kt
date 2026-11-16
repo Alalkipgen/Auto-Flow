@@ -38,12 +38,12 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 
 
-/** Studio v2 top-level destinations (5A-6, DESIGN.md §7). */
+/** Studio v2 top-level destinations (5A-6, DESIGN.md §7); [label] is the Burmese nav text (5B-13), never saved. */
 enum class StudioV2Dest(val label: String) {
-    HOME("Home"),
-    PROJECTS("Projects"),
-    LIBRARY("Library"),
-    JOBS("Jobs"),
+    HOME("ပင်မ"),
+    PROJECTS("ပရောဂျက်များ"),
+    LIBRARY("စာကြည့်တိုက်"),
+    JOBS("အလုပ်များ"),
     ;
     companion object {
         val ALL = entries
@@ -216,7 +216,7 @@ private fun JobsBadgeLabel(
         dest.label
     }
     BasicText(
-        label,
+        io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(label),
         Modifier.padding(horizontal = 2.dp, vertical = 10.dp),
         style = TextStyle(
             color = if (showBadge && jobsBadge < 0) badgeColor else ink,

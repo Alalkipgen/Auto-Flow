@@ -87,9 +87,9 @@ class ExportLoudnessTest {
         assertEquals(listOf(Quality.PREVIEW, Quality.EXPORT), m.state.value.lastRenders.map { it.quality })
         setContent { ExportScreen(m) }
         val lines = onAllNodesWithTag("export-last-loudness").fetchSemanticsNodes().map { it.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString() }
-        assertEquals(listOf("Loudness: $fallbackNote", "Loudness: two-pass to -14.0 LUFS (measured -29.7 LUFS)"), lines)
+        assertEquals(listOf("$LOUDNESS: $fallbackNote", "$LOUDNESS: two-pass ဖြင့် -14.0 LUFS (တိုင်းတာချက် -29.7 LUFS)"), lines)
         assertTrue(lines.none { it.contains("two-pass") && it.contains("could not") })
-        onAllNodesWithText("Open")[1].performClick()
+        onAllNodesWithText(io.github.alalkipgen.autoflow.ui.i18n.My.OPEN)[1].performClick()
         assertEquals(listOf("open $dir/exports/export.mp4"), share.calls)
     }
 
@@ -121,11 +121,11 @@ class ExportLoudnessTest {
         val q = Queue()
         val m = model(q)
         setContent { ExportScreen(m) }
-        onNodeWithTag("export-last-loudness").assertTextEquals("Loudness: $fallbackNote")
+        onNodeWithTag("export-last-loudness").assertTextEquals("$LOUDNESS: $fallbackNote")
         m.render(Quality.EXPORT)
         q.states.getValue("job1").value = RenderState.Done("$dir/exports/export.mp4", 9_000, 61_000, null, RenderState.Loudness(-14.0, measured, null))
         waitForIdle()
-        onNodeWithTag("export-loudness").assertTextEquals("Loudness: two-pass to -14.0 LUFS (measured -29.7 LUFS)")
+        onNodeWithTag("export-loudness").assertTextEquals("$LOUDNESS: two-pass ဖြင့် -14.0 LUFS (တိုင်းတာချက် -29.7 LUFS)")
         assertEquals(0, onAllNodesWithTag("export-last-loudness").fetchSemanticsNodes().size, "the older record is not shown over the live run")
     }
 }

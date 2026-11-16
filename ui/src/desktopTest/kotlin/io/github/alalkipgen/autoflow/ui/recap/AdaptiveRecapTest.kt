@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.textFitProblems
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -58,7 +59,7 @@ class AdaptiveRecapTest {
         val m = model()
         var step by mutableStateOf(RecapStep.STORY)
         setContent {
-            CompositionLocalProvider(LocalDensity provides Density(1f, font)) {
+            CompositionLocalProvider(LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family) {
                 StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat()) {
                     Column(Modifier.fillMaxSize()) {
                         RecapStepHeader(step, { step = step.previous() ?: step }, { step = step.next() ?: step }, {})
@@ -67,7 +68,7 @@ class AdaptiveRecapTest {
                 }
             }
         }
-        onNodeWithText("Story · 2/5").assertIsDisplayed()
+        onNodeWithText("${RecapStep.STORY.label} · 2/5").assertIsDisplayed()
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
         if (width >= 840) {
             val a = onNodeWithTag("project-list").fetchSemanticsNode().boundsInRoot
@@ -89,7 +90,7 @@ class AdaptiveRecapTest {
             val node = onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()
             assertTrue(node.boundsInRoot.height >= 48f, "$tag must have a 48 dp touch target")
             assertTrue(node.boundsInRoot.left >= 0f && node.boundsInRoot.right <= width.toFloat())
-            val label = when (tag) { "recap-back" -> "← Back"; "recap-next" -> "Next: Voice →"; else -> "Classic Recap" }
+            val label = when (tag) { "recap-back" -> "← ယခင်အဆင့်"; "recap-next" -> "နောက်အဆင့်: ${RecapStep.VOICE.label} →"; else -> "Recap ပုံစံဟောင်း" }
             val text = onNode(hasText(label) and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).fetchSemanticsNode()
             val layouts = mutableListOf<TextLayoutResult>()
             text.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
@@ -98,6 +99,7 @@ class AdaptiveRecapTest {
             // including their final character, with only half a physical pixel of rounding tolerance.
             layouts.forEach { layout ->
                 assertFalse(layout.multiParagraph.didExceedMaxLines, "$tag truncated at scale $font")
+                assertEquals(emptyList(), io.github.alalkipgen.autoflow.ui.syllableCuts(layout), "$tag Burmese cut inside a syllable at scale $font")
                 assertEquals(layout.layoutInput.text.length, layout.getLineEnd(layout.lineCount - 1, visibleEnd = true))
                 for (line in 0 until layout.lineCount) {
                     assertTrue(layout.getLineLeft(line) >= -0.5f && layout.getLineRight(line) <= layout.size.width + 0.5f,
@@ -106,12 +108,13 @@ class AdaptiveRecapTest {
                 }
             }
         }
+        assertEquals(emptyList<String>(), textFitProblems(width, font))
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/studio-layout").apply { mkdirs() }
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "recap-$width-font${(font * 100).toInt()}.png"))
         onNodeWithTag("recap-next").performClick()
-        onNodeWithText("Voice · 3/5").assertIsDisplayed()
+        onNodeWithText("${RecapStep.VOICE.label} · 3/5").assertIsDisplayed()
         onNodeWithTag("recap-back").performClick()
-        onNodeWithText("Story · 2/5").assertIsDisplayed()
+        onNodeWithText("${RecapStep.STORY.label} · 2/5").assertIsDisplayed()
     }
 
     @Test fun below840IsStillSinglePane() = runDesktopComposeUiTest(width = 839, height = 500) {

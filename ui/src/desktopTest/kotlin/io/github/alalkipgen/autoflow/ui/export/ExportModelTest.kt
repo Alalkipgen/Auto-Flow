@@ -139,7 +139,7 @@ class ExportModelTest {
         val m = model(backgroundScope)
         m.render(Quality.EXPORT)
         val job = queue.jobs.single()
-        assertEquals("Rain · Export 1080p", job.title)
+        assertEquals("Rain · ထုတ်ယူ 1080p", job.title)
         assertEquals(dir, job.workDir)
         assertEquals("exports/export", job.outputName)
         assertEquals("source/song.mp3", job.songPath)

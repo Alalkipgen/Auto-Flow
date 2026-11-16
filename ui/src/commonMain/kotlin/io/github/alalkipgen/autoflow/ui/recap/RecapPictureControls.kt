@@ -64,8 +64,8 @@ import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
-const val HIDE_ON_MOVIE = "Hide things on the movie (its own subtitles, logos)"
-const val CAPTIONS_ON_BOX = "Put my captions on the bottom box"
+const val HIDE_ON_MOVIE = "ရုပ်ရှင်ပေါ်က အရာတွေ ဖုံးမယ် (သူ့စာတန်း၊ logo)"
+const val CAPTIONS_ON_BOX = "ကျွန်ုပ်ရဲ့ စာတန်းကို အောက်ဘက် ဘောင်ပေါ် တင်မယ်"
 
 /**
  * Picture (5B-2) in card 5: blur boxes over the movie with a frame preview, the space around the movie when its shape
@@ -86,33 +86,33 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
 
     // ── 🙈 Hide things ─────────────────────────────────────────────────────────
-    AfCard("🙈 Hide things on the movie") {
-        AfText("Blur boxes over the movie's subtitles, logos etc.", muted = true, size = 12.sp)
+    AfCard("🙈 ရုပ်ရှင်ပေါ်က အရာတွေ ဖုံးမယ်") {
+        AfText("ရုပ်ရှင်ရဲ့ စာတန်း၊ logo စတာတွေပေါ်မှာ မှုန်ဝါးဘောင် တင်မယ်။", muted = true, size = 12.sp)
         WrapRow {
             MaskPreset.entries.forEach { p ->
-                AfChip(p.label, v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
+                AfChip(maskLabel(p), v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
             }
         }
         if (v.masks.isNotEmpty()) {
             MaskPreview(recap, model)
             WrapRow {
-                AfH3("Blur strength")
+                AfH3("မှုန်ဝါးအား")
                 MaskStrength.entries.forEach { s ->
-                    AfChip(s.label, v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
+                    AfChip(strengthLabel(s), v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
                 }
             }
             v.masks.forEach { m ->
                 WrapRow {
-                    AfText(m.preset.label, size = 12.sp)
+                    AfText(maskLabel(m.preset), size = 12.sp)
                     AfButton("▲", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } })
                     AfButton("▼", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } })
-                    AfButton("Taller", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
-                    AfButton("Shorter", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
+                    AfButton(TALLER, { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
+                    AfButton(SHORTER, { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
                     if (!m.preset.isStrip) {
                         AfButton("◀", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } })
                         AfButton("▶", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
-                        AfButton("Wider", { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
-                        AfButton("Narrower", { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
+                        AfButton(WIDER, { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
+                        AfButton(NARROWER, { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
                     }
                 }
             }
@@ -243,6 +243,30 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
 /** Test tag of the live mask preview (drag / pinch target). */
 internal const val MASK_PREVIEW_TAG = "mask-preview"
 
+// Blur-box controls in Burmese (5B-13); presets and strengths keep their saved English enum names.
+internal const val TALLER = "ပိုမြင့်"
+internal const val SHORTER = "ပိုနိမ့်"
+internal const val WIDER = "ပိုကျယ်"
+internal const val NARROWER = "ပိုကျဉ်း"
+internal const val EXACT_FRAME = "အတိအကျ ပုံ"
+
+/** Burmese name of a blur-box preset (5B-13). */
+internal fun maskLabel(p: MaskPreset): String = when (p) {
+    MaskPreset.BOTTOM -> "အောက်ခြေ အတန်း (စာတန်း)"
+    MaskPreset.TOP -> "အပေါ် အတန်း"
+    MaskPreset.LOGO_TL -> "Logo ဘယ်ဘက်အပေါ်"
+    MaskPreset.LOGO_TR -> "Logo ညာဘက်အပေါ်"
+    MaskPreset.CUSTOM -> "စိတ်ကြိုက် ဘောင်"
+}
+
+internal fun strengthLabel(s: MaskStrength): String = when (s) {
+    MaskStrength.LIGHT -> "ပေါ့ပေါ့"
+    MaskStrength.STRONG -> "ပြင်းပြင်း"
+}
+
+/** Hint under the live preview for the touched box. */
+internal fun boxHint(p: MaskPreset): String = "${maskLabel(p)}: ဆွဲပြီး ရွှေ့ပါ · လက်နှစ်ချောင်းနဲ့ ချုံ့ချဲ့ ဒါမှမဟုတ် mouse wheel နဲ့ အရွယ်ပြောင်းပါ"
+
 /**
  * Live preview (5A-8, D-42): a frame of the first picked scene with the blur boxes drawn on it (what the render will
  * hide). Touch a box to pick it, drag to move it, pinch (or the mouse wheel on a computer) to resize it around the
@@ -324,7 +348,7 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
         }
     }
     AfText(
-        selected?.let { "${it.label}: drag to move · pinch or mouse wheel to resize" } ?: "Touch a box to move or resize it.",
+        selected?.let { boxHint(it) } ?: "ရွှေ့ဖို့ ဒါမှမဟုတ် အရွယ်ပြောင်းဖို့ ဘောင်တစ်ခုကို ထိပါ။",
         muted = true, size = 12.sp,
     )
 }
@@ -338,9 +362,9 @@ internal fun ExactFrameCard(model: RecapModel) {
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
     var working by remember { mutableStateOf(false) }
-    AfCard("🎯 Exact frame") {
-        AfText("One frame made by the export itself — what the video will really show.", muted = true, size = 12.sp)
-        AfButton(if (working) "Rendering…" else "Exact frame", {
+    AfCard("🎯 ${EXACT_FRAME}") {
+        AfText("ထုတ်ယူမှုကိုယ်တိုင် လုပ်တဲ့ ပုံတစ်ပုံ — ဗွီဒီယိုမှာ တကယ် ပေါ်မယ့်အတိုင်း။", muted = true, size = 12.sp)
+        AfButton(if (working) "Render လုပ်နေတယ်…" else EXACT_FRAME, {
             if (!working) {
                 working = true
                 scope.launch { result = model.exactFrame(); working = false }
@@ -352,7 +376,7 @@ internal fun ExactFrameCard(model: RecapModel) {
                 bmp?.let {
                     Image(it, contentDescription = "Exact frame", Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(it.width.toFloat() / it.height).clip(AutoFlowShapes.Card))
                 }
-                AfText("Exact frame · ${RecapModel.seconds(r.frame.atMs)}", muted = true, size = 12.sp)
+                AfText("$EXACT_FRAME · ${RecapModel.seconds(r.frame.atMs)}", muted = true, size = 12.sp)
             }
             is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Failed -> AfText(r.reason, color = AutoFlowColors.Amber, size = 12.sp)
             null -> {}

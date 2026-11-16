@@ -538,7 +538,7 @@ class ExportModel(
             return "$safe-$kind-$id.mp4"
         }
 
-        fun label(quality: Quality) = if (quality == Quality.PREVIEW) "Preview 540p" else "Export 1080p"
+        fun label(quality: Quality) = if (quality == Quality.PREVIEW) "နမူနာ 540p" else "ထုတ်ယူ 1080p"
 
         /** Display label for an [ExportQuality] chip. */
         fun label(exportQuality: ExportQuality): String = exportQuality.label
