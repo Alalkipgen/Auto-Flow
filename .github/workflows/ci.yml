@@ -261,7 +261,7 @@ jobs:
       - name: Offline native-v2 QA backup and exact build manifest
         run: |
           ./gradlew :ui:qaRecapFixture -PqaFixtureDir="$GITHUB_WORKSPACE/apk-dist/qa-fixture" --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
-          printf '%s\n' "Source: $GITHUB_SHA" "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "Status: CHECKPOINT, NOT 5A-8 QUEUE-COMPLETE; native output preview/S10 matrix outstanding" > apk-dist/BUILD.txt
+          printf '%s\n' "Source: $GITHUB_SHA" "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "Status: combined 5A-8 QA candidate; verify this exact source run; physical-phone/emulator and owner-PC acceptance pending" > apk-dist/BUILD.txt
           cp config/features.json apk-dist/FEATURES.json
           cp docs/PHONE-QA.md apk-dist/PHONE-QA.md
           python tools/ci-test-summary.py

@@ -17,7 +17,7 @@ fake providers, simulated executor reconstruction and emulator runs do **not** c
 The APK above must include **all completed milestones**. A checkpoint APK is not the final queue-complete APK.
 Do not claim missing features are phone-testable. See PLAN for implementation and automation status separately.
 
-### Continuation checkpoint package (not the queue-complete owner run)
+### One combined 5A-8 owner-QA package
 
 CI now attaches `BUILD.txt` (exact pushed source SHA / run), `FEATURES.json`, this checklist and an offline
 `qa-fixture/AutoFlow-5A8-synthetic-backup.zip` beside the fresh APK. APK/EXE `.sha256` files hash the actual binaries,
@@ -29,9 +29,11 @@ and pinned VLCJ/JNA source archives and license notices; no native VLC is bundle
 The fixture uses the same valid-WAV/multiple-clip project as the real Desktop playback test, plus 9:16 Mirror/Zoom/Fill
 and 1:1 image-background variants. Restore via the existing backup flow; do not replace real projects. Follow its
 `EXPECTED.txt`: output 150/500/2500/4500 ms gives no-cue/FIRST/no-cue/SECOND and green/green/yellow/blue source patches.
-The five native layers are saved and inspectable, but their final output is currently visible only in Exact Frame /
-export, not in the pre-Looks source-picture player. Thus this package consolidates all implemented changes but is
-**not** the one final 5A-8 acceptance APK. Do not ask the owner for an extra interim phone installation.
+The five native layers are now drawn by the muted native output-frame player, including Looks/background, list
+order and output-time activation. Legacy movie-mask placement stays a clearly separate pre-Looks still. Compare
+Exact Frame/export at the same output ms; Gaussian/text/YUV rasterization is approximate, not bit-identical. This is
+the combined installation for the owner’s **one final QA session**, not an install per PR. Verify that this exact source
+run’s checks are green before installing. Physical-phone/emulator and owner-PC acceptance remain pending.
 
 ## Safe setup
 
@@ -54,13 +56,13 @@ export, not in the pre-Looks source-picture player. Thus this package consolidat
 | 2 | Home/Projects/Library/Jobs and Android Back preserve routes and project identity. Check narrow portrait/landscape and font scales 1.0, 1.3, 2.0: labels wrap, critical actions remain reachable, no clipped controls. | PHONE_PENDING |
 | 2b | **Burmese large-font pass (5B-13, D-67)** at Android font size 1.0 / 1.3 / 2.0 (and largest display size once): bottom nav ပင်မ · ပရောဂျက်များ · စာကြည့်တိုက် · အလုပ်များ, Recap step header "အသံ · 3/5" with ← ယခင်အဆင့် / နောက်အဆင့်, Home cards, project bar chips (ထည့်သွင်း · Shot စာရွက် · ဝင်စာ · ထုတ်ယူ · အဆင့်ဟောင်းများ), Shot sheet, Export. Expected: Burmese reads naturally, no line breaks inside a syllable, no clipped/overlapping text, 48 dp targets, §6 words exact (အတည်ပြုမယ် · ပြင်မယ် · ပြန်ထုတ်မယ် · Prompt ကူးမယ် · ဗွီဒီယို လက်ခံမယ်). Note any wording the owner wants changed. Older Classic / Settings / Input screens are still English (known limit). | PHONE_PENDING |
 | 3 | First TTS resolves configured default, later calls use exact lock. Change voice shows affected takes, request count/ETA; Keep retains history and shows Different voice, Re-speak adds takes. Busy pauses, never silently switches provider/model. Edit live Library pronunciation: affected take becomes stale and Speak All regenerates it; written captions remain written. | PHONE_PENDING |
-| 4 | **Three preview modes (5A-8, D-70).** Legacy movie-picture mask placement is a pre-Looks still (sample caption only there). The separate muted timeline card plays every compiled native-v2 story clip, with output-ms controls and timed captions / mask outlines on the source picture. It is labelled pre-Looks and is **not** the native output-frame layer/background/Looks preview. Pause/resume, seek between disjoint clips, compare active caption text with Exact Frame at the same output ms. Exact Frame remains the real export compiler. Never count a first-clip loop or cue readout as full-output parity. | PHONE_PENDING |
+| 4 | **Three preview modes (5A-8, D-70).** Legacy movie-picture mask placement is a pre-Looks still (sample caption only there). The separate muted timeline card plays every compiled native-v2 story clip as an output-frame proxy: legacy masks before Looks, fit/Fill/background, ordered/timed native layers, watermark and actual caption chunks last. UI font scale does not change rendered text size; unavailable named TEXT fonts can fall back to the primary font. Pause/resume, seek between disjoint clips, compare active caption text with Exact Frame at the same output ms. Exact Frame remains the real export compiler. Never count a first-clip loop or cue readout as full-output parity. | PHONE_PENDING |
 | 4b | **Custom blur box (5B-2).** Turn on "စိတ်ကြိုက် ဘောင်", drag it to the lower-left and resize (pinch, ပိုကျယ်/ပိုကျဉ်း/ပိုမြင့်/ပိုနိမ့်): captions move onto it only once its centre is in the lower half; save, reopen, export — the box blurs the same area and the captions sit on it. Other presets (bottom/top strip, logos) unchanged. | PHONE_PENDING |
 | 4c | **Native recap.layers editor.** Add BLUR / IMAGE / TEXT / BORDER / BACKGROUND; select stable IDs, change supported params, output-frame rect (not legacy movie-picture coordinates), order and fromMs/toMs. Drag/pinch rect, Save, close/reopen and verify; Cancel leaves project unchanged. BORDER/BACKGROUND ignore rect. Removing an IMAGE reference must not delete its hash artifact; existing takes/approvals/script/other layers stay. | PHONE_PENDING |
 | 4d | **Timed cues and seeks.** At before/inside/after a layer interval check the active-ID readout; native layers are not rendered in this picture-only mode yet. Caption chunks change with output time (including multiple clips / chosen takes / Fit SPEED and slow-video), blank gaps stay blank, paused seek stays paused. Check final appearance/timing with Exact Frame/export, not only the readout. | PHONE_PENDING |
 | 4e | **Player lifecycle / project binding.** While playing A, switch to B, leave Style/Story, return, background/foreground the app, then pause/seek/resume. No old movie/caption/cursor/result appears in B; no hidden player continues on leaving the screen; desired pause survives background. Pending layer edit/image picker cannot write into B. | PHONE_PENDING |
 | 4f | **Exact Frame reachability.** Narrow portrait and wide/landscape at font scale 1.0 / 1.3 / 2.0 (bundled Burmese and system fallback): scroll through the real screen, see the button, tap it, verify the resulting frame/output time or truthful unavailable message. Offscreen is acceptable when genuinely scroll-reachable. | PHONE_PENDING |
-| 4g | **Preview versus exported output.** Check 16:9 / 9:16 / 1:1, native overlapping layer order, timing edges, Mirror/Zoom/Fill/background and multiple-clip boundaries with the deterministic fixture. Full native output-frame Compose preview/S10 extension is still IMPLEMENTATION_PENDING: do not mark that part passed using legacy placement or Exact Frame alone. | PHONE_PENDING |
+| 4g | **Preview versus exported output.** Check 16:9 / 9:16 / 1:1, native overlapping layer order, timing edges, Mirror/Zoom/Fill/background and multiple-clip boundaries with the deterministic fixture. Native output-frame Compose and expanded S10 are implemented; this physical-phone row is still pending. Compare the live native proxy, same-time Exact Frame and exported output separately; legacy placement or a cue readout alone is not output parity. | PHONE_PENDING |
 
 | 5 | Transcribe picked scenes: confirmation shows selected requests and today's usage; cancel/retry/resume/partial failure do not mix projects or skip required output. Never whole-movie transcription. | PHONE_PENDING |
 | 6 | S8 Smart Fit: listen at 1.00/1.05/1.10/1.15/1.20/1.25×, view video at 0.9/0.8×; record tolerable Burmese limits, artifacts unchanged. Existing longer-take/CaptionChunks fit checks included. | PHONE_PENDING |
@@ -102,9 +104,24 @@ launches the installed app, closes it and uninstalls it on a disposable runner; 
 
 ## Separate automated gate
 
-S10 is **Compose-preview vs real-ffmpeg placement parity**, five representative caption/layer cases within ±2%
-of frame dimensions. It is not any Android lifecycle row above. Automation results, screenshots and ffmpeg pixel
-measurements belong in the CI evidence bundle; they cannot mark these physical-phone acceptance rows passed.
-Implemented as `PreviewExportParityTest` (D-68): five cases, every blur-box and caption edge within ±2 % of the
-output frame; it runs in the CI `check` job with ffmpeg (`AUTOFLOW_EXPECT_FFMPEG=1`). On the Windows `windows` job
-(no ffmpeg) it reports a JUnit framework skip without measuring; it is not counted as parity success. Passing those five still-placement cases does not pass row 4 or prove native-output layer/Looks parity. The separate `desktop-playback` job requires actual VLC decoding and the production Compose playback screen (pixels, pause, seek, timed cues, disposal); its evidence is distinct from S10 and from Android runtime acceptance.
+The original `PreviewExportParityTest` is preserved: five legacy pre-Looks still-placement cases, real Compose and
+ffmpeg/libass, every measured mask/caption edge within ±2% of the output frame. `NativeOutputParityTest` adds eight
+native-output configurations and seven output positions each (56 composed/exported frames): all layer types,
+overlap/order, before/inside/after activation, FIRST/SECOND/blank chunks, 16:9/9:16/1:1, Mirror/Zoom/Fill/Warm and
+native/legacy backgrounds across three disjoint clips/two stable blocks. It measures actual changed-pixel bounds,
+not just shared geometry: edge tolerance ±2% of the relevant frame dimension, whole-frame RGB MAE <=0.08. Text,
+Gaussian and YUV rasterization are NOT bit-identical. Samples are away from activation edges; 24fps export gives
+41.7ms sampling, not a claim of exact live-player boundary synchronization.
+
+Linux `check` requires ffmpeg (`AUTOFLOW_EXPECT_FFMPEG=1`). Platforms without it report framework skips and are not
+parity successes. `desktop-playback` separately installs VLC 3 on a disposable runner and runs the real decoder plus
+production Compose playback screen: changing source pixels / output mapping, pause/seek/resume, project/screen
+cleanup, native IMAGE/BORDER pixels, and actual FIRST/SECOND/blank caption ink in portrait/square live output. It
+records screenshots and XML separately from S10. These tests found/fixed copied RV32 alpha and paused-seek Compose
+state-capture bugs; cue readouts alone were not substituted for rendered pixels. Polling is nominally 40ms; no
+frame-perfect audiovisual synchronization or audio-workstation preview is promised (the preview is muted).
+
+None of this passes Android lifecycle, physical-phone or owner-PC acceptance above. The implementation sandbox
+had no Android emulator/adb or `/dev/kvm`; emulator/instrumentation and physical-phone checks remain **PHONE_PENDING**.
+Windows installer/install/launch/uninstall and no-VLC packaged startup are separate gates, not Windows installed-VLC
+movie playback proof. Installed-VLC playback and real-project acceptance on the owner PC remain **OWNER_PC_PENDING**.
