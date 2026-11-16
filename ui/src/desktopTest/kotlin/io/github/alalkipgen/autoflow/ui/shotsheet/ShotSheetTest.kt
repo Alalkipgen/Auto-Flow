@@ -117,7 +117,7 @@ class ShotSheetTest {
         waitForIdle()
         assertEquals(listOf(false, true, false, false), project.shots.map { it.approvals.storyboard })
 
-        onNodeWithText("⚠ Compile the shot prompt first (အဆင့် 2)").performScrollTo().assertExists()
+        onNodeWithText("⚠ ${UiText.BLOCKER_NO_PROMPT.text(UiLanguage.BURMESE)}").performScrollTo().assertIsDisplayed()
         // 2 · Prompt: compile, approve.
         onNodeWithText("Prompt စုစည်းမယ်").performScrollTo().performClick()
         waitForIdle()

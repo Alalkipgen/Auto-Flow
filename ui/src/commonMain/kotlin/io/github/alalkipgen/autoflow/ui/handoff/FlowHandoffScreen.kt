@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -79,7 +80,7 @@ fun FlowHandoffScreen(
             else -> {
                 CreditCounter(state, model)
                 BatchPanel(state, model)
-                state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
+                state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
                 state.rows.forEach { row ->
                     HandoffCard(row, compact, model, importVideo = {
                         scope.launch { model.pickAndImportVideo(row.number) { readBytes(it) } }
@@ -139,7 +140,7 @@ internal fun HandoffCard(
 
         // Gate warning
         row.gateMsg?.let {
-            AfText("⚠ $it", color = AutoFlowColors.Amber, size = 12.sp)
+            AfText("⚠ ${row.blocker?.text(LocalUiLanguage.current) ?: it}", color = AutoFlowColors.Amber, size = 12.sp)
         }
 
         // Prompt preview

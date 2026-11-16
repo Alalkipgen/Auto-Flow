@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.di
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ai.registry.AiHost
 import io.github.alalkipgen.autoflow.ai.registry.ProviderRegistry
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
@@ -61,7 +62,7 @@ val uiModule = module {
     factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull()) }
     factory { StoryboardModel(get(), get(), get(), media = get()) }
     factory { ShotsModel(get()) }
-    factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get()) }
+    factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     factory { InboxModel(session = get(), fs = get()) }
     single { SharedInbox(get(), get(), joinPath(get<AppDirs>().projectsHome ?: get<AppDirs>().root, SharedInbox.DIR_NAME)) }
     factory {
@@ -72,6 +73,7 @@ val uiModule = module {
             urlOpener = get(),
             filePicker = get(),
             flowUrl = cfg.flow.url,
+            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) },
             creditHintFast = cfg.flow.creditsHint["fast"] ?: 20,
             creditHintQuality = cfg.flow.creditsHint["quality"] ?: 100,
             fs = get(),

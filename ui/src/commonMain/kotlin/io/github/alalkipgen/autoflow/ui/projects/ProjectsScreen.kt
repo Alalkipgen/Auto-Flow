@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,6 @@ fun ProjectsScreen(modifier: Modifier = Modifier) {
                 style = TextStyle(color = AutoFlowColors.Text, fontSize = 14.sp, fontWeight = FontWeight.Bold),
             )
         }
-        BasicText("Projects", style = TextStyle(color = AutoFlowColors.Text, fontSize = 18.sp))
+        BasicText(tr(UiText.PROJECTS), style = TextStyle(color = AutoFlowColors.Text, fontSize = 18.sp))
     }
 }
