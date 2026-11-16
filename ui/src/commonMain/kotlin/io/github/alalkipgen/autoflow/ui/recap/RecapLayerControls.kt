@@ -77,12 +77,12 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
             AfButton("${index + 1} · ${layer.type.labelMy(LocalUiLanguage.current)} · ${layer.id}", { editor.edit(layer.id) },
                 Modifier.fillMaxWidth().testTag("layer-edit-${layer.id}"), enabled = idle && state.draft == null)
         }
-        state.problem?.let { AfText(it, color = AutoFlowColors.Amber) }
+        state.problem?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
         val d = state.draft
         if (d != null) {
             var form by remember(d.token) { mutableStateOf(LayerForm.of(d.layer)) }
             val value = form.read(d.layer)
-            val problem = if (value == null) tr(UiText.NUMBERS_INVALID) else LayerEdits.problem(value)
+            val problem = if (value == null) tr(UiText.NUMBERS_INVALID) else LayerEdits.problem(value)?.let { tr(UiText.RESULT_DETAIL, "detail" to it) }
             // No persisted convenience toggle, no conversion to recap.visual.masks.
             AfText("${d.layer.type.labelMy(LocalUiLanguage.current)} · ${d.layer.id}", bold = true)
             @Composable fun input(key: String, label: String, lines: Int = 1) {

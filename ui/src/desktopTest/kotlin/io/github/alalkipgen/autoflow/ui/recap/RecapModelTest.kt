@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.Recap
@@ -78,6 +79,7 @@ class RecapModelTest {
         assertEquals(2048L, movie.sizeBytes)
         assertTrue(fs.exists("/p/R.autoflow/source/movie.mp4"))
         assertEquals("movie.mp4", m.state.value.movieName)
+        assertEquals(UiText.MOVIE_READY, m.state.value.notice?.key)
 
         m.findScenes()!!.join()
         val scenes = current.state.value!!.project.recap!!.scenes
@@ -85,6 +87,8 @@ class RecapModelTest {
         assertEquals(listOf(0L, 10_000L, 20_250L, 30_500L, 45_250L), scenes.map { it.startMs })
         assertTrue(ffmpegArgs.last().contains("scale=320:-2,scdet=threshold=${Scenes.THRESHOLD_NORMAL}"))
         assertEquals("Found 5 scenes. Tick the ones to tell the story with.", m.state.value.message)
+        assertEquals(UiText.SCENES_FOUND, m.state.value.notice?.key)
+        assertEquals(UiText.SCENES_FOUND.text(UiLanguage.BURMESE, "n" to 5), m.state.value.notice?.text(UiLanguage.BURMESE))
 
         m.togglePick(1)
         m.togglePick(3)

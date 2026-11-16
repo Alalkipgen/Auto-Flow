@@ -72,11 +72,11 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
         AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
         state.job?.let { job ->
             val pct = state.progress?.let { " ${(it * 100).toInt()} %" }.orEmpty()
-            AfText("⏳ $job$pct", color = AutoFlowColors.Cyan)
+            AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: job}$pct", color = AutoFlowColors.Cyan)
         }
         state.message?.let { msg ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfText(msg, Modifier.weight(1f), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber)
+                AfText(state.notice?.text(LocalUiLanguage.current) ?: msg, Modifier.weight(1f), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber)
                 AfButton("✕", { model.dismissMessage() })
             }
         }

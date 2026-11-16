@@ -56,6 +56,7 @@ class InputModel(
     private val picker: FilePicker? = null,
     private val media: MediaTools? = null,
     transcribe: TranscribeProvider? = null,
+    private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<InputUiState> = _state.asStateFlow()
@@ -111,7 +112,7 @@ class InputModel(
     /** "Import song": pick an audio file, then [importSongFile]. */
     suspend fun importSong() {
         if (jobs.busy || session.open == null || _state.value.importingSong) return
-        val picked = picker?.pickFiles(PICK_SONG_TITLE, ProjectSession.SONG_EXTENSIONS) ?: return say(UiNotice(UiText.INPUT_NO_PICKER))
+        val picked = picker?.pickFiles(UiText.IMPORT_SONG.text(uiLanguage()), ProjectSession.SONG_EXTENSIONS) ?: return say(UiNotice(UiText.INPUT_NO_PICKER))
         val path = when (picked) {
             is PlatformResult.Ok -> picked.value.firstOrNull() ?: return
             is PlatformResult.Failed -> return say(UiNotice(UiText.FILE_PICK_FAILED, "detail" to picked.reason))
