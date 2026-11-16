@@ -35,6 +35,7 @@ jobs:
           path: |
             */build/test-results/**/*.xml
             ui/build/reports/s10
+            ui/build/reports/playback
             build/qa
           if-no-files-found: warn
           retention-days: 30
@@ -313,4 +314,5 @@ jobs:
           path: |
             media/build/test-results/desktopTest
             ui/build/test-results/desktopTest
+            ui/build/reports/playback
           if-no-files-found: error

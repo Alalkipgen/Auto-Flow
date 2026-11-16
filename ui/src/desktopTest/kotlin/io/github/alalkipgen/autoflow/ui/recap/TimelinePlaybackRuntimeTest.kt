@@ -106,4 +106,96 @@ class TimelinePlaybackRuntimeTest {
             }
         } finally { scope.cancel(); root.deleteRecursively() }
     }
+
+    @Test fun portraitLiveAllLooksImageBackgroundAndTimedOutputPixels() = renderedOutput("portrait", Ratio.R9_16, Look.entries, BackgroundMode.IMAGE)
+    @Test fun squareLiveMirrorZoomBlurBackgroundAndTimedOutputPixels() = renderedOutput("square", Ratio.R1_1, listOf(Look.MIRROR, Look.ZOOM), BackgroundMode.BLUR)
+
+    private fun renderedOutput(name: String, ratio: Ratio, looks: List<Look>, background: BackgroundMode) {
+        if (System.getenv("AUTOFLOW_EXPECT_VLC") != "1") throw AssumptionViolatedException("requires separately installed VLC runtime gate")
+        val root = Files.createTempDirectory("af-live-output-$name").toFile()
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        try {
+            val fixture = QaRecapFixture.create(root, "Live $name", ratio, looks, background)
+            val fs = JvmFs(); val store = ProjectStore(fs)
+            // Real 3-second WAVs give screenshot automation a representative live cue window; the original
+            // one-second fixture test still checks FIRST/SECOND/blank at its original output seeks above.
+            val artifacts = ArtifactStore(fs, fixture.dir.path)
+            val takes = fixture.project.recap!!.takes.mapIndexed { i, take ->
+                val pcm = FloatArray(48_000) { n -> (.15 * kotlin.math.sin(2 * kotlin.math.PI * (440 + 220 * i) * n / 16_000)).toFloat() }
+                val wav = (artifacts.put(io.github.alalkipgen.autoflow.media.audio.PcmWav.encode(16_000, pcm), ArtifactKind.AUDIO, "wav") as CoreResult.Ok).value
+                take.copy(audio = wav.id, durationMs = 3000)
+            }
+            // Keep native TEXT away from the caption ROI, so pixel ink proves actual captions, not another label.
+            val recap = fixture.project.recap!!.let { r -> r.copy(takes = takes, chosenTakes = takes.associate { it.block to it.audio }, layers = r.layers.map { l -> when (l.type) {
+                LayerType.TEXT -> l.copy(rect = listOf(.1f, .25f, .7f, .15f))
+                LayerType.IMAGE -> l.copy(params = l.params.copy(opacity = 1f))
+                LayerType.BORDER -> l.copy(params = l.params.copy(px = 8))
+                else -> l
+            } }) }
+            val saved = (store.save(fixture.dir.path, fixture.project.copy(recap = recap)) as CoreResult.Ok).value
+            val current = CurrentProject().apply { set(OpenProject(fixture.dir.path, saved)) }
+            val settings = SettingsStore(fs, File(root, "settings.json").path)
+            settings.update { it.copy(vlcPath = System.getenv("AUTOFLOW_VLC_DIR")) }
+            val media = MediaTools(settings, DesktopToolLocator(fs), null)
+            val model = RecapModel(ProjectSession(fs, store, ProjectIndex(fs, File(root, "index.json").path), current), fs, media, null, scope).also { it.refresh() }
+            val output = io.github.alalkipgen.autoflow.media.render.RenderPresets.preview(ratio)
+            val captionY = io.github.alalkipgen.autoflow.media.render.RecapRender.captionY(recap, output) ?: .92f
+            val afterCaptions = model.previewSource.resolve(model.state.value)!!.timeline.captions.last().endMs + 100
+            runDesktopComposeUiTest(width = 520, height = 900) {
+                setContent { CompositionLocalProvider(LocalUiFontFamily provides BurmeseTestFont.family) {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { RecapTimelinePreview(model) }
+                } }
+                fun position(): Long = onNodeWithTag("timeline-position").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }.substringBefore(" /").toLong()
+                fun click(tag: String) { onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() } }
+                fun isPlaying(): Boolean = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text.contains("⏸") }
+                fun pause() {
+                    if (isPlaying()) click("timeline-play") // do not accidentally restart a clip that already reached EOF
+                    waitUntil(timeoutMillis = 5_000) { !isPlaying() }
+                    val at = position(); Thread.sleep(150); waitForIdle()
+                    assertTrue(kotlin.math.abs(position() - at) < 100, "real output clock freezes after user pause")
+                }
+                fun seek(ms: Long) {
+                    assertFalse(isPlaying(), "test seeks below deliberately exercise paused seeking")
+                    onNodeWithContentDescription("Output ms").performScrollTo().performTextReplacement(ms.toString()); click("timeline-seek"); waitForIdle()
+                    assertEquals(ms, position())
+                    println("LIVE_SEEK $name requested=$ms actual=${position()} playing=${isPlaying()}")
+                }
+                fun pixels(): androidx.compose.ui.graphics.PixelMap = onNodeWithTag("timeline-video").performScrollTo().assertIsDisplayed().captureToImage().toPixelMap()
+                fun ink(): Int {
+                    val p = pixels()
+                    return ((p.height * (captionY - .06f)).toInt().coerceAtLeast(0) until (p.height * (captionY + .06f)).toInt().coerceAtMost(p.height)).sumOf { y ->
+                        (p.width / 5 until p.width * 4 / 5).count { x -> p[x, y].let { it.red > .88f && it.green > .88f && it.blue > .88f } }
+                    }
+                }
+                fun evidence(ms: Long) {
+                    val file = File("build/reports/playback/$name-$ms.png").apply { parentFile.mkdirs() }
+                    javax.imageio.ImageIO.write(onNodeWithTag("timeline-video").performScrollTo().captureToImage().toAwtImage(), "png", file)
+                }
+                click("timeline-play"); waitUntil(timeoutMillis = 20_000) { position() > 200 }; pause()
+                seek(150)
+                waitUntil(timeoutMillis = 5_000) {
+                    val p = pixels(); val c = p[(p.width * .565625f).toInt(), (p.height * (.1f + .015625f * output.width / output.height)).toInt()]
+                    c.red > .9f && c.green in .40f.. .60f && c.blue < .1f
+                }
+                val blankInk = ink(); evidence(150)
+                seek(500); onNodeWithTag("timeline-caption").assertTextEquals("FIRST")
+                waitUntil(timeoutMillis = 5_000) { ink() > blankInk + 20 }; evidence(500)
+                click("timeline-play")
+                waitUntil(timeoutMillis = 5_000) { position() in 550..3150 && ink() > blankInk + 20 }
+                evidence(position()) // actual glyph pixels WHILE playing and FIRST is still active, not after it ends
+                pause()
+                seek(1500); click("timeline-play"); waitUntil(timeoutMillis = 10_000) { position() > 2200 }; pause()
+                waitUntil(timeoutMillis = 5_000) { pixels()[1, 1].let { it.red < .1f && it.green > .9f && it.blue > .9f } }
+                evidence(2500) // native BORDER activated while decoder/output clock crossed 2000ms
+                seek(4500); onNodeWithTag("timeline-caption").assertTextEquals("SECOND")
+                waitUntil(timeoutMillis = 5_000) { ink() > blankInk + 20 }; evidence(4500)
+                val secondInk = ink()
+                seek(afterCaptions); onNodeWithTag("timeline-caption").assertTextEquals("—")
+                waitUntil(timeoutMillis = 5_000) { ink() < secondInk - 20 }; evidence(afterCaptions)
+                click("timeline-close"); onNodeWithTag("timeline-video").assertDoesNotExist()
+                println("PLAYBACK_EVIDENCE: $name native output aspect; existing VLC decoder; opaque IMAGE pixels; caption ink FIRST/SECOND/blank; live caption/border transitions; Looks=$looks; background=$background; close")
+            }
+        } finally { scope.cancel(); root.deleteRecursively() }
+    }
+
 }

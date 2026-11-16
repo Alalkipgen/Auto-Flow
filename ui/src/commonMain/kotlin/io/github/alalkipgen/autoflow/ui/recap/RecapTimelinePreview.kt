@@ -32,14 +32,20 @@ internal fun RecapTimelinePreview(model: RecapModel) {
         var lastPoll by remember { mutableStateOf<kotlin.time.TimeMark?>(null) }
         var seekInput by remember { mutableStateOf("0") }
         val command = remember(refresh) { clock.request }
+        // Clock is a non-Compose controller. Capture immutable render inputs HERE on every refresh; a nested
+        // skippable Box/WrapRow must not capture only the same mutable clock identity after a paused seek.
+        val outputMs = clock.positionMs
+        val captions = clock.captions
+        val playing = clock.playing
+        val problem = clock.problem
         var frame by remember { mutableStateOf<ImageBitmap?>(null) }
         var images by remember { mutableStateOf<Map<String, ImageBitmap>?>(null) }
         LaunchedEffect(source.key) { images = withContext(Dispatchers.Default) { model.previewSource.images(source, recap) } }
-        LaunchedEffect(clock.positionMs) { model.previewSource.position(source, clock.positionMs) }
+        LaunchedEffect(outputMs) { model.previewSource.position(source, outputMs) }
         AfCard("ရုပ်ရှင် အချိန်လိုင်း · အသံပိတ်") {
             AfText("ဇာတ်လမ်း clip အားလုံး · output အချိန်အတိုင်း · အသံပိတ်။ Looks၊ နောက်ခံ၊ native layer နှင့် caption ပါသော output-frame အကြိုကြည့်ပုံ။ စာလုံး/blur/အရောင် rasterization အတိအကျအတွက် အတိအကျ ပုံကိုသုံးပါ။", muted = true, size = 12.sp)
-            if (enabled && clock.problem == null) {
-                Box(Modifier.fillMaxWidth().aspectRatio(output.width.toFloat() / output.height).background(AutoFlowColors.Background).testTag("timeline-video")) {
+            if (enabled && problem == null) {
+                Box(Modifier.widthIn(max = 420.dp * (output.width.toFloat() / output.height)).fillMaxWidth().aspectRatio(output.width.toFloat() / output.height).background(AutoFlowColors.Background).testTag("timeline-video")) {
                     MoviePlayback(source.path, command, Modifier.fillMaxSize(), source.vlcDir,
                         frameSize = IntSize(movie.width, movie.height), onFrame = { frame = it }) { snapshot ->
                         val now = kotlin.time.TimeSource.Monotonic.markNow()
@@ -52,21 +58,21 @@ internal fun RecapTimelinePreview(model: RecapModel) {
                     Box(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
                         val raw = frame
                         val assets = images
-                        if (raw != null && assets != null) NativeOutputPicture(raw, recap, output, clock.positionMs, clock.captions, assets, Modifier.fillMaxSize())
+                        if (raw != null && assets != null) NativeOutputPicture(raw, recap, output, outputMs, captions, assets, Modifier.fillMaxSize())
                         else AfText("ရုပ်ပုံ ပြင်ဆင်နေသည်…", muted = true)
                     }
                 }
             }
-            clock.problem?.let { AfText(it, color = AutoFlowColors.Amber) }
-            AfText("${clock.positionMs} / ${source.timeline.durationMs} ms · ${clock.clip?.blockId ?: "ပြီးပါပြီ"}", modifier = Modifier.testTag("timeline-position"))
-            val activeLayers = state.recap!!.layers.filter { io.github.alalkipgen.autoflow.core.recap.PreviewGeometry.isActive(it, clock.positionMs) }
+            problem?.let { AfText(it, color = AutoFlowColors.Amber) }
+            AfText("${outputMs} / ${source.timeline.durationMs} ms · ${clock.clip?.blockId ?: "ပြီးပါပြီ"}", modifier = Modifier.testTag("timeline-position"))
+            val activeLayers = state.recap!!.layers.filter { io.github.alalkipgen.autoflow.core.recap.PreviewGeometry.isActive(it, outputMs) }
             AfText("အချိန်ကိုက် native layer ID များ: " + activeLayers.joinToString { it.id }, muted = true, size = 12.sp)
             AfTextField(seekInput, { seekInput = it }, "Output ms", modifier = Modifier.testTag("timeline-seek-input"))
             AfButton("အချိန်သို့ ရွှေ့", { seekInput.toLongOrNull()?.takeIf { it >= 0 }?.let { clock.seek(it); refresh++ } }, Modifier.testTag("timeline-seek"), enabled = seekInput.toLongOrNull()?.let { it >= 0 } == true)
             // Accessibility/readout uses the identical output-clock cues as the rasterized output frame.
-            AfText(clock.captions.joinToString("\n") { it.text }.ifBlank { "—" }, modifier = Modifier.testTag("timeline-caption"))
+            AfText(captions.joinToString("\n") { it.text }.ifBlank { "—" }, modifier = Modifier.testTag("timeline-caption"))
             WrapRow {
-                AfButton(if (clock.playing) "⏸ ခဏရပ်" else "▶ ဖွင့်", { enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }, Modifier.testTag("timeline-play"))
+                AfButton(if (playing) "⏸ ခဏရပ်" else "▶ ဖွင့်", { enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }, Modifier.testTag("timeline-play"))
                 AfButton("− ၅ စက္ကန့်", { clock.seek(clock.positionMs - 5_000); refresh++ }, Modifier.testTag("timeline-back"))
                 AfButton("+ ၅ စက္ကန့်", { clock.seek(clock.positionMs + 5_000); refresh++ }, Modifier.testTag("timeline-forward"))
                 AfButton("⏹ ပိတ်", { enabled = false; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"))
