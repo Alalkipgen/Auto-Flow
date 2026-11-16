@@ -198,6 +198,7 @@ class RecapModel(
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
     val voiceSettings = RecapVoiceSettings(session, modelConfig, jobs, ::refresh)
+    val layerEditor = RecapLayerEditor(session, fs, picker, scope, ::refresh)
     private val thumbs = Mutex()
     private var scriptJob: Job? = null
 
