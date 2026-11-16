@@ -1,46 +1,38 @@
 package io.github.alalkipgen.autoflow.ui.components
 
-import android.net.Uri
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.view.TextureView
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import java.io.File
+import io.github.alalkipgen.autoflow.media.playback.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 actual val moviePlaybackSupported: Boolean = true
 
-/**
- * ExoPlayer on a TextureView (not a SurfaceView, so the Compose boxes and caption drawn after it stay on top). The
- * clip loops muted; the player is released when the preview stops or leaves the screen.
- */
+private fun Context.activity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> if (baseContext !== this) baseContext.activity() else null
+    else -> null
+}
+
+/** Same existing ExoPlayer/TextureView engine. Source intervals, speed, pause and seek now follow the output clock. */
 @Composable
-actual fun MoviePlayback(path: String, startMs: Long, endMs: Long, modifier: Modifier) {
-    val context = LocalContext.current
-    val player = remember(path, startMs, endMs) {
-        ExoPlayer.Builder(context).build().apply {
-            val clip = MediaItem.ClippingConfiguration.Builder()
-                .setStartPositionMs(startMs.coerceAtLeast(0))
-                .apply { if (endMs > startMs) setEndPositionMs(endMs) }
-                .build()
-            setMediaItem(MediaItem.Builder().setUri(Uri.fromFile(File(path))).setClippingConfiguration(clip).build())
-            repeatMode = Player.REPEAT_MODE_ONE
-            volume = 0f
-            playWhenReady = true
-            prepare()
-        }
+actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier, vlcDir: String?, onSnapshot: (MovieSnapshot) -> Unit) {
+    val activity = LocalContext.current.activity()
+    val callback by rememberUpdatedState(onSnapshot)
+    val player = remember(path, activity) { activity?.let { AndroidMoviePlayer(it, path) } }
+    DisposableEffect(player) { onDispose { player?.close() } }
+    LaunchedEffect(player) {
+        if (player == null) callback(MovieSnapshot(phase = MoviePhase.FAILED, problem = "Android playback needs an Activity. Still / Exact frame remain available."))
+        else while (true) { callback(player.snapshot()); withContext(Dispatchers.Default) { delay(40) } }
     }
-    DisposableEffect(player) {
-        onDispose { player.release() }
-    }
-    // A new player (another scene) gets a new view: the factory attaches each player once.
-    key(player) {
-        AndroidView(factory = { ctx -> TextureView(ctx).also { player.setVideoTextureView(it) } }, modifier = modifier)
-    }
+    LaunchedEffect(player, request.seekRevision) { player?.seek(request.sourceMs) }
+    LaunchedEffect(player, request.rate, request.playing) { player?.setRate(request.rate); player?.setPlaying(request.playing) }
+    key(player) { AndroidView(factory = { ctx -> TextureView(ctx).also { player?.attach(it) } }, modifier = modifier) }
 }

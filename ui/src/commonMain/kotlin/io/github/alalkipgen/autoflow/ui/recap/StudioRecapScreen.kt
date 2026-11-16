@@ -90,7 +90,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     }
     val preview: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // This is explicitly a still-render preview until the separate playback milestone is implemented.
+            if (step != RecapStep.STYLE) RecapTimelinePreview(model)
             AfText("ထုတ်ယူမည့်ပုံ · ရုပ်ငြိမ်", muted = true)
             ExactFrameCard(model)
         }
@@ -113,6 +113,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
                 RecapStep.EXPORT -> Unit // Export has its own job-aware screen in AppShell.
             }
             if (!wide && step in listOf(RecapStep.STORY, RecapStep.VOICE, RecapStep.STYLE)) {
+                if (step != RecapStep.STYLE) RecapTimelinePreview(model)
                 AfText("ထုတ်ယူမည့်ပုံ · ရုပ်ငြိမ်", muted = true)
                 ExactFrameCard(model)
             }

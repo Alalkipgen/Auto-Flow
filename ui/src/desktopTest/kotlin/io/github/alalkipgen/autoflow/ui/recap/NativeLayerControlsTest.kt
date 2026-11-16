@@ -52,7 +52,10 @@ class NativeLayerControlsTest {
                 moveTo(0, c - Offset(width * 0.04f, 0f)); moveTo(1, c + Offset(width * 0.04f, 0f)); up(0); up(1)
             }
             waitForIdle()
-            rect.performMouseInput { moveTo(center); scroll(1f) }
+            rect.performMouseInput {
+                moveTo(center); press(); moveTo(center + Offset(width * 0.02f, -height * 0.02f)); release()
+                scroll(1f)
+            }
             onNodeWithTag("layer-earlier").performScrollTo().performClick()
             onNodeWithTag("layer-save").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             waitForIdle()
