@@ -22,3 +22,5 @@ Kotlin Multiplatform · Compose Multiplatform · kotlinx.serialization · Ktor �
 MIT
 
 The Android APK bundles a GPL-2.0-or-later ffmpeg build (with libx264), run as a separate program; its pinned sources and build script are in `tools/ffmpeg-android/`, and the APK carries its license texts and build info.
+
+Desktop builds include VLCJ 4.8.3 (GPLv3). The combined desktop binary is distributed under GPLv3, not MIT-only; see `app-desktop/src/main/resources/licenses/`. The application source remains available under MIT. CI supplies the matching application source and pinned VLCJ/JNA sources alongside the unsigned test installer. Native VLC is **not** bundled: playback requires a separate 64-bit VLC 3.0.x installation; still / Exact frame do not require VLC.
