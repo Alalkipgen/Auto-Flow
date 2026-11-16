@@ -173,6 +173,38 @@ class ProjectZipTest {
     }
 
     @Test
+    fun restoreUsesStrictUtf8ForBurmeseNamesAndProjectText() = runTest {
+        val name = "မိုးရွာတဲ့ည.autoflow"
+        val source = realProject(name,
+            """{"id":"မြန်မာ-id","name":"မိုးရွာတဲ့ည","mode":"MOVIE_RECAP"}""")
+        file("src/$name/source/စာသား.txt", "မြန်မာစာ\nEnglish prompt untouched".encodeToByteArray())
+        val out = ByteArrayOutputStream()
+        ProjectZip.write(ProjectZip.plan(listOf(BackupProject(source.path, name))), out, "t")
+        val restored = ProjectZip.restore(ByteArrayInputStream(out.toByteArray()), projects).single()
+        assertEquals(name, restored.folder)
+        assertEquals(tree(source), tree(File(projects, name)))
+        noStagingLeft()
+    }
+
+    @Test
+    fun restoreRejectsMalformedUtf8EvenInsideOtherwiseValidJson() = runTest {
+        file("home/projects/Keep.autoflow/project.json", "KEEP".encodeToByteArray())
+        val before = tree(home)
+        // Replacing malformed bytes with U+FFFD would turn these into valid JSON. Never do that.
+        val invalid = listOf(byteArrayOf(0xc3.toByte(), 0x28), byteArrayOf(0xe1.toByte(), 0x80.toByte()),
+            byteArrayOf(0xed.toByte(), 0xa0.toByte(), 0x80.toByte()), byteArrayOf(0xff.toByte()))
+        for (bad in invalid) {
+            val bytes = """{"id":"x","name":"""".encodeToByteArray() + bad +
+                """","mode":"MOVIE_RECAP"}""".encodeToByteArray()
+            val zip = zipOf(listOf("Bad.autoflow/project.json" to bytes), manifestFor("Bad.autoflow" to 1))
+            val error = assertFailsWith<RestoreException> { ProjectZip.restore(ByteArrayInputStream(zip), projects) }
+            assertTrue(error.message!!.contains("no readable project.json"))
+            assertEquals(before, tree(home), "invalid UTF-8 cannot publish or change any project")
+            noStagingLeft()
+        }
+    }
+
+    @Test
     fun zipRestoreMustStayInsideDestination() = runTest {
         val bad = listOf(
             "../escaped.txt", "Proj.autoflow/../../escaped.txt", "/tmp/af-absolute-escape.txt", "Proj.autoflow\\..\\..\\escaped.txt",

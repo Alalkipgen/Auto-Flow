@@ -207,7 +207,8 @@ object ProjectZip {
         val json = dir.resolve("project.json")
         val ok = try {
             Files.isRegularFile(json, LinkOption.NOFOLLOW_LINKS) && Files.size(json) <= PROJECT_MAX &&
-                CoreJson.parseToJsonElement(Files.readString(json)).jsonObject.let { o ->
+                // API 26; unlike File.readText(), this reader REPORTs malformed UTF-8.
+                CoreJson.parseToJsonElement(Files.newBufferedReader(json, Charsets.UTF_8).use { it.readText() }).jsonObject.let { o ->
                     listOf("id", "name", "mode").all { o[it]?.jsonPrimitive?.isString == true }
                 }
         } catch (e: Exception) {
