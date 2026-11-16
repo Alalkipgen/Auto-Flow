@@ -36,6 +36,7 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = ciVersionCode
         versionName = "0.4.2"
+        testInstrumentationRunner = "io.github.alalkipgen.autoflow.android.RestoreRegressionInstrumentation"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("String", "SIGNING", "\"${if (keystoreFile != null) "stable" else "runner-debug"}\"")
         // D-23: the bundled ffmpeg exists for arm64-v8a only.
@@ -52,6 +53,8 @@ android {
     sourceSets.getByName("main").assets.srcDir(rootProject.file("config"))
     // Built-in fonts (D-49) as assets fonts/*.ttf, decoded before the build (see decodeBuiltInFonts).
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/fonts").get().asFile)
+
+    sourceSets.getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("generated/restore-regression").get().asFile)
 
     signingConfigs {
         if (keystoreFile != null) {

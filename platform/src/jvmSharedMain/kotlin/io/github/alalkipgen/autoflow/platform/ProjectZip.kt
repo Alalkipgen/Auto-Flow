@@ -256,7 +256,8 @@ object ProjectZip {
             out.write(buffer, 0, n)
             if (out.size() > max) throw RestoreException("The backup's $MANIFEST is too large")
         }
-        return out.toString(Charsets.UTF_8)
+        // The Charset overload is newer than API 26; this overload has identical decoding semantics.
+        return out.toString(Charsets.UTF_8.name())
     }
 
     /** Deletes the staging tree without following links (Kotlin's deleteRecursively would follow a linked folder). */
