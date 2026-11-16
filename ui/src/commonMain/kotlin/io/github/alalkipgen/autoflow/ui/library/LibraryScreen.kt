@@ -117,7 +117,7 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
                     AfText(kit.name, bold = true)
                     if (kit.colours.isNotEmpty()) AfText(tr(UiText.LIBRARY_COLOURS, "joinToString" to (kit.colours.joinToString())), muted = true, size = 12.sp)
                     if (kit.captionStyle != null) AfText(tr(UiText.LIBRARY_CAPTION_SAVED), muted = true, size = 12.sp)
-                    if (kit.watermark != null) AfText("Watermark: ${kit.watermark!!.substringAfterLast('/')}", muted = true, size = 12.sp)
+                    if (kit.watermark != null) AfText(tr(UiText.LIBRARY_WATERMARK, "name" to kit.watermark!!.substringAfterLast('/')), muted = true, size = 12.sp)
                     AfButton(tr(UiText.LIBRARY_APPLY_CURRENT, "APPLY" to (tr(UiText.APPLY))), { model.applyBrandKit(kit.id) })
                     AfText(tr(UiText.LIBRARY_DELETE_HOLD), muted = true, size = 11.sp)
                 }

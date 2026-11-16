@@ -18,13 +18,21 @@ jobs:
       - name: ffmpeg for the real-render tests (LayerFfmpegRenderTest)
         timeout-minutes: 10
         run: bash tools/ci-ffmpeg.sh
+      - name: Linux UI test display and system-font prerequisites
+        timeout-minutes: 10
+        run: |
+          command -v xvfb-run >/dev/null && command -v xauth >/dev/null || bash tools/ci-apt-install.sh xvfb xauth
+          if ! command -v fc-list >/dev/null || [ -z "$(fc-list :lang=my)" ]; then
+            bash tools/ci-apt-install.sh fontconfig fonts-noto-core
+          fi
+          test -n "$(fc-list :lang=my)"
       - name: Check (fake providers only, no API keys)
         # AUTOFLOW_EXPECT_FFMPEG: filtergraph tests render with a real ffmpeg and must not skip in CI.
         env: { AUTOFLOW_EXPECT_FFMPEG: "1" }
         # chmod: files pushed via the GitHub API/web UI lose the executable bit.
         run: |
           chmod +x gradlew
-          ./gradlew check --rerun-tasks --no-build-cache --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+          AUTOFLOW_EXPECT_FFMPEG=1 xvfb-run -a ./gradlew check --rerun-tasks --no-build-cache --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
       - name: Fresh executed / failed / skipped counts
         if: always()
         run: python tools/ci-test-summary.py

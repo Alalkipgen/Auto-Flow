@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -17,8 +18,8 @@ internal fun NativeOutputPicture(source: ImageBitmap, recap: RecapV2, output: Ou
     val measurer = rememberTextMeasurer()
     val family = LocalUiFontFamily.current
     val painter = remember(measurer, family) { NativeFramePainter(measurer, family) }
-    val problem = remember(recap, images) { painter.problem(recap, images) }
-    if (problem != null) { AfText(problem, modifier = modifier); return }
+    val problem = remember(recap, images) { painter.problemNotice(recap, images) }
+    if (problem != null) { AfText(problem.text(LocalUiLanguage.current), modifier = modifier); return }
     // Repaint when a cue/layer boundary changes even with the decoder paused at the same source frame.
     val active = recap.layers.filter { PreviewGeometry.isActive(it, timeMs) && (it.type != LayerType.TEXT || it.toMs?.let { end -> timeMs < end } != false) }
     val captions = cues.filter { timeMs >= it.startMs && timeMs < it.endMs }
