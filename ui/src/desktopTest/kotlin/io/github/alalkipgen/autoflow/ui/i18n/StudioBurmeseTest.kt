@@ -90,11 +90,11 @@ class StudioBurmeseTest {
         assertEquals("ပြန်ထုတ်ရန် လိုသည်", My.STALE)
         assertEquals("ဗွီဒီယို လက်ခံမယ်", My.ACCEPT_VIDEO)
         // Where the Music Video screens say them.
-        assertTrue(ShotStatus.NEEDS_FLOW.badgeLabel().contains(My.NEEDS_FLOW))
-        assertTrue(ShotStatus.STALE.badgeLabel().contains(My.STALE))
+        assertTrue(ShotStatus.NEEDS_FLOW.badgeLabel(UiLanguage.BURMESE).contains(My.NEEDS_FLOW))
+        assertTrue(ShotStatus.STALE.badgeLabel(UiLanguage.BURMESE).contains(My.STALE))
         val storyboard = source("storyboard/StoryboardScreen.kt")
         for (word in listOf(My.APPROVE, My.EDIT, My.REGENERATE, My.STALE)) assertTrue(storyboard.contains(word), word)
-        assertTrue(source("handoff/FlowHandoffScreen.kt").contains("My.COPY_PROMPT") && source("handoff/FlowHandoffScreen.kt").contains("My.ACCEPT_VIDEO"))
+        assertTrue(source("handoff/FlowHandoffScreen.kt").contains("UiText.COPY_PROMPT") && source("handoff/FlowHandoffScreen.kt").contains("UiText.ACCEPT_VIDEO"))
     }
 
     @Test
@@ -110,10 +110,10 @@ class StudioBurmeseTest {
 
     @Test
     fun navigationStepsAndProjectChipsAreBurmese() {
-        StudioV2Dest.entries.forEach { assertTrue(my(it.label), "nav ${it.name}: ${it.label}") }
-        RecapStep.entries.forEach { assertTrue(my(it.label), "step ${it.name}: ${it.label}") }
+        StudioV2Dest.entries.forEach { assertTrue(my(it.textKey.my!!), "nav ${it.name}: ${it.textKey.my}") }
+        RecapStep.entries.forEach { assertTrue(my(it.textKey.my!!), "step ${it.name}: ${it.textKey.my}") }
         val keys = v2ProjectScreens(true) + v2ProjectScreens(false) + MV_CLASSIC_SCREENS + "Classic Recap"
-        keys.forEach { key -> val label = My.screen(key); assertTrue(my(label) || label in loanwords, "chip $key: $label") }
+        keys.forEach { key -> val label = My.screen(key, UiLanguage.BURMESE); assertTrue(my(label) || label in loanwords, "chip $key: $label") }
     }
 
     @Test
@@ -127,7 +127,7 @@ class StudioBurmeseTest {
             AiJobState.entries.forEach { add(aiStateLabel(it)) }
             RecapStyle.entries.forEach { add(styleLabel(it)) }
             add(transcriptSummary(2, 1)); add(transcribeConfirmText(2, 1))
-            FitStatus.entries.forEach { s -> add(io.github.alalkipgen.autoflow.core.recap.FitRow(0, 1_000, 2_000, 2_000, s).label()) }
+            FitStatus.entries.forEach { s -> add(io.github.alalkipgen.autoflow.core.recap.FitRow(0, 1_000, 2_000, 2_000, s).label(UiLanguage.BURMESE)) }
         }
         labels.forEach { assertTrue(my(it), "not Burmese: $it") }
     }
@@ -182,7 +182,7 @@ class StudioBurmeseTest {
         try {
             runDesktopComposeUiTest(width = width, height = 1400) {
                 setContent {
-                    CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiFontFamily provides BurmeseTestFont.family) {
+                    CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE, LocalDensity provides Density(1f, font), LocalUiFontFamily provides BurmeseTestFont.family) {
                         StudioV2Shell(StudioV2Dest.HOME, {}, 3, width.toFloat()) {
                             Column {
                                 RecapStepHeader(RecapStep.VOICE, {}, {}, {})
@@ -193,7 +193,7 @@ class StudioBurmeseTest {
                 }
                 waitForIdle()
                 StudioV2Dest.entries.forEach { dest ->
-                    val tab = onNode(hasContentDescription(dest.label)).fetchSemanticsNode().boundsInRoot
+                    val tab = onNode(hasContentDescription(dest.textKey.my!!)).fetchSemanticsNode().boundsInRoot
                     assertTrue(tab.height >= 48f, "${dest.name} tab is a 48 dp target at $width/$font")
                     assertTrue(tab.left >= -0.5f && tab.right <= width + 0.5f, "${dest.name} tab inside the window at $width/$font")
                 }

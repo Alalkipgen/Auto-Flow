@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.library
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,7 +57,7 @@ fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AfText("စာကြည့်တိုက်", size = 20.sp, bold = true)
-        AfText("${My.APPLY} = လက်ရှိ project ထဲကို ကူးထည့်တယ်။ Project တွေက စာကြည့်တိုက်ထဲက ဖိုင်ကို တိုက်ရိုက် မသုံးပါ။", muted = true, size = 12.sp)
+        AfText("${tr(UiText.APPLY)} = လက်ရှိ project ထဲကို ကူးထည့်တယ်။ Project တွေက စာကြည့်တိုက်ထဲက ဖိုင်ကို တိုက်ရိုက် မသုံးပါ။", muted = true, size = 12.sp)
 
         BrandKitsSection(state.library.brandKits, model)
         VoicesSection(state.library.voices, model)
@@ -77,8 +79,8 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
         if (newName.isNotEmpty()) {
             AfTextField(newName, { newName = it }, "Brand Kit အမည်")
             WrapRow {
-                AfButton(My.SAVE, { if (newName.isNotBlank()) { model.saveBrandKit(newName); newName = "" } }, kind = ButtonKind.Primary, enabled = newName.isNotBlank())
-                AfButton(My.CANCEL, { newName = "" })
+                AfButton(tr(UiText.SAVE), { if (newName.isNotBlank()) { model.saveBrandKit(newName); newName = "" } }, kind = ButtonKind.Primary, enabled = newName.isNotBlank())
+                AfButton(tr(UiText.CANCEL), { newName = "" })
             }
         }
         if (items.isEmpty()) {
@@ -99,8 +101,8 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
                             AfText("\"${kit.name}\" ကို ဖျက်မလား?", bold = true)
                             AfText("ဒီ Brand Kit ကို စာကြည့်တိုက်ထဲက ဖယ်ရှားမယ်။", muted = true)
                             WrapRow {
-                                AfButton(My.DELETE, { model.deleteBrandKit(kit.id); confirmDeleteKit = false }, kind = ButtonKind.Danger)
-                                AfButton(My.CANCEL, { confirmDeleteKit = false })
+                                AfButton(tr(UiText.DELETE), { model.deleteBrandKit(kit.id); confirmDeleteKit = false }, kind = ButtonKind.Danger)
+                                AfButton(tr(UiText.CANCEL), { confirmDeleteKit = false })
                             }
                         }
                     }
@@ -115,7 +117,7 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
                     if (kit.colours.isNotEmpty()) AfText("အရောင်များ: ${kit.colours.joinToString()}", muted = true, size = 12.sp)
                     if (kit.captionStyle != null) AfText("စာတန်းပုံစံ: သိမ်းထား", muted = true, size = 12.sp)
                     if (kit.watermark != null) AfText("Watermark: ${kit.watermark!!.substringAfterLast('/')}", muted = true, size = 12.sp)
-                    AfButton("လက်ရှိ project မှာ ${My.APPLY}", { model.applyBrandKit(kit.id) })
+                    AfButton("လက်ရှိ project မှာ ${tr(UiText.APPLY)}", { model.applyBrandKit(kit.id) })
                     AfText("ဖျက်ရန် ကြာကြာ ဖိထားပါ", muted = true, size = 11.sp)
                 }
             }
@@ -133,7 +135,7 @@ private fun VoicesSection(items: List<SavedVoice>, model: LibraryModel) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     AfText(v.name, bold = true)
                     AfText("${v.lock.provider} · ${v.lock.model} · ${v.lock.voice} · ${v.lock.lang}", muted = true, size = 12.sp)
-                    AfButton(My.APPLY, { model.applyVoice(v.id) })
+                    AfButton(tr(UiText.APPLY), { model.applyVoice(v.id) })
                 }
             }
         }
@@ -158,7 +160,7 @@ private fun LexiconSection(items: List<LexiconEntry>, model: LibraryModel) {
 @Composable
 private fun MusicSection(items: List<MusicItem>, model: LibraryModel) {
     AfCard("တေးဂီတ (${items.size})") {
-        AfText("${My.APPLY} = project ထဲကို ကူးထည့်တယ်။ နောက်ခံတေး အဖြစ်သုံး = Recap အသံထဲမှာပါ ချိတ်ပေးတယ်။", muted = true, size = 12.sp)
+        AfText("${tr(UiText.APPLY)} = project ထဲကို ကူးထည့်တယ်။ နောက်ခံတေး အဖြစ်သုံး = Recap အသံထဲမှာပါ ချိတ်ပေးတယ်။", muted = true, size = 12.sp)
         if (items.isEmpty()) {
             AfText("တေးဂီတ မရှိသေးပါ။", muted = true)
         } else {
@@ -181,7 +183,7 @@ private fun FontsSection(items: List<FontItem>, model: LibraryModel) {
             items.forEach { f ->
                 WrapRow {
                     AfText(f.name, Modifier.weight(1f))
-                    AfButton(My.APPLY, { model.applyFont(f.id) })
+                    AfButton(tr(UiText.APPLY), { model.applyFont(f.id) })
                 }
             }
         }
@@ -197,8 +199,8 @@ private fun PresetsSection(items: List<Preset>, model: LibraryModel) {
         if (presetName.isNotEmpty()) {
             AfTextField(presetName, { presetName = it }, "Preset အမည်")
             WrapRow {
-                AfButton(My.SAVE, { if (presetName.isNotBlank()) { model.saveCaptionPreset(presetName); presetName = "" } }, kind = ButtonKind.Primary, enabled = presetName.isNotBlank())
-                AfButton(My.CANCEL, { presetName = "" })
+                AfButton(tr(UiText.SAVE), { if (presetName.isNotBlank()) { model.saveCaptionPreset(presetName); presetName = "" } }, kind = ButtonKind.Primary, enabled = presetName.isNotBlank())
+                AfButton(tr(UiText.CANCEL), { presetName = "" })
             }
         }
         if (items.isEmpty()) {
@@ -210,7 +212,7 @@ private fun PresetsSection(items: List<Preset>, model: LibraryModel) {
                         AfText(p.name, bold = true)
                         AfText(p.kind.name, muted = true, size = 11.sp)
                     }
-                    AfButton(My.APPLY, { model.applyPreset(p.id) })
+                    AfButton(tr(UiText.APPLY), { model.applyPreset(p.id) })
                 }
             }
         }

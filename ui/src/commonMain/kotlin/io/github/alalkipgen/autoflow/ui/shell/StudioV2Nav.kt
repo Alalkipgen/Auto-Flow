@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicText
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,12 +40,13 @@ import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 
 
 /** Studio v2 top-level destinations (5A-6, DESIGN.md §7); [label] is the Burmese nav text (5B-13), never saved. */
-enum class StudioV2Dest(val label: String) {
-    HOME("ပင်မ"),
-    PROJECTS("ပရောဂျက်များ"),
-    LIBRARY("စာကြည့်တိုက်"),
-    JOBS("အလုပ်များ"),
+enum class StudioV2Dest(val textKey: UiText) {
+    HOME(UiText.HOME),
+    PROJECTS(UiText.PROJECTS),
+    LIBRARY(UiText.LIBRARY),
+    JOBS(UiText.JOBS),
     ;
+    val label: String get() = textKey.en
     companion object {
         val ALL = entries
     }
@@ -111,15 +113,16 @@ private fun V2NavRailCompact(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         StudioV2Dest.ALL.forEach { dest ->
+            val destLabel = tr(dest.textKey)
             val on = dest == selected
             val showBadge = dest == StudioV2Dest.JOBS && jobsBadge != 0
-            val icon = destIcons[dest] ?: dest.label.take(1)
+            val icon = destIcons[dest] ?: tr(dest.textKey).take(1)
             val ink = if (on) Color.White else AutoFlowColors.Muted
             Column(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
-                    .semantics { contentDescription = dest.label }
+                    .semantics { contentDescription = destLabel }
                     .selectable(selected = on, role = Role.Tab) { onSelect(dest) }
                     .padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -154,13 +157,14 @@ private fun V2NavRail(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         StudioV2Dest.ALL.forEach { dest ->
+            val destLabel = tr(dest.textKey)
             val on = dest == selected
             val ink = if (on) Color.White else AutoFlowColors.Muted
             Column(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
-                    .semantics { contentDescription = dest.label }
+                    .semantics { contentDescription = destLabel }
                     .selectable(selected = on, role = Role.Tab) { onSelect(dest) }
                     .padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -182,13 +186,14 @@ private fun V2BottomNav(
     Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
     Row(Modifier.fillMaxWidth().background(AutoFlowColors.Panel)) {
         StudioV2Dest.ALL.forEach { dest ->
+            val destLabel = tr(dest.textKey)
             val on = dest == selected
             val ink = if (on) Color.White else AutoFlowColors.Muted
             Column(
                 Modifier
                     .weight(1f)
                     .heightIn(min = 48.dp)
-                    .semantics { contentDescription = dest.label }
+                    .semantics { contentDescription = destLabel }
                     .selectable(selected = on, role = Role.Tab) { onSelect(dest) }
                     .padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -211,9 +216,9 @@ private fun JobsBadgeLabel(
     val badgeColor = if (jobsBadge < 0) AutoFlowColors.Amber else AutoFlowColors.Green
     val label = if (showBadge) {
         val n = kotlin.math.abs(jobsBadge)
-        "${dest.label} ($n)"
+        "${tr(dest.textKey)} ($n)"
     } else {
-        dest.label
+        tr(dest.textKey)
     }
     BasicText(
         io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(label),

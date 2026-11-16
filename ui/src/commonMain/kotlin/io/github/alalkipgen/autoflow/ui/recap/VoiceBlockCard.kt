@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +67,7 @@ fun VoiceBlockCard(
 
     AfCard("အသံ — အပိုင်း ${segmentIndex + 1}", modifier = modifier) {
         // Back link
-        AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, onClose)
+        AfButton(tr(UiText.BACK), onClose)
         AfText("${clock(seg.startMs)}–${clock(seg.endMs)} · ${seconds(seg.durationMs)}", muted = true, size = 12.sp)
         TakeVoiceLabel(recap.takeFor(state.story!!.blocks[segmentIndex].id), recap.voiceLock)
 
@@ -142,12 +144,12 @@ internal fun TimingEditRow(startMs: Long, endMs: Long, custom: Boolean, onReset:
             )
         }
         WrapRow {
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.SAVE, {
+            AfButton(tr(UiText.SAVE), {
                 val s = fieldToMs(startText)
                 val e = fieldToMs(endText)
                 if (s != null && e != null && onSave(s, e)) editing = false
             }, kind = ButtonKind.Primary)
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { editing = false })
+            AfButton(tr(UiText.CANCEL), { editing = false })
         }
     }
 }
@@ -192,7 +194,7 @@ private fun RecordTab(
     WrapRow {
         if (state.recording == index) {
             AfButton(STOP, { model.stopRecording() }, kind = ButtonKind.Danger)
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelRecording() })
+            AfButton(tr(UiText.CANCEL), { model.cancelRecording() })
         } else {
             if (model.canRecord) {
                 AfButton(RECORD, { model.startRecording(index) }, kind = ButtonKind.Primary,
@@ -203,7 +205,7 @@ private fun RecordTab(
         val file = state.takeFiles[index]
         if (take != null && file != null) AudioPlayButton(file, playing, onPlay)
     }
-    if (stale) AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE} — အသံသွင်းပြီးနောက် စာသား ပြောင်းသွားတယ်", color = AutoFlowColors.Amber, size = 12.sp)
+    if (stale) AfText("⚠ ${tr(UiText.STALE)} — အသံသွင်းပြီးနောက် စာသား ပြောင်းသွားတယ်", color = AutoFlowColors.Amber, size = 12.sp)
 }
 
 @Composable

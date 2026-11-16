@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -286,13 +288,13 @@ private fun HandoffActions(
     onShowCredits: () -> Unit,
 ) {
     val hasPrompt = row.promptText != null
-    AfButton("📋 ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}", { model.copyPrompt(row.number) },
+    AfButton("📋 ${tr(UiText.COPY_PROMPT)}", { model.copyPrompt(row.number) },
         kind = ButtonKind.Primary,
         enabled = hasPrompt && row.gateMsg == null,
     )
     AfButton("📂 ဗွီဒီယို ထည့်မယ်", importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted)
     if (row.videoCount > 0 && !row.accepted) {
-        AfButton("✓ ${io.github.alalkipgen.autoflow.ui.i18n.My.ACCEPT_VIDEO}", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
+        AfButton("✓ ${tr(UiText.ACCEPT_VIDEO)}", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
     }
     if (row.videoCount > 0 && !row.askCredits && !showCredits) {
         AfButton(LOG_CREDITS_BUTTON, onShowCredits, kind = ButtonKind.Secondary)
@@ -405,9 +407,9 @@ internal fun handoffBadges(state: HandoffState, accepted: Boolean): List<Handoff
 private fun StatePill(state: HandoffState) {
     val (label, color) = when (state) {
         HandoffState.NONE -> return
-        HandoffState.SENT_TO_FLOW -> "→ ${io.github.alalkipgen.autoflow.ui.i18n.My.NEEDS_FLOW}" to AutoFlowColors.Purple
-        HandoffState.IMPORTED -> io.github.alalkipgen.autoflow.ui.i18n.My.IMPORTED to AutoFlowColors.Cyan
-        HandoffState.ACCEPTED -> "✓ ${io.github.alalkipgen.autoflow.ui.i18n.My.ACCEPTED}" to AutoFlowColors.Green
+        HandoffState.SENT_TO_FLOW -> "→ ${tr(UiText.NEEDS_FLOW)}" to AutoFlowColors.Purple
+        HandoffState.IMPORTED -> tr(UiText.IMPORTED) to AutoFlowColors.Cyan
+        HandoffState.ACCEPTED -> "✓ ${tr(UiText.ACCEPTED)}" to AutoFlowColors.Green
     }
     Box(
         Modifier

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.shotsheet
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -244,7 +246,7 @@ fun ShotSheetScreen(
 private fun RefSection(row: RefRow, model: ReferencesModel, importRef: () -> Unit) {
     row.copyGateMsg?.let { AfText("⚠ ${forSheet(it)}", color = AutoFlowColors.Amber, size = 12.sp) }
     WrapRow {
-        AfButton("📋 ပုံ ${My.COPY_PROMPT}", { model.copyImagePrompt(row.number) }, Modifier.heightIn(min = 48.dp),
+        AfButton("📋 ပုံ ${tr(UiText.COPY_PROMPT)}", { model.copyImagePrompt(row.number) }, Modifier.heightIn(min = 48.dp),
             kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null)
         AfButton("AI Studio ဖွင့်မယ် ↗", { model.openAiStudio() }, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Secondary)
         AfButton("📂 ပုံ ထည့်မယ်", importRef, Modifier.heightIn(min = 48.dp).testTag("ref-import"), kind = ButtonKind.Secondary)
@@ -256,7 +258,7 @@ private fun RefSection(row: RefRow, model: ReferencesModel, importRef: () -> Uni
     WrapRow(spacing = 12.dp) {
         row.refs.forEachIndexed { i, id -> RefTile(ReferencesModel.refLabel(i), id, id == row.chosenRef, model) { model.setChosenRef(row.number, id) } }
     }
-    val approveLabel = if (row.refApproved) "✓ Reference ${My.APPROVED}" else "✓ ${row.refs.indexOf(row.chosenRef).takeIf { it >= 0 }?.let(ReferencesModel::refLabel) ?: "Reference"} ${My.APPROVE}"
+    val approveLabel = if (row.refApproved) "✓ Reference ${tr(UiText.APPROVED)}" else "✓ ${row.refs.indexOf(row.chosenRef).takeIf { it >= 0 }?.let(ReferencesModel::refLabel) ?: "Reference"} ${tr(UiText.APPROVE)}"
     AfButton(approveLabel, { model.approveRef(row.number, !row.refApproved) }, Modifier.heightIn(min = 48.dp).testTag("ref-approve"),
         kind = if (row.refApproved) ButtonKind.Primary else ButtonKind.Secondary, enabled = row.chosenRef != null)
 }

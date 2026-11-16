@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +52,11 @@ const val TEST_TTS = "🔊 Test Gemini TTS (S5)"
  */
 @Composable
 fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null, backup: BackupModel? = null) {
+    AppLanguage(model.appSettings) { SettingsContent(model, modifier, info, backup) }
+}
+
+@Composable
+private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppInfo?, backup: BackupModel?) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(model) { model.refresh(); model.refreshUsage() }
@@ -59,7 +65,8 @@ fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: Ap
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AfText("Settings", size = 18.sp, bold = true)
+        AfText(tr(UiText.SETTINGS_TITLE), size = 18.sp, bold = true)
+        LanguageCard(model)
         state.message?.let { AfText(it, color = AutoFlowColors.Cyan) }
         AiCard(state, model, scope)
         DefaultsCard(state.settings, model)
@@ -69,6 +76,21 @@ fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: Ap
         ModelsCard(state, model, scope)
         backup?.let { BackupCard(it) }
         info?.let { AboutCard(it) }
+    }
+}
+
+/** Shares SettingsStore.state with App and the separate Self-test activity. */
+@Composable
+fun LanguageCard(model: SettingsModel) {
+    val settings by model.appSettings.collectAsState()
+    AfCard(tr(UiText.LANGUAGE), Modifier.testTag("settings-language")) {
+        AfText(tr(UiText.LANGUAGE_HINT), muted = true)
+        WrapRow {
+            UiLanguage.entries.forEach { language ->
+                AfChip(language.nativeName, UiLanguage.fromCode(settings.uiLanguage) == language,
+                    { model.setUiLanguage(language) }, Modifier.heightIn(min = 48.dp).testTag("language-${language.code}"))
+            }
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -168,7 +170,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 else -> ScreenPlaceholder(current)
             }
         }
-        CompositionLocalProvider(LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
+        CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(settings.uiLanguage), LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
             if (features.studioV2) {
                 StudioV2App(
                     status = status,
@@ -255,7 +257,7 @@ private fun StudioV2App(
     val content: @Composable () -> Unit = {
         if (nav.settings) {
             Column(Modifier.fillMaxSize()) {
-                V2SubBar(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, status) { nav = nav.copy(settings = false) }
+                V2SubBar(tr(UiText.BACK), status) { nav = nav.copy(settings = false) }
                 Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup) }
             }
         } else when (nav.dest) {
@@ -289,7 +291,7 @@ private fun StudioV2App(
                     Column(Modifier.fillMaxSize()) {
                         if (isRecap && screen in listOf("Recap", "Export")) {
                             io.github.alalkipgen.autoflow.ui.components.WrapRow {
-                                io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.PROJECTS_BACK, { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
+                                io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
                                 projectName?.let { AfText(it, bold = true) }
                             }
                             io.github.alalkipgen.autoflow.ui.recap.RecapStepHeader(
@@ -416,7 +418,7 @@ private fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
 private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.PROJECTS_BACK, onBack)
+            io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), onBack)
             projectName?.let { AfText(it, Modifier.weight(1f), bold = true) }
         }
         io.github.alalkipgen.autoflow.ui.components.WrapRow(spacing = 6.dp) {

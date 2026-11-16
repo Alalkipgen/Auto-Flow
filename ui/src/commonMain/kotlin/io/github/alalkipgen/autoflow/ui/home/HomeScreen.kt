@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.home
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,7 +69,7 @@ fun HomeScreen(
     ) {
         androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             AfText("ပင်မ", Modifier.weight(1f), size = 20.sp, bold = true)
-            AfButton(My.SETTINGS, onOpenSettings, Modifier.testTag("home-settings"))
+            AfButton(tr(UiText.SETTINGS), onOpenSettings, Modifier.testTag("home-settings"))
         }
         status?.let { AfText(it, muted = true, size = 12.sp) }
 
@@ -114,7 +116,7 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
                 }
                 WrapRow {
                     AfButton("နောက်အဆင့်: ပုံစံ →", { step = WizardStep.STYLE }, kind = ButtonKind.Primary)
-                    AfButton(My.CANCEL, { step = WizardStep.IDLE })
+                    AfButton(tr(UiText.CANCEL), { step = WizardStep.IDLE })
                 }
             }
             WizardStep.STYLE -> {
@@ -124,21 +126,21 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
                     AfChip(styleLabel(RecapStyle.COMMENTARY), style == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY })
                 }
                 WrapRow {
-                    AfButton("${My.START} →", { step = WizardStep.CONFIRM }, kind = ButtonKind.Primary)
-                    AfButton(My.BACK, { step = WizardStep.LENGTH })
+                    AfButton("${tr(UiText.START)} →", { step = WizardStep.CONFIRM }, kind = ButtonKind.Primary)
+                    AfButton(tr(UiText.BACK), { step = WizardStep.LENGTH })
                 }
             }
             WizardStep.CONFIRM -> {
                 val minLabel = My.minutes(targetMs / 60_000)
                 AfText("အမြန် Recap · $minLabel · ${styleLabel(style)}", bold = true)
-                AfText("ပြကွက်တွေ ရှာမယ်၊ AI က ပြကွက် ရွေးမယ်၊ Gemini က script ရေးမယ်။ ဇာတ်လမ်း စစ်ချိန်မှာ ရပ်မယ် — သင် ${My.APPROVE} သို့မဟုတ် ${My.EDIT}။", muted = true, size = 12.sp)
+                AfText("ပြကွက်တွေ ရှာမယ်၊ AI က ပြကွက် ရွေးမယ်၊ Gemini က script ရေးမယ်။ ဇာတ်လမ်း စစ်ချိန်မှာ ရပ်မယ် — သင် ${tr(UiText.APPROVE)} သို့မဟုတ် ${tr(UiText.EDIT)}။", muted = true, size = 12.sp)
                 AfText("ပြီးရင် TTS နဲ့ render က နောက်ကွယ်မှာ အလုပ်များ အဖြစ် ဆက်လုပ်မယ်။", muted = true, size = 12.sp)
                 WrapRow {
-                    AfButton(My.START, {
+                    AfButton(tr(UiText.START), {
                         onStart(targetMs, style)
                         step = WizardStep.IDLE
                     }, kind = ButtonKind.Primary)
-                    AfButton(My.BACK, { step = WizardStep.STYLE })
+                    AfButton(tr(UiText.BACK), { step = WizardStep.STYLE })
                 }
             }
         }

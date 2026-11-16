@@ -13,6 +13,8 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class AppSettings(
     val schemaVersion: Int = 1,
+    /** UI preference only; old/unknown settings use English. Never written to project.json. */
+    val uiLanguage: String = "en",
     /** First run uses offline fakes; the user switches to Real after saving and testing a key. */
     val useFakeProviders: Boolean = true,
     val ffmpegPath: String? = null,

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.jobs
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -175,9 +177,9 @@ fun JobsScreen(
                 row.detail?.let { AfText(it, color = if (row.failed) AutoFlowColors.Amber else AutoFlowColors.Muted, size = 12.sp) }
                 row.progress?.takeIf { row.running }?.let { AfText("${(it * 100).toInt()} %", size = 12.sp) }
                 WrapRow {
-                    if (row.source != JobSource.AI) AfButton(My.OPEN, { onOpen(row.source) }, kind = ButtonKind.Primary)
+                    if (row.source != JobSource.AI) AfButton(tr(UiText.OPEN), { onOpen(row.source) }, kind = ButtonKind.Primary)
                     if (row.canCancel) {
-                        AfButton(My.CANCEL, {
+                        AfButton(tr(UiText.CANCEL), {
                             when (row.source) {
                                 JobSource.RECAP -> koin.getOrNull<RecapModel>()?.cancelScript()
                                 JobSource.RENDER -> koin.getOrNull<ExportModel>()?.cancel()

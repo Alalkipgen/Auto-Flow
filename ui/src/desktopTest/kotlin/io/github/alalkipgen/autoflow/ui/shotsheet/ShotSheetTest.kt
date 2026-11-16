@@ -99,7 +99,7 @@ class ShotSheetTest {
         fs.createDirectories("/in")
         fs.writeDurably("/in/a.png", png(0xFF0000)); fs.writeDurably("/in/b.png", png(0x0000FF))
         fs.writeDurably("/in/v1.mp4", byteArrayOf(1, 2, 3)); fs.writeDurably("/in/v2.mp4", byteArrayOf(4, 5, 6))
-        setContent { sheet(1100f)() }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { sheet(1100f)() } }
         onNodeWithTag("project-three-panes").assertExists()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 1 · 0:00")
         onNodeWithTag("shot-sheet-select-2").performClick()
@@ -195,7 +195,7 @@ class ShotSheetTest {
     fun withoutAStoryboardItPointsToInput() = runDesktopComposeUiTest(width = 412, height = 800) {
         open(generate = false)
         var went = 0
-        setContent { ShotSheetScreen(storyboard, jobs, shots, refs, handoff, { null }, 412f, onGoToInput = { went++ }) }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { ShotSheetScreen(storyboard, jobs, shots, refs, handoff, { null }, 412f, onGoToInput = { went++ }) } }
         onNodeWithText(NO_STORYBOARD_TEXT).assertExists()
         onNodeWithText("ထည့်သွင်းရန် သွားမယ်").performClick()
         assertEquals(1, went)
@@ -204,7 +204,7 @@ class ShotSheetTest {
     @Test
     fun anotherProjectShowsItsOwnShotsAndActionsStayThere() = runDesktopComposeUiTest(width = 412, height = 1200) {
         open()
-        setContent { sheet(412f)() }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { sheet(412f)() } }
         onNodeWithTag("shot-sheet-chip-4").performScrollTo().performClick()
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 4 · 0:24")
@@ -228,7 +228,7 @@ class ShotSheetTest {
 
     private fun layout(width: Int, font: Float) = runDesktopComposeUiTest(width = width, height = 1000) {
         open()
-        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family) { Box { sheet(width.toFloat())() } } }
+        setContent { CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE, LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family) { Box { sheet(width.toFloat())() } } }
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
         if (width < 840) {
             onNodeWithTag("shot-sheet-chip-2").performScrollTo().performClick()

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,8 +17,9 @@ import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Presentation state only. Persisted project/block identifiers never depend on translated labels. */
-enum class RecapStep(val label: String) {
-    SOURCE("ရင်းမြစ်"), STORY("ဇာတ်လမ်း"), VOICE("အသံ"), STYLE("ပုံစံ"), EXPORT("ထုတ်ယူ");
+enum class RecapStep(val textKey: UiText) {
+    SOURCE(UiText.SOURCE), STORY(UiText.STORY), VOICE(UiText.VOICE), STYLE(UiText.STYLE), EXPORT(UiText.EXPORT);
+    val label: String get() = textKey.en
     fun previous(): RecapStep? = entries.getOrNull(ordinal - 1)
     fun next(): RecapStep? = entries.getOrNull(ordinal + 1)
 }
@@ -25,14 +28,14 @@ enum class RecapStep(val label: String) {
 @Composable
 fun RecapStepHeader(step: RecapStep, onBack: () -> Unit, onNext: () -> Unit, onClassic: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        AfText("${step.label} · ${step.ordinal + 1}/5", Modifier.testTag("recap-step").semantics {
+        AfText("${tr(step.textKey)} · ${step.ordinal + 1}/5", Modifier.testTag("recap-step").semantics {
             progressBarRangeInfo = ProgressBarRangeInfo((step.ordinal + 1).toFloat(), 0f..5f, 4)
         }, bold = true)
         WrapRow {
-            AfButton("← ယခင်အဆင့်", onBack, Modifier.heightIn(min = 48.dp).testTag("recap-back"))
-            if (step.next() != null) AfButton("နောက်အဆင့်: ${step.next()!!.label} →", onNext,
+            AfButton(tr(UiText.PREVIOUS_STEP), onBack, Modifier.heightIn(min = 48.dp).testTag("recap-back"))
+            if (step.next() != null) AfButton(tr(UiText.NEXT_STEP, "step" to tr(step.next()!!.textKey)), onNext,
                 Modifier.heightIn(min = 48.dp).testTag("recap-next"), kind = ButtonKind.Primary)
-            AfButton("Recap ပုံစံဟောင်း", onClassic, Modifier.heightIn(min = 48.dp).testTag("classic-recap"))
+            AfButton(tr(UiText.CLASSIC_RECAP), onClassic, Modifier.heightIn(min = 48.dp).testTag("classic-recap"))
         }
     }
 }
@@ -82,8 +85,8 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
                         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("block-select-$i"),
                         kind = if (i == selectedIndex) ButtonKind.Primary else ButtonKind.Secondary)
                     TakeVoiceLabel(recap.takeFor(b.id), recap.voiceLock)
-                    if (state.isStale(i)) AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}", color = AutoFlowColors.Amber)
-                    else if (state.currentTake(i) == null) AfText(io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE, muted = true)
+                    if (state.isStale(i)) AfText("⚠ ${tr(UiText.STALE)}", color = AutoFlowColors.Amber)
+                    else if (state.currentTake(i) == null) AfText(tr(UiText.NO_VOICE), muted = true)
                 }
             }
         }
