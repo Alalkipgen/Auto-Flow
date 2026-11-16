@@ -22,7 +22,13 @@ class RecapPreviewSource(private val session: ProjectSession, private val fs: Fi
     fun position(source: Source, outputMs: Long) {
         if (source.key == projectKey()) mutableCursor.value = Cursor(source.key, outputMs.coerceIn(0, (source.timeline.durationMs - 1).coerceAtLeast(0)))
     }
-    data class Source(val key: String, val path: String, val timeline: RecapTimeline, val vlcDir: String?)
+    data class Source(val key: String, val path: String, val timeline: RecapTimeline, val vlcDir: String?, val projectDir: String)
+    /** The result is discarded if this revision stops being current while disk IO/decoding is in flight. */
+    internal fun images(source: Source, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2): Map<String, androidx.compose.ui.graphics.ImageBitmap>? {
+        if (source.key != projectKey()) return null
+        val loaded = NativePreviewAssets(fs).load(source.projectDir, recap)
+        return loaded.takeIf { source.key == projectKey() }
+    }
     fun resolve(state: RecapUiState): Source? {
         val open = session.open ?: return null
         if (open.dir != state.projectDir || open.project.recap != state.recap) return null
@@ -36,6 +42,6 @@ class RecapPreviewSource(private val session: ProjectSession, private val fs: Fi
             item?.let { joinPath(joinPath(open.dir, ArtifactStore.ARTIFACTS_DIR), it.file) }?.takeIf(fs::exists)
         }, output, state.lexicon)
         if (timeline.clips.isEmpty()) return null
-        return Source("${open.dir}:${open.project.id}:${open.project.updatedAt}", joinPath(open.dir, movie.file), timeline, media?.vlcDir())
+        return Source("${open.dir}:${open.project.id}:${open.project.updatedAt}", joinPath(open.dir, movie.file), timeline, media?.vlcDir(), open.dir)
     }
 }

@@ -96,6 +96,9 @@ private class VlcMoviePlayer(private val factory: MediaPlayerFactory, private va
                 // Never expose/reuse libVLC's mutable native buffer on the UI thread.
                 val buffer = nativeBuffers[0].duplicate().apply { clear() }
                 val bytes = ByteArray(size.toInt()); buffer.get(bytes)
+                // RV32 is BGRX, NOT premultiplied BGRA. Its unused X byte may be zero. Normalize only our
+                // copy, or nested offscreen Compose compositing can add the background through transparent RGB.
+                for (alpha in 3 until bytes.size step 4) bytes[alpha] = 0xFF.toByte()
                 if (!closed) mutableFrames.value = MovieFrame(width, height, bufferFormat.width * 4, bytes, ++serial)
             }
         }

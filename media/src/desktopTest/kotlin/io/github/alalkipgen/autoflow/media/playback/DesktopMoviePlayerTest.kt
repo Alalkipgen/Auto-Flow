@@ -39,6 +39,7 @@ class DesktopMoviePlayerTest {
                 val second = player.frames.value!!
                 assertFalse(first.bgra.contentEquals(second.bgra), "real changing video pixels, not a thumbnail")
                 assertEquals(180 * 320, second.width * second.height, "decoder padding is cropped")
+                assertTrue((3 until second.bgra.size step 4).all { second.bgra[it] == 0xFF.toByte() }, "RV32 unused alpha is normalized before offscreen compositing")
                 player.setPlaying(false)
                 await("paused") { player.snapshot().phase == MoviePhase.PAUSED }
                 Thread.sleep(150)
