@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.jobs
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
@@ -63,19 +64,19 @@ data class JobRow(
  * the Music Video storyboard job and the desktop AI runner's jobs. Finished renders and failures stay listed until the
  * next one starts, so the owner sees how it ended.
  */
-fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai: List<AiJob>): List<JobRow> = buildList {
+fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai: List<AiJob>, language: UiLanguage = UiLanguage.ENGLISH): List<JobRow> = buildList {
     recap?.job?.let { label ->
         add(JobRow(JobSource.RECAP, "Movie Recap — $label", projectName(recap.projectDir), recap.progress, canCancel = recap.job == RecapModel.WRITING))
     }
     render?.let { run ->
-        val kind = if (run.quality == Quality.PREVIEW) "နမူနာ 540p" else "ထုတ်ယူ"
+        val kind = if (run.quality == Quality.PREVIEW) UiText.JOB_PREVIEW.text(language) else UiText.EXPORT.text(language)
         val name = projectName(run.projectDir)
         when (val s = run.state) {
-            RenderState.Queued -> add(JobRow(JobSource.RENDER, "Render — $kind (စောင့်နေသည်)", name, canCancel = true))
+            RenderState.Queued -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_QUEUED.text(language, "kind" to (kind)), name, canCancel = true))
             is RenderState.Running -> add(JobRow(JobSource.RENDER, "Render — $kind", name, s.fraction, canCancel = true))
-            is RenderState.Done -> add(JobRow(JobSource.RENDER, "Render — $kind ပြီးပြီ", name, 1.0, running = false))
-            is RenderState.Failed -> add(JobRow(JobSource.RENDER, "Render — $kind မအောင်မြင်ပါ", s.reason, running = false, failed = true))
-            RenderState.Cancelled -> add(JobRow(JobSource.RENDER, "Render — $kind ပယ်ဖျက်ပြီး", name, running = false))
+            is RenderState.Done -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_DONE.text(language, "kind" to (kind)), name, 1.0, running = false))
+            is RenderState.Failed -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_FAILED.text(language, "kind" to (kind)), s.reason, running = false, failed = true))
+            RenderState.Cancelled -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_CANCELLED.text(language, "kind" to (kind)), name, running = false))
         }
     }
     storyboard?.running?.let { add(JobRow(JobSource.STORYBOARD, "Storyboard — $it", canCancel = true)) }
@@ -83,13 +84,13 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         val active = job.state == AiJobState.RUNNING || job.state == AiJobState.QUEUED
         val detail = listOfNotNull(
             projectName(job.project),
-            "${job.items.size} ခု ကျန်",
+            UiText.JOB_ITEMS_LEFT.text(language, "size" to (job.items.size)),
             job.etaSeconds()?.let { "~${it}s" },
             job.error,
         ).joinToString(" · ")
         add(
             JobRow(
-                JobSource.AI, "${aiKindLabel(job.kind)} — ${aiStateLabel(job.state)}", detail,
+                JobSource.AI, "${aiKindLabel(job.kind, language)} — ${aiStateLabel(job.state, language)}", detail,
                 running = active, failed = job.state == AiJobState.FAILED, canCancel = active, aiJobId = job.id,
             ),
         )
@@ -97,21 +98,21 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
 }
 
 /** Burmese name of an AI job kind (5B-13); the saved kind stays the enum. */
-internal fun aiKindLabel(kind: AiJobKind): String = when (kind) {
-    AiJobKind.TTS_ALL -> "အားလုံး အသံထုတ်"
-    AiJobKind.TRANSCRIBE -> "စာသားပြောင်း"
-    AiJobKind.QUICK_RECAP -> "အမြန် Recap"
+internal fun aiKindLabel(kind: AiJobKind, language: UiLanguage = UiLanguage.ENGLISH): String = when (kind) {
+    AiJobKind.TTS_ALL -> UiText.JOB_TTS_ALL.text(language)
+    AiJobKind.TRANSCRIBE -> UiText.JOB_TRANSCRIBE.text(language)
+    AiJobKind.QUICK_RECAP -> UiText.JOB_QUICK_RECAP.text(language)
     AiJobKind.PUBLISH_KIT -> "Publish Kit"
 }
 
 /** Burmese job state (5B-13). */
-internal fun aiStateLabel(state: AiJobState): String = when (state) {
-    AiJobState.QUEUED -> "စောင့်နေသည်"
-    AiJobState.RUNNING -> "လုပ်နေသည်"
-    AiJobState.PAUSED -> "ခဏရပ်ထားသည်"
-    AiJobState.DONE -> "ပြီးပြီ"
-    AiJobState.FAILED -> "မအောင်မြင်ပါ"
-    AiJobState.CANCELLED -> "ပယ်ဖျက်ပြီး"
+internal fun aiStateLabel(state: AiJobState, language: UiLanguage = UiLanguage.ENGLISH): String = when (state) {
+    AiJobState.QUEUED -> UiText.JOB_QUEUED.text(language)
+    AiJobState.RUNNING -> UiText.JOB_RUNNING.text(language)
+    AiJobState.PAUSED -> UiText.JOB_PAUSED.text(language)
+    AiJobState.DONE -> UiText.JOB_DONE.text(language)
+    AiJobState.FAILED -> UiText.JOB_FAILED.text(language)
+    AiJobState.CANCELLED -> UiText.JOB_CANCELLED.text(language)
 }
 
 /** Badge for the Jobs tab: > 0 = jobs still running, < 0 = that many failed, 0 = none. */
@@ -144,7 +145,7 @@ fun rememberJobRows(): List<JobRow> {
     val export by (exportModel?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val storyboard by (storyboardJobs?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val ai by (runner?.jobs?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
-    return jobRows(recap, export?.run, storyboard, ai)
+    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current)
 }
 
 /**
@@ -163,11 +164,11 @@ fun JobsScreen(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        AfText("အလုပ်များ", size = 20.sp, bold = true)
+        AfText(tr(UiText.JOBS), size = 20.sp, bold = true)
         if (rows.isEmpty()) {
             AfText(
-                "ဘာမှ လုပ်မနေပါ။ ပြကွက်ရှာခြင်း၊ script ရေးခြင်း၊ အသံ၊ storyboard နဲ့ render တွေ လုပ်နေချိန် ဒီမှာ ပေါ်မယ်၊ " +
-                    "တခြားစာမျက်နှာ ပြောင်းလည်း ဆက်လုပ်နေမယ်။",
+                tr(UiText.JOBS_EMPTY_FIRST) +
+                    tr(UiText.JOBS_EMPTY_LAST),
                 Modifier.testTag("jobs-empty"),
                 muted = true,
             )

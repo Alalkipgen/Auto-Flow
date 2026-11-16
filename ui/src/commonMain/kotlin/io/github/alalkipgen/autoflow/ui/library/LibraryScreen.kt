@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.library
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
@@ -56,8 +57,8 @@ fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier) {
             .padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        AfText("စာကြည့်တိုက်", size = 20.sp, bold = true)
-        AfText("${tr(UiText.APPLY)} = လက်ရှိ project ထဲကို ကူးထည့်တယ်။ Project တွေက စာကြည့်တိုက်ထဲက ဖိုင်ကို တိုက်ရိုက် မသုံးပါ။", muted = true, size = 12.sp)
+        AfText(tr(UiText.LIBRARY), size = 20.sp, bold = true)
+        AfText(tr(UiText.LIBRARY_COPY_HINT, "APPLY" to (tr(UiText.APPLY))), muted = true, size = 12.sp)
 
         BrandKitsSection(state.library.brandKits, model)
         VoicesSection(state.library.voices, model)
@@ -72,19 +73,19 @@ fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier) {
 
 @Composable
 private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
-    AfCard("Brand Kit များ (${items.size})") {
+    AfCard(tr(UiText.LIBRARY_KITS, "size" to (items.size))) {
         // Save current project as a new Brand Kit (5B-3, D-51)
         var newName by remember { mutableStateOf("") }
-        AfButton("💼 လက်ရှိ project ကို Brand Kit အဖြစ် သိမ်းမယ်…", { newName = "My Brand Kit" })
+        AfButton(tr(UiText.LIBRARY_SAVE_KIT), { newName = "My Brand Kit" })
         if (newName.isNotEmpty()) {
-            AfTextField(newName, { newName = it }, "Brand Kit အမည်")
+            AfTextField(newName, { newName = it }, tr(UiText.LIBRARY_KIT_NAME))
             WrapRow {
                 AfButton(tr(UiText.SAVE), { if (newName.isNotBlank()) { model.saveBrandKit(newName); newName = "" } }, kind = ButtonKind.Primary, enabled = newName.isNotBlank())
                 AfButton(tr(UiText.CANCEL), { newName = "" })
             }
         }
         if (items.isEmpty()) {
-            AfText("Brand Kit မသိမ်းရသေးပါ။ အပေါ်က ခလုတ်နဲ့ လက်ရှိ project ရဲ့ ဆက်တင်တွေကို သိမ်းပါ။", muted = true)
+            AfText(tr(UiText.LIBRARY_KITS_EMPTY), muted = true)
         } else {
             items.forEach { kit ->
                 var confirmDeleteKit by remember(kit.id) { mutableStateOf(false) }
@@ -98,8 +99,8 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
                                 .padding(24.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            AfText("\"${kit.name}\" ကို ဖျက်မလား?", bold = true)
-                            AfText("ဒီ Brand Kit ကို စာကြည့်တိုက်ထဲက ဖယ်ရှားမယ်။", muted = true)
+                            AfText(tr(UiText.LIBRARY_DELETE_KIT, "name" to (kit.name)), bold = true)
+                            AfText(tr(UiText.LIBRARY_DELETE_HINT), muted = true)
                             WrapRow {
                                 AfButton(tr(UiText.DELETE), { model.deleteBrandKit(kit.id); confirmDeleteKit = false }, kind = ButtonKind.Danger)
                                 AfButton(tr(UiText.CANCEL), { confirmDeleteKit = false })
@@ -114,11 +115,11 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     AfText(kit.name, bold = true)
-                    if (kit.colours.isNotEmpty()) AfText("အရောင်များ: ${kit.colours.joinToString()}", muted = true, size = 12.sp)
-                    if (kit.captionStyle != null) AfText("စာတန်းပုံစံ: သိမ်းထား", muted = true, size = 12.sp)
+                    if (kit.colours.isNotEmpty()) AfText(tr(UiText.LIBRARY_COLOURS, "joinToString" to (kit.colours.joinToString())), muted = true, size = 12.sp)
+                    if (kit.captionStyle != null) AfText(tr(UiText.LIBRARY_CAPTION_SAVED), muted = true, size = 12.sp)
                     if (kit.watermark != null) AfText("Watermark: ${kit.watermark!!.substringAfterLast('/')}", muted = true, size = 12.sp)
-                    AfButton("လက်ရှိ project မှာ ${tr(UiText.APPLY)}", { model.applyBrandKit(kit.id) })
-                    AfText("ဖျက်ရန် ကြာကြာ ဖိထားပါ", muted = true, size = 11.sp)
+                    AfButton(tr(UiText.LIBRARY_APPLY_CURRENT, "APPLY" to (tr(UiText.APPLY))), { model.applyBrandKit(kit.id) })
+                    AfText(tr(UiText.LIBRARY_DELETE_HOLD), muted = true, size = 11.sp)
                 }
             }
         }
@@ -127,9 +128,9 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel) {
 
 @Composable
 private fun VoicesSection(items: List<SavedVoice>, model: LibraryModel) {
-    AfCard("အသံများ (${items.size})") {
+    AfCard(tr(UiText.LIBRARY_VOICES, "size" to (items.size))) {
         if (items.isEmpty()) {
-            AfText("သိမ်းထားသော အသံ မရှိသေးပါ။ Movie Recap → အသံ မှာ အသံတစ်ခု သော့ခတ်ရင် ဒီမှာ သိမ်းမယ်။", muted = true)
+            AfText(tr(UiText.LIBRARY_VOICES_EMPTY), muted = true)
         } else {
             items.forEach { v ->
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -144,30 +145,30 @@ private fun VoicesSection(items: List<SavedVoice>, model: LibraryModel) {
 
 @Composable
 private fun LexiconSection(items: List<LexiconEntry>, model: LibraryModel) {
-    AfCard("အသံထွက် အဘိဓာန် (${items.size} ခု)") {
-        AfText("TTS မပြောခင် စကားလုံးလိုက် အစားထိုးတယ်။ အရှည်ဆုံး ရေးပုံက ဦးစားပေးရတယ်။", muted = true, size = 12.sp)
+    AfCard(tr(UiText.LIBRARY_LEXICON, "size" to (items.size))) {
+        AfText(tr(UiText.LIBRARY_LEXICON_HINT), muted = true, size = 12.sp)
         if (items.isEmpty()) {
-            AfText("အဘိဓာန်ထဲ ဘာမှ မရှိသေးပါ။ Movie Recap → Script → Lexicon မှာ ထည့်ပါ။", muted = true)
+            AfText(tr(UiText.LIBRARY_LEXICON_EMPTY), muted = true)
         } else {
             items.take(10).forEach { entry ->
                 AfText("${entry.written} → ${entry.spoken}", size = 12.sp)
             }
-            if (items.size > 10) AfText("… နောက်ထပ် ${items.size - 10} ခု", muted = true, size = 11.sp)
+            if (items.size > 10) AfText(tr(UiText.LIBRARY_MORE, "size10" to (items.size - 10)), muted = true, size = 11.sp)
         }
     }
 }
 
 @Composable
 private fun MusicSection(items: List<MusicItem>, model: LibraryModel) {
-    AfCard("တေးဂီတ (${items.size})") {
-        AfText("${tr(UiText.APPLY)} = project ထဲကို ကူးထည့်တယ်။ နောက်ခံတေး အဖြစ်သုံး = Recap အသံထဲမှာပါ ချိတ်ပေးတယ်။", muted = true, size = 12.sp)
+    AfCard(tr(UiText.LIBRARY_MUSIC, "size" to (items.size))) {
+        AfText(tr(UiText.LIBRARY_MUSIC_HINT, "APPLY" to (tr(UiText.APPLY))), muted = true, size = 12.sp)
         if (items.isEmpty()) {
-            AfText("တေးဂီတ မရှိသေးပါ။", muted = true)
+            AfText(tr(UiText.LIBRARY_MUSIC_EMPTY), muted = true)
         } else {
             items.forEach { m ->
                 WrapRow {
                     AfText("${m.name} · ${m.durationMs / 1000}s", Modifier.weight(1f))
-                    AfButton("နောက်ခံတေး အဖြစ်သုံးမယ်", { model.applyMusicAsBgm(m.id) })
+                    AfButton(tr(UiText.LIBRARY_USE_BGM), { model.applyMusicAsBgm(m.id) })
                 }
             }
         }
@@ -176,9 +177,9 @@ private fun MusicSection(items: List<MusicItem>, model: LibraryModel) {
 
 @Composable
 private fun FontsSection(items: List<FontItem>, model: LibraryModel) {
-    AfCard("ဖောင့်များ (${items.size})") {
+    AfCard(tr(UiText.LIBRARY_FONTS, "size" to (items.size))) {
         if (items.isEmpty()) {
-            AfText("ကိုယ်ပိုင် ဖောင့် မရှိသေးပါ။ ဆက်တင် → Fonts မှာ ထည့်ပါ။", muted = true)
+            AfText(tr(UiText.LIBRARY_FONTS_EMPTY), muted = true)
         } else {
             items.forEach { f ->
                 WrapRow {
@@ -192,19 +193,19 @@ private fun FontsSection(items: List<FontItem>, model: LibraryModel) {
 
 @Composable
 private fun PresetsSection(items: List<Preset>, model: LibraryModel) {
-    AfCard("Preset များ (${items.size})") {
+    AfCard(tr(UiText.LIBRARY_PRESETS, "size" to (items.size))) {
         // Save current caption style as a preset (5B-8, D-51)
         var presetName by remember { mutableStateOf("") }
-        AfButton("စာတန်းပုံစံကို preset အဖြစ် သိမ်းမယ်…", { presetName = "My Caption Style" })
+        AfButton(tr(UiText.LIBRARY_SAVE_PRESET), { presetName = "My Caption Style" })
         if (presetName.isNotEmpty()) {
-            AfTextField(presetName, { presetName = it }, "Preset အမည်")
+            AfTextField(presetName, { presetName = it }, tr(UiText.LIBRARY_PRESET_NAME))
             WrapRow {
                 AfButton(tr(UiText.SAVE), { if (presetName.isNotBlank()) { model.saveCaptionPreset(presetName); presetName = "" } }, kind = ButtonKind.Primary, enabled = presetName.isNotBlank())
                 AfButton(tr(UiText.CANCEL), { presetName = "" })
             }
         }
         if (items.isEmpty()) {
-            AfText("Preset မသိမ်းရသေးပါ။", muted = true)
+            AfText(tr(UiText.LIBRARY_PRESETS_EMPTY), muted = true)
         } else {
             items.forEach { p ->
                 WrapRow {
