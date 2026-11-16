@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,10 +39,10 @@ const val STOP = "■ ရပ်မယ်"
 /** Card 4 · Voice (docs/specs/recap.md §5, D-34): recorded or Gemini TTS narration per segment. */
 @Composable
 internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null) {
-    AfCard("4 · Voice") {
+    AfCard(tr(UiText.RECAP_VOICE_CARD)) {
         val script = state.script
         RecapRulesV2.canVoice(recap, state.story).blockers.firstOrNull()?.let {
-            AfText(it.text(), muted = true)
+            AfText(it.text(LocalUiLanguage.current), muted = true)
             return@AfCard
         }
         script!!
@@ -51,19 +52,19 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2, b
             val eta = state.speakAllEta
             if (eta != null) {
                 // ETA confirmation card (5A-5, D-51): show before the loop starts
-                val etaStr = eta.etaSeconds?.let { " (~${it / 60} min)" } ?: ""
-                AfText("${eta.count} scenes to speak$etaStr — start?", bold = true)
+                val etaStr = eta.etaSeconds?.let { tr(UiText.SPEAK_ALL_ETA, "it60" to (it / 60)) } ?: ""
+                AfText(tr(UiText.SPEAK_ALL_CONFIRM, "count" to (eta.count), "etaStr" to (etaStr)), bold = true)
                 WrapRow {
-                    AfButton("▶ Start", { model.speakAll(confirmed = true) }, kind = ButtonKind.Primary)
-                    AfButton("Cancel", { model.cancelSpeakAll() })
+                    AfButton(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) }, kind = ButtonKind.Primary)
+                    AfButton(tr(UiText.CANCEL), { model.cancelSpeakAll() })
                 }
             } else {
-                AfButton(SPEAK_ALL, { model.speakAll() }, kind = ButtonKind.Primary, enabled = idle)
+                AfButton(tr(UiText.SPEAK_ALL), { model.speakAll() }, kind = ButtonKind.Primary, enabled = idle)
             }
-            AfText("One request per missing/stale block; the locked model and voice are used. Voice & Audio also offers recording and import.", muted = true, size = 12.sp)
+            AfText(tr(UiText.SPEAK_ALL_HINT), muted = true, size = 12.sp)
         }
         val voiced = script.segments.indices.count { state.currentTake(it) != null }
-        AfText("Voiced $voiced of ${script.segments.size} scenes", bold = true, color = if (voiced == script.segments.size) AutoFlowColors.Green else null)
+        AfText(tr(UiText.SCENES_VOICED, "voiced" to (voiced), "size" to (script.segments.size)), bold = true, color = if (voiced == script.segments.size) AutoFlowColors.Green else null)
         var playing by remember(state.projectDir, blockIndex) { mutableStateOf<Int?>(null) }
         // Block detail: tap "Voice & Audio" on a row to open the teleprompter / tab view (5B-5).
         var blockDetail by remember(state.projectDir, blockIndex) { mutableStateOf<Int?>(null) }
@@ -86,28 +87,28 @@ private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: RecapV2, scr
     val stale = state.isStale(i)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("#${i + 1} · ${clock(seg.startMs)} · scene ${seconds(seg.durationMs)}", Modifier.weight(1f), muted = true, size = 12.sp)
+            AfText(tr(UiText.VOICE_SCENE_TIME, "i1" to (i + 1), "startMs" to (clock(seg.startMs)), "durationMs" to (seconds(seg.durationMs))), Modifier.weight(1f), muted = true, size = 12.sp)
             when {
                 take != null -> AfText("${if (take.source == TakeSource.TTS) "🔊" else "🎙"} ${seconds(take.durationMs)} ✓", color = AutoFlowColors.Green, size = 12.sp)
-                stale -> AfText("⚠ Stale — text changed", color = AutoFlowColors.Amber, size = 12.sp)
-                else -> AfText("No voice", muted = true, size = 12.sp)
+                stale -> AfText(tr(UiText.STALE_TEXT_CHANGED), color = AutoFlowColors.Amber, size = 12.sp)
+                else -> AfText(tr(UiText.NO_VOICE), muted = true, size = 12.sp)
             }
         }
         TakeVoiceLabel(recap.takeFor(state.story!!.blocks[i].id), recap.voiceLock)
         AfText(seg.textMy, size = 12.sp)
         WrapRow {
             if (state.recording == i) {
-                AfButton(STOP, { model.stopRecording() }, kind = ButtonKind.Danger)
-                AfButton("Cancel", { model.cancelRecording() })
+                AfButton(tr(UiText.STOP), { model.stopRecording() }, kind = ButtonKind.Danger)
+                AfButton(tr(UiText.CANCEL), { model.cancelRecording() })
             } else {
                 AfButton("🔊", { model.speak(i) }, enabled = idle && seg.textMy.isNotBlank())
-                if (model.canRecord) AfButton(RECORD, { model.startRecording(i) }, kind = ButtonKind.Primary, enabled = idle && seg.textMy.isNotBlank())
-                AfButton("Import file", { model.importTake(i) }, enabled = idle && seg.textMy.isNotBlank())
+                if (model.canRecord) AfButton(tr(UiText.RECORD), { model.startRecording(i) }, kind = ButtonKind.Primary, enabled = idle && seg.textMy.isNotBlank())
+                AfButton(tr(UiText.IMPORT_FILE), { model.importTake(i) }, enabled = idle && seg.textMy.isNotBlank())
             }
             val file = state.takeFiles[i]
             if (take != null && file != null) AudioPlayButton(file, playing, onPlay)
             // Voice & Audio block detail (5B-5)
-            AfButton("⋮ Voice & Audio", onOpenBlock, enabled = idle)
+            AfButton(tr(UiText.VOICE_AUDIO_DETAIL), onOpenBlock, enabled = idle)
         }
     }
 }

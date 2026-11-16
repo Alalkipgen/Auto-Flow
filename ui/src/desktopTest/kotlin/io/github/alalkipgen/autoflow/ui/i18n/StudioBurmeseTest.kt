@@ -122,11 +122,11 @@ class StudioBurmeseTest {
             MaskPreset.entries.forEach { add(maskLabel(it)) }
             MaskStrength.entries.forEach { add(strengthLabel(it)) }
             addAll(listOf(TALLER, SHORTER, WIDER, NARROWER, EXACT_FRAME, PREVIEW_BUTTON, EXPORT_BUTTON, SAVE_BUTTON, SHARE))
-            VoiceTab.entries.forEach { add(voiceTabLabel(it)) }
+            VoiceTab.entries.forEach { add(voiceTabLabel(it, UiLanguage.BURMESE)) }
             AiJobKind.entries.filter { it != AiJobKind.PUBLISH_KIT }.forEach { add(aiKindLabel(it, UiLanguage.BURMESE)) }
             AiJobState.entries.forEach { add(aiStateLabel(it, UiLanguage.BURMESE)) }
             RecapStyle.entries.forEach { add(styleLabel(it, UiLanguage.BURMESE)) }
-            add(transcriptSummary(2, 1)); add(transcribeConfirmText(2, 1))
+            add(transcriptSummary(2, 1, UiLanguage.BURMESE)); add(transcribeConfirmText(2, 1, UiLanguage.BURMESE))
             FitStatus.entries.forEach { s -> add(io.github.alalkipgen.autoflow.core.recap.FitRow(0, 1_000, 2_000, 2_000, s).label(UiLanguage.BURMESE)) }
         }
         labels.forEach { assertTrue(my(it), "not Burmese: $it") }

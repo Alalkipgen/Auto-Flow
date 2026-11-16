@@ -1,34 +1,35 @@
 package io.github.alalkipgen.autoflow.ui.storyboard
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.workflow.Blocker
 
 /** What the user must do for each WorkflowRules blocker. The rule itself lives only in `:core`. */
-fun Blocker.text(): String = when (this) {
-    Blocker.EMPTY_LYRICS -> "Add the lyrics"
-    Blocker.NO_DURATION -> "Set the song duration (m:ss)"
-    Blocker.INVALID_CLIP_LENGTH -> "Choose a clip length"
-    Blocker.NO_SPEC -> "This shot has no storyboard yet"
-    Blocker.STORYBOARD_NOT_APPROVED -> "Approve the storyboard first"
-    Blocker.NO_PROMPT -> "Compile the prompt first"
-    Blocker.PROMPT_NOT_APPROVED -> "Approve the prompt first"
-    Blocker.PROMPT_STALE -> "The prompt is out of date: compile it again"
-    Blocker.NO_CHOSEN_REF -> "Choose a reference image"
-    Blocker.REF_NOT_APPROVED -> "Approve the reference image first"
-    Blocker.NO_VIDEOS -> "Import a video from Flow first"
-    Blocker.NO_ACCEPTED_VIDEOS -> "Accept at least one video"
-    Blocker.NO_RIGHTS -> "Tick the rights box (New Movie Recap) first"
-    Blocker.NO_MOVIE -> "Import the movie first"
-    Blocker.NO_PICKED_SCENES -> "Pick at least one scene"
-    Blocker.NO_SCRIPT_SOURCE -> "Type a summary or import subtitles (.srt) first"
-    Blocker.NO_SCRIPT -> "Write the script first"
-    Blocker.SCRIPT_OUTDATED -> "The picked scenes changed: write the script again"
-    Blocker.BLANK_SEGMENT -> "Every picked scene needs narration text"
-    Blocker.SCRIPT_NOT_APPROVED -> "Approve the script first"
-    Blocker.NO_VOICE -> "Record or speak at least one scene's narration"
+fun Blocker.text(language: UiLanguage = UiLanguage.ENGLISH): String = when (this) {
+    Blocker.EMPTY_LYRICS -> UiText.BLOCKER_EMPTY_LYRICS.text(language)
+    Blocker.NO_DURATION -> UiText.BLOCKER_NO_DURATION.text(language)
+    Blocker.INVALID_CLIP_LENGTH -> UiText.BLOCKER_INVALID_CLIP_LENGTH.text(language)
+    Blocker.NO_SPEC -> UiText.BLOCKER_NO_SPEC.text(language)
+    Blocker.STORYBOARD_NOT_APPROVED -> UiText.BLOCKER_STORYBOARD_NOT_APPROVED.text(language)
+    Blocker.NO_PROMPT -> UiText.BLOCKER_NO_PROMPT.text(language)
+    Blocker.PROMPT_NOT_APPROVED -> UiText.BLOCKER_PROMPT_NOT_APPROVED.text(language)
+    Blocker.PROMPT_STALE -> UiText.BLOCKER_PROMPT_STALE.text(language)
+    Blocker.NO_CHOSEN_REF -> UiText.BLOCKER_NO_CHOSEN_REF.text(language)
+    Blocker.REF_NOT_APPROVED -> UiText.BLOCKER_REF_NOT_APPROVED.text(language)
+    Blocker.NO_VIDEOS -> UiText.BLOCKER_NO_VIDEOS.text(language)
+    Blocker.NO_ACCEPTED_VIDEOS -> UiText.BLOCKER_NO_ACCEPTED_VIDEOS.text(language)
+    Blocker.NO_RIGHTS -> UiText.BLOCKER_NO_RIGHTS.text(language)
+    Blocker.NO_MOVIE -> UiText.BLOCKER_NO_MOVIE.text(language)
+    Blocker.NO_PICKED_SCENES -> UiText.BLOCKER_NO_PICKED_SCENES.text(language)
+    Blocker.NO_SCRIPT_SOURCE -> UiText.BLOCKER_NO_SCRIPT_SOURCE.text(language)
+    Blocker.NO_SCRIPT -> UiText.BLOCKER_NO_SCRIPT.text(language)
+    Blocker.SCRIPT_OUTDATED -> UiText.BLOCKER_SCRIPT_OUTDATED.text(language)
+    Blocker.BLANK_SEGMENT -> UiText.BLOCKER_BLANK_SEGMENT.text(language)
+    Blocker.SCRIPT_NOT_APPROVED -> UiText.BLOCKER_SCRIPT_NOT_APPROVED.text(language)
+    Blocker.NO_VOICE -> UiText.BLOCKER_NO_VOICE.text(language)
 }
 
-fun StoryboardResult.message(): String? = when (this) {
+fun StoryboardResult.message(language: UiLanguage = UiLanguage.ENGLISH): String? = when (this) {
     StoryboardResult.Done -> null
-    is StoryboardResult.Blocked -> blockers.joinToString(" · ") { it.text() }
+    is StoryboardResult.Blocked -> blockers.joinToString(" · ") { it.text(language) }
     is StoryboardResult.Failed -> message
 }

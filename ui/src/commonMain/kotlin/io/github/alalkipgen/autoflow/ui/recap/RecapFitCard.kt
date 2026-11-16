@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +56,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
     AfCard("5 · ကိုက်ညီမှု စစ်ဆေး") {
         val story = state.story
         RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let {
-            AfText(it.text(), muted = true)
+            AfText(it.text(LocalUiLanguage.current), muted = true)
             return@AfCard
         }
         story!!
@@ -140,7 +141,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         }
     }
         val render = RecapRulesV2.canRender(recap, story, state.lexicon)
-        render.blockers.firstOrNull()?.let { AfText(it.text(), color = AutoFlowColors.Amber) }
+        render.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), color = AutoFlowColors.Amber) }
         AfButton(GO_TO_EXPORT, onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
     }
 }
