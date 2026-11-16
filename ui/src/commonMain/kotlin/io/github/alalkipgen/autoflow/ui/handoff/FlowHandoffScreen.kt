@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Image
@@ -43,7 +44,6 @@ import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
-import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
@@ -68,14 +68,14 @@ fun FlowHandoffScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AfText("Flow Handoff", size = 18.sp, bold = true)
-            AfButton("Open Flow ↗", { model.openFlow() }, kind = ButtonKind.Flow)
+            AfText(tr(UiText.FLOW_HANDOFF), size = 18.sp, bold = true)
+            AfButton(tr(UiText.OPEN_FLOW), { model.openFlow() }, kind = ButtonKind.Flow)
         }
-        AfText("Copy a prompt → paste in Flow → generate video → import it here.", muted = true, size = 12.sp)
+        AfText(tr(UiText.FLOW_MANUAL_STEPS), muted = true, size = 12.sp)
 
         when {
-            state.projectName == null -> AfText(NO_PROJECT_TEXT, muted = true)
-            state.rows.isEmpty() -> AfText("No shots yet — generate a storyboard first.", muted = true)
+            state.projectName == null -> AfText(tr(UiText.OPEN_PROJECT_FIRST), muted = true)
+            state.rows.isEmpty() -> AfText(tr(UiText.NO_SHOTS_STORYBOARD), muted = true)
             else -> {
                 CreditCounter(state, model)
                 BatchPanel(state, model)
@@ -100,7 +100,7 @@ internal fun HandoffCard(
     fast: Int,
     quality: Int,
     showHeader: Boolean = true,
-    noPromptText: String = "No compiled prompt — compile it on the Shots screen.",
+    noPromptText: String = tr(UiText.FLOW_COMPILE_FIRST),
 ) {
     var showCredits by remember(row.number) { mutableStateOf(false) }
     var creditInput by remember(row.number) { mutableStateOf("") }
@@ -157,10 +157,10 @@ internal fun HandoffCard(
 
         // Pass toggle
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            AfText("Pass:", muted = true, size = 12.sp)
+            AfText(tr(UiText.PASS_LABEL), muted = true, size = 12.sp)
             Pass.entries.forEach { p ->
                 val on = row.pass == p
-                val label = if (p == Pass.DRAFT) "Draft (Fast)" else "Final (Quality)"
+                val label = if (p == Pass.DRAFT) tr(UiText.PASS_DRAFT) else tr(UiText.PASS_FINAL)
                 Box(
                     Modifier
                         .clip(AutoFlowShapes.Card)
@@ -175,7 +175,7 @@ internal fun HandoffCard(
         }
 
         if (row.batchable) {
-            AfChip((if (row.inBatch) "☑ " else "☐ ") + IN_BATCH_CHIP, row.inBatch, { model.toggleBatch(row.number) })
+            AfChip((if (row.inBatch) "☑ " else "☐ ") + tr(UiText.IN_BATCH), row.inBatch, { model.toggleBatch(row.number) })
         }
 
         // Actions
@@ -188,7 +188,7 @@ internal fun HandoffCard(
                 creditInput = ""
             })
         } else if (row.creditsLogged > 0) {
-            AfText("Credits logged: ${row.creditsLogged}", muted = true, size = 11.sp)
+            AfText(tr(UiText.CREDITS_LOGGED, "creditsLogged" to (row.creditsLogged)), muted = true, size = 11.sp)
         }
     }
 }
@@ -199,13 +199,13 @@ internal fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
         value = row.refImage?.let { model.refThumbnail(row.number)?.let(::decodeImage) }
     }
     MediaTile(
-        label = refThumbLabel(row),
+        label = refThumbLabel(row, LocalUiLanguage.current),
         image = image,
         present = row.refImage != null,
-        emptyText = "No image",
+        emptyText = tr(UiText.NO_IMAGE),
         play = false,
         onClick = if (row.refImage != null) ({ model.openRefImage(row.number) }) else null,
-        description = "Shot ${row.number} reference image",
+        description = tr(UiText.REFERENCE_SHOT_DESCRIPTION, "number" to (row.number)),
     )
 }
 
@@ -215,13 +215,13 @@ internal fun VideoThumb(row: HandoffRow, model: FlowHandoffModel) {
         value = row.shownVideo?.let { model.videoThumbnail(row.number)?.let(::decodeImage) }
     }
     MediaTile(
-        label = videoThumbLabel(row),
+        label = videoThumbLabel(row, LocalUiLanguage.current),
         image = image,
         present = row.shownVideo != null,
-        emptyText = "No video",
+        emptyText = tr(UiText.NO_VIDEO),
         play = true,
         onClick = if (row.shownVideo != null) ({ model.playVideo(row.number) }) else null,
-        description = "Shot ${row.number} video",
+        description = tr(UiText.VIDEO_SHOT_DESCRIPTION, "number" to (row.number)),
     )
 }
 
@@ -248,7 +248,7 @@ private fun MediaTile(
         ) {
             when {
                 image != null -> Image(image, contentDescription = description, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                present -> AfText(if (play) "Video" else "Image", muted = true, size = 11.sp)
+                present -> AfText(if (play) tr(UiText.VIDEO) else tr(UiText.IMAGE), muted = true, size = 11.sp)
                 else -> AfText(emptyText, muted = true, size = 11.sp)
             }
             if (play && present) {
@@ -265,18 +265,18 @@ internal const val THUMB_W = 128
 internal const val THUMB_H = 72
 
 /** "Reference image" / "Reference image (not approved)" / "No reference image". */
-internal fun refThumbLabel(row: HandoffRow): String = when {
-    row.refImage == null -> "No reference image"
-    !row.refApproved -> "Reference image (not approved)"
-    else -> "Reference image"
-}
+internal fun refThumbLabel(row: HandoffRow, language: UiLanguage = UiLanguage.ENGLISH): String = when {
+    row.refImage == null -> UiText.REF_NONE
+    !row.refApproved -> UiText.REF_UNAPPROVED
+    else -> UiText.REF_IMAGE
+}.text(language)
 
 /** "Accepted video" / "Latest video (2 of 2)" / "Imported video" / "No video yet". */
-internal fun videoThumbLabel(row: HandoffRow): String = when {
-    row.shownVideo == null -> "No video yet"
-    row.accepted -> "Accepted video"
-    row.videoCount > 1 -> "Latest video (${row.videoCount} of ${row.videoCount})"
-    else -> "Imported video"
+internal fun videoThumbLabel(row: HandoffRow, language: UiLanguage = UiLanguage.ENGLISH): String = when {
+    row.shownVideo == null -> UiText.VIDEO_NONE_YET.text(language)
+    row.accepted -> UiText.VIDEO_ACCEPTED.text(language)
+    row.videoCount > 1 -> UiText.VIDEO_LATEST.text(language, "n" to row.videoCount)
+    else -> UiText.VIDEO_IMPORTED.text(language)
 }
 
 @Composable
@@ -292,12 +292,12 @@ private fun HandoffActions(
         kind = ButtonKind.Primary,
         enabled = hasPrompt && row.gateMsg == null,
     )
-    AfButton("📂 ဗွီဒီယို ထည့်မယ်", importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted)
+    AfButton(tr(UiText.IMPORT_VIDEO), importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted)
     if (row.videoCount > 0 && !row.accepted) {
         AfButton("✓ ${tr(UiText.ACCEPT_VIDEO)}", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
     }
     if (row.videoCount > 0 && !row.askCredits && !showCredits) {
-        AfButton(LOG_CREDITS_BUTTON, onShowCredits, kind = ButtonKind.Secondary)
+        AfButton(tr(UiText.LOG_CREDITS), onShowCredits, kind = ButtonKind.Secondary)
     }
 }
 
@@ -312,7 +312,7 @@ private fun CreditQuestion(
     quality: Int,
     onDone: () -> Unit,
 ) {
-    AfText(CREDITS_QUESTION, size = 12.sp)
+    AfText(tr(UiText.CREDITS_QUESTION), size = 12.sp)
     WrapRow {
         AfButton("$fast (Fast)", { model.logCredits(row.number, fast); onDone() },
             kind = if (row.creditDefault == fast) ButtonKind.Primary else ButtonKind.Secondary)
@@ -321,12 +321,12 @@ private fun CreditQuestion(
         AfTextField(
             value = creditInput,
             onChange = { v -> onCreditChange(v.filter { it.isDigit() }.take(5)) },
-            placeholder = "Custom",
+            placeholder = tr(UiText.CUSTOM_CREDITS),
             modifier = Modifier.widthIn(max = 100.dp),
         )
-        AfButton("Save", { creditInput.toIntOrNull()?.let { model.logCredits(row.number, it) }; onDone() },
+        AfButton(tr(UiText.SAVE), { creditInput.toIntOrNull()?.let { model.logCredits(row.number, it) }; onDone() },
             kind = ButtonKind.Secondary, enabled = creditInput.toIntOrNull() != null)
-        AfButton(SKIP_CREDITS_BUTTON, { model.skipCredits(row.number); onDone() }, kind = ButtonKind.Secondary)
+        AfButton(tr(UiText.SKIP_CREDITS), { model.skipCredits(row.number); onDone() }, kind = ButtonKind.Secondary)
     }
 }
 
@@ -343,9 +343,9 @@ internal fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         WrapRow {
-            AfText(creditSummary(state.creditsToday, state.creditsMonth), size = 13.sp, bold = true)
+            AfText(creditSummary(state.creditsToday, state.creditsMonth, LocalUiLanguage.current), size = 13.sp, bold = true)
             if (state.creditLog.isNotEmpty()) {
-                AfButton(if (open) "မှတ်တမ်း ပိတ်မယ်" else "မှတ်တမ်း (${state.creditLog.size})", { open = !open }, kind = ButtonKind.Secondary)
+                AfButton(if (open) tr(UiText.CLOSE_LOG) else tr(UiText.CREDIT_LOG_COUNT, "size" to (state.creditLog.size)), { open = !open }, kind = ButtonKind.Secondary)
             }
         }
         if (open) {
@@ -371,27 +371,27 @@ internal fun BatchPanel(state: FlowHandoffUiState, model: FlowHandoffModel) {
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        AfText(batchSummary(state.batchCount, pending), size = 13.sp, bold = true)
+        AfText(batchSummary(state.batchCount, pending, LocalUiLanguage.current), size = 13.sp, bold = true)
         WrapRow {
-            AfButton(EXPORT_BATCH_BUTTON, { model.exportBatch() }, kind = ButtonKind.Primary, enabled = state.batchCount > 0)
+            AfButton(tr(UiText.EXPORT_BATCH), { model.exportBatch() }, kind = ButtonKind.Primary, enabled = state.batchCount > 0)
             if (state.lastBatch != null) {
-                AfButton(OPEN_BATCH_BUTTON, { model.openBatch() }, kind = ButtonKind.Flow)
-                AfButton(SHARE_BATCH_BUTTON, { model.shareBatch() }, kind = ButtonKind.Secondary)
+                AfButton(tr(UiText.OPEN_BATCH), { model.openBatch() }, kind = ButtonKind.Flow)
+                AfButton(tr(UiText.SHARE_BATCH), { model.shareBatch() }, kind = ButtonKind.Secondary)
             }
         }
     }
 }
 
-internal fun batchSummary(ticked: Int, pending: Int): String =
-    if (pending == 0) "Batch စာရွက် — စောင့်နေသော shot မရှိပါ (prompt စုစည်းပြီး ref အတည်ပြုပါ)"
-    else "Batch စာရွက် — စောင့်နေသော shot $pending ခုအနက် $ticked ခု ရွေးထား"
+internal fun batchSummary(ticked: Int, pending: Int, language: UiLanguage = UiLanguage.ENGLISH): String =
+    if (pending == 0) UiText.BATCH_EMPTY.text(language)
+    else UiText.BATCH_COUNT.text(language, "pending" to pending, "ticked" to ticked)
 
 internal const val EXPORT_BATCH_BUTTON = "Batch စာရွက် ထုတ်မယ် (HTML)"
 internal const val OPEN_BATCH_BUTTON = "စာရွက် ဖွင့်မယ် ↗"
 internal const val SHARE_BATCH_BUTTON = "စာရွက် မျှဝေမယ်"
 internal const val IN_BATCH_CHIP = "Batch စာရွက်ထဲ"
 
-internal fun creditSummary(today: Int, month: Int): String = "Flow credits — ယနေ့ $today · ဒီလ $month"
+internal fun creditSummary(today: Int, month: Int, language: UiLanguage = UiLanguage.ENGLISH): String = UiText.FLOW_CREDIT_SUMMARY.text(language, "today" to today, "month" to month)
 
 internal const val LOG_CREDITS_BUTTON = "Credits မှတ်မယ်…"
 internal const val SKIP_CREDITS_BUTTON = "ကျော်မယ်"

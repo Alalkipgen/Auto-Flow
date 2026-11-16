@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Approvals
@@ -96,6 +97,10 @@ class HandoffThumbsTest {
         assertNull(rows[2].shownVideo)
         assertEquals("No reference image", refThumbLabel(rows[2]))
         assertEquals("No video yet", videoThumbLabel(rows[2]))
+        assertEquals("Reference ပုံ", refThumbLabel(rows[0], UiLanguage.BURMESE))
+        assertEquals("လက်ခံထားသော ဗွီဒီယို", videoThumbLabel(rows[0], UiLanguage.BURMESE))
+        assertEquals("Reference ပုံ (အတည်မပြုရသေး)", refThumbLabel(rows[1], UiLanguage.BURMESE))
+        assertEquals("ဗွီဒီယို မရှိသေးပါ", videoThumbLabel(rows[2], UiLanguage.BURMESE))
         assertEquals("Latest video (2 of 2)", videoThumbLabel(rows[0].copy(accepted = false)))
     }
 

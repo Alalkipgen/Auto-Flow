@@ -60,7 +60,8 @@ class VersionBrowserTest {
         assertTrue(Regex("""\d{4}-\d\d-\d\d \d\d:\d\d""").matches(d.versions[0].importedAt))
         assertEquals("v1 · Draft (Fast) · ${d.versions[0].importedAt} · ✓ Accepted", versionLine(d.versions[0]))
         assertEquals("v1 · Draft (Fast) · ${d.versions[0].importedAt} · ✓ လက်ခံပြီး", versionLine(d.versions[0], UiLanguage.BURMESE))
-        assertEquals("ဗွီဒီယို (2 မျိုး)", versionsTitle(2))
+        assertEquals("Video (2 versions)", versionsTitle(2))
+        assertEquals("ဗွီဒီယို (2 မျိုး)", versionsTitle(2, UiLanguage.BURMESE))
     }
 
     @Test

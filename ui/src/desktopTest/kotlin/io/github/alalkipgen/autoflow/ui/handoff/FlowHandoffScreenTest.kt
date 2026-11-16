@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -41,14 +42,14 @@ class FlowHandoffScreenTest {
 
         setContent { FlowHandoffScreen(model, readBytes = { null }) }
         onNodeWithText(creditSummary(0, 0)).assertExists()
-        onNodeWithText(CREDITS_QUESTION).performScrollTo().assertExists()
+        onNodeWithText(UiText.CREDITS_QUESTION.en).performScrollTo().assertExists()
         onNodeWithText("20 (Fast)").performScrollTo().performClick()
         waitForIdle()
 
         assertEquals(listOf(CreditEntry("2026-11-12", 20, 1)), session.open!!.project.flowCredits.manualLog)
         onNodeWithText(creditSummary(20, 20)).assertExists()
-        onNodeWithText(CREDITS_QUESTION).assertDoesNotExist()
+        onNodeWithText(UiText.CREDITS_QUESTION.en).assertDoesNotExist()
         onNodeWithText("Credits logged: 20").performScrollTo().assertExists()
-        onNodeWithText(LOG_CREDITS_BUTTON).performScrollTo().assertExists()
+        onNodeWithText(UiText.LOG_CREDITS.en).performScrollTo().assertExists()
     }
 }
