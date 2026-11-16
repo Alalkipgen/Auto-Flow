@@ -25,6 +25,8 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -88,14 +90,17 @@ class AppShellSmokeTest {
     fun previewFeatureChangeFromAnotherSettingsStoreModelUpdatesTheRealShellGate() = runComposeUiTest {
         val koin = startKoin { modules(fakePlatformModule(), uiModule, aiModule) }.koin
         setContent { TestApp() }
-        onNodeWithText("အမြန် Recap", substring = true).assertDoesNotExist()
+        val home = io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest.HOME.label
+        onNodeWithContentDescription(home).assertDoesNotExist()
         // Self-test owns another SettingsModel; App must observe the shared SettingsStore, not a stale snapshot.
         koin.get<io.github.alalkipgen.autoflow.ui.settings.SettingsModel>().setFeature("studioV2", true)
         waitForIdle()
-        onNodeWithText(io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest.HOME.label).assertExists()
+        // Wide layouts intentionally show an icon-only rail. Assert the actual selected,
+        // accessible destination, not a coincidentally matching Home-screen heading.
+        onNodeWithContentDescription(home).assertIsSelected().assertIsDisplayed()
         koin.get<io.github.alalkipgen.autoflow.ui.settings.SettingsModel>().setFeature("studioV2", false)
         waitForIdle()
-        onNodeWithText("Dashboard").assertExists()
+        onNode(hasText("Dashboard") and isSelectable()).assertIsSelected().assertIsDisplayed()
     }
 
     @Test

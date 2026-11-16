@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shots
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
@@ -57,7 +58,8 @@ class VersionBrowserTest {
         assertEquals(draft, d.previewing, "the accepted version plays first")
         assertTrue(d.versions[0].path!!.startsWith("$dir/artifacts/vd_"))
         assertTrue(Regex("""\d{4}-\d\d-\d\d \d\d:\d\d""").matches(d.versions[0].importedAt))
-        assertEquals("v1 · Draft (Fast) · ${d.versions[0].importedAt} · ✓ လက်ခံပြီး", versionLine(d.versions[0]))
+        assertEquals("v1 · Draft (Fast) · ${d.versions[0].importedAt} · ✓ Accepted", versionLine(d.versions[0]))
+        assertEquals("v1 · Draft (Fast) · ${d.versions[0].importedAt} · ✓ လက်ခံပြီး", versionLine(d.versions[0], UiLanguage.BURMESE))
         assertEquals("ဗွီဒီယို (2 မျိုး)", versionsTitle(2))
     }
 

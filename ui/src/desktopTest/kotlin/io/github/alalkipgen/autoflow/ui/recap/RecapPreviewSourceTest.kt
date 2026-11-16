@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.*
 import io.github.alalkipgen.autoflow.core.recap.*
@@ -45,7 +46,7 @@ class RecapPreviewSourceTest {
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("VLC path does not contain", substring = true).fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("timeline-video").assertDoesNotExist()
             onNodeWithTag("timeline-position").assertTextContains("0 / 1000", substring = true)
-            onNodeWithText(EXACT_FRAME).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithText(UiText.EXACT_FRAME.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("ffmpeg was not found", substring = true).fetchSemanticsNodes().isNotEmpty() }
         } finally { scope.cancel(); root.deleteRecursively() }
     }
