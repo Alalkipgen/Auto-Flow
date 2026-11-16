@@ -74,6 +74,8 @@ object My {
 
     private val SCREENS = mapOf(
 
+        "Voice" to UiText.VOICE,
+        "Script" to UiText.STORY,
         "Classic Recap" to UiText.CLASSIC_RECAP,
         "Export" to UiText.EXPORT,
         "Input" to UiText.INPUT,

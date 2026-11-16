@@ -92,3 +92,11 @@ fun ttsVoiceKind(voice: String, language: UiLanguage): String = when (voice) {
     else -> voice
 }
 @Composable fun ttsVoiceKind(voice: String): String = ttsVoiceKind(voice, LocalUiLanguage.current)
+
+fun preflightMessage(item: PreflightCheck.Item, language: UiLanguage): String = when (item.reason) {
+    PreflightCheck.Reason.UNVOICED -> UiText.PREFLIGHT_UNVOICED.text(language, "n" to item.count)
+    PreflightCheck.Reason.STALE -> UiText.PREFLIGHT_STALE.text(language, "n" to item.count)
+    PreflightCheck.Reason.RUNS_ON -> UiText.PREFLIGHT_RUNS_ON.text(language, "n" to item.count)
+    PreflightCheck.Reason.RIGHTS -> UiText.PREFLIGHT_RIGHTS.text(language)
+    PreflightCheck.Reason.UNKNOWN -> UiText.RESULT_DETAIL.text(language, "detail" to item.message)
+}

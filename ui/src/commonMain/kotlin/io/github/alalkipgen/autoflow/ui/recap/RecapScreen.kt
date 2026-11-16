@@ -69,7 +69,7 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AfText("Movie Recap", size = 18.sp, bold = true)
-        AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
+        AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
         state.job?.let { job ->
             val pct = state.progress?.let { " ${(it * 100).toInt()} %" }.orEmpty()
             AfText("⏳ $job$pct", color = AutoFlowColors.Cyan)
