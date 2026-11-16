@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.Transcript
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
@@ -53,6 +54,7 @@ class LyricSyncModelTest {
         val m = model()
         assertFalse(m.startSync(), "no lyrics")
         assertEquals(LyricSyncModel.NO_LINES, m.sync.state.value.message)
+        assertEquals("သီချင်းစာသားကို အရင်ရေးပါ (သီဆိုသည့်တစ်ကြောင်းလျှင် စာတစ်ကြောင်း)။", m.sync.state.value.notice!!.text(UiLanguage.BURMESE))
         m.setLyrics("[Verse]\nမိုးတွေ\nရွာနေတယ်")
         assertFalse(m.startSync(), "no song")
         assertEquals(LyricSyncModel.NO_SONG, m.sync.state.value.message)

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.Character
@@ -34,9 +35,11 @@ data class InputUiState(
     val importingSong: Boolean = false,
     /** Result of the last song import, shown in the Song card. */
     val songMessage: String? = null,
+    val songNotice: UiNotice? = null,
     val songMessageOk: Boolean = false,
     val blockers: List<Blocker> = emptyList(),
     val message: String? = null,
+    val notice: UiNotice? = null,
     /** Character Bible draft (PLAN Phase 2), saved with the text fields; see [CharacterBible]. */
     val characters: List<Character> = emptyList(),
 ) {
@@ -108,11 +111,11 @@ class InputModel(
     /** "Import song": pick an audio file, then [importSongFile]. */
     suspend fun importSong() {
         if (jobs.busy || session.open == null || _state.value.importingSong) return
-        val picked = picker?.pickFiles(PICK_SONG_TITLE, ProjectSession.SONG_EXTENSIONS) ?: return say(NO_PICKER)
+        val picked = picker?.pickFiles(PICK_SONG_TITLE, ProjectSession.SONG_EXTENSIONS) ?: return say(UiNotice(UiText.INPUT_NO_PICKER))
         val path = when (picked) {
             is PlatformResult.Ok -> picked.value.firstOrNull() ?: return
-            is PlatformResult.Failed -> return say("File pick failed: ${picked.reason}")
-            is PlatformResult.Unsupported -> return say(NO_PICKER)
+            is PlatformResult.Failed -> return say(UiNotice(UiText.FILE_PICK_FAILED, "detail" to picked.reason))
+            is PlatformResult.Unsupported -> return say(UiNotice(UiText.INPUT_NO_PICKER))
         }
         importSongFile(path)
     }
@@ -122,7 +125,7 @@ class InputModel(
      * otherwise the typed duration stays and the message asks for it.
      */
     suspend fun importSongFile(path: String) {
-        _state.value = _state.value.copy(importingSong = true, songMessage = null)
+        _state.value = _state.value.copy(importingSong = true, songMessage = null, songNotice = null)
         val saved = when (val r = withContext(Dispatchers.Default) { session.importSong(path) }) {
             is CoreResult.Ok -> r.value
             is CoreResult.Err -> {
@@ -131,11 +134,11 @@ class InputModel(
             }
         }
         val ms = media?.audioDurationMs(saved)
-        sync.clear(LyricSyncModel.CLEARED_NEW_SONG)
+        sync.clear(LyricSyncModel.CLEARED_NEW_SONG, UiNotice(UiText.TIMINGS_NEW_SONG))
         _state.value = _state.value.copy(importingSong = false, songFile = saved.substringAfterLast('/'))
-        if (ms == null) return say(SONG_NO_LENGTH)
+        if (ms == null) return say(UiNotice(UiText.SONG_NO_LENGTH))
         draft { it.copy(durationText = formatDuration(ms), settings = it.settings.copy(durationMs = ms)) }
-        if (save()) say("Song imported · ${formatDuration(ms)}", ok = true)
+        if (save()) say(UiNotice(UiText.SONG_IMPORTED, "duration" to formatDuration(ms)), ok = true)
     }
 
     /** Writes the draft (lyrics file + project.json) if it differs from what is saved. */
@@ -159,7 +162,7 @@ class InputModel(
         return jobs.run(
             GENERATE_LABEL,
             onDone = {
-                _state.value = load().copy(message = null)
+                _state.value = load().copy(message = null, notice = null)
                 if (it == StoryboardResult.Done) onDone()
             },
         ) { generateAll() }
@@ -172,15 +175,17 @@ class InputModel(
 
     private fun draft(edit: (InputUiState) -> InputUiState) {
         if (jobs.busy) return
-        _state.value = withGate(edit(_state.value)).copy(message = null)
+        _state.value = withGate(edit(_state.value)).copy(message = null, notice = null)
     }
 
-    private fun say(message: String, ok: Boolean = false) {
-        _state.value = _state.value.copy(songMessage = message, songMessageOk = ok)
+    private fun say(message: String, ok: Boolean = false) = say(UiNotice(UiText.RESULT_DETAIL, "detail" to message), ok)
+
+    private fun say(notice: UiNotice, ok: Boolean = false) {
+        _state.value = _state.value.copy(songMessage = notice.text(UiLanguage.ENGLISH), songNotice = notice, songMessageOk = ok)
     }
 
     private fun fail(message: String): Boolean {
-        _state.value = _state.value.copy(message = message)
+        _state.value = _state.value.copy(message = message, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to message))
         return false
     }
 
