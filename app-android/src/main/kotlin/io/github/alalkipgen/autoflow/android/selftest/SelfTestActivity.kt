@@ -52,6 +52,7 @@ import java.io.File
 
 /** PLAN S6 Self-test screen (Settings → About → long-press the version). */
 class SelfTestActivity : ComponentActivity() {
+    private val settingsStore: io.github.alalkipgen.autoflow.ui.settings.SettingsStore by inject()
     private val settingsModel: SettingsModel by inject()
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -63,7 +64,7 @@ class SelfTestActivity : ComponentActivity() {
         runCatching { saved.takeIf { it.isFile }?.readText() }.getOrNull()?.let(SelfTestState::showSaved)
         // A render-job check queued before the app process was restarted: follow it again.
         SelfTestJob.resume(this)
-        setContent { Screen() }
+        setContent { io.github.alalkipgen.autoflow.ui.i18n.AppLanguage(settingsStore.state) { Screen() } }
     }
 
     private fun run(media3Only: Boolean) {

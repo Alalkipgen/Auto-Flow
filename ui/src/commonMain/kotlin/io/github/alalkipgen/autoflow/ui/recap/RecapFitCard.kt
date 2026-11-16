@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
@@ -36,11 +38,11 @@ const val GO_TO_EXPORT = "ထုတ်ယူ သို့ သွားမယ် 
 const val BURN_CAPTIONS = "စာတန်းကို ဗွီဒီယိုထဲ မြှုပ်မယ်"
 
 /** What a fit row says (spec §6): "✓ fits", "+1.8 s: the scene runs on", "No voice", "⚠ Stale". */
-fun FitRow.label(): String = when (status) {
+fun FitRow.label(language: io.github.alalkipgen.autoflow.ui.i18n.UiLanguage = io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH): String = when (status) {
     FitStatus.FITS -> "✓ ကိုက်တယ်"
     FitStatus.RUNS_ON -> "+${seconds(overMs)}: ပြကွက်က ပိုရှည်နေတယ်"
-    FitStatus.NO_VOICE -> io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE
-    FitStatus.STALE -> "⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}: ပြန်သွင်း ဒါမှမဟုတ် ပြန်ပြောပါ"
+    FitStatus.NO_VOICE -> UiText.NO_VOICE.text(language)
+    FitStatus.STALE -> "⚠ ${UiText.STALE.text(language)}: ပြန်သွင်း ဒါမှမဟုတ် ပြန်ပြောပါ"
 }
 
 /** Footer: "Recap 4:51 (target 5:00) · 12 of 14 voiced". */
@@ -64,7 +66,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
                 AfText("${row.segment + 1}", muted = true, mono = true)
                 AfText("ပြကွက် ${seconds(row.sceneMs)}" + (row.takeMs?.let { " · အသံ ${seconds(it)}" } ?: ""), Modifier.weight(1f))
                 AfText(
-                    row.label(),
+                    row.label(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage.current),
                     color = when (row.status) {
                         FitStatus.FITS -> AutoFlowColors.Green
                         FitStatus.RUNS_ON, FitStatus.STALE -> AutoFlowColors.Amber
@@ -120,7 +122,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
                 AfButton("စာကြည့်တိုက်ထဲ သိမ်းမယ်", {
                     if (showCaptionPresetName.isNotBlank()) { model.saveCaptionPreset(showCaptionPresetName); showCaptionPresetName = "" }
                 }, kind = ButtonKind.Primary, enabled = idle && showCaptionPresetName.isNotBlank())
-                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { showCaptionPresetName = "" })
+                AfButton(tr(UiText.CANCEL), { showCaptionPresetName = "" })
             }
         }
     }
@@ -134,7 +136,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
             AfButton("စာကြည့်တိုက်ထဲ သိမ်းမယ်", {
                 if (brandKitName.isNotBlank()) { model.saveBrandKit(brandKitName); brandKitName = "" }
             }, kind = ButtonKind.Primary, enabled = idle && brandKitName.isNotBlank())
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { brandKitName = "" })
+            AfButton(tr(UiText.CANCEL), { brandKitName = "" })
         }
     }
         val render = RecapRulesV2.canRender(recap, story, state.lexicon)

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.export
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -166,7 +168,7 @@ private fun LastRenderStatus(last: LastRender, model: ExportModel) {
     AfText("exports/${r.output}", muted = true, mono = true)
     r.loudness?.let { AfText(loudnessLine(it), Modifier.testTag("export-last-loudness"), muted = true, size = 11.sp) }
     WrapRow {
-        AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.OPEN, { model.openLast(last) })
+        AfButton(tr(UiText.OPEN), { model.openLast(last) })
         AfButton(SHARE, { model.shareLast(last) })
     }
 }
@@ -177,11 +179,11 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
     when (val s = run.state) {
         RenderState.Queued -> {
             AfText("$what: စတင်ရန် စောင့်နေတယ်…", Modifier.testTag("export-status"))
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, model::cancel)
+            AfButton(tr(UiText.CANCEL), model::cancel)
         }
         is RenderState.Running -> {
             AfText("$what: render လုပ်နေတယ်… ${(s.fraction * 100).toInt().coerceIn(0, 100)} %", Modifier.testTag("export-status"))
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, model::cancel)
+            AfButton(tr(UiText.CANCEL), model::cancel)
         }
         is RenderState.Done -> {
             // Inline video preview (D-57 / 5A-8): tap play to watch the render without leaving the app.
@@ -195,7 +197,7 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
             // Audit F09: say how the loudness target was met — never claim two-pass when it fell back.
             s.loudness?.let { AfText(loudnessLine(it), Modifier.testTag("export-loudness"), muted = true, size = 11.sp) }
             WrapRow {
-                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.OPEN, model::open, kind = ButtonKind.Primary)
+                AfButton(tr(UiText.OPEN), model::open, kind = ButtonKind.Primary)
                 AfButton(SHARE, model::share)
                 AfButton(if (saving) "သိမ်းနေတယ်…" else SAVE_BUTTON, model::saveToGallery, enabled = !saving)
             }
@@ -225,7 +227,7 @@ private fun ExactFramesCard(thumbs: ExportThumbs?, canMake: Boolean, model: Expo
         }
         AfButton(label, { model.makeThumbnails() }, Modifier.testTag("export-thumbs-make"), enabled = canMake && !working)
         if (thumbs == null) return@AfCard
-        if (thumbs.stale) AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}: ဒီပုံတွေ လုပ်ပြီးနောက် recap ပြောင်းသွားတယ်။", Modifier.testTag("export-thumbs-stale"), color = AutoFlowColors.Amber, size = 12.sp)
+        if (thumbs.stale) AfText("⚠ ${tr(UiText.STALE)}: ဒီပုံတွေ လုပ်ပြီးနောက် recap ပြောင်းသွားတယ်။", Modifier.testTag("export-thumbs-stale"), color = AutoFlowColors.Amber, size = 12.sp)
         thumbs.failed?.let { AfText(it, Modifier.testTag("export-thumbs-failed"), color = AutoFlowColors.Amber, size = 12.sp) }
         WrapRow {
             thumbs.frames.forEachIndexed { i, f ->
@@ -272,7 +274,7 @@ private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.
         AfText("Hashtag များ (space ခြား၊ # မပါလည်း ရ)", muted = true, size = 12.sp)
         AfTextField(hashtags, { hashtags = it }, "#မြန်မာ #movie", Modifier.fillMaxWidth())
         WrapRow {
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.SAVE, {
+            AfButton(tr(UiText.SAVE), {
                 val parsedHashtags = hashtags.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
                 model.setPublishKit(kit.copy(title = title, description = description, hashtags = parsedHashtags))
             }, kind = ButtonKind.Primary)
@@ -294,7 +296,7 @@ private fun PublishThumbSection(kit: PublishKit, thumb: PublishThumb?, model: Ex
         )
         AfButton("Thumbnail မျှဝေမယ်…", { model.sharePublishThumbnail() }, Modifier.testTag("publish-thumb-share"), enabled = !working && thumb?.frame != null)
     }
-    if (kit.title.isBlank()) AfText("Thumbnail လုပ်ဖို့ ခေါင်းစဉ် ရေးပြီး ${io.github.alalkipgen.autoflow.ui.i18n.My.SAVE} ကို နှိပ်ပါ။", muted = true, size = 11.sp)
+    if (kit.title.isBlank()) AfText("Thumbnail လုပ်ဖို့ ခေါင်းစဉ် ရေးပြီး ${tr(UiText.SAVE)} ကို နှိပ်ပါ။", muted = true, size = 11.sp)
     thumb ?: return
     thumb.failed?.let { AfText(it, Modifier.testTag("publish-thumb-failed"), color = AutoFlowColors.Amber, size = 12.sp) }
     thumb.frame?.let { f ->
@@ -307,7 +309,7 @@ private fun PublishThumbSection(kit: PublishKit, thumb: PublishThumb?, model: Ex
             Modifier.testTag("publish-thumb-info"), muted = true, size = 11.sp,
         )
         if (thumb.stale && !working) {
-            AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}: ဒီ thumbnail လုပ်ပြီးနောက် ခေါင်းစဉ် ဒါမှမဟုတ် ပုံ ပြောင်းသွားတယ်။", Modifier.testTag("publish-thumb-stale"), color = AutoFlowColors.Amber, size = 12.sp)
+            AfText("⚠ ${tr(UiText.STALE)}: ဒီ thumbnail လုပ်ပြီးနောက် ခေါင်းစဉ် ဒါမှမဟုတ် ပုံ ပြောင်းသွားတယ်။", Modifier.testTag("publish-thumb-stale"), color = AutoFlowColors.Amber, size = 12.sp)
         }
     }
 }

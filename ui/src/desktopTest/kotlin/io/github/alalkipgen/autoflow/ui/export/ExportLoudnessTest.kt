@@ -85,7 +85,7 @@ class ExportLoudnessTest {
         finished(dir, "preview", 500, RenderState.Loudness(-14.0, null, fallbackNote))
         val m = model() // a fresh model = the app restarted; no render of this session
         assertEquals(listOf(Quality.PREVIEW, Quality.EXPORT), m.state.value.lastRenders.map { it.quality })
-        setContent { ExportScreen(m) }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { ExportScreen(m) } }
         val lines = onAllNodesWithTag("export-last-loudness").fetchSemanticsNodes().map { it.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString() }
         assertEquals(listOf("$LOUDNESS: $fallbackNote", "$LOUDNESS: two-pass ဖြင့် -14.0 LUFS (တိုင်းတာချက် -29.7 LUFS)"), lines)
         assertTrue(lines.none { it.contains("two-pass") && it.contains("could not") })
@@ -120,7 +120,7 @@ class ExportLoudnessTest {
         finished(dir, "export", 2_000, RenderState.Loudness(-14.0, null, fallbackNote))
         val q = Queue()
         val m = model(q)
-        setContent { ExportScreen(m) }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { ExportScreen(m) } }
         onNodeWithTag("export-last-loudness").assertTextEquals("$LOUDNESS: $fallbackNote")
         m.render(Quality.EXPORT)
         q.states.getValue("job1").value = RenderState.Done("$dir/exports/export.mp4", 9_000, 61_000, null, RenderState.Loudness(-14.0, measured, null))

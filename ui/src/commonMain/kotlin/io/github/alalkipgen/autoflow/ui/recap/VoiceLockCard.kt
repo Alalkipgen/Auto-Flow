@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,7 +66,7 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
                     val seconds = requests * 60L / RecapModel.TTS_RPM
                     AfButton("အပိုင်း $requests ခု ပြန်ပြောမယ် (≈ ${(seconds + 59) / 60} မိနစ်)", { commit(true) }, kind = ButtonKind.Primary,
                         enabled = selectedModel.isNotBlank() && requests > 0, modifier = Modifier.testTag("voice-regenerate"))
-                    AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { draft = null })
+                    AfButton(tr(UiText.CANCEL), { draft = null })
                 }
             }
         }

@@ -72,7 +72,7 @@ class VoiceChangeTest {
     @Test fun sheetKeepPersistsLockAndMarksOldTakeDifferentWithoutChangingHistory() = runComposeUiTest {
         val m = open()
         val before = m.state.value.recap!!
-        setContent { val s by m.state.collectAsState(); Column(Modifier.verticalScroll(rememberScrollState())) { VoiceCard(m, s, s.recap!!) } }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { val s by m.state.collectAsState(); Column(Modifier.verticalScroll(rememberScrollState())) { VoiceCard(m, s, s.recap!!) } } }
         onNodeWithTag("change-voice").performScrollTo().performClick()
         onNodeWithText("test-en").assertDoesNotExist()
         onNodeWithText("Kore · Firm").performClick()
@@ -91,7 +91,7 @@ class VoiceChangeTest {
 
     @Test fun sheetRegenerateDoesNotSkipCurrentTextWithDifferentVoice() = runComposeUiTest {
         val m = open()
-        setContent { val s by m.state.collectAsState(); Column(Modifier.verticalScroll(rememberScrollState())) { VoiceCard(m, s, s.recap!!) } }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { val s by m.state.collectAsState(); Column(Modifier.verticalScroll(rememberScrollState())) { VoiceCard(m, s, s.recap!!) } } }
         onNodeWithTag("change-voice").performClick()
         onNodeWithText("Kore · Firm").performClick()
         onNodeWithText("အပိုင်း 1 ခု ပြန်ပြောမယ် (≈ 1 မိနစ်)").assertExists()

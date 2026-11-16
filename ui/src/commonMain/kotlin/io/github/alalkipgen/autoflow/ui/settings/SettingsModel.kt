@@ -65,6 +65,10 @@ class SettingsModel(
     private val saveTtsSample: (ByteArray) -> String? = { null },
     private val builtInFonts: BuiltInFonts? = null,
 ) {
+    val appSettings: StateFlow<AppSettings> get() = settings.state
+
+    fun setUiLanguage(language: io.github.alalkipgen.autoflow.ui.i18n.UiLanguage) = change { it.copy(uiLanguage = language.code) }
+
     val builtInFontPaths: List<String> get() = builtInFonts?.paths.orEmpty()
     val canTestTts: Boolean get() = testTtsCall != null
 

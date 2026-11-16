@@ -102,7 +102,7 @@ class RecapExportTest {
         // v2 rows (audit F07): by block id, the take that plays.
         val rows = RecapFit.rows(recap(), m.state.value.story!!)
         assertEquals(FitStatus.NO_VOICE, rows[1].status)
-        assertEquals(io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE, rows[1].label())
+        assertEquals(io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE, rows[1].label(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE))
         assertTrue(fitFooter(recap(), rows).endsWith("· 2 ခုအနက် 1 ခု အသံပါ"))
 
         e.refresh()

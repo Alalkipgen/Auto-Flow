@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -181,7 +183,7 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
     when {
         running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText(state.job.orEmpty(), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+            AfButton(tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
         }
         confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(
@@ -191,8 +193,8 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
                 Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.START, { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
-                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
+                AfButton(tr(UiText.START), { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
+                AfButton(tr(UiText.BACK), { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
             }
         }
         job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -201,13 +203,13 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
                 Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.RETRY, { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
+                AfButton(tr(UiText.RETRY), { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
                 AfButton("အလုပ် ပယ်ဖျက်မယ်", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
             }
         }
         job != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("စာသားပြောင်းနေတယ် (request ${job.items.size} ခု ကျန်): အလုပ်များ မှာ ကြည့်ပါ။", Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+            AfButton(tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
         }
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText("ရွေးထားသော ပြကွက် ${t.todoScenes} ခုမှာ စာတန်း မရှိပါ။ Gemini က သူတို့ရဲ့ အသံကိုပဲ script အတွက် စာသားပြောင်းပေးနိုင်တယ်။", muted = true, size = 12.sp)

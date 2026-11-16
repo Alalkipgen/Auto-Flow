@@ -34,7 +34,7 @@ class NativeLayerControlsTest {
             fun recap() = (store.open(dir) as CoreResult.Ok).value.recap!!
             setContent {
                 val open by current.state.collectAsState()
-                CompositionLocalProvider(LocalUiFontFamily provides BurmeseTestFont.family) {
+                CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE, LocalUiFontFamily provides BurmeseTestFont.family) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { RecapLayerControls(open!!.project.recap!!, true, model) }
                 }
             }
