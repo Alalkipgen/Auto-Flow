@@ -45,3 +45,14 @@ kotlin {
         }
     }
 }
+
+// Offline synthetic backup generation; test tooling is not part of either app distribution.
+val qaTestCompilation = (kotlin.targets.getByName("desktop") as org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget).compilations.getByName("test")
+tasks.register<JavaExec>("qaRecapFixture") {
+    group = "verification"
+    description = "Generate disposable native-v2 project folders and an Android-restorable QA backup"
+    dependsOn(qaTestCompilation.compileTaskProvider)
+    classpath(qaTestCompilation.output.allOutputs, qaTestCompilation.runtimeDependencyFiles)
+    mainClass.set("io.github.alalkipgen.autoflow.ui.recap.QaRecapFixtureKt")
+    args(providers.gradleProperty("qaFixtureDir").getOrElse(layout.buildDirectory.dir("qa-fixture").get().asFile.path))
+}

@@ -34,30 +34,9 @@ class TimelinePlaybackRuntimeTest {
         val root = Files.createTempDirectory("af-live-ui").toFile()
         val scope = CoroutineScope(Dispatchers.Unconfined)
         try {
-            val fs = JvmFs(); val store = ProjectStore(fs); val dir = File(root, "live.autoflow").path
-            val p = (store.create(dir, "Live", Mode.MOVIE_RECAP) as CoreResult.Ok).value
-            val movie = File(dir, "source/movie.mp4").apply { parentFile.mkdirs() }
-            // Encoded source-time colour patch lets assertions measure decoded pictures, not only a shared clock.
-            val patches = listOf("0xff0000", "0x00ff00", "0x0000ff", "0xffff00", "0xff00ff").mapIndexed { i, colour ->
-                "drawbox=x=0:y=0:w=80:h=60:color=$colour:t=fill:enable='gte(t,${i * 2})*lt(t,${i * 2 + 2})'"
-            }.joinToString(",")
-            val process = ProcessBuilder(System.getenv("AUTOFLOW_FFMPEG") ?: "ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=25",
-                "-t", "10", "-vf", patches, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-g", "25", movie.path).redirectErrorStream(true).start()
-            val log = process.inputStream.bufferedReader().readText(); assertEquals(0, process.waitFor(), log)
-            val story = RecapStory(source = "manual", blocks = listOf(
-                RecapBlock("stable-a", listOf(RecapClip(2_000, 4_000), RecapClip(6_000, 8_000)), "FIRST"),
-                RecapBlock("stable-b", listOf(RecapClip(4_000, 5_500)), "SECOND"),
-            ))
-            val artifacts = ArtifactStore(fs, dir)
-            val script = (artifacts.put(CoreJson.encodeToString(RecapStory.serializer(), story).encodeToByteArray(), ArtifactKind.RECAP_SCRIPT, "json") as CoreResult.Ok).value
-            val takes = story.blocks.mapIndexed { i, block ->
-                // Only file presence is resolved in muted movie mode; this test never pretends to preview voice audio.
-                val audio = (artifacts.put(byteArrayOf(1, 2, i.toByte()), ArtifactKind.AUDIO, "wav") as CoreResult.Ok).value
-                BlockTake(block.id, audio.id, TakeSource.RECORDED, durationMs = 1_000, spokenHash = SpokenText.hash(block))
-            }
-            val r = RecapV2(movie = RecapMovie("source/movie.mp4", movie.length(), 10_000, 320, 180), story = script.id, storyApproved = true, takes = takes,
-                visual = RecapVisual(outputRatio = Ratio.R16_9, masks = listOf(RecapMask(MaskPreset.BOTTOM, MaskPreset.BOTTOM.rect))))
-            val saved = (store.save(dir, p.copy(recap = r)) as CoreResult.Ok).value
+            val fixture = QaRecapFixture.create(root)
+            val fs = JvmFs(); val store = ProjectStore(fs)
+            val dir = fixture.dir.path; val saved = fixture.project
             val current = CurrentProject().apply { set(OpenProject(dir, saved)) }
             val settings = SettingsStore(fs, File(root, "settings.json").path)
             settings.update { it.copy(vlcPath = System.getenv("AUTOFLOW_VLC_DIR")) }

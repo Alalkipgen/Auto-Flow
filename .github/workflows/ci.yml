@@ -22,7 +22,22 @@ jobs:
         # AUTOFLOW_EXPECT_FFMPEG: filtergraph tests render with a real ffmpeg and must not skip in CI.
         env: { AUTOFLOW_EXPECT_FFMPEG: "1" }
         # chmod: files pushed via the GitHub API/web UI lose the executable bit.
-        run: chmod +x gradlew && ./gradlew :core:check :ai:check :media:check :platform:check :platform:compileAndroidMain :ui:desktopTest :app-desktop:test
+        run: |
+          chmod +x gradlew
+          ./gradlew check --rerun-tasks --no-build-cache --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+      - name: Fresh executed / failed / skipped counts
+        if: always()
+        run: python tools/ci-test-summary.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-check-evidence
+          path: |
+            */build/test-results/**/*.xml
+            ui/build/reports/s10
+            build/qa
+          if-no-files-found: warn
+          retention-days: 30
 
   desktop-smoke:
     # D-61: build the packaged desktop app (jpackage app image) and launch it under Xvfb; fail on an error dialog,
@@ -64,9 +79,12 @@ jobs:
         if: always()
         with: { name: windows-screenshots, path: ui/build/screenshots, if-no-files-found: warn }
       - uses: actions/upload-artifact@v4
-        # Test reports for diagnosis: job logs are not readable without a login.
-        if: failure()
-        with: { name: windows-test-results, path: "*/build/test-results/**/*.xml", if-no-files-found: warn }
+        # Actual executed/skip counts remain available for successful runs too.
+        if: always()
+        with: { name: windows-test-results, path: "*/build/test-results/**/*.xml", if-no-files-found: warn, retention-days: 30 }
+      - name: Windows executed / failed / skipped counts
+        if: always()
+        run: python tools/ci-test-summary.py
       - name: Failed tests as annotations (logs and artifacts need a login; annotations do not)
         if: failure()
         run: |
@@ -144,6 +162,8 @@ jobs:
             "run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID",
             "install: per-user (no admin), %LOCALAPPDATA%\AutoFlow; uninstall from Settings > Apps; user data in %USERPROFILE%\.autoflow is kept.",
             "", "toolchain:") + (Get-Content (Join-Path $env:SMOKE_DIR 'toolchain.txt')) | Out-File -Encoding utf8 (Join-Path $env:DIST_DIR 'MANIFEST.txt')
+          Copy-Item config/features.json (Join-Path $env:DIST_DIR 'FEATURES.json')
+          Copy-Item docs/PHONE-QA.md (Join-Path $env:DIST_DIR 'PHONE-QA.md')
           "EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "EXE_VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "EXE_ARTIFACT=autoflow-windows-exe-unsigned-$($env:GITHUB_SHA.Substring(0, 7))" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
@@ -160,7 +180,7 @@ jobs:
         with: { name: windows-installer-smoke, path: "${{ env.SMOKE_DIR }}", if-no-files-found: warn }
       - uses: actions/upload-artifact@v4
         # Only an EXE that passed the install/launch/uninstall check is offered for download.
-        with: { name: "${{ env.EXE_ARTIFACT }}", path: "${{ env.DIST_DIR }}", if-no-files-found: error }
+        with: { name: "${{ env.EXE_ARTIFACT }}", path: "${{ env.DIST_DIR }}", if-no-files-found: error, retention-days: 30 }
 
   android:
     # D-24: every push builds a debug APK (Actions artifact); a v0.* tag, or a change to .github/release-tag.txt on main,
@@ -237,8 +257,15 @@ jobs:
             [ -f "$RUNNER_TEMP/$f.log" ] || continue
             tail -n 80 "$RUNNER_TEMP/$f.log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed "s/^/::error title=$f log::/"; echo
           done
+      - name: Offline native-v2 QA backup and exact build manifest
+        run: |
+          ./gradlew :ui:qaRecapFixture -PqaFixtureDir="$GITHUB_WORKSPACE/apk-dist/qa-fixture" --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+          printf '%s\n' "Source: $GITHUB_SHA" "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "Status: CHECKPOINT, NOT 5A-8 QUEUE-COMPLETE; native output preview/S10 matrix outstanding" > apk-dist/BUILD.txt
+          cp config/features.json apk-dist/FEATURES.json
+          cp docs/PHONE-QA.md apk-dist/PHONE-QA.md
+          python tools/ci-test-summary.py
       - uses: actions/upload-artifact@v4
-        with: { name: "${{ env.APK }}", path: apk-dist, if-no-files-found: error }
+        with: { name: "${{ env.APK }}", path: apk-dist, if-no-files-found: error, retention-days: 30 }
       - name: GitHub Release (tag v0.* or .github/release-tag.txt on main)
         if: startsWith(github.ref, 'refs/tags/v0.') || github.ref == 'refs/heads/main'
         env: { GH_TOKEN: "${{ github.token }}" }
@@ -275,10 +302,14 @@ jobs:
         run: |
           chmod +x gradlew
           xvfb-run -a ./gradlew :media:desktopTest --tests '*DesktopMoviePlayerTest*' :ui:desktopTest --tests '*TimelinePlaybackRuntimeTest*' --rerun-tasks --no-build-cache --max-workers=2
+      - name: Real playback executed / failed / skipped counts
+        if: always()
+        run: python tools/ci-test-summary.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: desktop-playback-evidence
+          retention-days: 30
           path: |
             media/build/test-results/desktopTest
             ui/build/test-results/desktopTest
