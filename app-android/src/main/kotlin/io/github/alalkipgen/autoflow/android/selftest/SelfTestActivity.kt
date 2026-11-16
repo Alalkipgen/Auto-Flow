@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.android.selftest
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.settings.LanguageCard
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -76,9 +78,9 @@ class SelfTestActivity : ComponentActivity() {
     private fun runJob() {
         if (Battery.read(this).lowWarning) {
             android.app.AlertDialog.Builder(this)
-                .setMessage("Battery is below 20% and not charging. Rendering may use a lot of power. Continue?")
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Render") { _, _ -> startJob() }
+                .setMessage(UiText.BATTERY_LOW_RENDER.text(UiLanguage.fromCode(settingsStore.state.value.uiLanguage)))
+                .setNegativeButton(UiText.CANCEL.text(UiLanguage.fromCode(settingsStore.state.value.uiLanguage)), null)
+                .setPositiveButton(UiText.RENDER.text(UiLanguage.fromCode(settingsStore.state.value.uiLanguage))) { _, _ -> startJob() }
                 .show()
         } else startJob()
     }
@@ -102,30 +104,29 @@ class SelfTestActivity : ComponentActivity() {
             Modifier.fillMaxSize().background(AutoFlowColors.Background).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            AfText("Self-test", size = 18.sp, bold = true)
+            AfText(tr(UiText.SELF_TEST), size = 18.sp, bold = true)
             AfText("Auto Flow ${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_SHA}) · signing ${BuildConfig.SIGNING}", muted = true, size = 12.sp)
             AfText(
-                "Renders 3 short test videos with the bundled ffmpeg (about 2–10 minutes). You can turn the screen off: " +
-                    "it keeps running with a notification. Then tap Render job: one 21 s 1080p video through the real " +
-                    "render queue. Then copy the report and send it back.",
+                tr(UiText.SELFTEST_HINT),
                 muted = true,
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val idle = !ui.running && !ui.jobRunning
-                AfButton("Run all", { run(media3Only = false) }, kind = ButtonKind.Primary, enabled = idle)
-                AfButton("Render job (WorkManager)", { runJob() }, kind = ButtonKind.Primary, enabled = idle)
-                AfButton("Run Media3 path", { run(media3Only = true) }, enabled = idle)
+                AfButton(tr(UiText.SELFTEST_RUN_ALL), { run(media3Only = false) }, kind = ButtonKind.Primary, enabled = idle)
+                AfButton(tr(UiText.SELFTEST_RENDER_JOB), { runJob() }, kind = ButtonKind.Primary, enabled = idle)
+                AfButton(tr(UiText.SELFTEST_MEDIA3), { run(media3Only = true) }, enabled = idle)
                 AfButton(
-                    "Cancel",
+                    tr(UiText.CANCEL),
                     { if (ui.jobRunning) SelfTestJob.cancel() else SelfTestService.cancel(this@SelfTestActivity) },
                     kind = ButtonKind.Danger,
                     enabled = !idle,
                 )
             }
+            LanguageCard(settingsModel)
             PreviewFeaturesCard(settingsModel)
             if (ui.progress.isNotEmpty()) AfText(ui.progress, color = AutoFlowColors.Cyan)
             if (ui.steps.isNotEmpty()) {
-                AfCard("Steps") {
+                AfCard(tr(UiText.STEPS)) {
                     ui.steps.forEach { s ->
                         val (mark, color) = when (s.status) {
                             Status.RUNNING -> "…" to AutoFlowColors.Cyan
@@ -139,7 +140,7 @@ class SelfTestActivity : ComponentActivity() {
             }
             if (ui.frames.isNotEmpty()) {
                 var big by remember { mutableStateOf<String?>(null) }
-                AfCard("Frames (check the Burmese text and the placeholder card; tap to enlarge)") {
+                AfCard(tr(UiText.SELFTEST_FRAMES)) {
                     big?.let { path -> Frame(SelfTestState.Frame("", path), Modifier.fillMaxWidth()) { big = null } }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ui.frames.forEach { f -> Frame(f, Modifier.width(100.dp)) { big = f.path } }
@@ -148,8 +149,8 @@ class SelfTestActivity : ComponentActivity() {
             }
             ui.report?.let { report ->
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AfButton("Copy report", { Share.copy(this@SelfTestActivity, "Auto Flow self-test", report) }, kind = ButtonKind.Primary)
-                    AfButton("Share report", { Share.send(this@SelfTestActivity, "Auto Flow self-test report", report) })
+                    AfButton(tr(UiText.COPY_REPORT), { Share.copy(this@SelfTestActivity, "Auto Flow self-test", report) }, kind = ButtonKind.Primary)
+                    AfButton(tr(UiText.SHARE_REPORT), { Share.send(this@SelfTestActivity, "Auto Flow self-test report", report) })
                 }
                 SelectionContainer { AfText(report, mono = true, size = 11.sp) }
             }
@@ -161,9 +162,9 @@ class SelfTestActivity : ComponentActivity() {
         val bitmap = remember(frame.path) { SelfTestRunner.thumbnail(frame.path)?.asImageBitmap() }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (bitmap != null) {
-                Image(bitmap, frame.label.ifEmpty { "frame" }, modifier.clickable(onClick = onClick), contentScale = ContentScale.FillWidth)
+                Image(bitmap, frame.label.ifEmpty { tr(UiText.FRAME) }, modifier.clickable(onClick = onClick), contentScale = ContentScale.FillWidth)
             } else {
-                AfText("(no image)", muted = true)
+                AfText(tr(UiText.NO_IMAGE), muted = true)
             }
             if (frame.label.isNotEmpty()) AfText(frame.label, muted = true, size = 10.sp)
         }

@@ -275,4 +275,18 @@ class SettingsModelFeatureTest {
         // The settings store persisted the override; the new model should read it
         assertEquals(true, m2.state.value.features.quickRecap)
     }
+    @Test fun languageChangeRetainsActionNoticeAndIndependentModelsShareThePreference() {
+        val first = model()
+        val second = model()
+        first.saveKey("test-key-not-real")
+        val notice = first.state.value.notice!!
+        second.setUiLanguage(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE)
+        assertEquals("my", first.appSettings.value.uiLanguage)
+        assertEquals("Key saved", notice.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH))
+        assertEquals("Key သိမ်းပြီး", notice.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE))
+        first.setUiLanguage(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH)
+        assertEquals(notice, first.state.value.notice)
+        assertEquals("en", second.appSettings.value.uiLanguage)
+    }
+
 }
