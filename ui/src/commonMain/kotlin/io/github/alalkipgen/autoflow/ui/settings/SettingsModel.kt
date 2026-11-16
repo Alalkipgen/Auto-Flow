@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.settings
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
 import io.github.alalkipgen.autoflow.core.flags.FeatureFlags
@@ -34,10 +35,12 @@ data class SettingsUiState(
     val ffmpegFound: Boolean = true,
     /** Last ffmpeg version check (PLAN 1D), e.g. `ffmpeg 7.0.2 · libass ✓ → text overlays: libass`; null = not run. */
     val ffmpegCheck: String? = null,
+    val ffmpegNotice: UiNotice? = null,
     /** True when the check found a problem (no libass or ffmpeg did not answer). */
     val ffmpegCheckWarn: Boolean = false,
     val models: LoadedModelConfig,
     val message: String? = null,
+    val notice: UiNotice? = null,
     /** WAV of the last "Test Gemini TTS (S5)", for ▶. */
     val ttsSample: String? = null,
     /** Feature flags with user overrides applied. */
@@ -67,7 +70,13 @@ class SettingsModel(
 ) {
     val appSettings: StateFlow<AppSettings> get() = settings.state
 
-    fun setUiLanguage(language: io.github.alalkipgen.autoflow.ui.i18n.UiLanguage) = change { it.copy(uiLanguage = language.code) }
+    fun setUiLanguage(language: UiLanguage) {
+        when (val result = settings.update { it.copy(uiLanguage = language.code) }) {
+            is PlatformResult.Ok -> _state.value = _state.value.copy(settings = settings.state.value)
+            is PlatformResult.Failed -> done(result.reason)
+            is PlatformResult.Unsupported -> done(result.reason)
+        }
+    }
 
     val builtInFontPaths: List<String> get() = builtInFonts?.paths.orEmpty()
     val canTestTts: Boolean get() = testTtsCall != null
@@ -75,40 +84,43 @@ class SettingsModel(
     private val _state = MutableStateFlow(snapshot(message = settings.problem ?: models.problem))
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
-    fun saveKey(input: String) = done(
-        if (input.isBlank()) "Enter a key first" else secrets.put(SecretNames.GEMINI_API_KEY, input.trim()).text("Key saved"),
-    )
+    private fun language() = UiLanguage.fromCode(settings.state.value.uiLanguage)
 
-    fun removeKey() = done(secrets.remove(SecretNames.GEMINI_API_KEY).text("Key removed"))
+    fun saveKey(input: String) {
+        if (input.isBlank()) report(UiNotice(UiText.KEY_ENTER_FIRST))
+        else result(secrets.put(SecretNames.GEMINI_API_KEY, input.trim()), UiNotice(UiText.KEY_SAVED))
+    }
+
+    fun removeKey() = result(secrets.remove(SecretNames.GEMINI_API_KEY), UiNotice(UiText.KEY_REMOVED))
 
     suspend fun testKey() {
-        _state.value = _state.value.copy(testing = true, message = null)
+        _state.value = _state.value.copy(testing = true, message = null, notice = null)
         val text = when (val r = testKeyCall()) {
-            is AiResult.Ok -> "Key works" + (r.usage?.model?.let { " ($it)" } ?: "")
-            is AiResult.RateLimited -> "Key accepted, but the free-tier limit is reached for now"
-            is AiResult.Failed -> r.msg
-            is AiResult.Deferred -> r.instruction
+            is AiResult.Ok -> UiNotice(UiText.KEY_WORKS, "model" to (r.usage?.model?.let { " ($it)" } ?: ""))
+            is AiResult.RateLimited -> UiNotice(UiText.KEY_RATE_LIMIT)
+            is AiResult.Failed -> UiNotice(UiText.RESULT_DETAIL, "detail" to r.msg)
+            is AiResult.Deferred -> UiNotice(UiText.RESULT_DETAIL, "detail" to r.instruction)
         }
         refreshUsage()
-        done(text)
+        report(text)
     }
 
     /** Settings → Test Gemini TTS (S5): speaks one Burmese sentence and names the model that answered. */
     suspend fun testTts() {
         val call = testTtsCall ?: return
-        _state.value = _state.value.copy(testing = true, message = null)
+        _state.value = _state.value.copy(testing = true, message = null, notice = null)
         var sample: String? = null
         val text = when (val r = call()) {
             is AiResult.Ok -> {
                 sample = saveTtsSample(r.value)
-                "Gemini TTS works" + (r.usage?.model?.let { " ($it)" } ?: "") + (if (sample != null) ". Tap ▶ to hear the Burmese sentence." else "")
+                UiNotice(if (sample != null) UiText.TTS_WORKS_PLAY else UiText.TTS_WORKS, "model" to (r.usage?.model?.let { " ($it)" } ?: ""))
             }
-            is AiResult.RateLimited -> "Gemini TTS: the free-tier limit is reached for now" + (r.message.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "")
-            is AiResult.Failed -> "Gemini TTS: ${r.msg}"
-            is AiResult.Deferred -> r.instruction
+            is AiResult.RateLimited -> UiNotice(UiText.TTS_RATE_LIMIT, "detail" to (r.message.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""))
+            is AiResult.Failed -> UiNotice(UiText.TTS_FAILED, "detail" to r.msg)
+            is AiResult.Deferred -> UiNotice(UiText.RESULT_DETAIL, "detail" to r.instruction)
         }
         refreshUsage()
-        done(text)
+        report(text)
         _state.value = _state.value.copy(ttsSample = sample)
     }
 
@@ -134,7 +146,7 @@ class SettingsModel(
 
     fun setFfmpegPath(path: String?) {
         change { it.copy(ffmpegPath = path?.trim()?.ifEmpty { null }) }
-        _state.value = _state.value.copy(ffmpegCheck = null, ffmpegCheckWarn = false)
+        _state.value = _state.value.copy(ffmpegCheck = null, ffmpegNotice = null, ffmpegCheckWarn = false)
     }
 
     /**
@@ -144,48 +156,58 @@ class SettingsModel(
     suspend fun checkFfmpeg() {
         val runner = ffmpegRunner ?: return
         val path = settings.state.value.ffmpegPath.takeUnless { tools.bundled } ?: tools.findFfmpeg()
-        if (path == null) return showCheck("ffmpeg not found: set its path or press Detect.", warn = true)
-        showCheck("Checking ffmpeg…", warn = false)
+        if (path == null) return showCheck(UiNotice(UiText.FFMPEG_SET_PATH), warn = true)
+        showCheck(UiNotice(UiText.FFMPEG_CHECKING), warn = false)
         when (val r = FfmpegCheck.run(runner, path, path.substringBeforeLast('/', "."))) {
-            is FfmpegCheck.Failed -> showCheck(r.message, warn = true)
-            is FfmpegCheck.Ok -> showCheck(describe(r.caps), warn = !r.caps.hasAss || !r.caps.hasLibx264)
+            is FfmpegCheck.Failed -> showCheck(UiNotice(UiText.RESULT_DETAIL, "detail" to r.message), warn = true)
+            is FfmpegCheck.Ok -> showCheck(describeNotice(r.caps), warn = !r.caps.hasAss || !r.caps.hasLibx264)
         }
     }
 
-    private fun showCheck(text: String, warn: Boolean) {
-        _state.value = _state.value.copy(ffmpegCheck = text, ffmpegCheckWarn = warn)
+    private fun showCheck(text: UiNotice, warn: Boolean) {
+        _state.value = _state.value.copy(ffmpegCheck = text.text(UiLanguage.ENGLISH), ffmpegNotice = text, ffmpegCheckWarn = warn)
     }
 
     fun detectFfmpeg() {
-        val found = tools.findFfmpeg() ?: return done("ffmpeg was not found on PATH. Choose ffmpeg.exe instead.")
+        val found = tools.findFfmpeg() ?: return report(UiNotice(UiText.FFMPEG_NOT_FOUND))
         setFfmpegPath(found)
     }
 
-    suspend fun browseFfmpeg() = picked(picker.pickFiles("Choose ffmpeg")) { setFfmpegPath(it.first()) }
+    suspend fun browseFfmpeg() = picked(picker.pickFiles(UiText.CHOOSE_FFMPEG.text(language()))) { setFfmpegPath(it.first()) }
 
     fun setVlcPath(dir: String?) {
         val d = dir?.trim()?.ifEmpty { null }
-        if (d != null && !tools.isVlcDir(d)) return done("No VLC (libvlc) in $d")
+        if (d != null && !tools.isVlcDir(d)) return report(UiNotice(UiText.VLC_DIR_INVALID, "dir" to d))
         change { it.copy(vlcPath = d) }
     }
 
-    suspend fun browseVlc() = picked(picker.pickFolder("Choose the VLC folder")) { setVlcPath(it) }
+    suspend fun browseVlc() = picked(picker.pickFolder(UiText.CHOOSE_VLC_FOLDER.text(language()))) { setVlcPath(it) }
 
     fun openVlcDownload() = done(urls.open(VLC_DOWNLOAD_URL).text(null))
 
-    suspend fun addFonts() = picked(picker.pickFiles("Add fonts", setOf("ttf", "otf"), multiple = true)) { fonts ->
+    suspend fun addFonts() = picked(picker.pickFiles(UiText.ADD_FONTS_PICKER.text(language()), setOf("ttf", "otf"), multiple = true)) { fonts ->
         change { s -> s.copy(fontPaths = (s.fontPaths + fonts).distinct()) }
     }
 
     fun removeFont(path: String) = change { it.copy(fontPaths = it.fontPaths - path) }
 
-    suspend fun browseModelsConfig() = picked(picker.pickFiles("Choose models.json", setOf("json"))) { setModelsConfigPath(it.first()) }
+    suspend fun browseModelsConfig() = picked(picker.pickFiles(UiText.CHOOSE_MODELS.text(language()), setOf("json"))) { setModelsConfigPath(it.first()) }
 
-    fun setModelsConfigPath(path: String?) = change(note = "Restart Auto Flow to load the model config") {
+    fun setModelsConfigPath(path: String?) = change(note = UiNotice(UiText.MODEL_RESTART)) {
         it.copy(modelsConfigPath = path?.trim()?.ifEmpty { null })
     }
 
-    private fun change(note: String? = null, edit: (AppSettings) -> AppSettings) = done(settings.update(edit).text(note))
+    private fun change(note: UiNotice? = null, edit: (AppSettings) -> AppSettings) = result(settings.update(edit), note)
+
+    private fun result(result: PlatformResult<Unit>, ok: UiNotice?) {
+        when (result) {
+            is PlatformResult.Ok -> if (ok == null) done(null) else report(ok)
+            is PlatformResult.Failed -> done(result.reason)
+            is PlatformResult.Unsupported -> done(result.reason)
+        }
+    }
+
+    private fun report(notice: UiNotice) = done(notice.text(UiLanguage.ENGLISH), notice)
 
     private fun <T> picked(result: PlatformResult<T?>, use: (T) -> Unit) {
         when (result) {
@@ -195,16 +217,17 @@ class SettingsModel(
         }
     }
 
-    private fun done(message: String?) {
+    private fun done(message: String?, notice: UiNotice? = null) {
         status.refreshKey()
-        _state.value = snapshot(message).copy(
+        _state.value = snapshot(message, notice).copy(
             usageToday = _state.value.usageToday,
             ffmpegCheck = _state.value.ffmpegCheck,
+            ffmpegNotice = _state.value.ffmpegNotice,
             ffmpegCheckWarn = _state.value.ffmpegCheckWarn,
         )
     }
 
-    private fun snapshot(message: String?): SettingsUiState {
+    private fun snapshot(message: String?, notice: UiNotice? = null): SettingsUiState {
         val s = settings.state.value
         val key = secrets.get(SecretNames.GEMINI_API_KEY)
         return SettingsUiState(
@@ -216,6 +239,7 @@ class SettingsModel(
             ffmpegFound = !tools.bundled || tools.findFfmpeg() != null,
             models = models,
             message = message,
+            notice = notice,
             features = FeatureFlags.load(bundledFeatures, s.featureOverrides),
         )
     }
@@ -228,11 +252,13 @@ class SettingsModel(
 
     companion object {
         /** One line for Settings → Tools. */
-        fun describe(c: FfmpegCapabilities): String {
+        fun describe(c: FfmpegCapabilities, language: UiLanguage = UiLanguage.ENGLISH): String = describeNotice(c).text(language)
+
+        private fun describeNotice(c: FfmpegCapabilities): UiNotice {
             fun mark(ok: Boolean) = if (ok) "✓" else "✗"
-            val overlays = if (c.overlayBackend == OverlayBackend.LIBASS) "libass" else "PNG fallback (no libass)"
-            return "ffmpeg ${c.version} · libass ${mark(c.hasAss)} · libx264 ${mark(c.hasLibx264)} · aac ${mark(c.hasAac)}" +
-                " → text overlays: $overlays"
+            return UiNotice(UiText.FFMPEG_DESCRIPTION, "version" to c.version, "ass" to mark(c.hasAss),
+                "x264" to mark(c.hasLibx264), "aac" to mark(c.hasAac),
+                "overlays" to if (c.overlayBackend == OverlayBackend.LIBASS) "libass" else UiNotice(UiText.PNG_FALLBACK))
         }
 
         const val VLC_DOWNLOAD_URL = "https://www.videolan.org/vlc/"

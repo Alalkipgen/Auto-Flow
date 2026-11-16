@@ -67,7 +67,7 @@ private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppI
     ) {
         AfText(tr(UiText.SETTINGS_TITLE), size = 18.sp, bold = true)
         LanguageCard(model)
-        state.message?.let { AfText(it, color = AutoFlowColors.Cyan) }
+        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it), color = AutoFlowColors.Cyan) }
         AiCard(state, model, scope)
         DefaultsCard(state.settings, model)
         ToolsCard(state, model, scope)
@@ -98,25 +98,25 @@ fun LanguageCard(model: SettingsModel) {
 @Composable
 private fun BackupCard(model: BackupModel) {
     val state by model.state.collectAsState()
-    AfCard("Backup") {
+    AfCard(tr(UiText.BACKUP)) {
         AfText(
-            "Projects are saved in this app's storage. Uninstalling Auto Flow deletes them, so back up first: " +
-                "the zip goes to Download/AutoFlow and stays there after an uninstall.",
+            tr(UiText.BACKUP_STORAGE_HINT) +
+                tr(UiText.BACKUP_DOWNLOAD_HINT),
             muted = true,
         )
-        AfText(if (state.projects == 1) "1 project" else "${state.projects} projects", muted = true, size = 12.sp)
+        AfText(if (state.projects == 1) tr(UiText.ONE_PROJECT) else tr(UiText.MANY_PROJECTS, "projects" to (state.projects)), muted = true, size = 12.sp)
         val progress = state.progress
         WrapRow {
             if (progress != null) {
-                AfText("Backing up… ${(progress.fraction * 100).toInt()} %", Modifier.testTag("backup-progress"))
-                AfButton("Cancel", model::cancel, kind = ButtonKind.Danger)
+                AfText(tr(UiText.BACKUP_PROGRESS, "toInt" to ((progress.fraction * 100).toInt())), Modifier.testTag("backup-progress"))
+                AfButton(tr(UiText.CANCEL), model::cancel, kind = ButtonKind.Danger)
             } else {
-                AfButton("Back up all projects", model::start, kind = ButtonKind.Primary, enabled = state.projects > 0)
-                if (state.last != null) AfButton("Share…", model::share)
-                AfButton("Restore from backup…", model::restore, kind = ButtonKind.Secondary)
+                AfButton(tr(UiText.BACKUP_ALL), model::start, kind = ButtonKind.Primary, enabled = state.projects > 0)
+                if (state.last != null) AfButton(tr(UiText.SHARE), model::share)
+                AfButton(tr(UiText.RESTORE_BACKUP), model::restore, kind = ButtonKind.Secondary)
             }
         }
-        state.message?.let { AfText(it, color = AutoFlowColors.Cyan, size = 12.sp) }
+        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it), color = AutoFlowColors.Cyan, size = 12.sp) }
     }
 }
 
@@ -124,13 +124,13 @@ private fun BackupCard(model: BackupModel) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AboutCard(info: AppInfo) {
-    AfCard("About") {
+    AfCard(tr(UiText.ABOUT)) {
         val open = info.onVersionLongPress
         AfText(
             "Auto Flow ${info.version}",
             Modifier.testTag("about-version").then(if (open != null) Modifier.combinedClickable(onClick = {}, onLongClick = open) else Modifier),
         )
-        if (open != null) AfText("Long-press the version to open the Self-test.", muted = true, size = 12.sp)
+        if (open != null) AfText(tr(UiText.SELFTEST_OPEN_HINT), muted = true, size = 12.sp)
     }
 }
 
@@ -138,45 +138,45 @@ private fun AboutCard(info: AppInfo) {
 private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
     var input by remember { mutableStateOf("") }
     val hasKey = state.keyState == KeyState.SET
-    AfCard("AI providers") {
+    AfCard(tr(UiText.AI_PROVIDERS)) {
         AfSwitch(
-            "Use fake AI providers (offline, no key needed)",
+            tr(UiText.USE_FAKE_AI),
             checked = state.settings.useFakeProviders,
             onChange = model::setUseFakes,
         )
         AfText(
             when (state.keyState) {
-                KeyState.SET -> "Gemini API key: saved ${state.maskedKey.orEmpty()}"
-                KeyState.MISSING -> "Gemini API key: not saved"
-                KeyState.UNREADABLE -> "Gemini API key: saved, but it cannot be read. Save it again."
-                KeyState.UNSUPPORTED -> "Gemini API key: keys are stored with Windows DPAPI, so saving needs Windows."
+                KeyState.SET -> tr(UiText.KEY_SAVED_MASKED, "orEmpty" to (state.maskedKey.orEmpty()))
+                KeyState.MISSING -> tr(UiText.KEY_NOT_SAVED)
+                KeyState.UNREADABLE -> tr(UiText.KEY_UNREADABLE)
+                KeyState.UNSUPPORTED -> tr(UiText.KEY_UNSUPPORTED)
             },
             muted = true,
         )
         FieldRow(
-            field = { AfTextField(input, { input = it }, "Paste a Gemini API key", it, secret = true) },
+            field = { AfTextField(input, { input = it }, tr(UiText.KEY_PASTE), it, secret = true) },
             actions = {
-                AfButton("Save", { model.saveKey(input); input = "" }, kind = ButtonKind.Primary, enabled = input.isNotBlank())
+                AfButton(tr(UiText.SAVE), { model.saveKey(input); input = "" }, kind = ButtonKind.Primary, enabled = input.isNotBlank())
                 AfButton(
-                    if (state.testing) "Testing…" else "Test",
+                    if (state.testing) tr(UiText.TESTING) else tr(UiText.TEST),
                     { scope.launch { model.testKey() } },
                     enabled = hasKey && !state.testing,
                 )
-                AfButton("Remove", model::removeKey, kind = ButtonKind.Danger, enabled = hasKey)
+                AfButton(tr(UiText.REMOVE), model::removeKey, kind = ButtonKind.Danger, enabled = hasKey)
             },
         )
-        AfText("Test sends one short request to Gemini, even in fake mode.", muted = true, size = 12.sp)
+        AfText(tr(UiText.KEY_TEST_HINT), muted = true, size = 12.sp)
         if (model.canTestTts) {
             var playing by remember { mutableStateOf(false) }
             WrapRow {
-                AfButton(TEST_TTS, { scope.launch { model.testTts() } }, enabled = hasKey && !state.testing)
+                AfButton(tr(UiText.TEST_TTS), { scope.launch { model.testTts() } }, enabled = hasKey && !state.testing)
                 state.ttsSample?.let { AudioPlayButton(it, playing, { playing = !playing }) }
             }
-            AfText("Speaks one Burmese sentence with Gemini TTS (voice Charon) — even in fake mode.", muted = true, size = 12.sp)
+            AfText(tr(UiText.TTS_TEST_HINT), muted = true, size = 12.sp)
         }
         val total = state.usageToday.values.sum()
         AfText(
-            "Today: $total API call" + (if (total == 1) "" else "s") + " (includes retries)" +
+            tr(UiText.TODAY_CALLS_FIRST, "total" to (total)) + (if (LocalUiLanguage.current == UiLanguage.ENGLISH && total != 1) "s" else "") + tr(UiText.TODAY_CALLS_RETRIES) +
                 state.usageToday.entries.joinToString(prefix = if (total > 0) ": " else "") {
                     "${it.key} ×${it.value}"
                 },
@@ -187,12 +187,12 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
 
 @Composable
 private fun DefaultsCard(settings: AppSettings, model: SettingsModel) {
-    AfCard("New project defaults") {
-        AfText("Ratio", muted = true)
+    AfCard(tr(UiText.NEW_PROJECT_DEFAULTS)) {
+        AfText(tr(UiText.RATIO), muted = true)
         WrapRow {
             Ratio.entries.forEach { r -> AfChip(r.label, r == settings.defaultRatio, { model.setDefaultRatio(r) }) }
         }
-        AfText("Clip length", muted = true)
+        AfText(tr(UiText.CLIP_LENGTH), muted = true)
         WrapRow {
             SettingsModel.CLIP_LENGTHS_MS.forEach { ms ->
                 AfChip("${ms / 1000}s", ms == settings.defaultClipMs, { model.setDefaultClipMs(ms) })
@@ -205,37 +205,37 @@ private fun DefaultsCard(settings: AppSettings, model: SettingsModel) {
 private fun FfmpegCheckRow(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
     LaunchedEffect(model, state.settings.ffmpegPath) { model.checkFfmpeg() }
     WrapRow {
-        state.ffmpegCheck?.let { AfText(it, size = 12.sp, color = if (state.ffmpegCheckWarn) AutoFlowColors.Amber else AutoFlowColors.Muted) }
-        AfButton("Check ffmpeg", { scope.launch { model.checkFfmpeg() } })
+        state.ffmpegCheck?.let { AfText(state.ffmpegNotice?.text(LocalUiLanguage.current) ?: it, size = 12.sp, color = if (state.ffmpegCheckWarn) AutoFlowColors.Amber else AutoFlowColors.Muted) }
+        AfButton(tr(UiText.CHECK_FFMPEG), { scope.launch { model.checkFfmpeg() } })
     }
 }
 
 @Composable
 private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
-    AfCard("Tools") {
+    AfCard(tr(UiText.TOOLS)) {
         if (state.toolsBundled) {
             // Android (D-23): ffmpeg is inside the APK; there is nothing to point at or install.
             if (state.ffmpegFound) {
-                AfText("ffmpeg: bundled with the app.", muted = true)
+                AfText(tr(UiText.FFMPEG_BUNDLED), muted = true)
                 FfmpegCheckRow(state, model, scope)
             } else {
-                AfText("ffmpeg is missing from this install: rendering is off. Reinstall Auto Flow.", color = AutoFlowColors.Amber)
+                AfText(tr(UiText.FFMPEG_MISSING), color = AutoFlowColors.Amber)
             }
         } else {
-            PathRow("ffmpeg", state.settings.ffmpegPath, "Path to ffmpeg.exe", model::setFfmpegPath) {
-                AfButton("Detect", model::detectFfmpeg)
-                AfButton("Browse…", { scope.launch { model.browseFfmpeg() } })
+            PathRow("ffmpeg", state.settings.ffmpegPath, tr(UiText.FFMPEG_PATH), model::setFfmpegPath) {
+                AfButton(tr(UiText.DETECT), model::detectFfmpeg)
+                AfButton(tr(UiText.BROWSE), { scope.launch { model.browseFfmpeg() } })
             }
             FfmpegCheckRow(state, model, scope)
-            PathRow("VLC folder (preview playback)", state.settings.vlcPath, "Auto-detect", model::setVlcPath) {
-                AfButton("Browse…", { scope.launch { model.browseVlc() } })
+            PathRow(tr(UiText.VLC_FOLDER), state.settings.vlcPath, tr(UiText.AUTO_DETECT), model::setVlcPath) {
+                AfButton(tr(UiText.BROWSE), { scope.launch { model.browseVlc() } })
             }
             if (state.vlcDir != null) {
-                AfText("Using VLC in ${state.vlcDir}", muted = true, size = 12.sp)
+                AfText(tr(UiText.VLC_USING, "vlcDir" to (state.vlcDir)), muted = true, size = 12.sp)
             } else {
                 WrapRow {
-                    AfText("VLC 3.x not found: video playback is off.", color = AutoFlowColors.Amber, size = 12.sp)
-                    AfButton("Install VLC", model::openVlcDownload, kind = ButtonKind.Flow)
+                    AfText(tr(UiText.VLC_MISSING), color = AutoFlowColors.Amber, size = 12.sp)
+                    AfButton(tr(UiText.VLC_INSTALL), model::openVlcDownload, kind = ButtonKind.Flow)
                 }
             }
         }
@@ -244,28 +244,28 @@ private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: Corou
 
 @Composable
 private fun FontsCard(fonts: List<String>, builtIn: List<String>, model: SettingsModel, scope: CoroutineScope) {
-    AfCard("Fonts (lyrics and title overlays)") {
+    AfCard(tr(UiText.FONTS_OVERLAYS)) {
         if (builtIn.isNotEmpty()) {
-            AfText("Built in: Pyidaungsu, Noto Sans Myanmar — used for the app text, lyrics and captions. Fonts added here are used too.", muted = true, size = 12.sp)
+            AfText(tr(UiText.FONTS_BUNDLED_HINT), muted = true, size = 12.sp)
         }
-        if (fonts.isEmpty()) AfText("No fonts added.", muted = true)
+        if (fonts.isEmpty()) AfText(tr(UiText.FONTS_EMPTY), muted = true)
         fonts.forEach { path ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfText(path, Modifier.weight(1f), mono = true, size = 12.sp)
-                AfButton("Remove", { model.removeFont(path) })
+                AfButton(tr(UiText.REMOVE), { model.removeFont(path) })
             }
         }
-        AfButton("Add fonts…", { scope.launch { model.addFonts() } })
+        AfButton(tr(UiText.FONTS_ADD), { scope.launch { model.addFonts() } })
     }
 }
 
 @Composable
 private fun ModelsCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
-    AfCard("Model config") {
-        AfText("In use: ${state.models.source}", muted = true)
+    AfCard(tr(UiText.MODEL_CONFIG)) {
+        AfText(tr(UiText.MODEL_IN_USE, "source" to (state.models.source)), muted = true)
         state.models.problem?.let { AfText(it, color = AutoFlowColors.Amber, size = 12.sp) }
-        PathRow("Override models.json (applies after restart)", state.settings.modelsConfigPath, "Bundled config", model::setModelsConfigPath) {
-            AfButton("Browse…", { scope.launch { model.browseModelsConfig() } })
+        PathRow(tr(UiText.MODELS_OVERRIDE), state.settings.modelsConfigPath, tr(UiText.BUNDLED_CONFIG), model::setModelsConfigPath) {
+            AfButton(tr(UiText.BROWSE), { scope.launch { model.browseModelsConfig() } })
         }
         Box(
             Modifier.fillMaxWidth().heightIn(max = 240.dp).background(AutoFlowColors.Background)
@@ -285,8 +285,8 @@ fun PreviewFeaturesCard(model: SettingsModel) {
     val state by model.state.collectAsState()
     val flags = state.features.asMap()
     if (flags.isEmpty()) return
-    AfCard("Preview features") {
-        AfText("Turn features on or off. Overrides apply immediately; they are stored per-device.", muted = true)
+    AfCard(tr(UiText.PREVIEW_FEATURES)) {
+        AfText(tr(UiText.PREVIEW_FEATURES_HINT), muted = true)
         flags.forEach { (key, value) ->
             AfSwitch(key, value, { model.setFeature(key, it) })
         }
@@ -307,7 +307,7 @@ private fun PathRow(
     FieldRow(
         field = { AfTextField(text, { text = it }, placeholder, it) },
         actions = {
-            if (text != saved.orEmpty()) AfButton("Apply", { onApply(text) }, kind = ButtonKind.Primary)
+            if (text != saved.orEmpty()) AfButton(tr(UiText.APPLY), { onApply(text) }, kind = ButtonKind.Primary)
             actions()
         },
     )
