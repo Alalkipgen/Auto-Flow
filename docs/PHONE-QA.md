@@ -17,6 +17,22 @@ fake providers, simulated executor reconstruction and emulator runs do **not** c
 The APK above must include **all completed milestones**. A checkpoint APK is not the final queue-complete APK.
 Do not claim missing features are phone-testable. See PLAN for implementation and automation status separately.
 
+### Continuation checkpoint package (not the queue-complete owner run)
+
+CI now attaches `BUILD.txt` (exact pushed source SHA / run), `FEATURES.json`, this checklist and an offline
+`qa-fixture/AutoFlow-5A8-synthetic-backup.zip` beside the fresh APK. APK/EXE `.sha256` files hash the actual binaries,
+not their Actions artifact ZIPs. APK and unsigned EXE artifacts are retained for 30 days from upload; the Actions
+artifact page gives the exact expiry and requires GitHub sign-in. The EXE artifact also includes matching application
+and pinned VLCJ/JNA source archives and license notices; no native VLC is bundled. Defaults are `studioV2=true`,
+`quickRecap=true`, every `labs.*=false`, no QA override required. Check existing settings overrides after updating.
+
+The fixture uses the same valid-WAV/multiple-clip project as the real Desktop playback test, plus 9:16 Mirror/Zoom/Fill
+and 1:1 image-background variants. Restore via the existing backup flow; do not replace real projects. Follow its
+`EXPECTED.txt`: output 150/500/2500/4500 ms gives no-cue/FIRST/no-cue/SECOND and green/green/yellow/blue source patches.
+The five native layers are saved and inspectable, but their final output is currently visible only in Exact Frame /
+export, not in the pre-Looks source-picture player. Thus this package consolidates all implemented changes but is
+**not** the one final 5A-8 acceptance APK. Do not ask the owner for an extra interim phone installation.
+
 ## Safe setup
 
 1. Back up existing projects to Download/AutoFlow; copy the ZIP off the phone and verify it opens before any
