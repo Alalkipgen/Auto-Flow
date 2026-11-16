@@ -7,6 +7,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.ttsVoiceKind
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -75,7 +80,7 @@ class VoiceChangeTest {
         setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { val s by m.state.collectAsState(); Column(Modifier.verticalScroll(rememberScrollState())) { VoiceCard(m, s, s.recap!!) } } }
         onNodeWithTag("change-voice").performScrollTo().performClick()
         onNodeWithText("test-en").assertDoesNotExist()
-        onNodeWithText("Kore · Firm").performClick()
+        onNodeWithText("Kore · ${ttsVoiceKind("Kore", UiLanguage.BURMESE)}").assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("voice-change-impact").assertExists()
         onNodeWithTag("voice-keep").performScrollTo().performClick()
         waitForIdle()
@@ -93,7 +98,7 @@ class VoiceChangeTest {
         val m = open()
         setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { val s by m.state.collectAsState(); Column(Modifier.verticalScroll(rememberScrollState())) { VoiceCard(m, s, s.recap!!) } } }
         onNodeWithTag("change-voice").performClick()
-        onNodeWithText("Kore · Firm").performClick()
+        onNodeWithText("Kore · ${ttsVoiceKind("Kore", UiLanguage.BURMESE)}").assertIsDisplayed().performMouseInput { click() }
         onNodeWithText("အပိုင်း 1 ခု ပြန်ပြောမယ် (≈ 1 မိနစ်)").assertExists()
         onNodeWithTag("voice-regenerate").performScrollTo().performClick()
         waitForIdle()
