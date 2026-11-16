@@ -63,4 +63,18 @@ class JobRowsTest {
         assertEquals(2, jobsBadgeValue(rows))
         assertEquals(1, jobsBadgeValue(listOf(ai)))
     }
+    @Test
+    fun changingUiLanguageChangesRowsButNotJobRoutingIdentityOrCancellation() {
+        val ai = AiJob("stable-job", AiJobKind.TTS_ALL, "projects/မြန်မာ.autoflow", items = listOf("stable-block"), state = AiJobState.RUNNING)
+        val en = jobRows(null, null, null, listOf(ai), io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH).single()
+        val my = jobRows(null, null, null, listOf(ai), io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE).single()
+        assertTrue(en.title.contains("Speak all"))
+        assertTrue(my.title.contains("အားလုံး အသံထုတ်"))
+        assertEquals(en.source, my.source)
+        assertEquals(en.aiJobId, my.aiJobId)
+        assertEquals(en.canCancel, my.canCancel)
+        assertEquals(en.progress, my.progress)
+        assertEquals("projects/မြန်မာ.autoflow", ai.project)
+        assertEquals(listOf("stable-block"), ai.items)
+    }
 }

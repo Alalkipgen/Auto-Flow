@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Canvas
@@ -310,7 +311,7 @@ private fun StudioV2App(
                                 } else {
                                     val recapModel = koinInject<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()
                                     io.github.alalkipgen.autoflow.ui.recap.ProjectPanes(windowWidthDp,
-                                        list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText("ထုတ်ယူ", bold = true); AfText("မထုတ်ခင် စစ်ဆေး → render → သိမ်း / မျှဝေ", muted = true) } },
+                                        list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText(tr(UiText.EXPORT), bold = true); AfText(tr(UiText.SHELL_EXPORT_HINT), muted = true) } },
                                         editor = { io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject()) },
                                         preview = { Column(Modifier.verticalScroll(rememberScrollState())) { io.github.alalkipgen.autoflow.ui.recap.ExactFrameCard(recapModel) } },
                                     )
@@ -390,7 +391,7 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float, go: (String) -
 private fun MvClassicSteps(go: (String) -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AfText(io.github.alalkipgen.autoflow.ui.i18n.My.screen(MV_CLASSIC), bold = true)
-        AfText("Shot စာရွက်က shot တစ်ခုချင်းစီအတွက် ဒီအဆင့်တွေ အားလုံးကို လုပ်ပေးတယ်။ စာမျက်နှာဟောင်းတွေကို နောက်ထုတ်ဝေမှု တစ်ကြိမ်အထိ ထားမယ်။", muted = true)
+        AfText(tr(UiText.SHELL_CLASSIC_HINT), muted = true)
         io.github.alalkipgen.autoflow.ui.components.WrapRow {
             MV_CLASSIC_SCREENS.forEach { s ->
                 io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), { go(s) }, Modifier.heightIn(min = 48.dp))
@@ -467,11 +468,11 @@ private fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
                 .padding(32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            AfText("Auto Flow ကို ပိတ်မလား?", bold = true, size = 20.sp)
-            AfText("Render တွေ နောက်ကွယ်မှာ ဆက်လုပ်နေမယ်။", muted = true)
+            AfText(tr(UiText.EXIT_TITLE), bold = true, size = 20.sp)
+            AfText(tr(UiText.EXIT_HINT), muted = true)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AfButton("ပိတ်မယ်", onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
-                AfButton("ဆက်နေမယ်", onStay, Modifier.weight(1f))
+                AfButton(tr(UiText.EXIT), onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
+                AfButton(tr(UiText.STAY), onStay, Modifier.weight(1f))
             }
         }
     }
