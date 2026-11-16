@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
 import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
 import io.github.alalkipgen.autoflow.core.CoreResult
@@ -95,6 +96,8 @@ class SongImportTest {
         assertEquals("3:25", s.durationText)
         assertEquals(205_432, s.settings.durationMs)
         assertEquals("Song imported · 3:25", s.songMessage)
+        assertEquals("သီချင်း ထည့်ပြီး · 3:25", s.songNotice!!.text(UiLanguage.BURMESE))
+        assertEquals(s.songMessage, s.songNotice!!.text(UiLanguage.ENGLISH))
         assertTrue(s.songMessageOk)
         assertFalse(s.importingSong)
         assertEquals(205_432, (store.open(dir) as CoreResult.Ok).value.settings.durationMs, "saved at once")

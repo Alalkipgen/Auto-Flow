@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.core.CoreResult
@@ -26,6 +27,7 @@ data class LyricSyncUiState(
     /** The tap-to-sync panel is open with this state; null when closed. */
     val sync: TapSync? = null,
     val message: String? = null,
+    val notice: UiNotice? = null,
     val messageOk: Boolean = false,
     /** "Suggest timings" is waiting for Gemini. */
     val suggesting: Boolean = false,
@@ -65,9 +67,9 @@ class LyricSyncModel(
     /** Opens the panel for the lines of [lyrics]; false (with a message) when there is nothing to sync. */
     fun start(lyrics: String): Boolean {
         val lines = LyricSync.lines(lyrics)
-        if (lines.isEmpty()) return say(NO_LINES).let { false }
-        if (session.songPath() == null) return say(NO_SONG).let { false }
-        _state.value = _state.value.copy(sync = TapSync(lines), message = null)
+        if (lines.isEmpty()) return say(UiNotice(UiText.SYNC_NO_LINES)).let { false }
+        if (session.songPath() == null) return say(UiNotice(UiText.SYNC_NO_SONG)).let { false }
+        _state.value = _state.value.copy(sync = TapSync(lines), message = null, notice = null)
         return true
     }
 
@@ -84,19 +86,19 @@ class LyricSyncModel(
     fun restart() = edit { it.restart() }
 
     fun cancel() {
-        _state.value = _state.value.copy(sync = null, message = null)
+        _state.value = _state.value.copy(sync = null, message = null, notice = null)
     }
 
     /** Saves the complete sync ([songMs] cuts the last line at the song end) and closes the panel. */
     fun save(songMs: Long?): Boolean {
         val s = _state.value.sync ?: return false
-        if (!s.complete) return say(NOT_COMPLETE).let { false }
+        if (!s.complete) return say(UiNotice(UiText.SYNC_INCOMPLETE)).let { false }
         val timings = LyricTimings(source = LyricTimings.SOURCE_TAP, lines = s.timings(songMs))
         return when (val r = session.saveLyricTimings(timings)) {
             is CoreResult.Ok -> {
                 _state.value = _state.value.copy(sync = null)
                 refresh(session.readLyrics())
-                say("Saved: ${timings.lines.size} lines synced", ok = true)
+                say(UiNotice(UiText.TIMINGS_SAVED, "lines" to timings.lines.size), ok = true)
                 true
             }
             is CoreResult.Err -> say(r.error.message).let { false }
@@ -104,12 +106,14 @@ class LyricSyncModel(
     }
 
     /** "Clear timings": back to per-shot lyrics (the `tx` artifact stays in artifacts/). */
-    fun clear(reason: String = CLEARED) {
+    fun clear() = clear(CLEARED, UiNotice(UiText.TIMINGS_CLEARED))
+
+    fun clear(reason: String, notice: UiNotice = UiNotice(UiText.RESULT_DETAIL, "detail" to reason)) {
         if (session.open?.project?.lyricTiming == null) return
         when (val r = session.saveLyricTimings(null)) {
             is CoreResult.Ok -> {
                 refresh(session.readLyrics())
-                say(reason, ok = true)
+                say(notice, ok = true)
             }
             is CoreResult.Err -> say(r.error.message)
         }
@@ -117,30 +121,30 @@ class LyricSyncModel(
 
     /** "Suggest timings": the song (16 kHz mono WAV when ffmpeg is there) and the saved lyric lines go to Gemini. */
     suspend fun suggest(): Boolean {
-        val provider = transcribe ?: return say(NO_AI).let { false }
+        val provider = transcribe ?: return say(UiNotice(UiText.SYNC_NO_AI)).let { false }
         if (_state.value.suggesting) return false
         val lyrics = session.readLyrics()
         val lines = LyricSync.lines(lyrics)
-        if (lines.isEmpty()) return say(NO_LINES).let { false }
-        val song = session.songPath() ?: return say(NO_SONG).let { false }
-        _state.value = _state.value.copy(suggesting = true, message = null, sync = null)
+        if (lines.isEmpty()) return say(UiNotice(UiText.SYNC_NO_LINES)).let { false }
+        val song = session.songPath() ?: return say(UiNotice(UiText.SYNC_NO_SONG)).let { false }
+        _state.value = _state.value.copy(suggesting = true, message = null, notice = null, sync = null)
         try {
-            val (audio, mime) = withContext(Dispatchers.Default) { audioFor(song) } ?: return say(NO_AUDIO).let { false }
+            val (audio, mime) = withContext(Dispatchers.Default) { audioFor(song) } ?: return say(UiNotice(UiText.SYNC_NO_AUDIO)).let { false }
             return when (val r = provider.transcribe(audio, langOf(lyrics), mime, lines)) {
                 is AiResult.Ok -> {
                     val songMs = session.open?.project?.settings?.durationMs?.takeIf { it > 0 }
                     val fixed = LyricSync.suggested(lines, r.value.segments.map { it.startMs to it.endMs }, songMs)
-                        ?: return say(INCOMPLETE).let { false }
+                        ?: return say(UiNotice(UiText.SYNC_AI_INCOMPLETE)).let { false }
                     when (val saved = session.saveLyricTimings(LyricTimings(source = LyricTimings.SOURCE_GEMINI, lines = fixed))) {
                         is CoreResult.Ok -> {
                             refresh(session.readLyrics())
-                            say("✨ Gemini timed ${fixed.size} lines. Check them on Export → Preview; if a line is off, use Sync again (tap).", ok = true)
+                            say(UiNotice(UiText.TIMINGS_SUGGESTED, "lines" to fixed.size), ok = true)
                             true
                         }
                         is CoreResult.Err -> say(saved.error.message).let { false }
                     }
                 }
-                is AiResult.RateLimited -> say(RATE_LIMITED).let { false }
+                is AiResult.RateLimited -> say(UiNotice(UiText.SYNC_RATE_LIMITED)).let { false }
                 is AiResult.Failed -> say("Gemini: ${r.msg}").let { false }
                 is AiResult.Deferred -> say(r.instruction).let { false }
             }
@@ -164,11 +168,13 @@ class LyricSyncModel(
 
     private fun edit(change: (TapSync) -> TapSync) {
         val s = _state.value.sync ?: return
-        _state.value = _state.value.copy(sync = change(s), message = null)
+        _state.value = _state.value.copy(sync = change(s), message = null, notice = null)
     }
 
-    private fun say(message: String, ok: Boolean = false) {
-        _state.value = _state.value.copy(message = message, messageOk = ok)
+    private fun say(message: String, ok: Boolean = false) = say(UiNotice(UiText.RESULT_DETAIL, "detail" to message), ok)
+
+    private fun say(notice: UiNotice, ok: Boolean = false) {
+        _state.value = _state.value.copy(message = notice.text(UiLanguage.ENGLISH), notice = notice, messageOk = ok)
     }
 
     companion object {

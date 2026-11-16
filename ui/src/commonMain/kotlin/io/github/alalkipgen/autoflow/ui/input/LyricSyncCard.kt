@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,39 +45,39 @@ internal fun LyricSyncCard(model: InputModel, songFile: String, locked: Boolean)
     val state by model.sync.state.collectAsState()
     val scope = rememberCoroutineScope()
     var confirming by remember { mutableStateOf(false) }
-    AfCard("Lyrics timing") {
+    AfCard(tr(UiText.LYRICS_TIMING)) {
         val sync = state.sync
         if (state.suggesting) {
-            AfText("✨ Gemini is listening to the song… (up to 2 minutes)", muted = true)
+            AfText(tr(UiText.GEMINI_LISTENING), muted = true)
         } else if (confirming) {
-            AfText(SUGGEST_CONFIRM, muted = true)
+            AfText(tr(UiText.SUGGEST_TIMINGS_CONFIRM), muted = true)
             WrapRow {
-                AfButton("Send", { confirming = false; scope.launch { model.suggestTimings() } }, kind = ButtonKind.Primary)
-                AfButton("Back", { confirming = false })
+                AfButton(tr(UiText.SEND), { confirming = false; scope.launch { model.suggestTimings() } }, kind = ButtonKind.Primary)
+                AfButton(tr(UiText.BACK), { confirming = false })
             }
         } else if (sync == null) {
-            AfText(statusText(state), color = if (state.status == TimingStatus.OUTDATED) AutoFlowColors.Amber else null, muted = state.status == TimingStatus.NONE)
+            AfText(statusText(state, LocalUiLanguage.current), color = if (state.status == TimingStatus.OUTDATED) AutoFlowColors.Amber else null, muted = state.status == TimingStatus.NONE)
             WrapRow {
                 AfButton(
-                    if (state.status == TimingStatus.NONE) SYNC_BUTTON else "Sync again (tap)",
+                    if (state.status == TimingStatus.NONE) tr(UiText.SYNC_LYRICS) else tr(UiText.SYNC_AGAIN),
                     { model.startSync() },
                     kind = if (state.status == TimingStatus.SYNCED) ButtonKind.Secondary else ButtonKind.Primary,
                     enabled = !locked,
                 )
-                AfButton(SUGGEST_BUTTON, { confirming = true }, enabled = !locked)
-                if (state.status != TimingStatus.NONE) AfButton("Clear timings", { model.sync.clear() }, kind = ButtonKind.Danger, enabled = !locked)
+                AfButton(tr(UiText.SUGGEST_TIMINGS), { confirming = true }, enabled = !locked)
+                if (state.status != TimingStatus.NONE) AfButton(tr(UiText.CLEAR_TIMINGS), { model.sync.clear() }, kind = ButtonKind.Danger, enabled = !locked)
             }
         } else {
             val path = remember(songFile) { model.songPath() }
             val player = path?.let { rememberSongPlayer(it) }
             if (player == null) {
-                AfText(SYNC_NO_PLAYER, color = AutoFlowColors.Amber)
-                AfButton("Close", model.sync::cancel)
+                AfText(tr(UiText.SYNC_NO_PLAYER), color = AutoFlowColors.Amber)
+                AfButton(tr(UiText.CLOSE), model.sync::cancel)
             } else {
                 TapPanel(sync, player, model.sync)
             }
         }
-        state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber, size = 12.sp) }
+        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber, size = 12.sp) }
     }
 }
 
@@ -94,36 +95,36 @@ private fun TapPanel(sync: TapSync, player: SongPlayer, model: LyricSyncModel) {
         }
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        AfText(SYNC_HELP, muted = true, size = 12.sp)
+        AfText(tr(UiText.SYNC_HELP, "start" to tr(UiText.SYNC_LINE_START), "end" to tr(UiText.SYNC_LINE_END)), muted = true, size = 12.sp)
         WrapRow {
-            AfButton(if (playing) "⏸ Pause" else "▶ Play", { if (player.playing) player.pause() else player.play() })
+            AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), { if (player.playing) player.pause() else player.play() })
             AfText("${InputModel.formatDuration(position)} / ${duration?.let(InputModel::formatDuration) ?: "–:––"}", mono = true)
-            AfText("Line ${minOf(sync.starts.size + 1, sync.lines.size)} / ${sync.lines.size}", muted = true)
+            AfText(tr(UiText.LYRIC_LINE_COUNT, "size" to (minOf(sync.starts.size + 1, sync.lines.size)), "value2" to (sync.lines.size)), muted = true)
         }
         AfText(sync.currentLine ?: "—", size = 22.sp, bold = true)
-        AfText(sync.nextLine?.let { "Next: $it" } ?: if (sync.lastEndMs == null) "Next: (end of the last line)" else "All lines done ✓", muted = true)
+        AfText(sync.nextLine?.let { tr(UiText.NEXT_LYRIC, "it" to (it)) } ?: if (sync.lastEndMs == null) tr(UiText.NEXT_LAST_LINE_END) else tr(UiText.ALL_LINES_DONE), muted = true)
         val canTap = playing && (!sync.complete || sync.lastEndMs == null)
         AfButton(
-            if (!sync.complete) SYNC_TAP_BUTTON else SYNC_END_BUTTON,
+            if (!sync.complete) tr(UiText.SYNC_LINE_START) else tr(UiText.SYNC_LINE_END),
             { model.tap(player.positionMs) },
             Modifier.fillMaxWidth(),
             kind = ButtonKind.Primary,
             enabled = canTap,
         )
         WrapRow {
-            AfButton("↶ Undo", {
+            AfButton(tr(UiText.UNDO), {
                 model.undo()?.let { removed -> player.seekTo(maxOf(0, removed - UNDO_REWIND_MS)) }
             }, enabled = sync.starts.isNotEmpty())
-            AfButton("⟲ Restart", {
+            AfButton(tr(UiText.RESTART), {
                 player.pause()
                 player.seekTo(0)
                 model.restart()
             })
-            AfButton("Save", {
+            AfButton(tr(UiText.SAVE), {
                 player.pause()
                 model.save(duration)
             }, kind = ButtonKind.Primary, enabled = sync.complete)
-            AfButton("Cancel", {
+            AfButton(tr(UiText.CANCEL), {
                 player.pause()
                 model.cancel()
             })
@@ -131,12 +132,11 @@ private fun TapPanel(sync: TapSync, player: SongPlayer, model: LyricSyncModel) {
     }
 }
 
-internal fun statusText(state: LyricSyncUiState): String = when (state.status) {
-    TimingStatus.NONE -> "Not synced: each shot's lyrics show for the whole shot."
-    TimingStatus.SYNCED -> "✓ ${state.savedLines} lines synced" +
-        (if (state.savedSource == LyricTimings.SOURCE_GEMINI) " (suggested by Gemini)" else " (tap)") +
-        ": Export shows each line when it is sung."
-    TimingStatus.OUTDATED -> "⚠ The lyrics changed after the sync — sync again. Until then Export shows each shot's lyrics."
+internal fun statusText(state: LyricSyncUiState, language: UiLanguage = UiLanguage.ENGLISH): String = when (state.status) {
+    TimingStatus.NONE -> UiText.LYRICS_NOT_SYNCED.text(language)
+    TimingStatus.SYNCED -> UiText.LYRICS_SYNCED.text(language, "lines" to state.savedLines,
+        "source" to (if (state.savedSource == LyricTimings.SOURCE_GEMINI) UiText.TIMINGS_GEMINI else UiText.TIMINGS_TAP).text(language))
+    TimingStatus.OUTDATED -> UiText.LYRICS_OUTDATED.text(language)
 }
 
 private const val POLL_MS = 50L
