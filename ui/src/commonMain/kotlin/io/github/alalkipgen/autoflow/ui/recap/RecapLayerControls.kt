@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
@@ -51,12 +52,12 @@ internal data class LayerForm(val fields: Map<String, String>) {
     }
 }
 
-internal fun LayerType.labelMy(): String = when (this) {
-    LayerType.BLUR -> "မှုန်ဝါး"
-    LayerType.IMAGE -> "ပုံ"
-    LayerType.TEXT -> "စာသား"
-    LayerType.BORDER -> "ဘေးဘောင်"
-    LayerType.BACKGROUND -> "နောက်ခံ"
+internal fun LayerType.labelMy(language: UiLanguage = UiLanguage.ENGLISH): String = when (this) {
+    LayerType.BLUR -> UiText.LAYER_BLUR.text(language)
+    LayerType.IMAGE -> UiText.LAYER_IMAGE.text(language)
+    LayerType.TEXT -> UiText.LAYER_TEXT.text(language)
+    LayerType.BORDER -> UiText.LAYER_BORDER.text(language)
+    LayerType.BACKGROUND -> UiText.LAYER_BACKGROUND.text(language)
 }
 
 @Composable
@@ -65,15 +66,15 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
     val state by editor.state.collectAsState()
     val project by model.state.collectAsState()
     DisposableEffect(project.projectDir) { onDispose { editor.cancel() } }
-    AfCard("ထုတ်ယူမည့် frame ပေါ်က Layer များ", Modifier.testTag("native-layers")) {
-        AfText("နောက်ဆုံး Layer က အပေါ်ဆုံးမှာ ဆွဲတယ်။ တကယ့်စာတန်းက Layer အားလုံးရဲ့ အပေါ်မှာ ရှိတယ်။", muted = true)
+    AfCard(tr(UiText.NATIVE_LAYERS_CARD), Modifier.testTag("native-layers")) {
+        AfText(tr(UiText.LAYER_ORDER_HINT), muted = true)
         if (state.draft == null) WrapRow {
             LayerType.entries.forEach { type ->
-                AfButton("+ ${type.labelMy()}", { editor.add(type) }, Modifier.testTag("layer-add-${type.name}"), enabled = idle)
+                AfButton("+ ${type.labelMy(LocalUiLanguage.current)}", { editor.add(type) }, Modifier.testTag("layer-add-${type.name}"), enabled = idle)
             }
         }
         recap.layers.forEachIndexed { index, layer ->
-            AfButton("${index + 1} · ${layer.type.labelMy()} · ${layer.id}", { editor.edit(layer.id) },
+            AfButton("${index + 1} · ${layer.type.labelMy(LocalUiLanguage.current)} · ${layer.id}", { editor.edit(layer.id) },
                 Modifier.fillMaxWidth().testTag("layer-edit-${layer.id}"), enabled = idle && state.draft == null)
         }
         state.problem?.let { AfText(it, color = AutoFlowColors.Amber) }
@@ -81,50 +82,50 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
         if (d != null) {
             var form by remember(d.token) { mutableStateOf(LayerForm.of(d.layer)) }
             val value = form.read(d.layer)
-            val problem = if (value == null) "ဂဏန်းများကို မှန်ကန်စွာ ထည့်ပါ။" else LayerEdits.problem(value)
+            val problem = if (value == null) tr(UiText.NUMBERS_INVALID) else LayerEdits.problem(value)
             // No persisted convenience toggle, no conversion to recap.visual.masks.
-            AfText("${d.layer.type.labelMy()} · ${d.layer.id}", bold = true)
+            AfText("${d.layer.type.labelMy(LocalUiLanguage.current)} · ${d.layer.id}", bold = true)
             @Composable fun input(key: String, label: String, lines: Int = 1) {
                 AfText(label, muted = true)
                 AfTextField(form.fields.getValue(key), { form = form.set(key, it) }, label,
                     Modifier.fillMaxWidth().testTag("layer-field-$key"), lines = lines, mono = key != "text", enabled = idle && !state.importing)
             }
-            input("from", "စတင်ချိန် (output ms)")
-            input("to", "ဆုံးချိန် (output ms၊ အဆုံးအထိဆို အလွတ်ထားပါ)")
+            input("from", tr(UiText.LAYER_FROM))
+            input("to", tr(UiText.LAYER_TO))
             if (LayerEdits.usesRect(d.layer.type)) {
-                AfText("OUTPUT-FRAME ဘောင် (0–1) — ရုပ်ရှင်ပုံထဲက mask မဟုတ်ပါ။", muted = true)
-                input("x", "ဘယ်ဘက် x"); input("y", "အပေါ် y")
-                input("w", "အကျယ် w"); input("h", "အမြင့် h")
-                AfText("ဘောင်တည်နေရာသာ ပြသည်၊ render ပုံ မဟုတ်ပါ။ ဆွဲရွှေ့၊ လက်နှစ်ချောင်း / mouse wheel ဖြင့် ချုံ့ချဲ့ပါ။", muted = true)
+                AfText(tr(UiText.LAYER_RECT_HINT), muted = true)
+                input("x", tr(UiText.RECT_X)); input("y", tr(UiText.RECT_Y))
+                input("w", tr(UiText.RECT_W)); input("h", tr(UiText.RECT_H))
+                AfText(tr(UiText.LAYER_RECT_GESTURES), muted = true)
                 val r = value?.takeIf { LayerEdits.problem(it) == null }?.rect ?: d.layer.rect
                 LayerRectEditor(r, RenderPresets.preview(model.outputRatio(recap)).let { it.width.toFloat() / it.height }, d.token,
                     enabled = idle && !state.importing, onRect = { form = form.rect(it) })
-            } else AfText("ဒီ Layer က frame တစ်ခုလုံးကို သုံးတယ်။ rect ကို မသုံး၊ မပြောင်းပါ။", muted = true)
+            } else AfText(tr(UiText.LAYER_FULL_FRAME), muted = true)
             when (d.layer.type) {
-                LayerType.BLUR -> { input("sigma", "မှုန်ဝါးအား sigma"); input("feather", "အစွန်းပျော့ feather (0–0.05)") }
-                LayerType.IMAGE -> input("opacity", "အလင်းပိတ်အား opacity (0–1)")
-                LayerType.TEXT -> { input("text", "Layer စာသား", 3); input("style", "Font family (အလွတ် = စာတန်း font)") }
-                LayerType.BORDER -> { input("px", "ဘေးဘောင် အထူ px"); input("colour", "အရောင် #RRGGBB") }
+                LayerType.BLUR -> { input("sigma", tr(UiText.LAYER_SIGMA)); input("feather", tr(UiText.LAYER_FEATHER)) }
+                LayerType.IMAGE -> input("opacity", tr(UiText.LAYER_OPACITY))
+                LayerType.TEXT -> { input("text", tr(UiText.LAYER_TEXT_FIELD), 3); input("style", tr(UiText.LAYER_FONT)) }
+                LayerType.BORDER -> { input("px", tr(UiText.LAYER_BORDER_PX)); input("colour", tr(UiText.COLOUR_HEX)) }
                 LayerType.BACKGROUND -> {
-                    WrapRow { BackgroundMode.entries.forEach { mode -> AfChip(mode.name, form.fields["mode"] == mode.name, { form = form.set("mode", mode.name) }) } }
-                    if (form.fields["mode"] == BackgroundMode.COLOUR.name) input("colour", "အရောင် #RRGGBB")
+                    WrapRow { BackgroundMode.entries.forEach { mode -> AfChip(mode.uiLabel(), form.fields["mode"] == mode.name, { form = form.set("mode", mode.name) }) } }
+                    if (form.fields["mode"] == BackgroundMode.COLOUR.name) input("colour", tr(UiText.COLOUR_HEX))
                 }
             }
             if (d.layer.type == LayerType.IMAGE || d.layer.type == LayerType.BACKGROUND && form.fields["mode"] == BackgroundMode.IMAGE.name) {
-                AfText(d.layer.params.image ?: "ပုံ မရွေးရသေးပါ။", muted = true)
-                AfButton(if (state.importing) "ပုံ ထည့်နေတယ်…" else "ပုံ ရွေးမယ်…", { editor.importImage() },
+                AfText(d.layer.params.image ?: tr(UiText.LAYER_IMAGE_EMPTY), muted = true)
+                AfButton(if (state.importing) tr(UiText.LAYER_IMAGE_IMPORTING) else tr(UiText.CHOOSE_IMAGE), { editor.importImage() },
                     Modifier.testTag("layer-image"), enabled = idle && !state.importing)
             }
-            AfText("ဆွဲစဉ် ${d.index + 1} (နောက်မှဆွဲ = အပေါ်ထပ်)", muted = true)
+            AfText(tr(UiText.LAYER_DRAW_ORDER, "index1" to (d.index + 1)), muted = true)
             WrapRow {
-                AfButton("← အစောဆွဲ", { editor.move(-1) }, Modifier.testTag("layer-earlier"), enabled = idle && d.index > 0)
-                AfButton("နောက်မှဆွဲ →", { editor.move(1) }, Modifier.testTag("layer-later"), enabled = idle && d.index < recap.layers.size - if (d.isNew) 0 else 1)
+                AfButton(tr(UiText.LAYER_EARLIER), { editor.move(-1) }, Modifier.testTag("layer-earlier"), enabled = idle && d.index > 0)
+                AfButton(tr(UiText.LAYER_LATER), { editor.move(1) }, Modifier.testTag("layer-later"), enabled = idle && d.index < recap.layers.size - if (d.isNew) 0 else 1)
             }
             if (problem != null) AfText(problem, color = AutoFlowColors.Amber)
             WrapRow {
-                AfButton("သိမ်းမယ်", { value?.let(editor::save) }, Modifier.testTag("layer-save"), enabled = idle && !state.importing && problem == null)
-                AfButton("မသိမ်းဘဲ ပယ်မယ်", editor::cancel, Modifier.testTag("layer-cancel"))
-                if (!d.isNew) AfButton("Layer ဖယ်မယ်", { editor.remove() }, Modifier.testTag("layer-remove"), enabled = idle && !state.importing, kind = ButtonKind.Danger)
+                AfButton(tr(UiText.SAVE), { value?.let(editor::save) }, Modifier.testTag("layer-save"), enabled = idle && !state.importing && problem == null)
+                AfButton(tr(UiText.DISCARD), editor::cancel, Modifier.testTag("layer-cancel"))
+                if (!d.isNew) AfButton(tr(UiText.REMOVE_LAYER), { editor.remove() }, Modifier.testTag("layer-remove"), enabled = idle && !state.importing, kind = ButtonKind.Danger)
             }
         }
     }

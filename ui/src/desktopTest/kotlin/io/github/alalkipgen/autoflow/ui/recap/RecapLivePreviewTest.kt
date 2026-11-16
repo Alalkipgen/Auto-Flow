@@ -1,6 +1,13 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
-import androidx.compose.foundation.layout.Column
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performScrollTo
+
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.geometry.Offset
@@ -8,7 +15,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -127,10 +134,10 @@ class RecapLivePreviewTest {
         val m = open()
         setContent {
             val open by current.state.collectAsState()
-            Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
-        // A semantics click: with a tall Myanmar fallback font (Windows CI) the button can sit below the test window.
-        onNodeWithText(EXACT_FRAME).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        // Real scroll + visible pointer click; never invoke a hidden control's callback.
+        onNodeWithText(UiText.EXACT_FRAME.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodes(androidx.compose.ui.test.hasText("ffmpeg was not found", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 }

@@ -51,7 +51,7 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
                 AfText(tr(UiText.BURMESE_TTS_MODELS), muted = true)
                 if (controls.models.isEmpty()) AfText(tr(UiText.BURMESE_MODELS_MISSING), color = AutoFlowColors.Amber)
                 WrapRow { controls.models.forEach { id -> AfChip(id, selectedModel == id, { selectedModel = id }) } }
-                WrapRow { RecapModel.TTS_VOICES.forEach { (name, kind) -> AfChip("$name · $kind", voice == name, { voice = name }) } }
+                WrapRow { RecapModel.TTS_VOICES.forEach { (name, kind) -> AfChip("$name · ${ttsVoiceKind(name)}", voice == name, { voice = name }) } }
                 AfText(tr(UiText.VOICE_CHANGE_IMPACT, "size" to (affected.size)) + affected.joinToString { "#${it + 1}" }, modifier = Modifier.testTag("voice-change-impact"))
                 AfText(tr(UiText.VOICE_CHANGE_PRESERVES), muted = true)
                 error?.let { AfText(it, color = AutoFlowColors.Amber) }

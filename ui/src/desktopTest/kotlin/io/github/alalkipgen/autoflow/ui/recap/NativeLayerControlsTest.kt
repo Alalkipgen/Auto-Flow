@@ -95,9 +95,9 @@ class NativeLayerControlsTest {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { RecapLayerControls(open!!.project.recap!!, true, model) }
             }
             onNodeWithTag("layer-edit-original").performScrollTo().performClick()
-            onNodeWithContentDescription("ဘယ်ဘက် x").performScrollTo().performTextReplacement("NaN")
+            onNodeWithContentDescription(io.github.alalkipgen.autoflow.ui.i18n.UiText.RECT_X.en).performScrollTo().performTextReplacement("NaN")
             onNodeWithTag("layer-save").performScrollTo().assertIsNotEnabled()
-            onNodeWithContentDescription("ဘယ်ဘက် x").performScrollTo().performTextReplacement("not a number")
+            onNodeWithContentDescription(io.github.alalkipgen.autoflow.ui.i18n.UiText.RECT_X.en).performScrollTo().performTextReplacement("not a number")
             onNodeWithTag("layer-save").performScrollTo().assertIsNotEnabled()
             onNodeWithTag("layer-cancel").performScrollTo().assertIsDisplayed().performClick()
             assertEquals(before, fs.read("$dir/project.json").toList())
