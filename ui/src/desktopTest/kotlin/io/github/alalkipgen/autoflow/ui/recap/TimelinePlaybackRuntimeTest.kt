@@ -145,12 +145,32 @@ class TimelinePlaybackRuntimeTest {
                 setContent { CompositionLocalProvider(LocalUiFontFamily provides BurmeseTestFont.family) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { RecapTimelinePreview(model) }
                 } }
+                // libVLC uses real wall time. Auto-advancing Compose's idle clock can chase continuous
+                // decoded-frame recompositions until a clip ends, hiding the live interval from assertions.
+                // Pump a UI frame explicitly; never freeze, seek or slow the native decoder for a live check.
+                mainClock.autoAdvance = false
+                fun await(timeoutMillis: Long, condition: () -> Boolean) = waitUntil(timeoutMillis = timeoutMillis) {
+                    mainClock.advanceTimeByFrame()
+                    condition()
+                }
                 fun position(): Long = onNodeWithTag("timeline-position").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }.substringBefore(" /").toLong()
-                fun click(tag: String) { onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() } }
+                fun click(tag: String) {
+                    mainClock.advanceTimeByFrame()
+                    val node = onNodeWithTag(tag).performScrollTo()
+                    mainClock.advanceTimeByFrame()
+                    node.assertIsDisplayed().performMouseInput { click() }
+                    mainClock.advanceTimeByFrame()
+                }
                 fun isPlaying(): Boolean = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text.contains("⏸") }
                 fun pause() {
                     if (isPlaying()) click("timeline-play") // do not accidentally restart a clip that already reached EOF
-                    waitUntil(timeoutMillis = 5_000) { !isPlaying() }
+                    try { await(timeoutMillis = 5_000) { !isPlaying() } }
+                    catch (failure: Throwable) {
+                        val file = File("build/reports/playback/$name-failed-pause.png").apply { parentFile.mkdirs() }
+                        javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", file)
+                        println("LIVE_PAUSE_FAILURE $name position=${position()} playing=${isPlaying()} button=${onNodeWithTag("timeline-play").fetchSemanticsNode().boundsInRoot}")
+                        throw failure
+                    }
                     val at = position(); Thread.sleep(150); waitForIdle()
                     assertTrue(kotlin.math.abs(position() - at) < 100, "real output clock freezes after user pause")
                 }
@@ -160,7 +180,11 @@ class TimelinePlaybackRuntimeTest {
                     assertEquals(ms, position())
                     println("LIVE_SEEK $name requested=$ms actual=${position()} playing=${isPlaying()}")
                 }
-                fun pixels(): androidx.compose.ui.graphics.PixelMap = onNodeWithTag("timeline-video").performScrollTo().assertIsDisplayed().captureToImage().toPixelMap()
+                fun pixels(): androidx.compose.ui.graphics.PixelMap {
+                    val node = onNodeWithTag("timeline-video").performScrollTo()
+                    mainClock.advanceTimeByFrame()
+                    return node.assertIsDisplayed().captureToImage().toPixelMap()
+                }
                 fun ink(): Int {
                     val p = pixels()
                     return ((p.height * (captionY - .06f)).toInt().coerceAtLeast(0) until (p.height * (captionY + .06f)).toInt().coerceAtMost(p.height)).sumOf { y ->
@@ -171,27 +195,37 @@ class TimelinePlaybackRuntimeTest {
                     val file = File("build/reports/playback/$name-$ms.png").apply { parentFile.mkdirs() }
                     javax.imageio.ImageIO.write(onNodeWithTag("timeline-video").performScrollTo().captureToImage().toAwtImage(), "png", file)
                 }
-                click("timeline-play"); waitUntil(timeoutMillis = 20_000) { position() > 200 }; pause()
+                click("timeline-play"); await(timeoutMillis = 20_000) { position() > 200 }; pause()
                 seek(150)
-                waitUntil(timeoutMillis = 5_000) {
+                await(timeoutMillis = 5_000) {
                     val p = pixels(); val c = p[(p.width * .565625f).toInt(), (p.height * (.1f + .015625f * output.width / output.height)).toInt()]
                     c.red > .9f && c.green in .40f.. .60f && c.blue < .1f
                 }
                 val blankInk = ink(); evidence(150)
                 seek(500); onNodeWithTag("timeline-caption").assertTextEquals("FIRST")
-                waitUntil(timeoutMillis = 5_000) { ink() > blankInk + 20 }; evidence(500)
+                await(timeoutMillis = 5_000) { ink() > blankInk + 20 }; evidence(500)
                 click("timeline-play")
-                waitUntil(timeoutMillis = 5_000) { position() in 550..3150 && ink() > blankInk + 20 }
+                val liveSamples = mutableListOf<String>()
+                try { await(timeoutMillis = 5_000) {
+                    val at = position(); val count = if (at in 550..3150) ink() else -1
+                    val running = isPlaying()
+                    liveSamples += "$at/$running/$count"
+                    running && at in 550..3150 && count > blankInk + 20
+                } } catch (failure: Throwable) {
+                    evidence(position())
+                    println("LIVE_FAILURE $name baselineInk=$blankInk position/playing/ink=${liveSamples.takeLast(48)}")
+                    throw failure
+                }
                 evidence(position()) // actual glyph pixels WHILE playing and FIRST is still active, not after it ends
                 pause()
-                seek(1500); click("timeline-play"); waitUntil(timeoutMillis = 10_000) { position() > 2200 }; pause()
-                waitUntil(timeoutMillis = 5_000) { pixels()[1, 1].let { it.red < .1f && it.green > .9f && it.blue > .9f } }
+                seek(1500); click("timeline-play"); await(timeoutMillis = 10_000) { position() > 2200 }; pause()
+                await(timeoutMillis = 5_000) { pixels()[1, 1].let { it.red < .1f && it.green > .9f && it.blue > .9f } }
                 evidence(2500) // native BORDER activated while decoder/output clock crossed 2000ms
                 seek(4500); onNodeWithTag("timeline-caption").assertTextEquals("SECOND")
-                waitUntil(timeoutMillis = 5_000) { ink() > blankInk + 20 }; evidence(4500)
+                await(timeoutMillis = 5_000) { ink() > blankInk + 20 }; evidence(4500)
                 val secondInk = ink()
                 seek(afterCaptions); onNodeWithTag("timeline-caption").assertTextEquals("—")
-                waitUntil(timeoutMillis = 5_000) { ink() < secondInk - 20 }; evidence(afterCaptions)
+                await(timeoutMillis = 5_000) { ink() < secondInk - 20 }; evidence(afterCaptions)
                 click("timeline-close"); onNodeWithTag("timeline-video").assertDoesNotExist()
                 println("PLAYBACK_EVIDENCE: $name native output aspect; existing VLC decoder; opaque IMAGE pixels; caption ink FIRST/SECOND/blank; live caption/border transitions; Looks=$looks; background=$background; close")
             }
