@@ -46,7 +46,8 @@ class NativeOutputParityTest {
         assertEquals(0, p.waitFor(), text.takeLast(2500))
     }
     private fun frame(file: File, ms: Long, target: File): BufferedImage {
-        command(listOf(bin, "-v", "error", "-nostdin", "-y", "-ss", "${ms / 1000.0}", "-i", file.path, "-frames:v", "1", target.path))
+        // Measurement must decode to the OUTPUT timestamp, not depend on demuxer/keyframe seeking.
+        command(listOf(bin, "-v", "error", "-nostdin", "-y", "-i", file.path, "-ss", "${ms / 1000.0}", "-frames:v", "1", target.path))
         return ImageIO.read(target)
     }
     private fun bounds(a: BufferedImage, b: BufferedImage, area: List<Float>, threshold: Int = 32): List<Float>? {
@@ -68,7 +69,11 @@ class NativeOutputParityTest {
         }
         val root = Files.createTempDirectory("s10-native").toFile()
         val evidence = File(System.getenv("AUTOFLOW_S10_DIR") ?: "build/reports/s10", name).apply { mkdirs() }
-        val report = StringBuilder("case=$name; geometry edge tolerance=0.02; RGB MAE limit=0.08; 24fps export\n")
+        val version = ProcessBuilder(bin, "-version").redirectErrorStream(true).start().let { p ->
+            p.inputStream.bufferedReader().readText().also { assertEquals(0, p.waitFor()) }
+        }
+        File(evidence, "ffmpeg-version.txt").writeText(version)
+        val report = StringBuilder("case=$name; geometry edge tolerance=0.02; RGB MAE limit=0.08; 24fps export; decode-from-start sampling\n")
         try {
             val built = QaRecapFixture.create(root)
             val dir = built.dir; val fs = JvmFs(); val store = ArtifactStore(fs, dir.path)
@@ -105,6 +110,7 @@ class NativeOutputParityTest {
                     assScale = { font -> info.assScale.takeIf { font == info.family } }, placeholderFont = info.family,
                     resolveSource = { RenderCompiler.ClipMedia(File(dir, it).path, false) }, voicePath = { it }, resolveLayerImage = ::artifact)))
                 compiled.ass?.let { ass.writeText(it) }; compiled.layerAssFiles.forEach { (p, text) -> File(p).writeText(text) }
+                File(evidence, "$tag-command.txt").writeText((listOf(bin) + compiled.args).joinToString(" ") { "'" + it.replace("'", "'\"'\"'") + "'" })
                 command(listOf(bin) + compiled.args)
                 return file
             }
@@ -137,6 +143,17 @@ class NativeOutputParityTest {
                     val scaled = BufferedImage(vw, vh, BufferedImage.TYPE_INT_RGB).apply { createGraphics().apply { drawImage(ef, 0, 0, vw, vh, null); dispose() } }
                     val side = BufferedImage(vw * 2, vh, BufferedImage.TYPE_INT_RGB).apply { createGraphics().apply { drawImage(full, 0, 0, null); drawImage(ef, vw, 0, vw, vh, null); dispose() } }
                     ImageIO.write(side, "png", File(evidence, "$ms.png"))
+                    if (name == "native-9x16-mirror-zoom-image") {
+                        // Independent temporal oracle: the source patch changes green -> yellow -> blue.
+                        // Otherwise a stale clip can masquerade as an IMAGE geometry difference (CI run 43941917691).
+                        val expected = when (sourceMs / 2000) { 1L -> intArrayOf(0, 255, 0); 2L -> intArrayOf(0, 0, 255); 3L -> intArrayOf(255, 255, 0); else -> error("unexpected fixture source time $sourceMs") }
+                        for ((label, bitmap) in listOf("preview" to base, "full export" to ef, "native export" to en, "bare export" to eb)) {
+                            val rgb = bitmap.getRGB((bitmap.width * .89).toInt(), (bitmap.height * .385).toInt())
+                            val actual = intArrayOf(rgb ushr 16 and 255, rgb ushr 8 and 255, rgb and 255)
+                            report.append("$ms\tSOURCE_PATCH $label source=$sourceMs actual=${actual.toList()} expected=${expected.toList()}\n")
+                            assertTrue(actual.zip(expected.toList()).all { (a, b) -> abs(a - b) <= 24 }, "$name $ms $label shows the wrong source frame: ${actual.toList()} != ${expected.toList()} at source=$sourceMs")
+                        }
+                    }
                     var sum = 0L
                     for (y in 0 until vh) for (x in 0 until vw) for (shift in listOf(0, 8, 16)) sum += abs((full.getRGB(x, y) ushr shift and 255) - (scaled.getRGB(x, y) ushr shift and 255))
                     val mae = sum.toDouble() / (vw * vh * 3 * 255)
@@ -161,6 +178,11 @@ class NativeOutputParityTest {
 
                 }
             }
+        } catch (failure: Throwable) {
+            // Retain the raw inputs/exports only on failure, so another sampling/encoding mismatch is diagnosable.
+            root.listFiles().orEmpty().filter { it.extension == "mp4" }.forEach { it.copyTo(File(evidence, it.name), overwrite = true) }
+            root.walkTopDown().firstOrNull { it.name == "movie.mp4" }?.copyTo(File(evidence, "source-movie.mp4"), overwrite = true)
+            throw failure
         } finally { File(evidence, "metrics.tsv").writeText(report.toString()); root.deleteRecursively() }
     }
 }
