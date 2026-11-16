@@ -103,7 +103,7 @@ class RecapExportTest {
         val rows = RecapFit.rows(recap(), m.state.value.story!!)
         assertEquals(FitStatus.NO_VOICE, rows[1].status)
         assertEquals(io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE, rows[1].label(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE))
-        assertTrue(fitFooter(recap(), rows).endsWith("· 2 ခုအနက် 1 ခု အသံပါ"))
+        assertTrue(fitFooter(recap(), rows, io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE).endsWith("· 2 ခုအနက် 1 ခု အသံပါ"))
 
         e.refresh()
         val ready = assertNotNull(e.state.value.recap)

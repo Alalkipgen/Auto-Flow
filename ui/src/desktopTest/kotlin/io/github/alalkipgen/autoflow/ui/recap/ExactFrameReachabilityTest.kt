@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -34,13 +35,14 @@ class ExactFrameReachabilityTest(
     private val fontScale: Float,
     private val bundledFont: Boolean,
     private val classic: Boolean,
+    private val language: UiLanguage,
 ) {
     companion object {
-        @JvmStatic @Parameterized.Parameters(name = "width={0}, font={1}, bundled={2}, classic={3}")
+        @JvmStatic @Parameterized.Parameters(name = "width={0}, font={1}, bundled={2}, classic={3}, language={4}")
         fun cases() = listOf(412, 1000).flatMap { width ->
             listOf(1f, 1.3f, 2f).flatMap { scale ->
                 listOf(true, false).flatMap { bundled ->
-                    listOf(false, true).map { classic -> arrayOf<Any>(width, scale, bundled, classic) }
+                    listOf(false, true).flatMap { classic -> UiLanguage.entries.map { language -> arrayOf<Any>(width, scale, bundled, classic, language) } }
                 }
             }
         }
@@ -64,7 +66,7 @@ class ExactFrameReachabilityTest(
             val current = CurrentProject().apply { set(OpenProject(dir, saved)) }
             val model = RecapModel(ProjectSession(fs, store, ProjectIndex(fs, "/index.json"), current), fs, null, null, scope)
             setContent {
-                CompositionLocalProvider(LocalDensity provides Density(1f, fontScale),
+                CompositionLocalProvider(LocalUiLanguage provides language, LocalDensity provides Density(1f, fontScale),
                     LocalUiFontFamily provides if (bundledFont) BurmeseTestFont.family else FontFamily.Default) {
                     StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat()) {
                         if (classic) RecapScreen(model) else Column(Modifier.fillMaxSize()) {
@@ -76,7 +78,7 @@ class ExactFrameReachabilityTest(
             }
             // performScrollTo traverses the real production scroll ancestors. No callback, semantics OnClick,
             // hidden-node action or oversized test viewport: the pointer must hit a displayed button.
-            onNodeWithText(EXACT_FRAME).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithText(UiText.EXACT_FRAME.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
             val failure = onNodeWithText("ffmpeg was not found", substring = true)
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("ffmpeg was not found", substring = true).fetchSemanticsNodes().isNotEmpty() }
             failure.performScrollTo().assertIsDisplayed()

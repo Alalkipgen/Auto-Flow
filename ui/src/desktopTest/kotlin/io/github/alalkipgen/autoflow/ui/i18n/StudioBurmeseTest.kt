@@ -119,8 +119,8 @@ class StudioBurmeseTest {
     @Test
     fun newPhase5LabelsAreBurmese() {
         val labels = buildList {
-            MaskPreset.entries.forEach { add(maskLabel(it)) }
-            MaskStrength.entries.forEach { add(strengthLabel(it)) }
+            MaskPreset.entries.forEach { add(maskLabel(it, UiLanguage.BURMESE)) }
+            MaskStrength.entries.forEach { add(strengthLabel(it, UiLanguage.BURMESE)) }
             addAll(listOf(TALLER, SHORTER, WIDER, NARROWER, EXACT_FRAME, PREVIEW_BUTTON, EXPORT_BUTTON, SAVE_BUTTON, SHARE))
             VoiceTab.entries.forEach { add(voiceTabLabel(it, UiLanguage.BURMESE)) }
             AiJobKind.entries.filter { it != AiJobKind.PUBLISH_KIT }.forEach { add(aiKindLabel(it, UiLanguage.BURMESE)) }

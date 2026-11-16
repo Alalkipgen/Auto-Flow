@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,15 +66,15 @@ class RecapCustomBoxTest {
         waitForIdle()
         assertEquals(listOf(MaskPreset.CUSTOM), visual().masks.map { it.preset })
         assertEquals(MaskPreset.CUSTOM.rect, visual().masks.single().rect)
-        onNodeWithText(CAPTIONS_ON_BOX).assertDoesNotExist()
+        onNodeWithText(UiText.CAPTIONS_ON_BOX.en).assertDoesNotExist()
 
         onNodeWithText("◀").performClick()
         waitForIdle()
-        onNodeWithText(WIDER).performClick()
+        onNodeWithText(UiText.WIDER.en).performClick()
         waitForIdle()
         assertEquals(listOf(0.26f, 0.3f, 0.44f, 0.2f), visual().masks.single().rect)
         onNodeWithText("▶").performClick()
-        onNodeWithText(NARROWER).performClick()
+        onNodeWithText(UiText.NARROWER.en).performClick()
         waitForIdle()
         assertEquals(listOf(0.3f, 0.3f, 0.4f, 0.2f), visual().masks.single().rect)
 
@@ -89,7 +90,7 @@ class RecapCustomBoxTest {
         val r = visual().masks.single().rect
         assertTrue(near(0.1f, r[0]) && near(0.6f, r[1]) && near(0.4f, r[2]) && near(0.2f, r[3]), "dragged: $r")
         assertEquals(MaskPreset.CUSTOM, visual().captionMask?.preset, "lower half: the captions sit on it")
-        onNodeWithText(CAPTIONS_ON_BOX).assertExists()
+        onNodeWithText(UiText.CAPTIONS_ON_BOX.en).assertExists()
         assertEquals(visual(), saved(), "saved in the project file")
 
         onNodeWithText(boxHint(MaskPreset.CUSTOM)).assertExists()

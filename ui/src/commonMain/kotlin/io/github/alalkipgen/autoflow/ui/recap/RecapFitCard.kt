@@ -40,20 +40,20 @@ const val BURN_CAPTIONS = "စာတန်းကို ဗွီဒီယို�
 
 /** What a fit row says (spec §6): "✓ fits", "+1.8 s: the scene runs on", "No voice", "⚠ Stale". */
 fun FitRow.label(language: io.github.alalkipgen.autoflow.ui.i18n.UiLanguage = io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH): String = when (status) {
-    FitStatus.FITS -> "✓ ကိုက်တယ်"
-    FitStatus.RUNS_ON -> "+${seconds(overMs)}: ပြကွက်က ပိုရှည်နေတယ်"
+    FitStatus.FITS -> UiText.FIT_FITS.text(language)
+    FitStatus.RUNS_ON -> UiText.FIT_RUNS_ON.text(language, "secondsoverMs" to (seconds(overMs)))
     FitStatus.NO_VOICE -> UiText.NO_VOICE.text(language)
-    FitStatus.STALE -> "⚠ ${UiText.STALE.text(language)}: ပြန်သွင်း ဒါမှမဟုတ် ပြန်ပြောပါ"
+    FitStatus.STALE -> UiText.FIT_STALE.text(language, "textlanguage" to (UiText.STALE.text(language)))
 }
 
 /** Footer: "Recap 4:51 (target 5:00) · 12 of 14 voiced". */
-fun fitFooter(recap: RecapV2, rows: List<FitRow>): String =
-    "Recap ${clock(RecapFit.totalMs(rows))} (ပစ်မှတ် ${clock(recap.targetMs)}) · ${rows.size} ခုအနက် ${rows.count { it.takeMs != null }} ခု အသံပါ"
+fun fitFooter(recap: RecapV2, rows: List<FitRow>, language: UiLanguage = UiLanguage.ENGLISH): String =
+    UiText.FIT_FOOTER.text(language, "totalMsrows" to (clock(RecapFit.totalMs(rows))), "targetMs" to (clock(recap.targetMs)), "size" to (rows.size), "takeMsnull" to (rows.count { it.takeMs != null }))
 
 /** Card 5 · Fit check (docs/specs/recap.md §6): one row per scene, movie sound, looks, captions, then Export. */
 @Composable
 internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onGoToExport: () -> Unit) {
-    AfCard("5 · ကိုက်ညီမှု စစ်ဆေး") {
+    AfCard(tr(UiText.RECAP_FIT_CARD)) {
         val story = state.story
         RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let {
             AfText(it.text(LocalUiLanguage.current), muted = true)
@@ -65,7 +65,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         rows.forEach { row ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfText("${row.segment + 1}", muted = true, mono = true)
-                AfText("ပြကွက် ${seconds(row.sceneMs)}" + (row.takeMs?.let { " · အသံ ${seconds(it)}" } ?: ""), Modifier.weight(1f))
+                AfText(tr(UiText.FIT_SCENE_LENGTH, "sceneMs" to (seconds(row.sceneMs))) + (row.takeMs?.let { tr(UiText.FIT_VOICE_LENGTH, "secondsit" to (seconds(it))) } ?: ""), Modifier.weight(1f))
                 AfText(
                     row.label(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage.current),
                     color = when (row.status) {
@@ -80,61 +80,61 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
             if (row.status == FitStatus.RUNS_ON && row.overMs > 400) {
                 val block = row.block ?: story.blocks[row.segment].id
                 val current = recap.fitChoice(block) ?: FitChoice.EXTEND
-                AfText("ပြင်ရန် (+${seconds(row.overMs)} ပို):", muted = true, size = 11.sp)
+                AfText(tr(UiText.FIT_ACTIONS, "overMs" to (seconds(row.overMs))), muted = true, size = 11.sp)
                 WrapRow {
                     listOf(
-                        FitChoice.EXTEND to "Clip ဆန့်မယ်",
-                        FitChoice.NEXT_RANGE to "နောက်အပိုင်း ယူမယ်",
-                        FitChoice.SPEED to "အသံ မြန်စေမယ်",
-                        FitChoice.SLOW_VIDEO to "ဗွီဒီယို နှေးစေမယ်",
-                        FitChoice.FREEZE to "ပုံ ရပ်ထားမယ်",
+                        FitChoice.EXTEND to tr(UiText.FIT_EXTEND),
+                        FitChoice.NEXT_RANGE to tr(UiText.FIT_NEXT_RANGE),
+                        FitChoice.SPEED to tr(UiText.FIT_SPEED),
+                        FitChoice.SLOW_VIDEO to tr(UiText.FIT_SLOW_VIDEO),
+                        FitChoice.FREEZE to tr(UiText.FIT_FREEZE),
                     ).forEach { (choice, label) ->
                         AfChip(label, current == choice, onClick = { model.setFitChoice(block, choice) })
                     }
                 }
             }
         }
-        AfText(fitFooter(recap, rows), bold = true)
+        AfText(fitFooter(recap, rows, LocalUiLanguage.current), bold = true)
         val idle = !state.busy && state.recording == null
-        AfText("အသံအောက်က ရုပ်ရှင်အသံ", muted = true, size = 12.sp)
+        AfText(tr(UiText.MOVIE_SOUND_UNDER_VOICE), muted = true, size = 12.sp)
         WrapRow {
-            RecapModel.MOVIE_VOLUMES.forEach { (name, v) -> AfChip(name, recap.movieVolume == v, { if (idle) model.setMovieVolume(v) }) }
+            RecapModel.MOVIE_VOLUMES.forEach { (name, v) -> AfChip(movieVolumeLabel(v), recap.movieVolume == v, { if (idle) model.setMovieVolume(v) }) }
         }
         RecapSoundControls(recap.audio, state.bgmName, idle, model)
-        AfText("Looks (ရုပ်ရှင်ပုံ ပြောင်းမယ်)", muted = true, size = 12.sp)
+        AfText(tr(UiText.LOOKS_HINT), muted = true, size = 12.sp)
         WrapRow {
-            RecapModel.LOOKS.forEach { (look, name) -> AfChip(name, look in recap.looks, { if (idle) model.toggleLook(look) }) }
+            RecapModel.LOOKS.forEach { (look, name) -> AfChip(look.uiLabel(), look in recap.looks, { if (idle) model.toggleLook(look) }) }
         }
         RecapPictureControls(recap, idle, model)
-        AfSwitch(BURN_CAPTIONS, recap.burnCaptions, { if (idle) model.setBurnCaptions(it) })
+        AfSwitch(tr(UiText.BURN_CAPTIONS), recap.burnCaptions, { if (idle) model.setBurnCaptions(it) })
         // Caption style settings are in RecapPictureControls → ✍️ Captions section (D-58).
         if (recap.burnCaptions) {
         // Brand Kit save (5B-3, D-51) and Caption Preset save (5B-8, D-51)
         var showBrandKitName by remember { mutableStateOf("") }
         var showCaptionPresetName by remember { mutableStateOf("") }
         WrapRow {
-            AfButton("စာတန်းပုံစံ သိမ်းမယ်…", {
+            AfButton(tr(UiText.SAVE_CAPTION_PRESET), {
                 showCaptionPresetName = "Caption ${recap.captionStyle.size.label} ${if (recap.captionStyle.box) "box" else "outline"}"
             }, enabled = idle)
         }
         if (showCaptionPresetName.isNotEmpty()) {
-            AfTextField(showCaptionPresetName, { showCaptionPresetName = it }, "စာတန်း preset အမည်")
+            AfTextField(showCaptionPresetName, { showCaptionPresetName = it }, tr(UiText.CAPTION_PRESET_NAME))
             WrapRow {
-                AfButton("စာကြည့်တိုက်ထဲ သိမ်းမယ်", {
+                AfButton(tr(UiText.SAVE_TO_LIBRARY), {
                     if (showCaptionPresetName.isNotBlank()) { model.saveCaptionPreset(showCaptionPresetName); showCaptionPresetName = "" }
                 }, kind = ButtonKind.Primary, enabled = idle && showCaptionPresetName.isNotBlank())
                 AfButton(tr(UiText.CANCEL), { showCaptionPresetName = "" })
             }
         }
     }
-    AfText("စာတန်းကို ဗွီဒီယိုဘေးမှာ .srt ဖိုင်အဖြစ်လည်း အမြဲ သိမ်းတယ်။", muted = true, size = 12.sp)
+    AfText(tr(UiText.CAPTIONS_SRT_ALWAYS), muted = true, size = 12.sp)
     // Brand Kit save (5B-3, D-51)
     var brandKitName by remember { mutableStateOf("") }
-    WrapRow { AfButton("💼 Brand Kit အဖြစ် သိမ်းမယ်…", { brandKitName = "My Brand Kit" }, enabled = idle) }
+    WrapRow { AfButton(tr(UiText.SAVE_BRAND_KIT), { brandKitName = "My Brand Kit" }, enabled = idle) }
     if (brandKitName.isNotEmpty()) {
-        AfTextField(brandKitName, { brandKitName = it }, "Brand Kit အမည်")
+        AfTextField(brandKitName, { brandKitName = it }, tr(UiText.BRAND_KIT_NAME))
         WrapRow {
-            AfButton("စာကြည့်တိုက်ထဲ သိမ်းမယ်", {
+            AfButton(tr(UiText.SAVE_TO_LIBRARY), {
                 if (brandKitName.isNotBlank()) { model.saveBrandKit(brandKitName); brandKitName = "" }
             }, kind = ButtonKind.Primary, enabled = idle && brandKitName.isNotBlank())
             AfButton(tr(UiText.CANCEL), { brandKitName = "" })
@@ -142,31 +142,31 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
     }
         val render = RecapRulesV2.canRender(recap, story, state.lexicon)
         render.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), color = AutoFlowColors.Amber) }
-        AfButton(GO_TO_EXPORT, onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
+        AfButton(tr(UiText.GO_TO_EXPORT), onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
     }
 }
 
 /** Sound (5B-4): voice polish, background music with ducking, even loudness. Applied when the video is rendered. */
 @Composable
 private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.RecapAudio, bgmName: String?, idle: Boolean, model: RecapModel) {
-    AfSwitch("အသံ သန့်စင်မယ် (ဆူညံသံ လျော့၊ အသံအဆင့် ငြိမ်)", audio.polish, { if (idle) model.setAudio { a -> a.copy(polish = it) } })
-    AfSwitch("အသံကျယ်မှု ညီအောင် (${audio.loudnessLufs.toInt()} LUFS၊ YouTube / TikTok လို)", audio.loudness, { if (idle) model.setAudio { a -> a.copy(loudness = it) } })
-    AfSwitch("take အသစ်တွေမှာ ရပ်နားချိန်ရှည်တွေ ဖြတ်မယ် (သွင်း၊ ထည့်၊ ပြော)", audio.trimSilence, { if (idle) model.setAudio { a -> a.copy(trimSilence = it) } })
-    AfText("နောက်ခံတေး", muted = true, size = 12.sp)
+    AfSwitch(tr(UiText.VOICE_POLISH), audio.polish, { if (idle) model.setAudio { a -> a.copy(polish = it) } })
+    AfSwitch(tr(UiText.LOUDNESS_NORMALIZE, "toInt" to (audio.loudnessLufs.toInt())), audio.loudness, { if (idle) model.setAudio { a -> a.copy(loudness = it) } })
+    AfSwitch(tr(UiText.TRIM_NEW_TAKES), audio.trimSilence, { if (idle) model.setAudio { a -> a.copy(trimSilence = it) } })
+    AfText(tr(UiText.BACKGROUND_MUSIC), muted = true, size = 12.sp)
     WrapRow {
         if (audio.bgm == null) {
-            AfButton("🎵 တေးဂီတ ထည့်မယ်…", { if (idle) model.importBgm() })
+            AfButton(tr(UiText.ADD_MUSIC), { if (idle) model.importBgm() })
         } else {
             AfText("🎵 ${bgmName ?: "Music"}", size = 12.sp)
-            AfButton("Change…", { if (idle) model.importBgm() })
-            AfButton("Remove", { if (idle) model.setAudio { it.copy(bgm = null) } }, kind = ButtonKind.Danger)
+            AfButton(tr(UiText.CHANGE), { if (idle) model.importBgm() })
+            AfButton(tr(UiText.REMOVE), { if (idle) model.setAudio { it.copy(bgm = null) } }, kind = ButtonKind.Danger)
         }
     }
     if (audio.bgm != null) {
         WrapRow {
-            RecapModel.BGM_VOLUMES.forEach { (name, v) -> AfChip(name, audio.bgmVolume == v, { if (idle) model.setAudio { it.copy(bgmVolume = v) } }) }
+            RecapModel.BGM_VOLUMES.forEach { (name, v) -> AfChip(bgmVolumeLabel(v), audio.bgmVolume == v, { if (idle) model.setAudio { it.copy(bgmVolume = v) } }) }
         }
-        AfSwitch("အသံပြောနေချိန် တေးဂီတ အသံ လျှော့မယ်", audio.duck, { if (idle) model.setAudio { a -> a.copy(duck = it) } })
+        AfSwitch(tr(UiText.DUCK_MUSIC), audio.duck, { if (idle) model.setAudio { a -> a.copy(duck = it) } })
     }
 }
 
@@ -174,16 +174,16 @@ private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.R
 @Composable
 private fun CaptionStyleControls(style: io.github.alalkipgen.autoflow.core.recap.CaptionStyle, idle: Boolean, model: RecapModel) {
     WrapRow {
-        AfText("Caption size", muted = true, size = 12.sp)
+        AfText(tr(UiText.CAPTION_SIZE), muted = true, size = 12.sp)
         io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { s ->
-            AfChip(s.label, style.size == s, { if (idle) model.setCaptionStyle { it.copy(size = s) } })
+            AfChip(s.uiLabel(), style.size == s, { if (idle) model.setCaptionStyle { it.copy(size = s) } })
         }
     }
     WrapRow {
-        AfText("Colour", muted = true, size = 12.sp)
+        AfText(tr(UiText.COLOUR), muted = true, size = 12.sp)
         io.github.alalkipgen.autoflow.core.recap.CaptionStyle.COLOURS.forEach { (name, hex) ->
-            AfChip(name, style.colour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStyle { it.copy(colour = hex) } })
+            AfChip(colourPresetLabel(name), style.colour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStyle { it.copy(colour = hex) } })
         }
     }
-    AfSwitch("Dark box behind the captions", style.box, { on -> if (idle) model.setCaptionStyle { it.copy(box = on) } })
+    AfSwitch(tr(UiText.CAPTION_DARK_BOX), style.box, { on -> if (idle) model.setCaptionStyle { it.copy(box = on) } })
 }
