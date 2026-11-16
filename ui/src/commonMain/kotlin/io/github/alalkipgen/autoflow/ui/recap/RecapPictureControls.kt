@@ -1,6 +1,18 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.media.render.CaptionChunks
+import io.github.alalkipgen.autoflow.media.render.Output
+import io.github.alalkipgen.autoflow.media.render.RecapRender
+import io.github.alalkipgen.autoflow.media.render.RenderPresets
+import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -50,6 +62,8 @@ import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
 import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.MoviePlayback
+import io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfH2
@@ -249,6 +263,9 @@ internal const val SHORTER = "ပိုနိမ့်"
 internal const val WIDER = "ပိုကျယ်"
 internal const val NARROWER = "ပိုကျဉ်း"
 internal const val EXACT_FRAME = "အတိအကျ ပုံ"
+internal const val PLAY_PLAYBACK = "▶ ရုပ်ရှင် ဖွင့်ကြည့်မယ်"
+internal const val STOP_PLAYBACK = "⏹ ပုံရိပ်ပဲ ပြမယ်"
+internal const val PLAYBACK_TAG = "preview-playback"
 
 /** Burmese name of a blur-box preset (5B-13). */
 internal fun maskLabel(p: MaskPreset): String = when (p) {
@@ -280,7 +297,14 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
     val movie = recap.movie
     val ratio = if (movie != null && movie.width > 0 && movie.height > 0) movie.width.toFloat() / movie.height else 16f / 9f
     val masks = recap.visual.masks
+    val output = RenderPresets.preview(model.outputRatio(recap))
+    val story by model.state.collectAsState()
+    val caption = previewCaption(recap, story.story, output)
     var selected by remember { mutableStateOf<MaskPreset?>(null) }
+    // Android: the scene plays (muted, looping) under the boxes and caption instead of the still frame.
+    var playing by remember { mutableStateOf(false) }
+    val moviePath = remember(recap.movie) { model.moviePath() }
+    val playable = moviePlaybackSupported && moviePath != null && scene != null
     // The box under the fingers while a gesture runs; saved (and cleared) when they lift.
     var draft by remember { mutableStateOf<Pair<MaskPreset, List<Float>>?>(null) }
     val current by rememberUpdatedState(masks)
@@ -335,9 +359,52 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
                 }
             },
     ) {
-        image?.let { Image(it, contentDescription = "Movie frame", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
+        val clip = scene?.takeIf { playing && playable }
+        RecapPreviewPicture(
+            recap, output, image, caption, Modifier.fillMaxSize(), selected, draft,
+            background = if (clip != null && moviePath != null) ({ MoviePlayback(moviePath, clip.startMs, clip.endMs, Modifier.fillMaxSize()) }) else null,
+        )
+    }
+    if (playable) AfButton(if (playing) STOP_PLAYBACK else PLAY_PLAYBACK, { playing = !playing }, Modifier.testTag(PLAYBACK_TAG))
+    AfText(
+        selected?.let { boxHint(it) } ?: "ရွှေ့ဖို့ ဒါမှမဟုတ် အရွယ်ပြောင်းဖို့ ဘောင်တစ်ခုကို ထိပါ။",
+        muted = true, size = 12.sp,
+    )
+}
+
+/** The first caption the export would burn (first story block's first chunk), or null with captions off / no text. */
+internal fun previewCaption(recap: RecapV2, story: RecapStory?, output: Output): String? {
+    if (!recap.burnCaptions) return null
+    val text = story?.blocks?.firstOrNull { it.textMy.isNotBlank() }?.textMy?.trim() ?: return null
+    return CaptionChunks.chunks(text, RecapRender.lineChars(output, recap.captionStyle)).firstOrNull()
+}
+
+/**
+ * The Recap preview picture (5A-8, D-42; S10): the movie frame, the blur boxes where the render puts them, and the
+ * caption where the export burns it ([RecapRender.captionSpot]: on the caption box, centred on it, or the usual
+ * bottom place) at the export's size relative to the picture, with its colour and outline or box. The export draws
+ * the same numbers with ffmpeg / libass; `PreviewExportParityTest` (S10) measures both.
+ */
+@Composable
+internal fun RecapPreviewPicture(
+    recap: RecapV2,
+    output: Output,
+    image: ImageBitmap?,
+    caption: String?,
+    modifier: Modifier = Modifier,
+    selected: MaskPreset? = null,
+    draft: Pair<MaskPreset, List<Float>>? = null,
+    background: (@Composable () -> Unit)? = null,
+) {
+    val measurer = rememberTextMeasurer()
+    val family = LocalUiFontFamily.current
+    val spot = remember(recap, output) { RecapRender.captionSpot(recap, output) }
+    val style = recap.captionStyle
+    Box(modifier) {
+        if (background != null) background()
+        else image?.let { Image(it, contentDescription = "Movie frame", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
         Canvas(Modifier.fillMaxSize()) {
-            masks.forEach { m ->
+            recap.visual.masks.forEach { m ->
                 val r = draft?.takeIf { it.first == m.preset }?.second ?: m.rect
                 val topLeft = Offset(r[0] * size.width, r[1] * size.height)
                 val box = Size(r[2] * size.width, r[3] * size.height)
@@ -345,13 +412,34 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
                 drawRect(Color.White.copy(alpha = if (picked) 0.4f else 0.55f), topLeft, box)
                 drawRect(if (picked) AutoFlowColors.Cyan else AutoFlowColors.Purple, topLeft, box, style = Stroke(width = (if (picked) 3 else 2).dp.toPx()))
             }
+            if (caption != null && spot != null) {
+                val emPx = spot.emOfPicture * size.height
+                // libass draws in output pixels: outline = strokeWidth or max(2, size / 24); box padding max(4, size / 6).
+                val outPx = RecapRender.captionSizePx(output, style).coerceAtLeast(1)
+                val perOutPx = emPx / outPx
+                val text = TextStyle(fontFamily = family, fontSize = (emPx / fontScale / density).sp, textAlign = TextAlign.Center)
+                val layout = measurer.measure(caption, text, softWrap = false)
+                val w = layout.size.width.toFloat()
+                val h = layout.size.height.toFloat()
+                val topLeft = Offset(spot.x * size.width - w / 2, if (spot.bottom) spot.y * size.height - h else spot.y * size.height - h / 2)
+                val colour = hexColour(style.effectiveColour)
+                if (style.box) {
+                    val pad = maxOf(4, outPx / 6) * perOutPx
+                    drawRect(Color.Black.copy(alpha = 0.6f), Offset(topLeft.x - pad, topLeft.y - pad), Size(w + 2 * pad, h + 2 * pad))
+                } else {
+                    val outline = (if (style.strokeWidth > 0) style.strokeWidth else maxOf(2, outPx / 24)) * perOutPx
+                    val edge = if (style.strokeWidth > 0) hexColour(style.strokeColour) else Color.Black
+                    drawText(layout, edge, topLeft, drawStyle = Stroke(width = 2 * outline, join = StrokeJoin.Round))
+                }
+                drawText(layout, colour, topLeft)
+            }
         }
     }
-    AfText(
-        selected?.let { boxHint(it) } ?: "ရွှေ့ဖို့ ဒါမှမဟုတ် အရွယ်ပြောင်းဖို့ ဘောင်တစ်ခုကို ထိပါ။",
-        muted = true, size = 12.sp,
-    )
 }
+
+/** `#RRGGBB` → a colour; anything else is white (as [io.github.alalkipgen.autoflow.media.render.AssWriter.assColor]). */
+private fun hexColour(hex: String): Color =
+    hex.removePrefix("#").takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } ?: Color.White
 
 /**
  * "Exact frame" (D-42): the export compiler renders one still of the recap (blur boxes, background, looks,

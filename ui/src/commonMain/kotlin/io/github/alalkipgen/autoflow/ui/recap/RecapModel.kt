@@ -314,6 +314,13 @@ class RecapModel(
      * JPEG of the frame in the middle of [scene] (`.cache/thumbs/<movie size>-<startMs>.jpg`, made once, one ffmpeg
      * at a time); null without ffmpeg or when it fails.
      */
+    /** The movie file on disk (the Recap preview plays it under the boxes on Android, 5A-8), or null. */
+    fun moviePath(): String? {
+        val movie = recap()?.movie ?: return null
+        val dir = session.open?.dir ?: return null
+        return joinPath(dir, movie.file)
+    }
+
     suspend fun thumbnail(scene: RecapScene): ByteArray? = withContext(Dispatchers.Default) {
         val movie = recap()?.movie ?: return@withContext null
         val dir = session.open?.dir ?: return@withContext null
@@ -1386,6 +1393,10 @@ class RecapModel(
     /** Set watermark anchor position (D-56). */
     fun setWatermarkAnchor(anchor: io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor) =
         setVisual { it.copy(watermarkAnchor = anchor) }
+
+    /** The video's shape: the Recap's own choice, else the project's (the preview draws the captions for it). */
+    fun outputRatio(recap: io.github.alalkipgen.autoflow.core.recap.RecapV2): io.github.alalkipgen.autoflow.core.model.Ratio =
+        recap.visual.outputRatio ?: session.open?.project?.settings?.ratio ?: io.github.alalkipgen.autoflow.core.model.Ratio.R9_16
 
     /** Set the output video ratio for Movie Recap (D-56). Null = follow project setting (default 9:16). */
     fun setOutputRatio(ratio: io.github.alalkipgen.autoflow.core.model.Ratio?) =

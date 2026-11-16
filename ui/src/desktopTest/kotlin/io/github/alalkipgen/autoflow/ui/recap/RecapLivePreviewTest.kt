@@ -27,6 +27,7 @@ import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.MainScope
@@ -63,6 +64,9 @@ class RecapLivePreviewTest {
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
         val node = onNodeWithTag(MASK_PREVIEW_TAG)
+        // No video player on the desktop (no new dependency, D-65): the still frame stays, no play button.
+        assertFalse(io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported)
+        onNodeWithTag(PLAYBACK_TAG).assertDoesNotExist()
         // Touch the middle of the bottom strip (y 0.8–0.97) and drag up by 30 % of the preview height.
         node.performTouchInput {
             val start = Offset(width * 0.3f, height * 0.88f)

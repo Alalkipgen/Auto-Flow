@@ -53,6 +53,7 @@ data class RecapMask(
     val strength: MaskStrength = MaskStrength.STRONG,
 ) {
     val centerY: Float get() = rect.getOrElse(1) { 0f } + rect.getOrElse(3) { 0f } / 2
+    val centerX: Float get() = rect.getOrElse(0) { 0f } + rect.getOrElse(2) { 0f } / 2
 }
 
 @Serializable
@@ -153,6 +154,35 @@ object RecapVisuals {
         val ph = mh * s
         val top = (outH - ph) / 2
         return (top + y * ph) / outH
+    }
+
+    /** [outputY] across: where a point at [movieX] (0–1 of the movie picture) lands (0–1 of the output width). */
+    fun outputX(movieX: Float, movieW: Int, movieH: Int, outW: Int, outH: Int, zoom: Boolean, fill: Boolean): Float =
+        outputY(movieX, movieH, movieW, outH, outW, zoom, fill)
+
+    /** The inverse of [outputY]: a height in the output frame (0–1) in 0–1 of the movie picture (outside 0–1 = on the bars). */
+    fun movieY(outputY: Float, movieW: Int, movieH: Int, outW: Int, outH: Int, zoom: Boolean, fill: Boolean): Float {
+        val y = if (movieW <= 0 || movieH <= 0) outputY else {
+            val mw = movieW.toFloat()
+            val mh = movieH.toFloat()
+            val s = if (fill) maxOf(outW / mw, outH / mh) else minOf(outW / mw, outH / mh)
+            val ph = mh * s
+            (outputY * outH - (outH - ph) / 2) / ph
+        }
+        return if (zoom) y * 0.9f + 0.05f else y
+    }
+
+    /** The inverse of [outputX]. */
+    fun movieX(outputX: Float, movieW: Int, movieH: Int, outW: Int, outH: Int, zoom: Boolean, fill: Boolean): Float =
+        movieY(outputX, movieH, movieW, outH, outW, zoom, fill)
+
+    /** Output pixels per whole movie-picture height (the picture is fitted / filled, and 1 / 0.9 larger with Zoom). */
+    fun pictureHeightPx(movieW: Int, movieH: Int, outW: Int, outH: Int, zoom: Boolean, fill: Boolean): Float {
+        if (movieW <= 0 || movieH <= 0) return outH.toFloat()
+        val mw = movieW.toFloat()
+        val mh = movieH.toFloat()
+        val s = if (fill) maxOf(outW / mw, outH / mh) else minOf(outW / mw, outH / mh)
+        return mh * s / (if (zoom) 0.9f else 1f)
     }
 }
 
