@@ -67,6 +67,22 @@ jobs:
         # Test reports for diagnosis: job logs are not readable without a login.
         if: failure()
         with: { name: windows-test-results, path: "*/build/test-results/**/*.xml", if-no-files-found: warn }
+      - name: Failed tests as annotations (logs and artifacts need a login; annotations do not)
+        if: failure()
+        run: |
+          python - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          shown = 0
+          for path in sorted(glob.glob("*/build/test-results/**/*.xml", recursive=True)):
+              for case in ET.parse(path).getroot().iter("testcase"):
+                  for bad in case.findall("failure") + case.findall("error"):
+                      text = (bad.get("message") or bad.text or "").replace("\r", "")[:2500]
+                      text = text.replace("%", "%25").replace("\n", "%0A")
+                      print(f"::error title={case.get('classname')}.{case.get('name')}::{text}")
+                      shown += 1
+                      if shown >= 10:
+                          raise SystemExit(0)
+          PY
 
   windows-installer:
     # Q-01 / D-65 / D-66: the real Windows EXE installer (jpackage + WiX on Windows; it cannot be cross-built), then
