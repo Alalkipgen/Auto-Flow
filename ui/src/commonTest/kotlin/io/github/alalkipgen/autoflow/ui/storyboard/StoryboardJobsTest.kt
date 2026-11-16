@@ -58,4 +58,19 @@ class StoryboardJobsTest {
         runCurrent()
         assertEquals(JobState(last = StoryboardResult.Failed("disk full")), jobs.state.value)
     }
+    @Test
+    fun deferredJobNoticeKeepsEnglishIdentityAndCancellationRetranslates() = runTest {
+        val jobs = jobs()
+        val notice = io.github.alalkipgen.autoflow.ui.i18n.UiNotice(io.github.alalkipgen.autoflow.ui.i18n.UiText.GENERATING_STORYBOARD)
+        jobs.run("Generating the storyboard", notice = notice) { awaitCancellation() }
+        assertEquals("Generating the storyboard", jobs.state.value.running)
+        assertEquals(notice, jobs.state.value.notice)
+        assertEquals("Storyboard ထုတ်နေသည်", notice.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE))
+        runCurrent()
+        jobs.cancel()
+        runCurrent()
+        assertEquals("Cancelled. Nothing was changed.", jobs.state.value.last!!.message())
+        assertEquals("ပယ်ဖျက်ပြီး။ ဘာမှ မပြောင်းထားပါ။", jobs.state.value.last!!.message(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE))
+    }
+
 }

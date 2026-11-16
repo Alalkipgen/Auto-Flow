@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
@@ -23,29 +24,29 @@ data class ShellUiState(val locks: Map<String, String> = emptyMap(), val steps: 
 
 /** Sidebar locks and the pipeline stepper (DESIGN.md §2), from [Pipeline] gates over the open project. */
 class ShellModel(private val session: ProjectSession) {
-    val state: Flow<ShellUiState> = session.state.map(::build)
+    val state: Flow<ShellUiState> = session.state.map { build(it) }
 
-    fun current(): ShellUiState = build(session.open)
+    fun current(language: UiLanguage = UiLanguage.ENGLISH): ShellUiState = build(session.open, language)
 
-    private fun build(open: OpenProject?): ShellUiState {
-        val p = open?.project ?: return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { NO_PROJECT_LOCK })
-        if (p.mode == Mode.MOVIE_RECAP) return recapShell(p)
+    private fun build(open: OpenProject?, language: UiLanguage = UiLanguage.ENGLISH): ShellUiState {
+        val p = open?.project ?: return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { UiText.LOCK_NO_PROJECT.text(language) })
+        if (p.mode == Mode.MOVIE_RECAP) return recapShell(p, language)
         val lookup = session.lookup()
         val locks = SCREEN_STEPS.mapNotNull { (screen, step) ->
-            Pipeline.gate(p, step, lookup).blockers.firstOrNull()?.let { screen to lockText(it) }
+            Pipeline.gate(p, step, lookup).blockers.firstOrNull()?.let { screen to lockText(it, language) }
         }.toMap()
         val current = Pipeline.current(p, lookup)
-        val steps = PipelineStep.entries.map { StepView(it, STEP_LABELS.getValue(it), Pipeline.done(p, it, lookup), it == current) }
-        return ShellUiState(locks + (RECAP_SCREEN to MUSIC_VIDEO_LOCK), steps)
+        val steps = PipelineStep.entries.map { StepView(it, stepLabel(it, language), Pipeline.done(p, it, lookup), it == current) }
+        return ShellUiState(locks + (RECAP_SCREEN to UiText.LOCK_MUSIC_VIDEO.text(language)), steps)
     }
 
     /** A Movie Recap project (D-33): the music-video screens are locked, Export opens when [RecapRules] allows a render; no stepper. */
-    private fun recapShell(p: Project): ShellUiState {
+    private fun recapShell(p: Project, language: UiLanguage): ShellUiState {
         val recapV2 = p.recap
         val story = recapV2?.story?.let { session.readJson(it, RecapStory.serializer()).getOrNull() }
         val export = io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
-            .canRender(recapV2 ?: io.github.alalkipgen.autoflow.core.recap.RecapV2(), story).blockers.firstOrNull()?.text()
-        val locks = SCREEN_STEPS.keys.filter { it != "Export" }.associateWith { RECAP_LOCK } + listOfNotNull(export?.let { "Export" to it })
+            .canRender(recapV2 ?: io.github.alalkipgen.autoflow.core.recap.RecapV2(), story).blockers.firstOrNull()?.text(language)
+        val locks = SCREEN_STEPS.keys.filter { it != "Export" }.associateWith { UiText.LOCK_RECAP.text(language) } + listOfNotNull(export?.let { "Export" to it })
         return ShellUiState(locks)
     }
 
@@ -75,15 +76,24 @@ class ShellModel(private val session: ProjectSession) {
             PipelineStep.ASSEMBLY to "Assembly",
         )
 
+        fun stepLabel(step: PipelineStep, language: UiLanguage): String = when (step) {
+            PipelineStep.INPUT -> UiText.INPUT
+            PipelineStep.STORYBOARD -> UiText.STORYBOARD
+            PipelineStep.PROMPTS -> UiText.PROMPTS
+            PipelineStep.REFERENCES -> UiText.REFERENCES
+            PipelineStep.FLOW_VIDEO -> UiText.FLOW_VIDEO
+            PipelineStep.ASSEMBLY -> UiText.ASSEMBLY
+        }.text(language)
+
         /** Project-level wording: the lock names the step where the missing work is done. */
-        fun lockText(blocker: Blocker): String = when (blocker) {
-            Blocker.NO_SPEC -> "Generate the storyboard on Input first"
-            Blocker.NO_PROMPT -> "Compile a shot's prompt on Shots first"
-            Blocker.PROMPT_NOT_APPROVED -> "Approve a shot's prompt on Shots first"
-            Blocker.NO_CHOSEN_REF -> "Import a reference image for a shot first"
-            Blocker.REF_NOT_APPROVED -> "Approve a shot's reference image first"
-            Blocker.NO_ACCEPTED_VIDEOS -> "Accept at least one video from Flow first"
-            else -> blocker.text()
+        fun lockText(blocker: Blocker, language: UiLanguage = UiLanguage.ENGLISH): String = when (blocker) {
+            Blocker.NO_SPEC -> UiText.LOCK_STORYBOARD.text(language)
+            Blocker.NO_PROMPT -> UiText.LOCK_PROMPT.text(language)
+            Blocker.PROMPT_NOT_APPROVED -> UiText.LOCK_APPROVE_PROMPT.text(language)
+            Blocker.NO_CHOSEN_REF -> UiText.LOCK_REF.text(language)
+            Blocker.REF_NOT_APPROVED -> UiText.LOCK_APPROVE_REF.text(language)
+            Blocker.NO_ACCEPTED_VIDEOS -> UiText.LOCK_VIDEO.text(language)
+            else -> blocker.text(language)
         }
     }
 }

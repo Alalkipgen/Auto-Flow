@@ -73,6 +73,22 @@ object My {
     fun screen(key: String, language: UiLanguage): String = SCREENS[key]?.text(language) ?: key
 
     private val SCREENS = mapOf(
+        "Dashboard" to UiText.DASHBOARD,
+        "Project" to UiText.PROJECT_SECTION,
+        "Mode" to UiText.MODE_SECTION,
+        "System" to UiText.SYSTEM_SECTION,
+        "Timeline" to UiText.TIMELINE,
+        "Music Video" to UiText.MUSIC_VIDEO,
+        "Movie Recap" to UiText.MOVIE_RECAP,
+        "Settings" to UiText.SETTINGS_TITLE,
+        "Projects" to UiText.PROJECTS,
+        "Home" to UiText.HOME,
+        "Library" to UiText.LIBRARY,
+        "Jobs" to UiText.JOBS,
+        "More" to UiText.MORE,
+        "Prompts" to UiText.PROMPTS,
+        "Flow Video" to UiText.FLOW_VIDEO,
+        "Assembly" to UiText.ASSEMBLY,
 
         "Voice" to UiText.VOICE,
         "Script" to UiText.STORY,

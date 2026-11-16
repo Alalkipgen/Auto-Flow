@@ -189,7 +189,7 @@ private fun GenerateCard(state: InputUiState, job: JobState, jobs: StoryboardJob
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         state.blockers.forEach { AfText("• ${it.text(LocalUiLanguage.current)}", color = AutoFlowColors.Amber) }
         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
-        job.last?.takeIf { it != StoryboardResult.Done }?.message()?.let { AfText(it, color = AutoFlowColors.Amber) }
+        job.last?.takeIf { it != StoryboardResult.Done }?.message(LocalUiLanguage.current)?.let { AfText(it, color = AutoFlowColors.Amber) }
         // A running job (with Cancel) shows in the shell's JobBanner.
         if (confirming && running == null) {
             AfCard(if (state.hasStoryboard) tr(UiText.NEW_STORYBOARD_VERSION) else tr(UiText.GENERATE_STORYBOARD_QUESTION)) {

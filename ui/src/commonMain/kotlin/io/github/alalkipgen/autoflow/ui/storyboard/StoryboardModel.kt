@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.storyboard
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.Shot
@@ -74,7 +75,7 @@ class StoryboardModel(
         _message.value = null
         if (!on) return quick { service.retime(false) }
         val before = session.open?.project?.shots.orEmpty()
-        return jobs.run(BEAT_LABEL, onDone = { r -> if (r == StoryboardResult.Done) _message.value = snapSummary(before) }) {
+        return jobs.run(BEAT_LABEL, notice = UiNotice(UiText.FINDING_BEATS), onDone = { r -> if (r == StoryboardResult.Done) _message.value = snapSummary(before) }) {
             when (val found = beats.find()) {
                 is BeatFinder.Found.Failed -> StoryboardResult.Failed(found.message)
                 is BeatFinder.Found.Ok -> retime(true)
@@ -101,13 +102,13 @@ class StoryboardModel(
     /** ↻ ပြန်ထုတ်မယ်: one AI request for shot [number]; [keepScene] keeps the Burmese scene. */
     fun regenerate(number: Int, keepScene: Boolean): Boolean {
         _message.value = null
-        return jobs.run(regenerateLabel(number)) { regenerateShot(number, keepScene) }
+        return jobs.run(regenerateLabel(number), notice = UiNotice(UiText.REGENERATING_SHOT, "n" to number)) { regenerateShot(number, keepScene) }
     }
 
     /** Regenerate all: a new storyboard version; the current one stays in the version list. */
     fun regenerateAll(): Boolean {
         _message.value = null
-        return jobs.run(InputModel.GENERATE_LABEL) { generateAll() }
+        return jobs.run(InputModel.GENERATE_LABEL, notice = UiNotice(UiText.GENERATING_STORYBOARD)) { generateAll() }
     }
 
     private fun quick(action: () -> StoryboardResult): Boolean {

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -26,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
@@ -71,15 +74,15 @@ fun PhoneShell(
     top: @Composable () -> Unit = {},
     content: @Composable () -> Unit = {},
 ) {
-    var note by remember { mutableStateOf<String?>(null) }
+    var notedScreen by remember { mutableStateOf<String?>(null) }
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         PhoneTopBar(providerStatus, projectName)
         top()
         Box(Modifier.fillMaxWidth().weight(1f)) { content() }
-        note?.let { AfText(it, Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 14.dp, vertical = 8.dp), color = AutoFlowColors.Amber, size = 12.sp) }
+        notedScreen?.let { locks[it] }?.let { AfText(it, Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 14.dp, vertical = 8.dp), color = AutoFlowColors.Amber, size = 12.sp) }
         BottomTabs(selected, locks) { screen ->
             val lock = locks[screen]
-            note = lock
+            notedScreen = screen.takeIf { lock != null }
             if (lock == null) onSelect(screen)
         }
     }
@@ -98,7 +101,7 @@ private fun PhoneTopBar(providerStatus: String, projectName: String?) {
                 BasicText("·  $it", Modifier.weight(1f), style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp, fontFamily = LocalUiFontFamily.current), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        BasicText(providerStatus, Modifier.padding(top = 2.dp), style = TextStyle(color = AutoFlowColors.Muted, fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        BasicText(providerStatus, Modifier.padding(top = 2.dp), style = TextStyle(color = AutoFlowColors.Muted, fontSize = 11.sp, fontFamily = LocalUiFontFamily.current))
     }
     Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
 }
@@ -110,6 +113,9 @@ private fun BottomTabs(selected: String?, locks: Map<String, String>, onTap: (St
         PhoneTabs.forEach { (screen, label) ->
             val on = selected == screen || (screen == MORE && selected in MoreScreens)
             val locked = locks[screen] != null
+            val lockedLabel = tr(UiText.LOCKED)
+            val displayLabel = My.screen(label)
+            val english = LocalUiLanguage.current == UiLanguage.ENGLISH
             val ink = when {
                 on -> Color.White
                 locked -> AutoFlowColors.Muted.copy(alpha = 0.5f)
@@ -118,21 +124,24 @@ private fun BottomTabs(selected: String?, locks: Map<String, String>, onTap: (St
             Column(
                 Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .semantics { contentDescription = displayLabel }
                     .selectable(selected = on, role = Role.Tab) { onTap(screen) }
-                    .then(if (locked) Modifier.semantics { stateDescription = "locked" } else Modifier),
+                    .then(if (locked) Modifier.semantics { stateDescription = lockedLabel } else Modifier),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.fillMaxWidth().height(3.dp).background(if (on) AutoFlowColors.Purple else Color.Transparent))
-                // Shrinks instead of "Storyboa…" when the phone's font size is large (owner's v0.1.6 screenshot).
+                // Preserve the one-line English fit; Burmese wraps at syllables at the requested font scale.
                 BasicText(
-                    if (locked) "$label $LOCK_GLYPH" else label,
-                    Modifier.padding(horizontal = 1.dp, vertical = 14.dp),
-                    style = TextStyle(color = ink, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal),
-                    maxLines = 1,
+                    if (english) displayLabel else My.breakSyllables(displayLabel),
+                    Modifier.padding(horizontal = 1.dp, vertical = 10.dp),
+                    style = TextStyle(color = ink, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal, fontFamily = LocalUiFontFamily.current),
+                    maxLines = if (english) 1 else Int.MAX_VALUE,
                     // Clip, not Ellipsis: autoSize detects an ellipsized line only on Android, a clipped one everywhere.
                     overflow = TextOverflow.Clip,
-                    autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = 12.sp, stepSize = 0.5.sp),
+                    autoSize = if (english) TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = 12.sp, stepSize = 0.5.sp) else null,
                 )
+                if (locked) BasicText(LOCK_GLYPH, Modifier.padding(bottom = 4.dp), style = TextStyle(color = ink, fontSize = 10.sp))
             }
         }
     }
@@ -145,21 +154,23 @@ fun MoreScreen(locks: Map<String, String>, onSelect: (String) -> Unit, modifier:
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        AfText(MORE, size = 18.sp, bold = true)
+        AfText(My.screen(MORE), size = 18.sp, bold = true)
         MoreScreens.forEach { screen ->
             val lock = locks[screen]
+            val lockedLabel = tr(UiText.LOCKED)
             Column(
                 Modifier
                     .fillMaxWidth()
                     .clip(AutoFlowShapes.Card)
                     .background(AutoFlowColors.Panel)
                     .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+                    .heightIn(min = 48.dp)
                     .clickable(enabled = lock == null, role = Role.Button) { onSelect(screen) }
-                    .then(if (lock != null) Modifier.semantics { stateDescription = "locked" } else Modifier)
+                    .then(if (lock != null) Modifier.semantics { stateDescription = lockedLabel } else Modifier)
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                AfText(if (lock != null) "$screen $LOCK_GLYPH" else screen, size = 15.sp, muted = lock != null)
+                AfText(if (lock != null) "${My.screen(screen)} $LOCK_GLYPH" else My.screen(screen), size = 15.sp, muted = lock != null)
                 lock?.let { AfText(it, color = AutoFlowColors.Amber, size = 12.sp) }
             }
         }
