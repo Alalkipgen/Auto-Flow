@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.storyboard
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -60,12 +61,12 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AfText("Storyboard", size = 18.sp, bold = true)
+        AfText(tr(UiText.STORYBOARD), size = 18.sp, bold = true)
         when {
-            state.projectName == null -> AfText(NO_PROJECT_TEXT, muted = true)
+            state.projectName == null -> AfText(tr(UiText.OPEN_PROJECT_FIRST), muted = true)
             state.cards.isEmpty() -> {
-                AfText(NO_STORYBOARD_TEXT, muted = true)
-                AfButton("Go to Input", onGoToInput, kind = ButtonKind.Primary)
+                AfText(tr(UiText.STORYBOARD_EMPTY), muted = true)
+                AfButton(tr(UiText.GO_INPUT), onGoToInput, kind = ButtonKind.Primary)
             }
             else -> {
                 Header(state, model, busy)
@@ -81,15 +82,15 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
 @Composable
 internal fun Header(state: StoryboardUiState, model: StoryboardModel, busy: Boolean) {
     var confirming by remember { mutableStateOf(false) }
-    val count: @Composable () -> Unit = { AfText("${state.approvedCount}/${state.cards.size} approved", muted = true) }
+    val count: @Composable () -> Unit = { AfText(tr(UiText.STORYBOARD_APPROVED_COUNT, "approvedCount" to (state.approvedCount), "size" to (state.cards.size)), muted = true) }
     val versions: @Composable () -> Unit = {
-        AfText("Version", muted = true)
+        AfText(tr(UiText.VERSION), muted = true)
         state.versions.forEach { v -> AfChip(v.label, v.current, { if (!busy && !v.current) model.switchVersion(v.id) }) }
     }
     val actions: @Composable () -> Unit = {
-        AfButton("Approve all", { model.approveAll() }, kind = ButtonKind.Primary, enabled = !busy && state.approvedCount < state.cards.size)
-        AfButton("↻ Regenerate all", { confirming = true }, enabled = !busy)
-        AfSwitch(SNAP_TO_BEAT, state.snapToBeat, { if (!busy) model.setSnapToBeat(it) })
+        AfButton(tr(UiText.APPROVE_ALL), { model.approveAll() }, kind = ButtonKind.Primary, enabled = !busy && state.approvedCount < state.cards.size)
+        AfButton("↻ ${tr(UiText.REGENERATE_ALL)}", { confirming = true }, enabled = !busy)
+        AfSwitch(tr(UiText.SNAP_TO_BEAT), state.snapToBeat, { if (!busy) model.setSnapToBeat(it) })
     }
     if (LocalCompact.current) {
         count()
@@ -106,12 +107,10 @@ internal fun Header(state: StoryboardUiState, model: StoryboardModel, busy: Bool
     if (confirming && !busy) {
         val downstream = state.cards.count { it.hasDownstream }
         Confirm(
-            title = "Make a new storyboard version?",
-            text = "Writes a new storyboard for the whole song (2 AI requests, one more for each retry). " +
-                "${state.versions.firstOrNull { it.current }?.label ?: "The current version"} stays in the version list. " +
-                "Every shot needs approval again" +
-                if (downstream > 0) "; $downstream shots have prompts, reference images or videos that become stale." else ".",
-            action = "Regenerate all",
+            title = tr(UiText.STORYBOARD_NEW_VERSION),
+            text = tr(UiText.STORYBOARD_REGENERATE_HINT, "version" to (state.versions.firstOrNull { it.current }?.label ?: tr(UiText.CURRENT_VERSION))) +
+                if (downstream > 0) tr(UiText.STORYBOARD_DOWNSTREAM, "n" to downstream) else ".",
+            action = tr(UiText.REGENERATE_ALL),
             onConfirm = { confirming = false; model.regenerateAll() },
             onBack = { confirming = false },
         )
@@ -134,13 +133,13 @@ internal fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean, sh
         val badges: @Composable () -> Unit = {
             AfText(number, bold = true)
             AfText(card.timecode, color = AutoFlowColors.Cyan, mono = true)
-            if (card.approved) AfText("✓ Approved", color = AutoFlowColors.Green, size = 12.sp)
-            if (card.stale) AfText(STALE, color = AutoFlowColors.Amber, size = 12.sp)
+            if (card.approved) AfText("✓ ${tr(UiText.APPROVED)}", color = AutoFlowColors.Green, size = 12.sp)
+            if (card.stale) AfText("⚠ ${tr(UiText.STALE)}", color = AutoFlowColors.Amber, size = 12.sp)
         }
         if (!showHeader) {
             WrapRow(spacing = 10.dp) {
-                if (card.approved) AfText("✓ Approved", color = AutoFlowColors.Green, size = 12.sp)
-                if (card.stale) AfText(STALE, color = AutoFlowColors.Amber, size = 12.sp)
+                if (card.approved) AfText("✓ ${tr(UiText.APPROVED)}", color = AutoFlowColors.Green, size = 12.sp)
+                if (card.stale) AfText("⚠ ${tr(UiText.STALE)}", color = AutoFlowColors.Amber, size = 12.sp)
                 AfText(card.tag, muted = true, size = 12.sp, mono = true)
             }
         } else if (LocalCompact.current) {
@@ -158,7 +157,7 @@ internal fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean, sh
         if (showHeader && card.lyric.isNotBlank()) AfText(card.lyric, muted = true)
         val spec = card.spec
         when {
-            spec == null -> AfText("This shot has no scene yet.", color = AutoFlowColors.Amber)
+            spec == null -> AfText(tr(UiText.STORYBOARD_NO_SCENE), color = AutoFlowColors.Amber)
             mode == CardMode.EDIT -> EditSpec(spec, onSave = { edited -> if (model.edit(card.number) { edited }) mode = CardMode.VIEW }, onBack = { mode = CardMode.VIEW })
             else -> {
                 AfText(spec.sceneMy, size = 14.sp)
@@ -170,22 +169,22 @@ internal fun ShotCard(card: StoryCard, model: StoryboardModel, busy: Boolean, sh
         if (mode == CardMode.REGENERATE && !busy) {
             var keep by remember { mutableStateOf(card.tag.endsWith("edited")) }
             Confirm(
-                title = "New take for shot $number?",
-                text = "Uses 1 AI request. The shot needs approval again" +
-                    if (card.hasDownstream) ", and its prompt, reference image and video become stale." else ".",
-                action = "Regenerate",
+                title = tr(UiText.STORYBOARD_NEW_TAKE, "number" to (number)),
+                text = tr(UiText.STORYBOARD_TAKE_HINT) +
+                    if (card.hasDownstream) tr(UiText.STORYBOARD_TAKE_STALE) else ".",
+                action = tr(UiText.REGENERATE),
                 onConfirm = { mode = CardMode.VIEW; model.regenerate(card.number, keepScene = keep) },
                 onBack = { mode = CardMode.VIEW },
-            ) { AfSwitch("Keep my Burmese scene (only rewrite the English details)", keep, { keep = it }) }
+            ) { AfSwitch(tr(UiText.KEEP_BURMESE_SCENE), keep, { keep = it }) }
         }
         if (mode == CardMode.VIEW && spec != null) {
             WrapRow {
-                AfButton(EDIT, { mode = CardMode.EDIT }, enabled = !busy)
-                AfButton(REGENERATE, { mode = CardMode.REGENERATE }, enabled = !busy)
+                AfButton("✎ ${tr(UiText.EDIT)}", { mode = CardMode.EDIT }, enabled = !busy)
+                AfButton("↻ ${tr(UiText.REGENERATE)}", { mode = CardMode.REGENERATE }, enabled = !busy)
                 if (card.approved) {
-                    AfButton("Undo approval", { model.approve(card.number, approved = false) }, enabled = !busy)
+                    AfButton(tr(UiText.UNDO_APPROVAL), { model.approve(card.number, approved = false) }, enabled = !busy)
                 } else {
-                    AfButton(APPROVE, { model.approve(card.number) }, kind = ButtonKind.Primary, enabled = !busy)
+                    AfButton("✓ ${tr(UiText.APPROVE)}", { model.approve(card.number) }, kind = ButtonKind.Primary, enabled = !busy)
                 }
             }
         }
@@ -198,25 +197,25 @@ private enum class CardMode { VIEW, EDIT, REGENERATE }
 @Composable
 private fun EditSpec(spec: ShotSpec, onSave: (ShotSpec) -> Unit, onBack: () -> Unit) {
     var draft by remember(spec) { mutableStateOf(spec) }
-    AfTextField(draft.sceneMy, { draft = draft.copy(sceneMy = it) }, "Burmese scene", lines = 3, mono = false)
-    AfText("English details (used in the Flow prompt)", muted = true, size = 12.sp)
-    AfTextField(draft.subjectEn, { draft = draft.copy(subjectEn = it) }, "Subject", mono = false)
-    AfTextField(draft.actionEn, { draft = draft.copy(actionEn = it) }, "Action", mono = false)
-    AfTextField(draft.settingEn, { draft = draft.copy(settingEn = it) }, "Setting", mono = false)
+    AfTextField(draft.sceneMy, { draft = draft.copy(sceneMy = it) }, tr(UiText.BURMESE_SCENE), lines = 3, mono = false)
+    AfText(tr(UiText.ENGLISH_PROMPT_DETAILS), muted = true, size = 12.sp)
+    AfTextField(draft.subjectEn, { draft = draft.copy(subjectEn = it) }, tr(UiText.FIELD_SUBJECT), mono = false)
+    AfTextField(draft.actionEn, { draft = draft.copy(actionEn = it) }, tr(UiText.FIELD_ACTION), mono = false)
+    AfTextField(draft.settingEn, { draft = draft.copy(settingEn = it) }, tr(UiText.FIELD_SETTING), mono = false)
     if (LocalCompact.current) {
-        AfTextField(draft.cameraEn, { draft = draft.copy(cameraEn = it) }, "Camera", mono = false)
-        AfTextField(draft.moodEn, { draft = draft.copy(moodEn = it) }, "Mood", mono = false)
-        AfTextField(draft.lightingEn, { draft = draft.copy(lightingEn = it) }, "Lighting", mono = false)
+        AfTextField(draft.cameraEn, { draft = draft.copy(cameraEn = it) }, tr(UiText.FIELD_CAMERA), mono = false)
+        AfTextField(draft.moodEn, { draft = draft.copy(moodEn = it) }, tr(UiText.FIELD_MOOD), mono = false)
+        AfTextField(draft.lightingEn, { draft = draft.copy(lightingEn = it) }, tr(UiText.FIELD_LIGHTING), mono = false)
     } else {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfTextField(draft.cameraEn, { draft = draft.copy(cameraEn = it) }, "Camera", Modifier.weight(1f), mono = false)
-            AfTextField(draft.moodEn, { draft = draft.copy(moodEn = it) }, "Mood", Modifier.weight(1f), mono = false)
-            AfTextField(draft.lightingEn, { draft = draft.copy(lightingEn = it) }, "Lighting", Modifier.weight(1f), mono = false)
+            AfTextField(draft.cameraEn, { draft = draft.copy(cameraEn = it) }, tr(UiText.FIELD_CAMERA), Modifier.weight(1f), mono = false)
+            AfTextField(draft.moodEn, { draft = draft.copy(moodEn = it) }, tr(UiText.FIELD_MOOD), Modifier.weight(1f), mono = false)
+            AfTextField(draft.lightingEn, { draft = draft.copy(lightingEn = it) }, tr(UiText.FIELD_LIGHTING), Modifier.weight(1f), mono = false)
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AfButton("Save", { onSave(draft) }, kind = ButtonKind.Primary, enabled = draft.sceneMy.isNotBlank())
-        AfButton("Back", onBack)
+        AfButton(tr(UiText.SAVE), { onSave(draft) }, kind = ButtonKind.Primary, enabled = draft.sceneMy.isNotBlank())
+        AfButton(tr(UiText.BACK_PLAIN), onBack)
     }
 }
 
@@ -234,7 +233,7 @@ private fun Confirm(
         extra()
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfButton(action, onConfirm, kind = ButtonKind.Primary)
-            AfButton("Back", onBack)
+            AfButton(tr(UiText.BACK_PLAIN), onBack)
         }
     }
 }

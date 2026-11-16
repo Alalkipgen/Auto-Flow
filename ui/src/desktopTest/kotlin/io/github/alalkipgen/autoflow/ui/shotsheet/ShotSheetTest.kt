@@ -1,5 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.shotsheet
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.click
+import kotlin.test.assertContentEquals
 import io.github.alalkipgen.autoflow.ui.textFitProblems
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
@@ -184,11 +190,13 @@ class ShotSheetTest {
 
     @Test
     fun hintsNameTheSheetStepNotTheOldTab() {
-        assertEquals("Compile the shot prompt first (အဆင့် 2)", forSheet("Compile the shot prompt first (Shots screen)"))
-        assertEquals("Import a reference image first (အဆင့် 3)", forSheet("Import a reference image first (Ref A/B on the References screen)"))
+        assertEquals("Compile the shot prompt first (step 2)", forSheet("Compile the shot prompt first (Shots screen)"))
+        assertEquals("Compile the shot prompt first (အဆင့် 2)", forSheet("Compile the shot prompt first (Shots screen)", UiLanguage.BURMESE))
+        assertEquals("Import a reference image first (အဆင့် 3)", forSheet("Import a reference image first (Ref A/B on the References screen)", UiLanguage.BURMESE))
         assertEquals("No compiled prompt for shot 2 — အဆင့် 2 မှာ အရင် စုစည်းပါ",
-            forSheet("No compiled prompt for shot 2 — compile it on the Shots screen first"))
+            forSheet("No compiled prompt for shot 2 — compile it on the Shots screen first", UiLanguage.BURMESE))
         assertEquals("Approve the reference image first", forSheet("Approve the reference image first"))
+        assertEquals("Owner စာသား {n}", forSheet("Owner စာသား {n}", UiLanguage.BURMESE))
     }
 
     @Test
@@ -196,7 +204,7 @@ class ShotSheetTest {
         open(generate = false)
         var went = 0
         setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { ShotSheetScreen(storyboard, jobs, shots, refs, handoff, { null }, 412f, onGoToInput = { went++ }) } }
-        onNodeWithText(NO_STORYBOARD_TEXT).assertExists()
+        onNodeWithText(UiText.STORYBOARD_EMPTY.text(UiLanguage.BURMESE)).assertExists()
         onNodeWithText("ထည့်သွင်းရန် သွားမယ်").performClick()
         assertEquals(1, went)
     }
@@ -224,16 +232,26 @@ class ShotSheetTest {
     @Test fun phoneFont130() = layout(412, 1.3f)
     @Test fun phoneFont200() = layout(412, 2f)
     @Test fun wideFont100() = layout(840, 1f)
+    @Test fun wideFont130() = layout(840, 1.3f)
     @Test fun wideFont200() = layout(840, 2f)
 
-    private fun layout(width: Int, font: Float) = runDesktopComposeUiTest(width = width, height = 1000) {
+    private fun layout(width: Int, font: Float) {
+        for (language in UiLanguage.entries) for (bundled in listOf(true, false)) {
+            // Each matrix cell gets its own real models/filesystem; no cross-cell project reuse.
+            ShotSheetTest().layoutCase(width, font, language, bundled)
+        }
+    }
+
+    private fun layoutCase(width: Int, font: Float, language: UiLanguage, bundled: Boolean) = runDesktopComposeUiTest(width = width, height = 760) {
         open()
-        setContent { CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE, LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family) { Box { sheet(width.toFloat())() } } }
+        val projectPath = current.state.value!!.dir + "/project.json"
+        val originalBytes = fs.read(projectPath)
+        setContent { CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides language, LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides if (bundled) io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family else FontFamily.Default) { Box { sheet(width.toFloat())() } } }
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
         if (width < 840) {
-            onNodeWithTag("shot-sheet-chip-2").performScrollTo().performClick()
+            onNodeWithTag("shot-sheet-chip-2").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         } else {
-            onNodeWithTag("shot-sheet-select-2").performScrollTo().performClick()
+            onNodeWithTag("shot-sheet-select-2").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         }
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 2 · 0:08")
@@ -243,18 +261,21 @@ class ShotSheetTest {
             assertTrue(node.boundsInRoot.height >= 48f, "$tag must have a 48 dp touch target at font $font")
             assertTrue(node.boundsInRoot.left >= 0f && node.boundsInRoot.right <= width.toFloat(), "$tag inside the window at font $font")
         }
-        for (title in listOf(SHEET_STORYBOARD, SHEET_PROMPT, SHEET_REFS, SHEET_FLOW, SHEET_VIDEOS)) {
+        val scene = storyboard.current().cards.first { it.number == 2 }.spec!!.sceneMy
+        onNodeWithText(scene).performScrollTo().assertIsDisplayed()
+        for (title in listOf(UiText.SHEET_STORYBOARD, UiText.SHEET_PROMPT, UiText.SHEET_REFS, UiText.SHEET_FLOW, UiText.SHEET_VIDEOS).map { it.text(language) }) {
             val node = onNodeWithText(title).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
             assertTrue(node.boundsInRoot.right <= width.toFloat() + 0.5f, "$title inside the window at font $font")
         }
         if (width < 840) {
-            onNodeWithTag("shot-sheet-all").performScrollTo().performClick()
-            onNodeWithText("0/4 approved").performScrollTo().assertIsDisplayed()
+            onNodeWithTag("shot-sheet-all").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithText(UiText.STORYBOARD_APPROVED_COUNT.text(language, "approvedCount" to 0, "size" to 4)).performScrollTo().assertIsDisplayed()
         } else {
-            onNodeWithText("0/4 approved").performScrollTo().assertIsDisplayed()
+            onNodeWithText(UiText.STORYBOARD_APPROVED_COUNT.text(language, "approvedCount" to 0, "size" to 4)).performScrollTo().assertIsDisplayed()
         }
         assertEquals(emptyList<String>(), textFitProblems(width, font))
+        assertContentEquals(originalBytes, fs.read(projectPath), "UI language/layout/navigation never saves project content")
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/studio-layout").apply { mkdirs() }
-        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "shotsheet-$width-font${(font * 100).toInt()}.png"))
+        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "shotsheet-$width-font${(font * 100).toInt()}-${language.code}-${if (bundled) "bundled" else "fallback"}.png"))
     }
 }
