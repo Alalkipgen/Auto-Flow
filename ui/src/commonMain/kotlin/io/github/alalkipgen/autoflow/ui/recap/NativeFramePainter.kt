@@ -48,11 +48,16 @@ internal class NativeFramePainter(private val measurer: TextMeasurer, private va
         // Cropping to an even source rectangle matches the 4:2:0 export within the documented pixel tolerance.
         val sw = (movie.width * if (zoom) .9f else 1f).toInt().let { if (zoom) (it / 2 * 2).coerceAtLeast(2) else it }
         val sh = (movie.height * if (zoom) .9f else 1f).toInt().let { if (zoom) (it / 2 * 2).coerceAtLeast(2) else it }
-        val srcOffset = IntOffset((movie.width - sw) / 2, (movie.height - sh) / 2)
+        val srcOffset = IntOffset((movie.width - sw) / 2 / 2 * 2, (movie.height - sh) / 2 / 2 * 2)
         fun DrawScope.picture(cover: Boolean) {
-            val scale = if (cover) maxOf(size.width / sw, size.height / sh) else minOf(size.width / sw, size.height / sh)
-            val dw = (sw * scale).roundToInt(); val dh = (sh * scale).roundToInt()
-            val dx = ((size.width - dw) / 2).roundToInt(); val dy = ((size.height - dh) / 2).roundToInt()
+            val logicalScale = if (cover) maxOf(output.width.toFloat() / sw, output.height.toFloat() / sh) else minOf(output.width.toFloat() / sw, output.height.toFloat() / sh)
+            val lw = (sw * logicalScale).roundToInt(); val lh = (sh * logicalScale).roundToInt()
+            // ffmpeg's YUV420 crop/pad aligns the centre offset to a chroma sample, BEFORE proxy reduction.
+            val lx = (output.width - lw) / 2; val ly = (output.height - lh) / 2
+            val ax = if (cover) -((-lx) / 2 * 2) else lx / 2 * 2
+            val ay = if (cover) -((-ly) / 2 * 2) else ly / 2 * 2
+            val dw = (lw * size.width / output.width).roundToInt(); val dh = (lh * size.height / output.height).roundToInt()
+            val dx = (ax * size.width / output.width).roundToInt(); val dy = (ay * size.height / output.height).roundToInt()
             scale(if (mirror) -1f else 1f, 1f, center) {
                 drawImage(movie, srcOffset, IntSize(sw, sh), IntOffset(dx, dy), IntSize(dw, dh), filterQuality = FilterQuality.Medium)
             }
