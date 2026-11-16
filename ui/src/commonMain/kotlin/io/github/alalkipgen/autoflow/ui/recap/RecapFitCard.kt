@@ -157,7 +157,7 @@ private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.R
         if (audio.bgm == null) {
             AfButton(tr(UiText.ADD_MUSIC), { if (idle) model.importBgm() })
         } else {
-            AfText("🎵 ${bgmName ?: "Music"}", size = 12.sp)
+            AfText("🎵 ${bgmName ?: tr(UiText.MUSIC_NAME)}", size = 12.sp)
             AfButton(tr(UiText.CHANGE), { if (idle) model.importBgm() })
             AfButton(tr(UiText.REMOVE), { if (idle) model.setAudio { it.copy(bgm = null) } }, kind = ButtonKind.Danger)
         }

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
@@ -16,11 +17,13 @@ import kotlin.math.*
  * Geometry/order/timing follow the native compiler; Gaussian, YUV conversion and text rasterization are approximate.
  * [output] remains the compiler's logical resolution even when the interactive surface is reduced to [maxEdge]. */
 internal class NativeFramePainter(private val measurer: TextMeasurer, private val family: FontFamily) {
-    fun problem(recap: RecapV2, images: Map<String, ImageBitmap>): String? {
-        recap.layers.firstNotNullOfOrNull { l -> LayerEdits.problem(l)?.let { "${l.id}: $it" } }?.let { return it }
+    fun problem(recap: RecapV2, images: Map<String, ImageBitmap>): String? = problemNotice(recap, images)?.text(UiLanguage.ENGLISH)
+
+    fun problemNotice(recap: RecapV2, images: Map<String, ImageBitmap>): UiNotice? {
+        recap.layers.firstNotNullOfOrNull { l -> LayerEdits.problem(l)?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to "${l.id}: $it") } }?.let { return it }
         val required = recap.layers.filter { it.type == LayerType.IMAGE || it.type == LayerType.BACKGROUND && it.params.mode == BackgroundMode.IMAGE }.mapNotNull { it.params.image } +
             listOfNotNull(recap.visual.watermarkFile, recap.visual.backgroundImageFile.takeIf { recap.visual.background == FrameBackground.IMAGE })
-        return required.firstOrNull { it !in images }?.let { "Image unavailable: $it. Native output preview cannot omit it; use Exact frame after restoring the image." }
+        return required.firstOrNull { it !in images }?.let { UiNotice(UiText.NATIVE_IMAGE_UNAVAILABLE, "file" to it) }
     }
 
     fun paint(source: ImageBitmap, recap: RecapV2, output: Output, timeMs: Long, cues: List<SrtCue>, images: Map<String, ImageBitmap>, maxEdge: Int = 640): ImageBitmap {

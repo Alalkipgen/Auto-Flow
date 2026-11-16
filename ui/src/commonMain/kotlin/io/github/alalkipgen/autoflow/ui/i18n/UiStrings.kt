@@ -1000,6 +1000,12 @@ enum class UiText(val en: String, val my: String?) {
     REGENERATING_SHOT("Regenerating shot {n}", "Shot {n} ပြန်ထုတ်နေသည်"),
     FINDING_BEATS("Finding beats", "Beat များ ရှာနေသည်"),
     CANCELLED_UNCHANGED("Cancelled. Nothing was changed.", "ပယ်ဖျက်ပြီး။ ဘာမှ မပြောင်းထားပါ။"),
+    LIBRARY_WATERMARK("Watermark: {name}", "ရေစာ: {name}"),
+    MUSIC_NAME("Music", "တေးဂီတ"),
+    MOVIE_FFMPEG_UNAVAILABLE("ffmpeg is not available, so the movie cannot be read.", "ffmpeg မရနိုင်သဖြင့် ရုပ်ရှင်ကို မဖတ်နိုင်ပါ။"),
+    TRANSCRIPTION_UNAVAILABLE("Transcription is not available here", "ဒီနေရာတွင် အသံမှ စာရေးစနစ် မရနိုင်ပါ"),
+    MOVIE_NO_SOUND_TO_TRANSCRIBE("This movie has no sound to transcribe.", "ဒီရုပ်ရှင်တွင် စာရေးယူရန် အသံ မပါပါ။"),
+    NATIVE_IMAGE_UNAVAILABLE("Image unavailable: {file}. Native output preview cannot omit it; use Exact frame after restoring the image.", "ပုံ မရနိုင်ပါ: {file}။ Native output preview တွင် ၎င်းကို ချန်ထား၍ မရပါ။ ပုံကို ပြန်ထည့်ပြီးနောက် တိကျသော frame ကို သုံးပါ။"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }

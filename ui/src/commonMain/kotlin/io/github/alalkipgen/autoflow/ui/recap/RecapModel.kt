@@ -289,7 +289,7 @@ class RecapModel(
         val runner = media?.runner
         val ffmpeg = media?.ffmpeg()
         val dir = session.open?.dir ?: return null
-        if (runner == null || ffmpeg == null) { say(NO_FFMPEG); return null }
+        if (runner == null || ffmpeg == null) { sayNotice(UiNotice(UiText.MOVIE_FFMPEG_UNAVAILABLE)); return null }
         if (_state.value.busy) return null
         return scope.launch {
             busyNotice(UiNotice(UiText.SCENES_FINDING), 0.0)
@@ -399,7 +399,7 @@ class RecapModel(
         val runner = media?.runner
         val ffmpeg = media?.ffmpeg()
         val dir = session.open?.dir ?: return null
-        if (runner == null || ffmpeg == null) { say(NO_FFMPEG); return null }
+        if (runner == null || ffmpeg == null) { sayNotice(UiNotice(UiText.MOVIE_FFMPEG_UNAVAILABLE)); return null }
         if (_state.value.busy) return null
         return scope.launch {
             busyNotice(UiNotice(UiText.SUBTITLE_EXTRACTING, "n" to track.index))
@@ -460,9 +460,9 @@ class RecapModel(
     fun transcribeScenes(confirmed: Boolean = false): Job? {
         val open = session.open ?: return null
         val recap = open.project.recap ?: return null
-        if (!scenesTx.available) { say(SceneTranscriber.UNAVAILABLE); return null }
+        if (!scenesTx.available) { sayNotice(UiNotice(UiText.TRANSCRIPTION_UNAVAILABLE)); return null }
         val movie = recap.movie ?: run { sayNotice(UiNotice(UiText.IMPORT_MOVIE_FIRST)); return null }
-        if (!movie.hasAudio) { say(SceneTranscriber.NO_SOUND); return null }
+        if (!movie.hasAudio) { sayNotice(UiNotice(UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val plan = scenesTx.plan(open.dir, recap) ?: return null
         if (plan.scenes.isEmpty()) {
