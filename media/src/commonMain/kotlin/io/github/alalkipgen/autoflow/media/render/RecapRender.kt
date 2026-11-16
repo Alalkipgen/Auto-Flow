@@ -94,6 +94,26 @@ object RecapRender {
         )
     }
 
+    /** The exact same native-v2 layout as [graph], including every clip, current take, Fit and missing files. */
+    fun timeline(
+        recap: RecapV2,
+        story: RecapStory,
+        takeFile: (BlockTake) -> String?,
+        output: Output,
+        lexicon: Lexicon = Lexicon.EMPTY,
+    ): RecapTimeline {
+        val placed = layout(recap, story, takeFile, lexicon)
+        val duration = recap.movie?.durationMs ?: 0
+        val clips = placed.flatMap { p ->
+            var at = p.startMs
+            p.clips.mapIndexed { ordinal, c ->
+                RecapTimelineClip(story.blocks[p.row.segment].id, ordinal, at, at + c.durationMs,
+                    c.inMs, p.row.videoSlow, duration).also { at += c.durationMs }
+            }
+        }
+        return RecapTimeline(clips, if (recap.burnCaptions) captions(placed, recap, story, output) else emptyList())
+    }
+
     /** v1 shape: [graph] of [Recap.toV2]. */
     fun graph(
         recap: Recap,
@@ -243,7 +263,8 @@ object RecapRender {
             if (text.isEmpty()) return@flatMap emptyList()
             val at = p.startMs + RecapFit.LEAD_MS
             CaptionChunks.timed(text, voiced.take.durationMs, recap.captions.chunkEdits[block.id], chars)
-                .map { it.copy(startMs = at + it.startMs, endMs = at + it.endMs) }
+                // SPEED changes the take's output time, not its persisted chunk edges. Match VoiceCue.atempo.
+                .map { it.copy(startMs = at + (it.startMs / p.row.voiceSpeed).toLong(), endMs = at + (it.endMs / p.row.voiceSpeed).toLong()) }
         }
     }
 
