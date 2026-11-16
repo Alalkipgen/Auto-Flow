@@ -69,18 +69,28 @@ private class VlcMoviePlayer(private val factory: MediaPlayerFactory, private va
     @Volatile private var problem: String? = null
     @Volatile private var displayWidth = 0
     @Volatile private var displayHeight = 0
+    @Volatile private var sourceWidth = 0
+    @Volatile private var sourceHeight = 0
     private var serial = 0L
+    private var pendingSeek: Long? = null
+    private var pendingRate = 1f
+    private var started = false
 
     init {
         val format = object : BufferFormatCallback {
-            override fun getBufferFormat(sourceWidth: Int, sourceHeight: Int): BufferFormat = RV32BufferFormat(sourceWidth, sourceHeight)
+            override fun getBufferFormat(sourceWidth: Int, sourceHeight: Int): BufferFormat {
+                this@VlcMoviePlayer.sourceWidth = sourceWidth; this@VlcMoviePlayer.sourceHeight = sourceHeight
+                // A preview decoder must not copy a 4K/8K native buffer 25-60 times per second into Compose.
+                val scale = minOf(1.0, 960.0 / maxOf(sourceWidth, sourceHeight).coerceAtLeast(1))
+                return RV32BufferFormat((sourceWidth * scale).toInt().coerceAtLeast(1), (sourceHeight * scale).toInt().coerceAtLeast(1))
+            }
             override fun allocatedBuffers(buffers: Array<ByteBuffer>) {}
         }
         val render = object : RenderCallback {
             override fun display(mediaPlayer: MediaPlayer, nativeBuffers: Array<ByteBuffer>, bufferFormat: BufferFormat) {
                 if (closed) return
-                val width = displayWidth.takeIf { it in 1..bufferFormat.width } ?: bufferFormat.width
-                val height = displayHeight.takeIf { it in 1..bufferFormat.height } ?: bufferFormat.height
+                val width = if (displayWidth > 0 && sourceWidth > 0) (displayWidth.toLong() * bufferFormat.width / sourceWidth).toInt().coerceIn(1, bufferFormat.width) else bufferFormat.width
+                val height = if (displayHeight > 0 && sourceHeight > 0) (displayHeight.toLong() * bufferFormat.height / sourceHeight).toInt().coerceIn(1, bufferFormat.height) else bufferFormat.height
                 val size = bufferFormat.width.toLong() * bufferFormat.height * 4
                 if (size !in 1..(8192L * 8192 * 4)) return
                 // Never expose/reuse libVLC's mutable native buffer on the UI thread.
@@ -105,13 +115,24 @@ private class VlcMoviePlayer(private val factory: MediaPlayerFactory, private va
     override fun setPlaying(playing: Boolean) = control {
         if (playing) player.controls().play() else player.controls().setPause(true)
     }
-    override fun seek(positionMs: Long) = control { player.controls().setTime(positionMs.coerceAtLeast(0)) }
+    override fun seek(positionMs: Long) = control {
+        if (started) player.controls().setTime(positionMs.coerceAtLeast(0))
+        else pendingSeek = positionMs.coerceAtLeast(0)
+    }
     override fun setRate(rate: Float) = control {
-        check(rate.isFinite() && rate in 0.1f..4f && player.controls().setRate(rate)) { "VLC could not apply playback speed" }
+        check(rate.isFinite() && rate in 0.1f..4f) { "Invalid playback speed" }
+        pendingRate = rate
+        if (started) check(player.controls().setRate(rate)) { "VLC could not apply playback speed" }
     }
     override fun snapshot(): MovieSnapshot = synchronized(lock) {
         if (closed) MovieSnapshot(phase = MoviePhase.CLOSED)
         else try {
+            if (phase == MoviePhase.PLAYING && !started) {
+                started = true
+                check(player.controls().setRate(pendingRate)) { "VLC could not apply playback speed" }
+                pendingSeek?.let { player.controls().setTime(it) }
+                pendingSeek = null
+            }
             MovieSnapshot(player.status().time().coerceAtLeast(0), player.status().length().coerceAtLeast(0), phase, problem)
         } catch (e: Throwable) { fail(e); MovieSnapshot(phase = phase, problem = problem) }
     }

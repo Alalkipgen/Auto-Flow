@@ -35,8 +35,7 @@ internal object RealFfmpeg {
         val f = ffmpeg; val p = ffprobe
         if (f != null && p != null) return f to p
         if (System.getenv("AUTOFLOW_EXPECT_FFMPEG") == "1") fail("AUTOFLOW_EXPECT_FFMPEG=1 but no ffmpeg / ffprobe")
-        println("SKIP $test: no ffmpeg / ffprobe binary")
-        return null
+        throw org.junit.AssumptionViolatedException("$test not executed: no ffmpeg / ffprobe binary")
     }
 
     fun run(cmd: List<String>, dir: File? = null, timeoutSec: Long = 300): Pair<Int, String> {

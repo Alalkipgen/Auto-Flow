@@ -30,6 +30,9 @@ kotlin {
             implementation(libs.jna)
             implementation(libs.jna.platform)
         }
+        named("androidMain").dependencies {
+            implementation(libs.media3.exoplayer) // existing Android player, same version; no second engine
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
