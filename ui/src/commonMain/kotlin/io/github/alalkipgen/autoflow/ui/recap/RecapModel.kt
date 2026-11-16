@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.storyboard.notice
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.retry.isBusy
 import io.github.alalkipgen.autoflow.ai.TtsProvider
@@ -73,6 +75,8 @@ data class RecapUiState(
     val progress: Double? = null,
     val message: String? = null,
     val messageOk: Boolean = false,
+    val notice: UiNotice? = null,
+    val jobNotice: UiNotice? = null,
     /** The current `rs` artifact, null when none or unreadable. */
     val script: RecapScript? = null,
     /**
@@ -192,13 +196,14 @@ class RecapModel(
     private val usage: io.github.alalkipgen.autoflow.ai.usage.UsageCounter? = null,
     /** Cuts the scenes' sound for Transcribe; null = ffmpeg from [media]. */
     sceneAudio: SceneAudioCutter? = null,
+    private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
     private val pronunciation: Lexicon get() = lexicons?.value ?: lexicon
     private val scenesTx = SceneTranscriber(session, fs, media, transcriber, sceneAudio, clock)
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
     val voiceSettings = RecapVoiceSettings(session, modelConfig, jobs, ::refresh)
-    val layerEditor = RecapLayerEditor(session, fs, picker, scope, ::refresh)
+    val layerEditor = RecapLayerEditor(session, fs, picker, scope, uiLanguage = uiLanguage, changed = ::refresh)
     val previewSource = RecapPreviewSource(session, fs, media)
     private val thumbs = Mutex()
     private var scriptJob: Job? = null
@@ -236,28 +241,30 @@ class RecapModel(
             progress = keep?.progress,
             message = keep?.message,
             messageOk = keep?.messageOk ?: false,
+            notice = keep?.notice,
+            jobNotice = keep?.jobNotice,
         )
     }
 
     /** Picks a movie file and streams it into `source/` (spec §2); clears scenes, script and takes. */
     fun importMovie(): Job? {
         val recap = recap() ?: return null
-        RecapRulesV2.canImportMovie(recap).blockers.firstOrNull()?.let { say(it.text()); return null }
-        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        RecapRulesV2.canImportMovie(recap).blockers.firstOrNull()?.let { sayNotice(it.notice()); return null }
+        val p = picker ?: run { sayNotice(UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE)); return null }
         if (_state.value.busy) return null
         return scope.launch {
-            val from = when (val r = p.pickFiles("Choose the movie", ProjectSession.MOVIE_EXTENSIONS)) {
+            val from = when (val r = p.pickFiles(UiText.PICK_RECAP_MOVIE.text(uiLanguage()), ProjectSession.MOVIE_EXTENSIONS)) {
                 is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
                 is PlatformResult.Failed -> return@launch say(r.reason)
                 is PlatformResult.Unsupported -> return@launch say(r.reason)
             }
-            busy("Copying the movie into the project…")
+            busyNotice(UiNotice(UiText.MOVIE_COPYING))
             val path = when (val r = withContext(Dispatchers.Default) { session.importMovie(from) }) {
                 is CoreResult.Ok -> r.value
                 is CoreResult.Err -> return@launch done(r.error.message)
             }
-            val info = probe(path) ?: return@launch done("The movie was copied, but it cannot be read (ffprobe). Is it a video file?")
-            if (!info.hasVideo || info.durationMs <= 0) return@launch done("This file has no video picture.")
+            val info = probe(path) ?: return@launch doneNotice(UiNotice(UiText.MOVIE_UNREADABLE))
+            if (!info.hasVideo || info.durationMs <= 0) return@launch doneNotice(UiNotice(UiText.MOVIE_NO_PICTURE))
             val dir = session.open?.dir ?: return@launch done(null)
             val movie = RecapMovie(
                 file = path.removePrefix(dir.trimEnd('/') + "/"),
@@ -269,15 +276,15 @@ class RecapModel(
             )
             val saved = update { it.copy(movie = movie, scenes = emptyList(), story = null, storyApproved = false, takes = emptyList()) }
             if (saved) _state.value = _state.value.copy(movieSubtitleTracks = info.subtitleTracks)
-            val trackHint = if (info.subtitleTracks.isNotEmpty()) " Found ${info.subtitleTracks.size} subtitle track(s)." else ""
-            done(if (saved) "Movie ready: ${clock(movie.durationMs)}.$trackHint Next: Find scenes." else null, ok = saved)
+            val trackHint = if (info.subtitleTracks.isNotEmpty()) UiNotice(UiText.MOVIE_TRACK_HINT, "n" to info.subtitleTracks.size) else ""
+            doneNotice(if (saved) UiNotice(UiText.MOVIE_READY, "duration" to clock(movie.durationMs), "tracks" to trackHint) else null, ok = saved)
         }
     }
 
     /** Runs `scdet` over the movie ([threshold]: [Scenes.THRESHOLD_MORE] … [Scenes.THRESHOLD_FEWER]). */
     fun findScenes(threshold: Int = Scenes.THRESHOLD_NORMAL): Job? {
         val recap = recap() ?: return null
-        RecapRulesV2.canFindScenes(recap).blockers.firstOrNull()?.let { say(it.text()); return null }
+        RecapRulesV2.canFindScenes(recap).blockers.firstOrNull()?.let { sayNotice(it.notice()); return null }
         val movie = recap.movie ?: return null
         val runner = media?.runner
         val ffmpeg = media?.ffmpeg()
@@ -285,16 +292,16 @@ class RecapModel(
         if (runner == null || ffmpeg == null) { say(NO_FFMPEG); return null }
         if (_state.value.busy) return null
         return scope.launch {
-            busy("Finding scenes…", 0.0)
+            busyNotice(UiNotice(UiText.SCENES_FINDING), 0.0)
             val r = SceneDetect(runner, ffmpeg).cuts(joinPath(dir, movie.file), movie.durationMs, threshold, dir) { f ->
                 _state.value = _state.value.copy(progress = f.coerceIn(0.0, 1.0))
             }
             when (r) {
-                is SceneDetect.Result.Failed -> done("Cannot find scenes: ${r.reason}")
+                is SceneDetect.Result.Failed -> doneNotice(UiNotice(UiText.SCENES_FIND_FAILED, "detail" to r.reason))
                 is SceneDetect.Result.Ok -> {
                     val scenes = Scenes.fromCuts(r.cutsMs, movie.durationMs, recap().orEmptyScenes())
                     val saved = update { it.copy(scenes = scenes, sceneThreshold = threshold, storyApproved = false) }
-                    done(if (saved) "Found ${scenes.size} scenes. Tick the ones to tell the story with." else null, ok = saved)
+                    doneNotice(if (saved) UiNotice(UiText.SCENES_FOUND, "n" to scenes.size) else null, ok = saved)
                 }
             }
         }
@@ -354,21 +361,21 @@ class RecapModel(
     /** Picks a `.srt` file and keeps it as `source/subtitles.srt` (UTF-8). */
     fun importSubtitles(): Job? {
         recap() ?: return null
-        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        val p = picker ?: run { sayNotice(UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE)); return null }
         if (_state.value.busy) return null
         return scope.launch {
-            val from = when (val r = p.pickFiles("Choose the subtitles (.srt)", setOf("srt"))) {
+            val from = when (val r = p.pickFiles(UiText.PICK_RECAP_SUBTITLES.text(uiLanguage()), setOf("srt"))) {
                 is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
                 is PlatformResult.Failed -> return@launch say(r.reason)
                 is PlatformResult.Unsupported -> return@launch say(r.reason)
             }
             val text = withContext(Dispatchers.Default) { session.readFile(from)?.decodeToString()?.removePrefix("\uFEFF") }
-                ?: return@launch say("Cannot read this file")
+                ?: return@launch sayNotice(UiNotice(UiText.CANNOT_READ_FILE))
             val cues = Srt.parse(text)
-            if (cues.isEmpty()) return@launch say("No subtitle lines were found in this file. Is it an .srt file?")
+            if (cues.isEmpty()) return@launch sayNotice(UiNotice(UiText.SUBTITLES_NONE))
             (session.writeSource(SUBTITLES_FILE, text) as? CoreResult.Err)?.let { return@launch say(it.error.message) }
             if (update { it.copy(sources = it.sources.copy(subtitles = "${ProjectSession.SOURCE_DIR}/$SUBTITLES_FILE")) }) {
-                done("Subtitles ready: ${cues.size} lines.", ok = true)
+                doneNotice(UiNotice(UiText.SUBTITLES_READY, "n" to cues.size), ok = true)
             }
         }
     }
@@ -388,14 +395,14 @@ class RecapModel(
      */
     fun extractSubtitleTrack(track: io.github.alalkipgen.autoflow.core.recap.SubtitleTrack): Job? {
         val recap = recap() ?: return null
-        val movie = recap.movie ?: run { say("Import the movie first"); return null }
+        val movie = recap.movie ?: run { sayNotice(UiNotice(UiText.IMPORT_MOVIE_FIRST)); return null }
         val runner = media?.runner
         val ffmpeg = media?.ffmpeg()
         val dir = session.open?.dir ?: return null
         if (runner == null || ffmpeg == null) { say(NO_FFMPEG); return null }
         if (_state.value.busy) return null
         return scope.launch {
-            busy("Extracting subtitle track ${track.index}…")
+            busyNotice(UiNotice(UiText.SUBTITLE_EXTRACTING, "n" to track.index))
             val moviePath = io.github.alalkipgen.autoflow.core.io.joinPath(dir, movie.file)
             val sourceDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, ProjectSession.SOURCE_DIR)
             val outPath = io.github.alalkipgen.autoflow.core.io.joinPath(sourceDir, SUBTITLES_FILE)
@@ -408,14 +415,14 @@ class RecapModel(
             if (r is io.github.alalkipgen.autoflow.media.tool.ToolExec.Done && r.exitCode == 0 && fs.exists(outPath)) {
                 val srtText = fs.read(outPath).decodeToString()
                 val cues = Srt.parse(srtText)
-                if (cues.isEmpty()) return@launch done("Track extracted but no subtitle lines found.")
+                if (cues.isEmpty()) return@launch doneNotice(UiNotice(UiText.SUBTITLE_TRACK_EMPTY))
                 (session.writeSource(SUBTITLES_FILE, srtText) as? CoreResult.Err)?.let { return@launch say(it.error.message) }
                 if (update { it.copy(sources = it.sources.copy(subtitles = "${ProjectSession.SOURCE_DIR}/$SUBTITLES_FILE", subtitleTrack = track.index)) }) {
-                    done("Extracted ${cues.size} subtitle lines from track ${track.index}.", ok = true)
+                    doneNotice(UiNotice(UiText.SUBTITLE_EXTRACTED, "n" to cues.size, "track" to track.index), ok = true)
                 }
             } else {
                 val msg = (r as? io.github.alalkipgen.autoflow.media.tool.ToolExec.Done)?.tail?.lastOrNull() ?: "ffmpeg failed"
-                done("Cannot extract subtitle track: $msg")
+                doneNotice(UiNotice(UiText.SUBTITLE_EXTRACT_FAILED, "detail" to msg))
             }
         }
     }
@@ -454,12 +461,12 @@ class RecapModel(
         val open = session.open ?: return null
         val recap = open.project.recap ?: return null
         if (!scenesTx.available) { say(SceneTranscriber.UNAVAILABLE); return null }
-        val movie = recap.movie ?: run { say("Import the movie first"); return null }
+        val movie = recap.movie ?: run { sayNotice(UiNotice(UiText.IMPORT_MOVIE_FIRST)); return null }
         if (!movie.hasAudio) { say(SceneTranscriber.NO_SOUND); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val plan = scenesTx.plan(open.dir, recap) ?: return null
         if (plan.scenes.isEmpty()) {
-            say(if (RecapRulesV2.pickedScenes(recap).isEmpty()) "Pick scenes first." else "Every picked scene already has subtitles or a transcript.")
+            sayNotice(UiNotice(if (RecapRulesV2.pickedScenes(recap).isEmpty()) UiText.PICK_SCENES_FIRST else UiText.SCENES_ALREADY_TRANSCRIBED))
             return null
         }
         if (!confirmed) {
@@ -471,7 +478,7 @@ class RecapModel(
             }
         }
         setTranscribe { it.copy(confirm = null) }
-        busy(TRANSCRIBING, 0.0)
+        busyNotice(UiNotice(UiText.TRANSCRIBING_PICKED), 0.0)
         val runner = jobs
         val items = plan.items
         return scope.launch {
@@ -484,8 +491,8 @@ class RecapModel(
                     return@launch followTranscribeJob(runner, open.dir, open.project, job)
                 }
                 for ((n, item) in items.withIndex()) {
-                    if (session.open?.dir != open.dir) return@launch done("Transcribe stopped: another project was opened ($n of ${items.size} requests done).")
-                    _state.value = _state.value.copy(job = "Transcribing: request ${n + 1} of ${items.size}…", progress = n.toDouble() / items.size)
+                    if (session.open?.dir != open.dir) return@launch doneNotice(UiNotice(UiText.TRANSCRIBE_PROJECT_CHANGED, "n" to n, "total" to items.size))
+                    _state.value = _state.value.copy(job = "Transcribing: request ${n + 1} of ${items.size}…", jobNotice = UiNotice(UiText.TRANSCRIBE_PROGRESS, "n" to n + 1, "total" to items.size), progress = n.toDouble() / items.size)
                     try {
                         scenesTx.runItem(open.dir, item)
                     } catch (e: kotlinx.coroutines.CancellationException) {
@@ -496,7 +503,7 @@ class RecapModel(
                     }
                 }
                 refresh()
-                done(transcribedMessage(), ok = true)
+                doneNotice(transcribedNotice(), ok = true)
             } finally {
                 if (_state.value.job != null) done(null)
             }
@@ -516,7 +523,7 @@ class RecapModel(
             scriptJob?.cancel()
             scriptJob = null
             refresh()
-            done("Transcribe stopped. Scenes already transcribed stay.")
+            doneNotice(UiNotice(UiText.TRANSCRIBE_STOPPED_KEEP))
         }
     }
 
@@ -526,7 +533,7 @@ class RecapModel(
         val runner = jobs ?: return null
         val job = _state.value.transcribe.job?.takeIf { it.project == open.dir && (it.state == AiJobState.FAILED || it.state == AiJobState.PAUSED) } ?: return null
         if (_state.value.busy || _state.value.recording != null) return null
-        busy(TRANSCRIBING, 0.0)
+        busyNotice(UiNotice(UiText.TRANSCRIBING_PICKED), 0.0)
         return scope.launch {
             try {
                 followTranscribeJob(runner, open.dir, open.project, job)
@@ -550,27 +557,27 @@ class RecapModel(
                 seen = j
                 val n = total - j.items.size
                 _state.value = _state.value.copy(
-                    job = "Transcribing: request ${minOf(n + 1, total)} of $total… (Jobs)", progress = n.toDouble() / total,
+                    job = "Transcribing: request ${minOf(n + 1, total)} of $total… (Jobs)", jobNotice = UiNotice(UiText.TRANSCRIBE_JOBS_PROGRESS, "n" to minOf(n + 1, total), "total" to total), progress = n.toDouble() / total,
                     transcribe = _state.value.transcribe.copy(job = j),
                 )
             }
             (j == null && seen != null) || j?.state in ENDED_JOB_STATES
         }
         val end = runner.jobs.value.firstOrNull { it.id == id }
-        if (left) return done("Transcribe goes on for ${project.name}: see Jobs.")
+        if (left) return doneNotice(UiNotice(UiText.TRANSCRIBE_BACKGROUND, "name" to project.name))
         setTranscribe { it.copy(job = end?.takeIf { e -> e.state !in FINISHED_JOB_STATES }) }
         refresh()
         when {
-            end == null || end.state == AiJobState.CANCELLED -> done("Transcribe cancelled. Scenes already transcribed stay.")
-            end.state == AiJobState.DONE -> done(transcribedMessage(), ok = true)
-            end.state == AiJobState.PAUSED -> done(end.error ?: "Gemini is busy. Retry later: only the scenes left are sent.")
-            else -> done((end.error ?: "Transcribe stopped.") + " Retry sends only the scenes left.")
+            end == null || end.state == AiJobState.CANCELLED -> doneNotice(UiNotice(UiText.TRANSCRIBE_CANCELLED_KEEP))
+            end.state == AiJobState.DONE -> doneNotice(transcribedNotice(), ok = true)
+            end.state == AiJobState.PAUSED -> doneNotice(end.error?.let(::diagnostic) ?: UiNotice(UiText.TRANSCRIBE_RETRY_BUSY))
+            else -> doneNotice(UiNotice(UiText.TRANSCRIBE_RETRY_DETAIL, "detail" to (end.error?.let(::diagnostic) ?: UiNotice(UiText.TRANSCRIBE_STOPPED))))
         }
     }
 
-    private fun transcribedMessage(): String {
+    private fun transcribedNotice(): UiNotice {
         val t = _state.value.transcribe
-        return "Transcribed: ${t.lines} lines from ${t.transcribedScenes} scene(s). The script writer uses them like subtitles."
+        return UiNotice(UiText.TRANSCRIBE_FINISHED, "lines" to t.lines, "scenes" to t.transcribedScenes)
     }
 
     /** One TRANSCRIBE job item of the project in [dir] ([RecapJobProcessor], both platforms); see [SceneTranscriber.runItem]. */
@@ -614,8 +621,8 @@ class RecapModel(
         // 5B-1: transcribed scene lines are used like `.srt` lines (spec §7, ≤ 600 characters per scene).
         val transcript = session.open?.dir?.let { scenesTx.transcriptOf(it, recap) }?.takeIf { it.lines.isNotEmpty() }
         val gate = RecapRulesV2.canGenerateScript(recap, summary, if (cues.isEmpty() && transcript == null) "" else "srt")
-        gate.blockers.firstOrNull()?.let { say(it.text()); return null }
-        val gen = generator ?: run { say("Gemini is not available here"); return null }
+        gate.blockers.firstOrNull()?.let { sayNotice(it.notice()); return null }
+        val gen = generator ?: run { sayNotice(UiNotice(UiText.GEMINI_UNAVAILABLE)); return null }
         if (_state.value.busy) return null
         val picked = RecapRulesV2.pickedScenes(recap)
         val characters = project()?.characters.orEmpty()
@@ -635,7 +642,7 @@ class RecapModel(
             hookStyle = recap.hookStyle,
             creditLine = recap.creditLine,
         )
-        busy(WRITING)
+        busyNotice(UiNotice(UiText.SCRIPT_WRITING))
         return scope.launch {
             try {
                 when (val r = gen.write(brief)) {
@@ -648,10 +655,10 @@ class RecapModel(
                             )
                         }
                         val saved = saveStory(RecapStory(source = RecapStory.SOURCE_GEMINI, style = _style, register = _register, blocks = blocks))
-                        done(if (saved) "✨ Script written: ${blocks.size} segments. Read and fix them, then ✓ Approve." else null, ok = saved)
+                        doneNotice(if (saved) UiNotice(UiText.SCRIPT_WRITTEN, "n" to blocks.size) else null, ok = saved)
                     }
                     is AiResult.RateLimited -> done(RATE_LIMITED)
-                    is AiResult.Failed -> done("Gemini: ${r.msg}")
+                    is AiResult.Failed -> doneNotice(UiNotice(UiText.GEMINI_DETAIL, "detail" to r.msg))
                     is AiResult.Deferred -> done(r.instruction)
                 }
             } finally {
@@ -664,13 +671,13 @@ class RecapModel(
     fun cancelScript() {
         scriptJob?.cancel()
         scriptJob = null
-        done("Stopped. The script did not change.")
+        doneNotice(UiNotice(UiText.SCRIPT_STOPPED_UNCHANGED))
     }
 
     /** ✎ Write it myself: a story with one empty block per picked scene. */
     fun writeManually(): Boolean {
         val recap = recap() ?: return false
-        RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let { say(it.text()); return false }
+        RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let { sayNotice(it.notice()); return false }
         val picked = RecapRulesV2.pickedScenes(recap)
         val blocks = picked.mapIndexed { i, scene ->
             io.github.alalkipgen.autoflow.core.recap.RecapBlock(
@@ -706,11 +713,11 @@ class RecapModel(
         val recap = recap() ?: return false
         val block = currentStory()?.blocks?.getOrNull(index) ?: return false
         val start = startMs.coerceAtLeast(0L)
-        if (endMs <= start) { say("End must be after start"); return false }
+        if (endMs <= start) { sayNotice(UiNotice(UiText.CAPTION_END_AFTER_START)); return false }
         val take = recap.takeFor(block.id)
-        if (take != null && endMs > take.durationMs) { say("End must be inside the voice (${seconds(take.durationMs)})"); return false }
+        if (take != null && endMs > take.durationMs) { sayNotice(UiNotice(UiText.CAPTION_END_INSIDE_VOICE, "duration" to seconds(take.durationMs))); return false }
         val saved = update { it.copy(captions = it.captions.copy(chunkEdits = it.captions.chunkEdits + (block.id to listOf(start, endMs)))) }
-        if (saved) say("Caption timing saved")
+        if (saved) sayNotice(UiNotice(UiText.CAPTION_TIMING_SAVED))
         return saved
     }
 
@@ -726,7 +733,7 @@ class RecapModel(
     fun approveScript(): Boolean {
         val recap = recap() ?: return false
         val story = currentStory()
-        RecapRulesV2.canApproveScript(recap, story).blockers.firstOrNull()?.let { say(it.text()); return false }
+        RecapRulesV2.canApproveScript(recap, story).blockers.firstOrNull()?.let { sayNotice(it.notice()); return false }
         return update { it.copy(storyApproved = true) }
     }
 
@@ -780,7 +787,7 @@ class RecapModel(
 
     /** ● Record segment [index] into the project's `.cache/` (stopped with [stopRecording]). */
     fun startRecording(index: Int): Job? {
-        val rec = recorder ?: run { say("Recording is not available here; use Import file"); return null }
+        val rec = recorder ?: run { sayNotice(UiNotice(UiText.RECORDING_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val target = voiceTarget(index) ?: return null
         val path = cachePath(target.dir, "rec-${target.blockId}.${rec.extension}") ?: return null
@@ -788,7 +795,7 @@ class RecapModel(
             when (val r = rec.start(path)) {
                 is PlatformResult.Ok -> {
                     recordingInto = target to path
-                    _state.value = _state.value.copy(recording = index, message = "● Recording #${index + 1}… read: ${target.spoken}", messageOk = true)
+                    _state.value = _state.value.copy(recording = index, message = "● Recording #${index + 1}… read: ${target.spoken}", notice = UiNotice(UiText.RECORDING_READ, "n" to index + 1, "text" to target.spoken), messageOk = true)
                 }
                 is PlatformResult.Failed -> say(r.reason)
                 is PlatformResult.Unsupported -> say(r.reason)
@@ -810,36 +817,36 @@ class RecapModel(
                 is PlatformResult.Unsupported -> return@launch say(r.reason)
             }
             val bytes = withContext(Dispatchers.Default) { session.readFile(path) }?.takeIf { it.isNotEmpty() }
-                ?: return@launch say("The recording is empty")
+                ?: return@launch sayNotice(UiNotice(UiText.RECORDING_EMPTY))
             val duration = durationOf(path, bytes) ?: ms
             saveTake(target, bytes, rec.extension, TakeSource.RECORDED, duration, Provenance.UNKNOWN)
-                ?.let { say(it) } ?: say("Saved #${index + 1}: ${seconds(duration)}.").also { ok() }
+                ?.let { say(it) } ?: sayNotice(UiNotice(UiText.VOICE_SAVED, "n" to index + 1, "duration" to seconds(duration))).also { ok() }
         }
     }
 
     fun cancelRecording() {
         recorder?.cancel()
         recordingInto = null
-        _state.value = _state.value.copy(recording = null, message = null)
+        _state.value = _state.value.copy(recording = null, message = null, notice = null)
     }
 
     /** Import file: any audio file becomes the segment's newest take. */
     fun importTake(index: Int): Job? {
-        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        val p = picker ?: run { sayNotice(UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val target = voiceTarget(index) ?: return null
         return scope.launch {
-            val from = when (val r = p.pickFiles("Choose the narration for scene ${index + 1}", AUDIO_EXTENSIONS)) {
+            val from = when (val r = p.pickFiles(UiText.PICK_RECAP_NARRATION.text(uiLanguage(), "n" to index + 1), AUDIO_EXTENSIONS)) {
                 is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
                 is PlatformResult.Failed -> return@launch say(r.reason)
                 is PlatformResult.Unsupported -> return@launch say(r.reason)
             }
             val bytes = withContext(Dispatchers.Default) { session.readFile(from) }?.takeIf { it.isNotEmpty() }
-                ?: return@launch say("Cannot read this file")
-            val duration = durationOf(from, bytes) ?: return@launch say("This file has no sound that can be read (ffprobe).")
+                ?: return@launch sayNotice(UiNotice(UiText.CANNOT_READ_FILE))
+            val duration = durationOf(from, bytes) ?: return@launch sayNotice(UiNotice(UiText.AUDIO_UNREADABLE))
             val ext = from.substringAfterLast('.', "m4a").lowercase().takeIf { it in AUDIO_EXTENSIONS } ?: "m4a"
             saveTake(target, bytes, ext, TakeSource.RECORDED, duration, Provenance.UNKNOWN)
-                ?.let { say(it) } ?: say("Saved #${index + 1}: ${seconds(duration)}.").also { ok() }
+                ?.let { say(it) } ?: sayNotice(UiNotice(UiText.VOICE_SAVED, "n" to index + 1, "duration" to seconds(duration))).also { ok() }
         }
     }
 
@@ -893,16 +900,16 @@ class RecapModel(
 
     /** 🔊 one segment with Gemini TTS. */
     fun speak(index: Int): Job? {
-        if (tts == null) { say("Text to speech is not available here"); return null }
+        if (tts == null) { sayNotice(UiNotice(UiText.TTS_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val target = voiceTarget(index) ?: return null
         val lock = recap()?.voiceLock
         val style = currentStory()?.style ?: _style
-        busy("Speaking #${index + 1}…")
+        busyNotice(UiNotice(UiText.VOICE_SPEAKING_ONE, "n" to index + 1))
         return scope.launch {
             try {
                 val msg = speakInto(target, lock, style)
-                done(msg ?: "Spoken #${index + 1}.", ok = msg == null)
+                doneNotice(msg?.let(::diagnostic) ?: UiNotice(UiText.VOICE_SPOKEN_ONE, "n" to index + 1), ok = msg == null)
             } finally {
                 if (_state.value.job != null) done(null)
             }
@@ -925,8 +932,8 @@ class RecapModel(
         val open = session.open ?: return null
         val recap = open.project.recap ?: return null
         val story = currentStory()
-        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { say(it.text()); return null }
-        if (tts == null) { say("Text to speech is not available here"); return null }
+        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { sayNotice(it.notice()); return null }
+        if (tts == null) { sayNotice(UiNotice(UiText.TTS_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         val lexicon = pronunciation
         val todo = story!!.blocks.withIndex().filter { (_, b) ->
@@ -935,7 +942,7 @@ class RecapModel(
                     (includeDifferentVoice && it.voiceStatus(recap.voiceLock) in setOf(TakeVoiceStatus.DIFFERENT, TakeVoiceStatus.UNKNOWN))
             }
         }.map { it.index }
-        if (todo.isEmpty()) { say("Every scene already has its voice."); return null }
+        if (todo.isEmpty()) { sayNotice(UiNotice(UiText.VOICE_ALL_READY)); return null }
         // Show ETA card first; user confirms before the loop starts (5A-5).
         if (!confirmed) {
             val etaSec = todo.size * 60L / TTS_RPM // spec §5: remaining items × 60 / rpm
@@ -943,15 +950,15 @@ class RecapModel(
             return null
         }
         _state.value = _state.value.copy(speakAllEta = null)
-        busy("Speaking…", 0.0)
+        busyNotice(UiNotice(UiText.VOICE_SPEAKING), 0.0)
         val blocks = todo.map { story.blocks[it].id }
         val runner = jobs
         return scope.launch {
             try {
                 if (runner != null) return@launch followSpeakAllJob(runner, open.dir, open.project, blocks)
                 for ((n, id) in blocks.withIndex()) {
-                    if (session.open?.dir != open.dir) return@launch done("Speak All stopped: another project was opened ($n of ${blocks.size} spoken).")
-                    _state.value = _state.value.copy(job = "Speaking #${todo[n] + 1} (${n + 1} of ${blocks.size})…", progress = n.toDouble() / blocks.size)
+                    if (session.open?.dir != open.dir) return@launch doneNotice(UiNotice(UiText.VOICE_PROJECT_CHANGED, "n" to n, "total" to blocks.size))
+                    _state.value = _state.value.copy(job = "Speaking #${todo[n] + 1} (${n + 1} of ${blocks.size})…", jobNotice = UiNotice(UiText.VOICE_PROGRESS, "scene" to todo[n] + 1, "n" to n + 1, "total" to blocks.size), progress = n.toDouble() / blocks.size)
                     try {
                         speakJobItem(open.dir, id)
                     } catch (e: kotlinx.coroutines.CancellationException) {
@@ -960,7 +967,7 @@ class RecapModel(
                         return@launch done(e.message)
                     }
                 }
-                done("🔊 Spoken ${blocks.size} scenes.", ok = true)
+                doneNotice(UiNotice(UiText.VOICE_SPOKEN_COUNT, "n" to blocks.size), ok = true)
             } finally {
                 if (_state.value.job != null) done(null)
             }
@@ -983,16 +990,16 @@ class RecapModel(
             if (session.open?.dir != dir) { left = true; return@first true }
             j?.let {
                 val n = blocks.size - it.items.size
-                _state.value = _state.value.copy(job = "Speaking ${n + 1} of ${blocks.size}… (Jobs)", progress = n.toDouble() / blocks.size)
+                _state.value = _state.value.copy(job = "Speaking ${n + 1} of ${blocks.size}… (Jobs)", jobNotice = UiNotice(UiText.VOICE_JOBS_PROGRESS, "n" to n + 1, "total" to blocks.size), progress = n.toDouble() / blocks.size)
             }
             (j == null && seen != null) || j?.state in ENDED_JOB_STATES
         }
         val end = runner.jobs.value.firstOrNull { it.id == id }
         when {
-            left -> done("Speak All goes on for ${project.name}: see Jobs.")
-            end == null -> done("Speak All cancelled.")
-            end.state == AiJobState.DONE -> done("🔊 Spoken ${blocks.size} scenes.", ok = true)
-            else -> done(end.error ?: "Speak All stopped (${end.state}).")
+            left -> doneNotice(UiNotice(UiText.VOICE_BACKGROUND, "name" to project.name))
+            end == null -> doneNotice(UiNotice(UiText.VOICE_CANCELLED))
+            end.state == AiJobState.DONE -> doneNotice(UiNotice(UiText.VOICE_SPOKEN_COUNT, "n" to blocks.size), ok = true)
+            else -> doneNotice(end.error?.let(::diagnostic) ?: UiNotice(UiText.VOICE_STOPPED, "state" to end.state))
         }
     }
 
@@ -1072,10 +1079,10 @@ class RecapModel(
         val open = session.open ?: return null
         val recap = open.project.recap ?: return null
         val story = currentStory()
-        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { say(it.text()); return null }
-        val block = story!!.blocks.getOrNull(index) ?: run { say("Scene ${index + 1} is not in the script"); return null }
+        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { sayNotice(it.notice()); return null }
+        val block = story!!.blocks.getOrNull(index) ?: run { sayNotice(UiNotice(UiText.SCENE_NOT_IN_SCRIPT, "n" to index + 1)); return null }
         val spoken = SpokenText.of(block, pronunciation)
-        if (spoken.isEmpty()) { say("Scene ${index + 1} has no narration text"); return null }
+        if (spoken.isEmpty()) { sayNotice(UiNotice(UiText.SCENE_NO_NARRATION, "n" to index + 1)); return null }
         return VoiceTarget(open.dir, open.project.id, block.id, spoken, RecapRules.textHash(spoken), recap.audio.trimSilence)
     }
 
@@ -1182,21 +1189,21 @@ class RecapModel(
 
     /** Picks a music file and keeps it as the background music (an `au` artifact; the old one stays on disk). */
     fun importBgm(): Job? {
-        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        val p = picker ?: run { sayNotice(UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         return scope.launch {
-            val from = when (val r = p.pickFiles("Choose the background music", AUDIO_EXTENSIONS)) {
+            val from = when (val r = p.pickFiles(UiText.PICK_RECAP_MUSIC.text(uiLanguage()), AUDIO_EXTENSIONS)) {
                 is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
                 is PlatformResult.Failed -> return@launch say(r.reason)
                 is PlatformResult.Unsupported -> return@launch say(r.reason)
             }
             val bytes = withContext(Dispatchers.Default) { session.readFile(from) }?.takeIf { it.isNotEmpty() }
-                ?: return@launch say("Cannot read this file")
+                ?: return@launch sayNotice(UiNotice(UiText.CANNOT_READ_FILE))
             val ext = from.substringAfterLast('.', "m4a").lowercase().takeIf { it in AUDIO_EXTENSIONS } ?: "m4a"
-            val store = session.artifacts() ?: return@launch say("No project is open")
+            val store = session.artifacts() ?: return@launch sayNotice(UiNotice(UiText.NO_PROJECT_IS_OPEN))
             val name = from.substringAfterLast('/').substringAfterLast('\\')
             when (val r = store.put(bytes, io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, ext, inputs = mapOf("role" to "bgm", BGM_NAME_INPUT to name), provider = "imported")) {
-                is CoreResult.Ok -> if (update { it.copy(audio = it.audio.copy(bgm = r.value.id)) }) { say("Background music: $name"); ok() }
+                is CoreResult.Ok -> if (update { it.copy(audio = it.audio.copy(bgm = r.value.id)) }) { sayNotice(UiNotice(UiText.BGM_SET, "name" to name)); ok() }
                 is CoreResult.Err -> say(r.error.message)
             }
         }
@@ -1258,14 +1265,14 @@ class RecapModel(
      * Copies any logo/watermark from the project's `library/` folder.
      */
     fun saveBrandKit(name: String) {
-        library?.saveBrandKit(name) ?: say("Library is not available")
+        library?.saveBrandKit(name) ?: sayNotice(UiNotice(UiText.LIBRARY_UNAVAILABLE))
     }
 
     /**
      * Apply a Library Brand Kit to this project: copies files and restores caption style (5B-3).
      */
     fun applyBrandKit(id: String) {
-        library?.applyBrandKit(id) ?: say("Library is not available")
+        library?.applyBrandKit(id) ?: sayNotice(UiNotice(UiText.LIBRARY_UNAVAILABLE))
         refresh()
     }
 
@@ -1276,18 +1283,18 @@ class RecapModel(
      * Copies the file into the project's `source/` folder and stores it as an `au` artifact.
      */
     fun setBgmFromLibrary(musicId: String): Job? {
-        val lib = library ?: run { say("Library is not available"); return null }
+        val lib = library ?: run { sayNotice(UiNotice(UiText.LIBRARY_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         return scope.launch {
             val path = lib.applyMusicAsBgm(musicId) ?: return@launch
             val bytes = withContext(Dispatchers.Default) { session.readFile(path) }?.takeIf { it.isNotEmpty() }
-                ?: return@launch say("Cannot read the music file")
+                ?: return@launch sayNotice(UiNotice(UiText.MUSIC_UNREADABLE))
             val name = path.substringAfterLast('/')
-            val store = session.artifacts() ?: return@launch say("No project is open")
+            val store = session.artifacts() ?: return@launch sayNotice(UiNotice(UiText.NO_PROJECT_IS_OPEN))
             when (val r = store.put(bytes, io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, path.substringAfterLast('.', "m4a"),
                 inputs = mapOf("role" to "bgm", BGM_NAME_INPUT to name), provider = "library")) {
                 is io.github.alalkipgen.autoflow.core.CoreResult.Ok ->
-                    if (update { it.copy(audio = it.audio.copy(bgm = r.value.id)) }) say("Background music: $name", )
+                    if (update { it.copy(audio = it.audio.copy(bgm = r.value.id)) }) sayNotice(UiNotice(UiText.BGM_SET, "name" to name))
                 is io.github.alalkipgen.autoflow.core.CoreResult.Err -> say(r.error.message)
             }
         }
@@ -1300,29 +1307,29 @@ class RecapModel(
      * Copies the file into the project's `library/` folder and sets `recap.visual.backgroundImageFile`.
      */
     fun importBackgroundImage(): Job? {
-        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        val p = picker ?: run { sayNotice(UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         return scope.launch {
-            val from = when (val r = p.pickFiles("Choose the background image", IMAGE_EXTENSIONS)) {
+            val from = when (val r = p.pickFiles(UiText.PICK_RECAP_BACKGROUND.text(uiLanguage()), IMAGE_EXTENSIONS)) {
                 is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
                 is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> return@launch say(r.reason)
                 is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> return@launch say(r.reason)
             }
             val bytes = withContext(Dispatchers.Default) { session.readFile(from) }?.takeIf { it.isNotEmpty() }
-                ?: return@launch say("Cannot read this file")
-            val dir = session.open?.dir ?: return@launch say("No project is open")
+                ?: return@launch sayNotice(UiNotice(UiText.CANNOT_READ_FILE))
+            val dir = session.open?.dir ?: return@launch sayNotice(UiNotice(UiText.NO_PROJECT_IS_OPEN))
             val libDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, "library")
             val name = from.substringAfterLast('/').substringAfterLast('\\')
             val dest = io.github.alalkipgen.autoflow.core.io.joinPath(libDir, name)
             runCatching { fs.createDirectories(libDir); fs.writeDurably(dest, bytes) }
-                .onFailure { return@launch say("Cannot save the image: ${it.message}") }
+                .onFailure { return@launch sayNotice(UiNotice(UiText.IMAGE_SAVE_FAILED, "detail" to it.message)) }
             // Store path relative to project dir
             val rel = "library/$name"
             update { it.copy(visual = it.visual.copy(
                 background = io.github.alalkipgen.autoflow.core.recap.FrameBackground.IMAGE,
                 backgroundImageFile = dest,
             )) }
-            say("Background image set: $name", )
+            sayNotice(UiNotice(UiText.BACKGROUND_SET, "name" to name))
         }
     }
 
@@ -1337,25 +1344,25 @@ class RecapModel(
         if (_state.value.busy || _state.value.recording != null) return null
         val recap = recap() ?: return null
         val open = session.open ?: return null
-        val block = currentStory()?.blocks?.getOrNull(index) ?: return say("Scene ${index + 1} is not in the script").let { null }
+        val block = currentStory()?.blocks?.getOrNull(index) ?: return sayNotice(UiNotice(UiText.SCENE_NOT_IN_SCRIPT, "n" to index + 1)).let { null }
         val take = RecapRulesV2.currentTakeFor(recap, block.id)
-            ?: return say("No take for this block").let { null }
+            ?: return sayNotice(UiNotice(UiText.BLOCK_NO_TAKE)).let { null }
         val artifactFile = (ArtifactStore(fs, open.dir).get(take.audio) as? CoreResult.Ok)?.value?.file
-            ?: return say("Take file not found").let { null }
+            ?: return sayNotice(UiNotice(UiText.TAKE_MISSING)).let { null }
         val file = joinPath(joinPath(open.dir, ArtifactStore.ARTIFACTS_DIR), artifactFile)
-        if (!fs.exists(file)) return say("Take file not found").let { null }
+        if (!fs.exists(file)) return sayNotice(UiNotice(UiText.TAKE_MISSING)).let { null }
         val target = VoiceTarget(open.dir, open.project.id, block.id, SpokenText.of(block, pronunciation), take.spokenHash, trimSilence = true)
         val made = Provenance(take.provider, take.model, take.voice)
         return scope.launch {
-            busy("Cleaning take ${ index + 1 }…")
+            busyNotice(UiNotice(UiText.TAKE_CLEANING, "n" to index + 1))
             val bytes = withContext(Dispatchers.Default) { runCatching { fs.read(file) }.getOrNull() }
-                ?: return@launch done("Cannot read take file")
+                ?: return@launch doneNotice(UiNotice(UiText.TAKE_UNREADABLE))
             val ext = file.substringAfterLast('.', "wav")
             val (cleaned, cleanExt, cleanMs) = trimPauses(target, bytes, ext, take.durationMs)
-            if (cleaned === bytes) return@launch done("Nothing was cut (ffmpeg is missing or there are no long pauses)")
+            if (cleaned === bytes) return@launch doneNotice(UiNotice(UiText.TAKE_NOT_TRIMMED))
             val source = if (take.source == TakeSource.RECORDED) TakeSource.RECORDED else TakeSource.POLISHED
             storeTake(target, cleaned, cleanExt, source, cleanMs, made)?.let { return@launch done(it) }
-            done("Take ${ index + 1 } cleaned: silence trimmed", ok = true)
+            doneNotice(UiNotice(UiText.TAKE_CLEANED, "n" to index + 1), ok = true)
         }
     }
 
@@ -1366,26 +1373,26 @@ class RecapModel(
      * The file is also picked up by [saveBrandKit] the next time the Brand Kit is saved.
      */
     fun importWatermark(): Job? {
-        val p = picker ?: run { say("Choosing files is not available here"); return null }
+        val p = picker ?: run { sayNotice(UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
         return scope.launch {
-            val from = when (val r = p.pickFiles("Choose a watermark / logo image", IMAGE_EXTENSIONS)) {
+            val from = when (val r = p.pickFiles(UiText.PICK_RECAP_WATERMARK.text(uiLanguage()), IMAGE_EXTENSIONS)) {
                 is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
                 is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> return@launch say(r.reason)
                 is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> return@launch say(r.reason)
             }
             val bytes = withContext(Dispatchers.Default) { session.readFile(from) }?.takeIf { it.isNotEmpty() }
-                ?: return@launch say("Cannot read this file")
-            val dir = session.open?.dir ?: return@launch say("No project is open")
+                ?: return@launch sayNotice(UiNotice(UiText.CANNOT_READ_FILE))
+            val dir = session.open?.dir ?: return@launch sayNotice(UiNotice(UiText.NO_PROJECT_IS_OPEN))
             val libDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, "library")
             val ext = from.substringAfterLast('.', "png").lowercase().let { if (it in setOf("png","jpg","jpeg")) it else "png" }
             val destName = "watermark.$ext"
             val dest = io.github.alalkipgen.autoflow.core.io.joinPath(libDir, destName)
             runCatching { fs.createDirectories(libDir); fs.writeDurably(dest, bytes) }
-                .onFailure { return@launch say("Cannot save the watermark: ${it.message}") }
+                .onFailure { return@launch sayNotice(UiNotice(UiText.WATERMARK_SAVE_FAILED, "detail" to it.message)) }
             val rel = "library/$destName"
             update { it.copy(visual = it.visual.copy(watermarkFile = rel)) }
-            say("Watermark set: $destName", )
+            sayNotice(UiNotice(UiText.WATERMARK_SET, "name" to destName))
         }
     }
 
@@ -1442,7 +1449,7 @@ class RecapModel(
      * Save the current caption style as a Library preset (5B-8).
      */
     fun saveCaptionPreset(name: String) {
-        library?.saveCaptionPreset(name) ?: say("Library is not available")
+        library?.saveCaptionPreset(name) ?: sayNotice(UiNotice(UiText.LIBRARY_UNAVAILABLE))
     }
 
     private suspend fun durationOf(path: String, bytes: ByteArray): Long? =
@@ -1492,17 +1499,24 @@ class RecapModel(
         (MediaProbe(runner, ffprobe).probe(path, MediaTools.parentOf(path)) as? MediaProbe.Result.Ok)?.info
     }
 
-    internal fun busy(job: String, progress: Double? = null) {
-        _state.value = _state.value.copy(job = job, progress = progress, message = null)
+    private fun diagnostic(detail: String): UiNotice = UiNotice(UiText.RESULT_DETAIL, "detail" to detail)
+
+    internal fun busy(job: String, progress: Double? = null) = busyNotice(diagnostic(job), progress)
+    internal fun busyNotice(notice: UiNotice, progress: Double? = null) {
+        _state.value = _state.value.copy(job = notice.text(UiLanguage.ENGLISH), jobNotice = notice, progress = progress, message = null, notice = null)
     }
 
-    internal fun done(message: String?, ok: Boolean = false) {
+    internal fun done(message: String?, ok: Boolean = false) = doneNotice(message?.let(::diagnostic), ok)
+    internal fun doneNotice(notice: UiNotice?, ok: Boolean = false) {
         refresh()
-        _state.value = _state.value.copy(job = null, progress = null, message = message ?: _state.value.message, messageOk = ok && message != null)
+        _state.value = _state.value.copy(job = null, jobNotice = null, progress = null,
+            message = notice?.text(UiLanguage.ENGLISH) ?: _state.value.message,
+            notice = notice ?: _state.value.notice, messageOk = ok && notice != null)
     }
 
-    internal fun say(message: String?) {
-        _state.value = _state.value.copy(message = message, messageOk = false)
+    internal fun say(message: String?) = sayNotice(message?.let(::diagnostic))
+    internal fun sayNotice(notice: UiNotice?) {
+        _state.value = _state.value.copy(message = notice?.text(UiLanguage.ENGLISH), notice = notice, messageOk = false)
     }
 
     companion object {

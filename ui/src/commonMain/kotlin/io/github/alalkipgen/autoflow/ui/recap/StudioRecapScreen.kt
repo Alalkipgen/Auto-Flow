@@ -101,8 +101,8 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     }
     ProjectPanes(windowWidthDp, list = list, editor = {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            state.job?.let { AfText("⏳ $it", color = AutoFlowColors.Cyan) }
-            state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
+            state.job?.let { AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: it}", color = AutoFlowColors.Cyan) }
+            state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
             if (!wide && step != RecapStep.SOURCE && blocks.isNotEmpty()) {
                 WrapRow { blocks.forEachIndexed { i, b -> AfChip("#${i + 1}", i == selectedIndex, { selectedId = b.id }, Modifier.heightIn(min = 48.dp).testTag("block-select-$i")) } }
             }

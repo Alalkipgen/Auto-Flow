@@ -183,7 +183,7 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
     val job = t.job
     when {
         running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText(state.job.orEmpty(), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: state.job.orEmpty(), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
             AfButton(tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
         }
         confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
