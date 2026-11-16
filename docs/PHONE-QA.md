@@ -1,6 +1,6 @@
 # One consolidated Studio v2 phone-QA session
 
-Status: **PHONE_PENDING**. No physical-phone results from the November 16 follow-up have been recorded.
+Status: **RESTORE FAIL reported; fixed-device retest PHONE_PENDING**. Other acceptance rows remain pending.
 Run this once after the combined QA APK is ready, not after every milestone. JVM tests, Compose desktop screenshots,
 fake providers, simulated executor reconstruction and emulator runs do **not** close these rows.
 
@@ -34,6 +34,19 @@ order and output-time activation. Legacy movie-mask placement stays a clearly se
 Exact Frame/export at the same output ms; Gaussian/text/YUV rasterization is approximate, not bit-identical. This is
 the combined installation for the owner’s **one final QA session**, not an install per PR. Verify that this exact source
 run’s checks are green before installing. Physical-phone/emulator and owner-PC acceptance remain pending.
+
+### Reported restore failure — owner evidence, not an agent-executed test
+
+- Installed `io.github.alalkipgen.autoflow`, `0.4.2`, versionCode `559`, source
+  `4e95a7bc5c6b9f22a2a1cab08164692eeaa0f68c`, stable signing.
+- Xiaomi `2312DRA50C` (`garnet`), Android 16 / SDK 36, `arm64-v8a`.
+- **FAIL:** restoring `qa-fixture/AutoFlow-5A8-synthetic-backup.zip` crashed with
+  `NoSuchMethodError: Files.readString(Path)` at `ProjectZip.checkProject(ProjectZip.kt:210)`,
+  via `ProjectZip.restore` and `AndroidProjectBackup.restore`.
+- Bundled ffmpeg concat / Burmese ASS / 1080p audio-mixed self-tests were reported **PASS**.
+  This is restore failure evidence, not evidence of failed backup creation or rendering.
+- Hotfix update/retry of the **same** fixture: **PHONE_PENDING**. Keep the consolidated session;
+  never uninstall, clear data or replace the signing key to get past an update failure.
 
 ## Safe setup
 
@@ -70,7 +83,7 @@ run’s checks are green before installing. Physical-phone/emulator and owner-PC
 | 8 | MV Shot sheet: storyboard edit/approval, English prompt stays English, Ref A/B, manual Flow open/copy/import only. Save/reopen, select older/newer version, accept three videos without losing history or selected version. | PHONE_PENDING |
 | 8b | **Classic screens kept one release (5B-13).** Music Video project bar → "အဆင့်ဟောင်းများ" opens the old Storyboard / Shots / References / Flow Handoff screens with the same data; Back goes classic screen → အဆင့်ဟောင်းများ → Shot စာရွက် → list. Recap → "Recap ပုံစံဟောင်း" opens Classic Recap on the same project. Changes made in either place show in the other. | PHONE_PENDING |
 | 9 | Export audio/BGM/ducking, two-pass loudness vs clearly visible fallback note after completion/reopen, Exact Frame thumbnail, readable Publish Kit frame+title JPEG, existing text copy/share and Save to Gallery. | PHONE_PENDING |
-| 10 | Back up disposable project, Restore through Android system picker to a new destination; referenced artifacts/approvals/takes survive. Collision/corruption tests must not overwrite existing projects. Check share-sheet import → Inbox too. | PHONE_PENDING |
+| 10 | Back up disposable project, Restore through Android system picker to a new destination; referenced artifacts/approvals/takes survive. Collision/corruption tests must not overwrite existing projects. Check share-sheet import → Inbox too. | Reported fixture restore FAIL on `4e95a7b` / code `559` (trace above); fixed-build retest PHONE_PENDING |
 | 11a | Real WorkManager Speak All partially complete → background/screen-off/Doze → completion or truthful PAUSED. Shared queue/pacing/notifications observed. | PHONE_PENDING |
 | 11b | OS kills app process during an item/checkpoint; reopen/resume real WorkManager chain. Completed local outputs reconciled, no duplicate saved takes, false DONE or skipped incomplete items. Record actual kill mechanism and request count. | PHONE_PENDING |
 | 11c | Switch A → B with A item in flight; result saves only to A. Cancel during execution/checkpoint: no partial final output replaces a valid one; following queued job still runs. | PHONE_PENDING |
