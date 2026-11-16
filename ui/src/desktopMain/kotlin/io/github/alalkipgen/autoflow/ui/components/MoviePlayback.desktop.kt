@@ -18,9 +18,10 @@ import org.jetbrains.skia.ImageInfo
 actual val moviePlaybackSupported: Boolean = true
 
 @Composable
-actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier, vlcDir: String?, onSnapshot: (MovieSnapshot) -> Unit) {
+actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier, vlcDir: String?, frameSize: androidx.compose.ui.unit.IntSize?, onFrame: ((androidx.compose.ui.graphics.ImageBitmap) -> Unit)?, onSnapshot: (MovieSnapshot) -> Unit) {
     val opened = remember(path, vlcDir) { DesktopMoviePlayer.open(path, vlcDir) }
     val callback by rememberUpdatedState(onSnapshot)
+    val frameCallback by rememberUpdatedState(onFrame)
     val player = (opened as? MovieOpen.Ready)?.player
     DisposableEffect(player) { onDispose { player?.close() } }
     LaunchedEffect(opened) {
@@ -36,5 +37,6 @@ actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier
             org.jetbrains.skia.Image.makeRaster(ImageInfo(f.width, f.height, ColorType.BGRA_8888, ColorAlphaType.OPAQUE), f.bgra, f.rowBytes).toComposeImageBitmap()
         }
     }
+    LaunchedEffect(bitmap) { bitmap?.let { frameCallback?.invoke(it) } }
     Box(modifier) { bitmap?.let { Image(it, "Movie playback", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) } }
 }

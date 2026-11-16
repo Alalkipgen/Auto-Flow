@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.toAwtImage
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.*
 import io.github.alalkipgen.autoflow.core.recap.*
@@ -63,10 +64,15 @@ class TimelinePlaybackRuntimeTest {
                 }
                 fun decodedPatch(red: Boolean, green: Boolean, blue: Boolean) {
                     val node = onNodeWithTag("timeline-video").performScrollTo().assertIsDisplayed()
-                    waitUntil(timeoutMillis = 5_000) {
+                    try { waitUntil(timeoutMillis = 5_000) {
                         val pixels = node.captureToImage().toPixelMap()
                         val c = pixels[(pixels.width * 0.1f).toInt(), (pixels.height * 0.1f).toInt()]
                         (if (red) c.red > 0.7f else c.red < 0.2f) && (if (green) c.green > 0.7f else c.green < 0.2f) && (if (blue) c.blue > 0.7f else c.blue < 0.2f)
+                    } } catch (e: Throwable) {
+                        val file = File("build/reports/playback/failed-seek.png").apply { parentFile.mkdirs() }
+                        javax.imageio.ImageIO.write(node.captureToImage().toAwtImage(), "png", file)
+                        println(onRoot().printToString())
+                        throw e
                     }
                 }
                 seek("150"); waitForIdle(); onNodeWithTag("timeline-caption").assertTextEquals("—"); decodedPatch(false, true, false)
