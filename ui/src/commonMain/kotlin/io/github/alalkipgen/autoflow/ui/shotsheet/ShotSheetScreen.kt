@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shotsheet
 
+import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -212,14 +213,14 @@ fun ShotSheetScreen(
             }
 
             AfCard(tr(UiText.SHEET_REFS)) {
-                refState.message?.let { AfText(forSheet(it, uiLanguage), color = AutoFlowColors.Amber) }
+                refState.message?.let { AfText(refState.notice?.text(uiLanguage) ?: forSheet(it, uiLanguage), color = AutoFlowColors.Amber) }
                 if (refRow != null) RefSection(refRow, refs, importRef = {
                     scope.launch { refs.pickAndImportRef(refRow.number) { readBytes(it) } }
                 })
             }
 
             AfCard(tr(UiText.SHEET_FLOW)) {
-                flow.message?.let { AfText(forSheet(it, uiLanguage), color = AutoFlowColors.Amber) }
+                flow.message?.let { AfText(flow.notice?.text(uiLanguage) ?: forSheet(it, uiLanguage), color = AutoFlowColors.Amber) }
                 AfButton(tr(UiText.OPEN_FLOW), { handoff.openFlow() }, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Flow)
                 if (flowRow != null) HandoffCard(flowRow.copy(gateMsg = flowRow.gateMsg?.let { forSheet(it, uiLanguage) }), LocalCompact.current, handoff, importVideo = {
                     scope.launch { handoff.pickAndImportVideo(flowRow.number) { readBytes(it) } }
@@ -247,7 +248,7 @@ fun ShotSheetScreen(
 @Composable
 private fun RefSection(row: RefRow, model: ReferencesModel, importRef: () -> Unit) {
     val uiLanguage = LocalUiLanguage.current
-    row.copyGateMsg?.let { AfText("⚠ ${forSheet(it, uiLanguage)}", color = AutoFlowColors.Amber, size = 12.sp) }
+    row.copyGateMsg?.let { AfText("⚠ ${row.copyBlocker?.text(uiLanguage) ?: forSheet(it, uiLanguage)}", color = AutoFlowColors.Amber, size = 12.sp) }
     WrapRow {
         AfButton(tr(UiText.COPY_IMAGE_PROMPT), { model.copyImagePrompt(row.number) }, Modifier.heightIn(min = 48.dp),
             kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null)

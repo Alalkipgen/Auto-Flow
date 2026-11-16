@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.CoreError
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
@@ -38,7 +39,7 @@ class CurrentProject {
 /** [missing] = the folder or its `project.json` is gone; the row offers "Remove from list". */
 data class DashboardRow(val entry: ProjectEntry, val missing: Boolean)
 
-data class DashboardUiState(val rows: List<DashboardRow>, val message: String? = null)
+data class DashboardUiState(val rows: List<DashboardRow>, val message: String? = null, val notice: UiNotice? = null)
 
 /**
  * Dashboard logic (DESIGN.md §3): project list, New Music Video, Open folder. With a [projectsHome] (Android, D-27)
@@ -74,7 +75,7 @@ class DashboardModel(
      * Returns false with a message if no parent is known.
      */
     fun createQuickRecap(targetMs: Long, style: RecapStyle): Boolean {
-        val parent = lastParent ?: return fail("Choose a folder for new projects in Settings first")
+        val parent = lastParent ?: return fail(UiText.PROJECT_PARENT_REQUIRED)
         val name = freeName(parent, "Quick Recap")
         return create(parent, name, Mode.MOVIE_RECAP) { project ->
             val quickJson = CoreJson.encodeToJsonElement(QuickRecap.serializer(), QuickRecap(targetMs = targetMs, style = style))
@@ -99,13 +100,13 @@ class DashboardModel(
     }
 
     fun createMovieRecap(parent: String, name: String, rightsConfirmed: Boolean): Boolean {
-        if (!rightsConfirmed) return fail(RIGHTS_REQUIRED)
+        if (!rightsConfirmed) return fail(UiText.PROJECT_RIGHTS_REQUIRED)
         return create(parent, name, Mode.MOVIE_RECAP) { it.copy(recap = RecapV2(rightsConfirmed = true)) }
     }
 
     private fun create(parent: String, name: String, mode: Mode, init: (Project) -> Project = { it }): Boolean {
-        if (name.isBlank()) return fail("Enter a project name")
-        if (parent.isBlank()) return fail("Choose where to save the project")
+        if (name.isBlank()) return fail(UiText.PROJECT_NAME_REQUIRED)
+        if (parent.isBlank()) return fail(UiText.PROJECT_DEST_REQUIRED)
         val dir = joinPath(parent.trimEnd('/'), projectFolderName(name))
         val defaults = settings.state.value
         val created = store.create(dir, name, mode, ProjectSettings(ratio = defaults.defaultRatio, clipMs = defaults.defaultClipMs))
@@ -122,14 +123,14 @@ class DashboardModel(
         }
     }
 
-    suspend fun pickParent(): String? = when (val r = picker.pickFolder("Where to save the project", lastParent)) {
+    suspend fun pickParent(): String? = when (val r = picker.pickFolder(UiText.PROJECT_SAVE_FOLDER.text(UiLanguage.fromCode(settings.state.value.uiLanguage)), lastParent)) {
         is PlatformResult.Ok -> r.value
         is PlatformResult.Failed -> null.also { fail(r.reason) }
         is PlatformResult.Unsupported -> null.also { fail(r.reason) }
     }
 
     /** "Open folder": any project folder, also ones not in the list yet. */
-    suspend fun openFolder(): Boolean = when (val r = picker.pickFolder("Open a project folder (.autoflow)", lastParent)) {
+    suspend fun openFolder(): Boolean = when (val r = picker.pickFolder(UiText.PROJECT_OPEN_FOLDER.text(UiLanguage.fromCode(settings.state.value.uiLanguage)), lastParent)) {
         is PlatformResult.Ok -> r.value?.let(::open) ?: false
         is PlatformResult.Failed -> fail(r.reason)
         is PlatformResult.Unsupported -> fail(r.reason)
@@ -203,6 +204,12 @@ class DashboardModel(
         return true
     }
 
+    private fun fail(key: UiText): Boolean {
+        val notice = UiNotice(key)
+        _state.value = snapshot(notice.text(UiLanguage.ENGLISH)).copy(notice = notice)
+        return false
+    }
+
     private fun fail(message: String): Boolean {
         done(message)
         return false
@@ -215,6 +222,7 @@ class DashboardModel(
     private fun snapshot(message: String?) = DashboardUiState(
         rows = index.entries.value.map { DashboardRow(it, missing = !exists(joinPath(it.path, ProjectStore.PROJECT_FILE))) },
         message = message,
+        notice = message?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to it) },
     )
 
     private fun exists(path: String): Boolean = try {

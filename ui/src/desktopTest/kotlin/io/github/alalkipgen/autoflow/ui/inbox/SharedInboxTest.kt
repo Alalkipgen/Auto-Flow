@@ -5,6 +5,7 @@ import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
@@ -65,6 +66,10 @@ class SharedInboxTest {
             "2 files shared: open a project, then tap \"Move here\" here. 1 file could not be read from the other app.",
             inbox.state.value.message,
         )
+        val localized = inbox.state.value.notice!!.text(UiLanguage.BURMESE)
+        assertTrue(localized.contains("ဖိုင် 2 ခု"))
+        assertTrue(localized.contains("ဖိုင် 1 ခု"))
+        assertFalse(localized.contains("Move here"), "nested action and file-count notices also follow the locale")
 
         inbox.moveHere()
         assertEquals("Open a project first.", inbox.state.value.message)

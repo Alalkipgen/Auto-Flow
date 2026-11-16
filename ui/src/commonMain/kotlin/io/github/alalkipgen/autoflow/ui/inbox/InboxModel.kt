@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.inbox
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
@@ -28,6 +29,7 @@ data class InboxUiState(
     val items: List<InboxItem> = emptyList(),
     val shotNumbers: List<Int> = emptyList(),
     val message: String? = null,
+    val notice: UiNotice? = null,
     val inboxDir: String? = null,
 )
 
@@ -46,6 +48,11 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
         )
     }
     private val _message = MutableStateFlow<String?>(null)
+    private val _notice = MutableStateFlow<UiNotice?>(null)
+    private fun reportNotice(notice: UiNotice?) {
+        _message.value = notice?.text(UiLanguage.ENGLISH)
+        _notice.value = notice
+    }
     val message = _message.asStateFlow()
 
     fun current(): InboxUiState {
@@ -53,13 +60,18 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
         return _state.value.copy(
             projectName = open?.project?.name,
             shotNumbers = open?.project?.shots?.map { it.number } ?: emptyList(),
+            message = _message.value,
+            notice = _notice.value,
             inboxDir = open?.let { joinPath(it.dir, INBOX_DIR) },
         )
     }
 
     /** Scan the inbox folder and return the items. */
     fun refresh(): InboxUiState {
-        val dir = session.open?.let { joinPath(it.dir, INBOX_DIR) } ?: return current().also { _message.value = "No project open" }
+        val dir = session.open?.let { joinPath(it.dir, INBOX_DIR) } ?: run {
+            reportNotice(UiNotice(UiText.NO_PROJECT_OPEN))
+            return current()
+        }
         val items = try {
             if (!fs.exists(dir)) {
                 fs.createDirectories(dir)
@@ -81,10 +93,10 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
                     .sortedBy { it.name }
             }
         } catch (e: Exception) {
-            _message.value = "Could not read inbox: ${e.message ?: e::class.simpleName}"
+            reportNotice(UiNotice(UiText.INBOX_READ_FAILED, "detail" to (e.message ?: e::class.simpleName)))
             emptyList()
         }
-        val next = current().copy(items = items, message = _message.value)
+        val next = current().copy(items = items, message = _message.value, notice = _notice.value)
         _state.value = next
         return next
     }
@@ -95,12 +107,12 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
      * - IMAGE → save as `im` artifact, set as chosenRef
      */
     fun attach(item: InboxItem, shotNumber: Int) {
-        if (item.kind == InboxItemKind.OTHER) { _message.value = "Cannot attach this file type"; return }
-        val project = session.open?.project ?: run { _message.value = "No project open"; return }
-        val shot = project.shots.firstOrNull { it.number == shotNumber } ?: run { _message.value = "Shot $shotNumber not found"; return }
-        val bytes = try { fs.read(item.path) } catch (e: Exception) { _message.value = "Could not read ${item.name}"; return }
+        if (item.kind == InboxItemKind.OTHER) { reportNotice(UiNotice(UiText.INBOX_CANNOT_ATTACH)); return }
+        val project = session.open?.project ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
+        val shot = project.shots.firstOrNull { it.number == shotNumber } ?: run { reportNotice(UiNotice(UiText.SHOT_NOT_FOUND, "n" to shotNumber)); return }
+        val bytes = try { fs.read(item.path) } catch (e: Exception) { reportNotice(UiNotice(UiText.NAMED_FILE_UNREADABLE, "name" to item.name)); return }
         val ext = item.name.substringAfterLast('.').lowercase()
-        val artifacts = session.artifacts() ?: run { _message.value = "No project open"; return }
+        val artifacts = session.artifacts() ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
 
         when (item.kind) {
             InboxItemKind.VIDEO -> attachVideo(project, shot, bytes, ext, artifacts, item)
@@ -116,7 +128,7 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
         }
         val artifact = when (val r = artifacts.put(bytes, ArtifactKind.VIDEO, ext, shot.number, inputs, provider = "inbox", note = shot.handoff.pass.name.lowercase())) {
             is CoreResult.Ok -> r.value
-            is CoreResult.Err -> { _message.value = "Failed to save video: ${r.error.message}"; return }
+            is CoreResult.Err -> { reportNotice(UiNotice(UiText.SAVE_VIDEO_FAILED, "detail" to r.error.message)); return }
         }
         val shots = project.shots.map { s ->
             if (s.number == shot.number)
@@ -124,8 +136,8 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
             else s
         }
         when (val r = session.save(project.copy(shots = shots))) {
-            is CoreResult.Ok -> { _message.value = "Video attached to Shot ${shot.number}."; moveToArchive(item) }
-            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+            is CoreResult.Ok -> { reportNotice(UiNotice(UiText.VIDEO_ATTACHED, "n" to shot.number)); moveToArchive(item) }
+            is CoreResult.Err -> reportNotice(UiNotice(UiText.SAVE_FAILED, "detail" to r.error.message))
         }
     }
 
@@ -133,7 +145,7 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
         val inputs = shot.promptIr?.let { mapOf(Inputs.PROMPT_IR to it.value) } ?: emptyMap()
         val artifact = when (val r = artifacts.put(bytes, ArtifactKind.IMAGE, ext, shot.number, inputs, provider = "inbox")) {
             is CoreResult.Ok -> r.value
-            is CoreResult.Err -> { _message.value = "Failed to save image: ${r.error.message}"; return }
+            is CoreResult.Err -> { reportNotice(UiNotice(UiText.SAVE_IMAGE_FAILED, "detail" to r.error.message)); return }
         }
         val shots = project.shots.map { s ->
             if (s.number == shot.number) {
@@ -143,8 +155,8 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
             } else s
         }
         when (val r = session.save(project.copy(shots = shots))) {
-            is CoreResult.Ok -> { _message.value = "Image attached to Shot ${shot.number}."; moveToArchive(item) }
-            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+            is CoreResult.Ok -> { reportNotice(UiNotice(UiText.IMAGE_ATTACHED, "n" to shot.number)); moveToArchive(item) }
+            is CoreResult.Err -> reportNotice(UiNotice(UiText.SAVE_FAILED, "detail" to r.error.message))
         }
     }
 
