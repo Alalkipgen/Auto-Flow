@@ -127,8 +127,7 @@ class PreviewExportParityTest {
     fun previewAndExportAgreeWithinTwoPercentOfTheFrame() {
         val bin = ffmpeg ?: run {
             if (System.getenv("AUTOFLOW_EXPECT_FFMPEG") == "1") fail("AUTOFLOW_EXPECT_FFMPEG=1 but no ffmpeg on PATH / AUTOFLOW_FFMPEG")
-            println("SKIP PreviewExportParityTest: no ffmpeg binary")
-            return
+            throw org.junit.AssumptionViolatedException("PreviewExportParityTest not executed: no ffmpeg binary")
         }
         val dir = Files.createTempDirectory("s10").toFile()
         val evidence = File(System.getenv("AUTOFLOW_S10_DIR") ?: "build/reports/s10").apply { mkdirs() }

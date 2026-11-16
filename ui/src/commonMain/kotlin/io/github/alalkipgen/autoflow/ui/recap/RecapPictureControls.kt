@@ -136,6 +136,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
         }
     }
 
+    RecapTimelinePreview(model)
     ExactFrameCard(model)
 
     // ── 🖼 Background ──────────────────────────────────────────────────────────
@@ -303,10 +304,7 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
     val story by model.state.collectAsState()
     val caption = previewCaption(recap, story.story, output)
     var selected by remember { mutableStateOf<MaskPreset?>(null) }
-    // Android: the scene plays (muted, looping) under the boxes and caption instead of the still frame.
-    var playing by remember { mutableStateOf(false) }
-    val moviePath = remember(recap.movie) { model.moviePath() }
-    val playable = moviePlaybackSupported && moviePath != null && scene != null
+    AfText("မူရင်းရုပ်ရှင် ဘောင်နေရာချမှု · Looks မတင်ရသေးသော ရုပ်ငြိမ်၊ ထုတ်ယူမည့်ပုံ မဟုတ်ပါ။", muted = true, size = 12.sp)
     // The box under the fingers while a gesture runs; saved (and cleared) when they lift.
     var draft by remember { mutableStateOf<Pair<MaskPreset, List<Float>>?>(null) }
     val current by rememberUpdatedState(masks)
@@ -361,13 +359,10 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
                 }
             },
     ) {
-        val clip = scene?.takeIf { playing && playable }
         RecapPreviewPicture(
             recap, output, image, caption, Modifier.fillMaxSize(), selected, draft,
-            background = if (clip != null && moviePath != null) ({ MoviePlayback(moviePath, clip.startMs, clip.endMs, Modifier.fillMaxSize()) }) else null,
         )
     }
-    if (playable) AfButton(if (playing) STOP_PLAYBACK else PLAY_PLAYBACK, { playing = !playing }, Modifier.testTag(PLAYBACK_TAG))
     AfText(
         selected?.let { boxHint(it) } ?: "ရွှေ့ဖို့ ဒါမှမဟုတ် အရွယ်ပြောင်းဖို့ ဘောင်တစ်ခုကို ထိပါ။",
         muted = true, size = 12.sp,
@@ -449,6 +444,13 @@ private fun hexColour(hex: String): Color =
  */
 @Composable
 internal fun ExactFrameCard(model: RecapModel) {
+    val open by model.previewSource.projects.collectAsState()
+    // A completed/in-flight still belongs to this project revision, never the next project on screen.
+    androidx.compose.runtime.key(open?.dir, open?.project?.id, open?.project?.updatedAt) { ExactFrameContent(model) }
+}
+
+@Composable
+private fun ExactFrameContent(model: RecapModel) {
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
     var working by remember { mutableStateOf(false) }
@@ -457,7 +459,8 @@ internal fun ExactFrameCard(model: RecapModel) {
         AfButton(if (working) "Render လုပ်နေတယ်…" else EXACT_FRAME, {
             if (!working) {
                 working = true
-                scope.launch { result = model.exactFrame(); working = false }
+                val at = model.previewSource.currentPosition()
+                scope.launch { try { result = model.exactFrame(at) } finally { working = false } }
             }
         }, enabled = !working)
         when (val r = result) {

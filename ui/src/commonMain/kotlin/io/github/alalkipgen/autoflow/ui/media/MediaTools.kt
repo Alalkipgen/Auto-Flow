@@ -12,6 +12,9 @@ import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 class MediaTools(private val settings: SettingsStore, private val tools: ToolLocator, val runner: ToolRunner?) {
     fun ffmpeg(): String? = settings.state.value.ffmpegPath.takeUnless { tools.bundled } ?: tools.findFfmpeg()
 
+    /** Existing Settings override; null lets the desktop backend discover installed VLC. */
+    fun vlcDir(): String? = settings.state.value.vlcPath ?: tools.findVlc()
+
     fun ffprobe(): String? = tools.findFfprobe() ?: ffmpeg()?.let(::probeNextTo)
 
     /** Length of the audio in [file] (ffprobe), or null when it cannot be read or has no audio stream. */

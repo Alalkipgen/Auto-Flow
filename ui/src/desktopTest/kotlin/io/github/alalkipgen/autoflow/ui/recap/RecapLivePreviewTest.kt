@@ -64,8 +64,8 @@ class RecapLivePreviewTest {
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
         val node = onNodeWithTag(MASK_PREVIEW_TAG)
-        // No video player on the desktop (no new dependency, D-65): the still frame stays, no play button.
-        assertFalse(io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported)
+        // Legacy mask placement stays pre-Looks/still; the separate output-timeline card owns playback.
+        assertTrue(io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported)
         onNodeWithTag(PLAYBACK_TAG).assertDoesNotExist()
         // Touch the middle of the bottom strip (y 0.8–0.97) and drag up by 30 % of the preview height.
         node.performTouchInput {
