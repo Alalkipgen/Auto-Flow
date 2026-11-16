@@ -1,0 +1,20 @@
+Auto Flow desktop playback - third-party notice
+
+This desktop binary links VLCJ 4.8.3 and vlcj-natives 4.8.3,
+Copyright Caprica Software Limited, https://github.com/caprica/vlcj .
+Both are GPL version 3. The combined desktop distribution is subject to GPLv3;
+Auto Flow's own MIT source grant and other components' notices are retained.
+See the accompanying GPL-3.0.txt for terms and the absence of warranty.
+
+JNA / JNA-platform 5.17.0 are reused, not duplicated with jna-jpms.
+Their upstream source archives include their LGPL-2.1 / Apache-2.0 licences.
+No native libVLC, VLC plugins or VLC installer is included. Install a compatible
+64-bit VLC 3.0.x separately from https://www.videolan.org/vlc/ .
+
+Corresponding application source: https://github.com/Alalkipgen/Auto-Flow
+Exact commit and build commands are in the CI artifact MANIFEST.txt.
+The companion desktop-corresponding-source archive in the same CI run contains
+that application tree plus the unmodified, pinned VLCJ, binding and JNA sources
+and their upstream build descriptions. Other dependency coordinates/versions
+are pinned in gradle/libs.versions.toml and resolved through the declared Maven
+repositories; their own licences and notices continue to apply.
