@@ -162,7 +162,7 @@ class ShotSheetTest {
         waitUntil(timeoutMillis = 5_000) { project.shots[1].videos.size == 2 }
 
         // 5 · Videos: two versions, newest first; use the older one.
-        onNodeWithText(io.github.alalkipgen.autoflow.ui.shots.versionsTitle(2)).performScrollTo().assertExists()
+        onNodeWithText(io.github.alalkipgen.autoflow.ui.shots.versionsTitle(2, UiLanguage.BURMESE)).performScrollTo().assertExists()
         onAllNodesWithText(USE_VERSION_BUTTON)[1].performScrollTo().performClick()
         waitForIdle()
         val s2 = project.shots[1]

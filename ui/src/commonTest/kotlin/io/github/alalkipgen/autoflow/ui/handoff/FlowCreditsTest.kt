@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.CreditEntry
@@ -100,7 +101,8 @@ class FlowCreditsTest {
         assertEquals(40, s.creditsToday)
         assertEquals(140, s.creditsMonth)
         assertEquals(listOf(3, 2, 1), s.creditLog.map { it.index }, "this month only, newest first")
-        assertEquals("Flow credits — ယနေ့ 40 · ဒီလ 140", creditSummary(s.creditsToday, s.creditsMonth))
+        assertEquals("Flow credits — today 40 · this month 140", creditSummary(s.creditsToday, s.creditsMonth))
+        assertEquals("Flow credits — ယနေ့ 40 · ဒီလ 140", creditSummary(s.creditsToday, s.creditsMonth, UiLanguage.BURMESE))
 
         model.removeCredit(2)
         val after = model.current()
