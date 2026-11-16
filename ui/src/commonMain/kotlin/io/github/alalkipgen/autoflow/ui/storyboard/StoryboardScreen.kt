@@ -70,7 +70,7 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
             }
             else -> {
                 Header(state, model, busy)
-                job.last?.takeIf { it != StoryboardResult.Done }?.message()?.let { AfText(it, color = AutoFlowColors.Amber) }
+                job.last?.takeIf { it != StoryboardResult.Done }?.message(LocalUiLanguage.current)?.let { AfText(it, color = AutoFlowColors.Amber) }
                 message?.let { AfText(it, color = AutoFlowColors.Amber) }
                 state.cards.forEach { card -> ShotCard(card, model, busy) }
             }

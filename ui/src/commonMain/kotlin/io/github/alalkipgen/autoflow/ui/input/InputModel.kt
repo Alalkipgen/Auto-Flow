@@ -162,6 +162,7 @@ class InputModel(
         if (!save() || _state.value.blockers.isNotEmpty()) return false
         return jobs.run(
             GENERATE_LABEL,
+            notice = UiNotice(UiText.GENERATING_STORYBOARD),
             onDone = {
                 _state.value = load().copy(message = null, notice = null)
                 if (it == StoryboardResult.Done) onDone()

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -43,8 +44,8 @@ fun JobBanner(jobs: StoryboardJobs, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        AfText("$running…", color = AutoFlowColors.Cyan)
-        AfButton("Cancel", jobs::cancel, kind = ButtonKind.Danger)
+        AfText("${job.notice?.text(LocalUiLanguage.current) ?: running}…", color = AutoFlowColors.Cyan)
+        AfButton(tr(UiText.CANCEL), jobs::cancel, kind = ButtonKind.Danger)
     }
 }
 
@@ -60,6 +61,7 @@ fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier, viewing: Pipel
         return
     }
     val cell = RoundedCornerShape(8.dp)
+    val currentWord = tr(UiText.STEP_CURRENT); val doneWord = tr(UiText.STEP_DONE); val todoWord = tr(UiText.STEP_TODO)
     Row(
         modifier
             .padding(start = 24.dp, end = 24.dp, top = 16.dp)
@@ -85,7 +87,7 @@ fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier, viewing: Pipel
                             Modifier
                         },
                     )
-                    .semantics(mergeDescendants = true) { stateDescription = if (s.current) "current" else if (s.done) "done" else "to do" }
+                    .semantics(mergeDescendants = true) { stateDescription = if (s.current) currentWord else if (s.done) doneWord else todoWord }
                     .padding(vertical = 8.dp, horizontal = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -102,6 +104,7 @@ fun Stepper(steps: List<StepView>, modifier: Modifier = Modifier, viewing: Pipel
  */
 @Composable
 private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier, viewing: PipelineStep? = null) {
+    val currentWord = tr(UiText.STEP_CURRENT); val doneWord = tr(UiText.STEP_DONE); val todoWord = tr(UiText.STEP_TODO)
     val at = steps.indexOfFirst { it.step == viewing }.takeIf { it >= 0 } ?: steps.indexOfFirst { it.current }
     Column(
         modifier
@@ -114,7 +117,7 @@ private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier,
     ) {
         val done = steps.count { it.done }
         AfText(
-            if (at >= 0) "Step ${at + 1} of ${steps.size}: ${steps[at].label}" else "$done of ${steps.size} steps done",
+            if (at >= 0) tr(UiText.CLASSIC_STEP, "n" to at + 1, "total" to steps.size, "label" to steps[at].label) else tr(UiText.CLASSIC_STEPS_DONE, "n" to done, "total" to steps.size),
             size = 12.sp,
             bold = true,
         )
@@ -130,7 +133,7 @@ private fun CompactStepper(steps: List<StepView>, modifier: Modifier = Modifier,
                         .weight(1f)
                         .height(4.dp)
                         .background(color, RoundedCornerShape(2.dp))
-                        .semantics { stateDescription = "${s.label} " + if (i == at) "current" else if (s.done) "done" else "to do" },
+                        .semantics { stateDescription = "${s.label} " + if (i == at) currentWord else if (s.done) doneWord else todoWord },
                 )
             }
         }

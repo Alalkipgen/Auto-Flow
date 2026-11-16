@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.components
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.sp
@@ -13,7 +14,7 @@ fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit) {
     }
     val player = rememberSongPlayer(path)
     if (player == null) {
-        AfText("Playback is not available here", muted = true, size = 12.sp)
+        AfText(tr(UiText.PLAYBACK_UNAVAILABLE), muted = true, size = 12.sp)
         LaunchedEffect(path) { kotlinx.coroutines.delay(2_000); onToggle() }
         return
     }

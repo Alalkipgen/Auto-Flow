@@ -33,5 +33,5 @@ private fun Blocker.textKey(): UiText = when (this) {
 fun StoryboardResult.message(language: UiLanguage = UiLanguage.ENGLISH): String? = when (this) {
     StoryboardResult.Done -> null
     is StoryboardResult.Blocked -> blockers.joinToString(" · ") { it.text(language) }
-    is StoryboardResult.Failed -> message
+    is StoryboardResult.Failed -> notice?.text(language) ?: UiText.RESULT_DETAIL.text(language, "detail" to message)
 }
