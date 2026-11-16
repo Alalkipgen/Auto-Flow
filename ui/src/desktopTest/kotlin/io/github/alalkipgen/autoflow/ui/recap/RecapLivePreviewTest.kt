@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -124,7 +125,8 @@ class RecapLivePreviewTest {
             val open by current.state.collectAsState()
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
-        onNodeWithText(EXACT_FRAME).performClick()
+        // A semantics click: with a tall Myanmar fallback font (Windows CI) the button can sit below the test window.
+        onNodeWithText(EXACT_FRAME).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         waitUntil(timeoutMillis = 5_000) { onAllNodes(androidx.compose.ui.test.hasText("ffmpeg was not found", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 }
