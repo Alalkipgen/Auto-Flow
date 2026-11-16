@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
@@ -42,34 +43,34 @@ const val APPROVE_SCRIPT = "✓ Approve script"
 /** Card 3 · Script (docs/specs/recap.md §4): summary, subtitles, style, Gemini or manual script, edit, approve. */
 @Composable
 internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null) {
-    AfCard("3 · Script") {
+    AfCard(tr(UiText.RECAP_SCRIPT_CARD)) {
         RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let {
-            AfText(it.text(), muted = true)
+            AfText(it.text(LocalUiLanguage.current), muted = true)
             return@AfCard
         }
-        AfText("Story summary (Burmese or English): who the people are and what happens. Gemini follows it.", muted = true, size = 12.sp)
-        AfTextField(state.summary, { model.setSummary(it) }, "Summary", Modifier.fillMaxWidth(), lines = 5, mono = false, enabled = !state.busy)
+        AfText(tr(UiText.STORY_SUMMARY_HINT), muted = true, size = 12.sp)
+        AfTextField(state.summary, { model.setSummary(it) }, tr(UiText.SUMMARY), Modifier.fillMaxWidth(), lines = 5, mono = false, enabled = !state.busy)
         WrapRow {
             if (recap.subtitles == null) {
-                AfButton("📄 Import subtitles (.srt)", { model.importSubtitles() }, enabled = !state.busy)
+                AfButton(tr(UiText.IMPORT_SUBTITLES), { model.importSubtitles() }, enabled = !state.busy)
             } else {
-                AfText("📄 subtitles.srt ✓", color = AutoFlowColors.Green)
-                AfButton("Replace", { model.importSubtitles() }, enabled = !state.busy)
-                AfButton("Remove", { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
+                AfText(tr(UiText.SUBTITLES_PRESENT), color = AutoFlowColors.Green)
+                AfButton(tr(UiText.REPLACE), { model.importSubtitles() }, enabled = !state.busy)
+                AfButton(tr(UiText.REMOVE), { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
             }
         }
         // Subtitle track selection (5B-1): show embedded tracks found in the movie.
         if (recap.movie != null && recap.subtitles == null) {
             val movieTracks = state.movieSubtitleTracks
             if (movieTracks.isNotEmpty()) {
-                AfText("Or extract from movie", muted = true, size = 12.sp)
+                AfText(tr(UiText.EXTRACT_FROM_MOVIE), muted = true, size = 12.sp)
                 WrapRow {
                     movieTracks.forEach { track ->
                         val label = buildString {
-                            append("Track ${track.index}")
+                            append(tr(UiText.SUBTITLE_TRACK, "index" to (track.index)))
                             track.language?.let { append(" [$it]") }
                             track.title?.let { append(" — $it") }
-                            append(if (track.isText) "" else " (image)")
+                            append(if (track.isText) "" else tr(UiText.IMAGE_TRACK_SUFFIX))
                         }
                         AfChip(label, false, onClick = {
                             if (!state.busy) {
@@ -80,87 +81,87 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
                     }
                 }
                 if (movieTracks.any { !it.isText }) {
-                    AfText("Image-based subtitle tracks cannot be extracted automatically. Use Transcribe instead.", muted = true, size = 11.sp)
+                    AfText(tr(UiText.IMAGE_TRACK_HINT), muted = true, size = 11.sp)
                 }
             } else if (recap.movie != null) {
-                AfText("No embedded subtitle tracks found in this movie.", muted = true, size = 12.sp)
+                AfText(tr(UiText.NO_EMBEDDED_SUBS), muted = true, size = 12.sp)
             }
         }
         TranscribeSection(model, state, recap)
-        AfText("Style", muted = true, size = 12.sp)
+        AfText(tr(UiText.STYLE), muted = true, size = 12.sp)
         WrapRow {
-            AfChip("Plain", recap.style == RecapStyle.PLAIN, onClick = { model.setStyle(RecapStyle.PLAIN) })
-            AfChip("Commentary", recap.style == RecapStyle.COMMENTARY, onClick = { model.setStyle(RecapStyle.COMMENTARY) })
+            AfChip(tr(UiText.STYLE_PLAIN), recap.style == RecapStyle.PLAIN, onClick = { model.setStyle(RecapStyle.PLAIN) })
+            AfChip(tr(UiText.STYLE_COMMENTARY), recap.style == RecapStyle.COMMENTARY, onClick = { model.setStyle(RecapStyle.COMMENTARY) })
         }
-        AfText("Burmese register (affects TTS pronunciation)", muted = true, size = 12.sp)
+        AfText(tr(UiText.BURMESE_REGISTER), muted = true, size = 12.sp)
         WrapRow {
-            AfChip("Spoken (casual)", recap.register == RecapRegister.SPOKEN, onClick = { model.setRegister(RecapRegister.SPOKEN) })
-            AfChip("Written (formal)", recap.register == RecapRegister.WRITTEN, onClick = { model.setRegister(RecapRegister.WRITTEN) })
+            AfChip(tr(UiText.REGISTER_SPOKEN), recap.register == RecapRegister.SPOKEN, onClick = { model.setRegister(RecapRegister.SPOKEN) })
+            AfChip(tr(UiText.REGISTER_WRITTEN), recap.register == RecapRegister.WRITTEN, onClick = { model.setRegister(RecapRegister.WRITTEN) })
         }
         // Hook style (5B-7): opening tone for segment 1
-        AfText("Opening hook for segment 1", muted = true, size = 12.sp)
+        AfText(tr(UiText.OPENING_HOOK), muted = true, size = 12.sp)
         WrapRow {
             io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.entries.forEach { hook ->
                 val label = when (hook) {
-                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT -> "AI decides"
-                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUESTION -> "Question"
-                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUOTE -> "Quote"
-                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.ACTION -> "Action"
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.DEFAULT -> tr(UiText.HOOK_DEFAULT)
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUESTION -> tr(UiText.HOOK_QUESTION)
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUOTE -> tr(UiText.HOOK_QUOTE)
+                    io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.ACTION -> tr(UiText.HOOK_ACTION)
                 }
                 AfChip(label, recap.hookStyle == hook, onClick = { model.setHookStyle(hook) })
             }
         }
         // Credit line (5B-7)
-        AfText("Source / credit line (appended to last segment)", muted = true, size = 12.sp)
+        AfText(tr(UiText.SOURCE_CREDIT_LINE), muted = true, size = 12.sp)
         var creditDraft by remember(recap.creditLine) { mutableStateOf(recap.creditLine) }
         io.github.alalkipgen.autoflow.ui.components.AfTextField(
-            creditDraft, { creditDraft = it }, "e.g. ကား — The Avengers (2012) မှ",
+            creditDraft, { creditDraft = it }, tr(UiText.CREDIT_EXAMPLE),
             Modifier.fillMaxWidth(), enabled = !state.busy,
         )
         if (creditDraft != recap.creditLine) {
-            AfButton("Save credit", { model.setCreditLine(creditDraft) })
+            AfButton(tr(UiText.SAVE_CREDIT), { model.setCreditLine(creditDraft) })
         }
         val script = state.script
         var confirming by remember { mutableStateOf<String?>(null) }
         val running = state.job == RecapModel.WRITING
         if (running) {
-            AfButton("Cancel", { model.cancelScript() }, kind = ButtonKind.Danger)
+            AfButton(tr(UiText.CANCEL), { model.cancelScript() }, kind = ButtonKind.Danger)
         } else if (confirming != null) {
             val gemini = confirming == WRITE_SCRIPT
             AfText(
-                if (gemini) "Gemini writes ${recap.picked.size} segments, one per picked scene (one request)." +
-                    (if (script != null) " The current script is replaced (it stays in the project as an older version)." else "")
-                else "This starts an empty script, one segment per picked scene; the current script is replaced.",
+                if (gemini) tr(UiText.SCRIPT_GENERATE_CONFIRM, "size" to (recap.picked.size)) +
+                    (if (script != null) tr(UiText.SCRIPT_REPLACE_HINT) else "")
+                else tr(UiText.SCRIPT_MANUAL_CONFIRM),
                 color = AutoFlowColors.Amber,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton(if (gemini) "Write" else "Start", {
+                AfButton(if (gemini) tr(UiText.WRITE) else tr(UiText.START), {
                     confirming = null
                     if (gemini) model.writeScript() else model.writeManually()
                 }, kind = ButtonKind.Primary)
-                AfButton("Back", { confirming = null })
+                AfButton(tr(UiText.BACK), { confirming = null })
             }
         } else {
             val gate = RecapRulesV2.canGenerateScript(recap, state.summary, if (recap.subtitles != null || state.transcribe.lines > 0) "srt" else "")
-            if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
+            if (!gate.allowed) AfText(gate.blockers.first().text(LocalUiLanguage.current), muted = true, size = 12.sp)
             WrapRow {
-                AfButton(WRITE_SCRIPT, { if (script == null) model.writeScript() else confirming = WRITE_SCRIPT },
+                AfButton(tr(UiText.WRITE_SCRIPT), { if (script == null) model.writeScript() else confirming = WRITE_SCRIPT },
                     kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
-                AfButton(WRITE_MYSELF, { if (script == null) model.writeManually() else confirming = WRITE_MYSELF }, enabled = !state.busy)
+                AfButton(tr(UiText.WRITE_MYSELF), { if (script == null) model.writeManually() else confirming = WRITE_MYSELF }, enabled = !state.busy)
             }
         }
         if (script == null) return@AfCard
         // v2 rules on the story (audit F05): outdated only when a clip lies outside the movie.
         val story = state.story
         val current = story != null && RecapRulesV2.isCurrent(recap, story)
-        if (!current) AfText(RecapRulesV2.canApproveScript(recap, story).blockers.first().text(), color = AutoFlowColors.Amber, bold = true)
+        if (!current) AfText(RecapRulesV2.canApproveScript(recap, story).blockers.first().text(LocalUiLanguage.current), color = AutoFlowColors.Amber, bold = true)
         script.segments.forEachIndexed { i, seg -> if (blockIndex == null || i == blockIndex) SegmentRow(model, state, i, seg, enabled = current && !state.busy) }
         if (recap.scriptApproved && current) {
-            AfText("✓ Script approved. Next: Voice.", color = AutoFlowColors.Green, bold = true)
+            AfText(tr(UiText.SCRIPT_APPROVED_NEXT), color = AutoFlowColors.Green, bold = true)
         } else if (current) {
             val gate = RecapRulesV2.canApproveScript(recap, story)
-            if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
-            AfButton(APPROVE_SCRIPT, { model.approveScript() }, kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
+            if (!gate.allowed) AfText(gate.blockers.first().text(LocalUiLanguage.current), muted = true, size = 12.sp)
+            AfButton(tr(UiText.APPROVE_SCRIPT), { model.approveScript() }, kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
         }
     }
 }
@@ -175,7 +176,7 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
     val t = state.transcribe
     if (!t.available || recap.movie == null) return
     if (t.lines > 0 || t.transcribedScenes > 0) {
-        AfText(transcriptSummary(t.lines, t.transcribedScenes), Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
+        AfText(transcriptSummary(t.lines, t.transcribedScenes, LocalUiLanguage.current), Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
     }
     val running = state.job?.startsWith("Transcribing") == true
     val confirm = t.confirm
@@ -187,9 +188,9 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
         }
         confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(
-                transcribeConfirmText(confirm.scenes, confirm.requests) + " အသံ ${clock(confirm.audioMs)}။ " +
-                    "ဒီပြကွက်တွေရဲ့ အသံကိုပဲ ပို့မယ် — ရုပ်ပုံ ဒါမှမဟုတ် ရုပ်ရှင်တစ်ကားလုံးကို ဘယ်တော့မှ မပို့ပါ။ " +
-                    "ယနေ့အထိ: request ${confirm.usedToday?.toString() ?: "…"} ခု။",
+                transcribeConfirmText(confirm.scenes, confirm.requests, LocalUiLanguage.current) + tr(UiText.TRANSCRIBE_AUDIO_DURATION, "audioMs" to (clock(confirm.audioMs))) +
+                    tr(UiText.TRANSCRIBE_PRIVACY) +
+                    tr(UiText.TRANSCRIBE_USED_TODAY, "toString" to (confirm.usedToday?.toString() ?: "…")),
                 Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -199,21 +200,21 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
         }
         job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(
-                (job.error ?: "စာသားပြောင်းခြင်း ရပ်သွားတယ်။") + " request ${job.items.size} ခု ကျန်။",
+                (job.error ?: tr(UiText.TRANSCRIBE_STOPPED)) + tr(UiText.TRANSCRIBE_REQUESTS_LEFT, "size" to (job.items.size)),
                 Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfButton(tr(UiText.RETRY), { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
-                AfButton("အလုပ် ပယ်ဖျက်မယ်", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+                AfButton(tr(UiText.CANCEL_JOB), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
             }
         }
         job != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("စာသားပြောင်းနေတယ် (request ${job.items.size} ခု ကျန်): အလုပ်များ မှာ ကြည့်ပါ။", Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfText(tr(UiText.TRANSCRIBE_JOB_PROGRESS, "size" to (job.items.size)), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
             AfButton(tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
         }
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            AfText("ရွေးထားသော ပြကွက် ${t.todoScenes} ခုမှာ စာတန်း မရှိပါ။ Gemini က သူတို့ရဲ့ အသံကိုပဲ script အတွက် စာသားပြောင်းပေးနိုင်တယ်။", muted = true, size = 12.sp)
-            AfButton("🎙 ရွေးထားသော ပြကွက်များကို စာသားပြောင်းမယ်", { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)
+            AfText(tr(UiText.TRANSCRIBE_OFFER, "todoScenes" to (t.todoScenes)), muted = true, size = 12.sp)
+            AfButton(tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)
         }
     }
 }
@@ -241,15 +242,15 @@ private fun SegmentRow(model: RecapModel, state: RecapUiState, index: Int, seg: 
                     model.saveSegmentTiming(index, s, e).also { if (it) editTiming = false }
                 }
             }
-            AfButton("Back", { editTiming = false })
+            AfButton(tr(UiText.BACK), { editTiming = false })
         } else if (editing) {
-            AfTextField(draft, { draft = it }, "Narration for scene ${index + 1}", Modifier.fillMaxWidth(), lines = 3, mono = false)
+            AfTextField(draft, { draft = it }, tr(UiText.NARRATION_FOR_SCENE, "index1" to (index + 1)), Modifier.fillMaxWidth(), lines = 3, mono = false)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton("Save", { if (model.saveSegment(index, draft)) editing = false }, kind = ButtonKind.Primary)
-                AfButton("Back", { editing = false; draft = seg.textMy })
+                AfButton(tr(UiText.SAVE), { if (model.saveSegment(index, draft)) editing = false }, kind = ButtonKind.Primary)
+                AfButton(tr(UiText.BACK), { editing = false; draft = seg.textMy })
             }
         } else {
-            AfText(seg.textMy.ifBlank { "(empty — tap ✎ to write)" }, muted = seg.textMy.isBlank())
+            AfText(seg.textMy.ifBlank { tr(UiText.EMPTY_SCRIPT_EDIT) }, muted = seg.textMy.isBlank())
         }
     }
 }
@@ -260,8 +261,8 @@ private fun clock(ms: Long): String {
 }
 
 /** "Transcribe picked scenes" summary once lines are saved (5B-1, 5B-13 Burmese). */
-internal fun transcriptSummary(lines: Int, scenes: Int): String = "🎙 Transcript ✓ ပြကွက် $scenes ခုမှ $lines ကြောင်း"
+internal fun transcriptSummary(lines: Int, scenes: Int, language: UiLanguage = UiLanguage.ENGLISH): String = UiText.TRANSCRIPT_SUMMARY.text(language, "scenes" to (scenes), "lines" to (lines))
 
 /** First sentence of the Transcribe confirm card: picked scenes without subtitles and the Gemini requests. */
-internal fun transcribeConfirmText(scenes: Int, requests: Int): String =
-    "စာတန်းမရှိသော ရွေးထားသည့် ပြကွက် $scenes ခုကို စာသားပြောင်းမယ်: Gemini request $requests ခု။"
+internal fun transcribeConfirmText(scenes: Int, requests: Int, language: UiLanguage = UiLanguage.ENGLISH): String =
+    UiText.TRANSCRIBE_CONFIRM.text(language, "scenes" to (scenes), "requests" to (requests))

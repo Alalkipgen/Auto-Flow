@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.background
@@ -63,7 +64,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.refresh() }
     val recap = state.recap
-    if (recap == null) { AfText("Movie Recap project တစ်ခု ဖွင့်ပါ။"); return }
+    if (recap == null) { AfText(tr(UiText.OPEN_RECAP_PROJECT)); return }
     var selectedId by remember(state.projectDir) { mutableStateOf<String?>(null) }
     var selectedScene by remember(state.projectDir) { mutableIntStateOf(0) }
     val blocks = state.story?.blocks.orEmpty()
@@ -71,7 +72,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     val wide = windowWidthDp >= 840f
     val list: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText(if (step == RecapStep.SOURCE) "ပြကွက်များ" else "အပိုင်းများ", bold = true)
+            AfText(if (step == RecapStep.SOURCE) tr(UiText.SCENES) else tr(UiText.BLOCKS), bold = true)
             if (step == RecapStep.SOURCE) {
                 recap.scenes.forEachIndexed { i, scene ->
                     AfButton("${if (scene.picked) "☑" else "☐"} #${i + 1} · ${RecapModel.clock(scene.startMs)}", { selectedScene = i },
@@ -79,7 +80,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
                         kind = if (i == selectedScene) ButtonKind.Primary else ButtonKind.Secondary)
                 }
             } else {
-                if (blocks.isEmpty()) AfText("ဇာတ်လမ်း အရင်ရေးပါ။", muted = true)
+                if (blocks.isEmpty()) AfText(tr(UiText.WRITE_STORY_FIRST), muted = true)
                 blocks.forEachIndexed { i, b ->
                     AfButton("#${i + 1} · ${b.textMy.take(70)}", { selectedId = b.id },
                         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("block-select-$i"),
@@ -94,7 +95,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     val preview: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (step != RecapStep.STYLE) RecapTimelinePreview(model)
-            AfText("ထုတ်ယူမည့်ပုံ · ရုပ်ငြိမ်", muted = true)
+            AfText(tr(UiText.OUTPUT_STILL_PREVIEW), muted = true)
             ExactFrameCard(model)
         }
     }
@@ -117,7 +118,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
             }
             if (!wide && step in listOf(RecapStep.STORY, RecapStep.VOICE, RecapStep.STYLE)) {
                 if (step != RecapStep.STYLE) RecapTimelinePreview(model)
-                AfText("ထုတ်ယူမည့်ပုံ · ရုပ်ငြိမ်", muted = true)
+                AfText(tr(UiText.OUTPUT_STILL_PREVIEW), muted = true)
                 ExactFrameCard(model)
             }
         }
