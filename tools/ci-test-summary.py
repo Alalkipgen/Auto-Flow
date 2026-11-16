@@ -10,10 +10,29 @@ for path in sorted(Path('.').glob('*/build/test-results/**/*.xml')):
     parts = path.parts
     key = f'{parts[0]}/{parts[3]}'
     row = rows.setdefault(key, dict(tests=0, failures=0, skipped=0))
-    for case in ET.parse(path).getroot().iter('testcase'):
+    root = ET.parse(path).getroot()
+    failed = False
+    def escape(value):
+        return value.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+    for case in root.iter('testcase'):
         row['tests'] += 1
-        row['failures'] += int(case.find('failure') is not None or case.find('error') is not None)
+        failure = case.find('failure')
+        if failure is None:
+            failure = case.find('error')
+        row['failures'] += int(failure is not None)
         row['skipped'] += int(case.find('skipped') is not None)
+        if failure is not None:
+            failed = True
+            identity = f"{case.get('classname', key)}.{case.get('name', '?')}"
+            detail = f"{identity}\n{failure.get('message', '')}\n{failure.text or ''}"[:6000]
+            print(f'::error title=JUnit failure::{escape(detail)}')
+    if failed:
+        # Publish bounded synthetic runtime diagnostics alongside the failure. Artifact/log downloads
+        # need sign-in; check annotations expose the assertion without silently re-running it to green.
+        diagnostics = [line for line in (root.findtext('system-out') or '').splitlines()
+                       if line.startswith(('LIVE_', 'PLAYBACK_'))]
+        if diagnostics:
+            print(f"::notice title=Runtime failure diagnostics::{escape(chr(10).join(diagnostics[-48:])[:6000])}")
 
 out = Path('build/qa')
 out.mkdir(parents=True, exist_ok=True)

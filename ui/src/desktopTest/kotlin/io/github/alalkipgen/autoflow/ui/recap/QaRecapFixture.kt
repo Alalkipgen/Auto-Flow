@@ -76,19 +76,19 @@ fun main(args: Array<String>) = runBlocking {
     val backup = File(output, "AutoFlow-5A8-synthetic-backup.zip")
     backup.outputStream().use { ProjectZip.write(ProjectZip.plan(fixtures.map { BackupProject(it.dir.path, it.dir.name) }), it, "2026-11-16T00:00:00Z") }
     File(output, "EXPECTED.txt").writeText("""
-        Auto-Flow 5A-8 synthetic checkpoint fixture (no network/providers/paid services)
+        Auto-Flow 5A-8 synthetic combined-QA fixture (no network/providers/paid services)
         Restore AutoFlow-5A8-synthetic-backup.zip through the existing Android backup restore.
         Desktop: open a projects/*.autoflow folder. Never replace an owner's real project.
-        This checkpoint is NOT queue-complete: native output-layer Compose rendering/S10 expansion remains open.
+        Native output-frame preview/S10 are implemented. Verify this exact source run; physical owner acceptance is still pending.
 
         All projects: approved native-v2 story, stable-a/stable-b, valid 1-second 440/660 Hz recorded WAV takes.
-        No voice-audio playback is claimed for the muted source-picture player.
+        No voice-audio playback is claimed for the muted native output-frame player.
         Output timeline: [0,2000) -> source [2000,4000); [2000,4000) -> source [6000,8000);
                          [4000,5500) -> source [4000,5500). Duration 5500 ms, no first-clip loop.
         Captions: FIRST [200,1200), SECOND [4200,5200); blank elsewhere (test away from frame boundaries).
-        Source-picture paused seeks: 150 ms -> green patch/no caption; 500 -> green/FIRST;
+        Landscape paused output seeks: 150 ms -> green patch/no caption; 500 -> green/FIRST;
                                      2500 -> yellow/no caption; 4500 -> blue/SECOND.
-        The upper-left 25% x 33% source patch encodes source time. Looks are deliberately NOT shown in source mode.
+        The upper-left 25% x 33% source patch encodes source time. Looks are shown in native output mode; the separate legacy mask-placement still remains pre-Looks.
         Native layers are OUTPUT-FRAME rects; the older bottom mask is MOVIE-PICTURE, intentionally pre-Looks in placement mode.
         List order: qa-background, qa-blur, qa-image, qa-text, qa-border; actual captions are last.
         qa-background: whole-frame behind fitted picture, ignores rect; colour #203040 (landscape), blur (portrait), checker image (square).
@@ -97,8 +97,8 @@ fun main(args: Array<String>) = runBlocking {
         qa-text: [0.15,0.65,0.70,0.20], QA + Burmese, [500,4500]; at list position, not the captions pass.
         qa-border: whole frame, rect ignored, cyan 4 px, [2000,5000].
         Landscape: 16:9, Looks off. Portrait: 9:16 Mirror/Zoom/Fill. Square: 1:1 Zoom, image background.
-        Until native Compose output rendering is implemented, check those layer/Looks results using Exact Frame / export,
-        NOT the legacy placement / source-picture surfaces. Do not mark the missing native parity row passed.
+        Compare those timed layers/Looks in the native output player with same-time Exact Frame / export.
+        IMAGE keeps aspect from rect width; TEXT stays at its list position, captions last. Gaussian/text/YUV are approximate.
         Edit, cancel, save/reopen, reorder and remove layers; source image bytes must remain unchanged on removal.
         Repeat large-font Exact Frame reachability and project-switch/background/foreground checks in PHONE-QA.md.
         Content/timing are deterministic; project IDs/revision timestamps and encoded bytes may vary by build/toolchain.
