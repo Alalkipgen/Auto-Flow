@@ -167,6 +167,8 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
     }
 
+    RecapLayerControls(recap, idle, model)
+
     // ── 💧 Watermark ───────────────────────────────────────────────────────────
     AfCard("💧 Watermark") {
         AfText("Logo / watermark image overlaid on every frame.", muted = true, size = 12.sp)
