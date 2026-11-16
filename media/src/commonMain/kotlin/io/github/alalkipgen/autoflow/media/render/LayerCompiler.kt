@@ -95,27 +95,7 @@ object LayerCompiler {
                 }
 
                 LayerType.TEXT -> {
-                    // A TEXT layer is drawn here, not in the final captions pass. A whole-frame rect (the
-                    // default) keeps the centred caption size; a smaller rect centres the text in the rect (x and y,
-                    // audit F08) and sizes the lines to fill its height (e.g. the Publish Kit thumbnail title, 5B-10).
-                    val whole = layer.rect.size != 4 || (layer.rect[2] >= 1f && layer.rect[3] >= 1f)
-                    val lines = p.textMy.trim().lines()
-                    // In a rect: as tall as its height allows and no wider than it (estimated from the text).
-                    val widest = lines.maxOf { emWidth(it) }.coerceAtLeast(1f)
-                    val fontSize = if (whole) (h / 18).coerceAtLeast(12)
-                    else minOf(layer.rect[3] * h / (lines.size * 1.5f), layer.rect[2] * w / widest).toInt().coerceIn(12, h / 4)
-                    val event = Overlay(
-                        text = p.textMy,
-                        startMs = from,
-                        endMs = to,
-                        font = p.style.ifBlank { textFont.orEmpty() },
-                        sizePx = fontSize,
-                        color = "#FFFFFF",
-                        position = Pos.CENTER,
-                        centerY = if (whole) null else layer.rect[1] + layer.rect[3] / 2,
-                        centerX = if (whole) null else layer.rect[0] + layer.rect[2] / 2,
-                        strokeWidth = if (whole) 0 else maxOf(2, fontSize / 14),
-                    )
+                    val event = textOverlay(layer, output, totalMs, textFont)
                     chains += "[$prev]${textFilter(k, event)}[$next]"
                 }
 
@@ -144,6 +124,31 @@ object LayerCompiler {
         }
 
         return LayerResult(chains, inputPaths)
+    }
+
+    /** Export TEXT layout, also used by the output-frame proxy (no rasterization promise). */
+    fun textOverlay(layer: Layer, output: Output, totalMs: Long, textFont: String? = null): Overlay {
+        val p = layer.params
+        val w = output.width
+        val h = output.height
+        val whole = layer.rect.size != 4 || (layer.rect[2] >= 1f && layer.rect[3] >= 1f)
+        val lines = p.textMy.trim().lines()
+        // In a rect: as tall as its height allows and no wider than it (estimated from the text).
+        val widest = lines.maxOf { emWidth(it) }.coerceAtLeast(1f)
+        val fontSize = if (whole) (h / 18).coerceAtLeast(12)
+        else minOf(layer.rect[3] * h / (lines.size * 1.5f), layer.rect[2] * w / widest).toInt().coerceIn(12, h / 4)
+        return Overlay(
+            text = p.textMy,
+            startMs = layer.fromMs,
+            endMs = layer.toMs ?: totalMs,
+            font = p.style.ifBlank { textFont.orEmpty() },
+            sizePx = fontSize,
+            color = "#FFFFFF",
+            position = Pos.CENTER,
+            centerY = if (whole) null else layer.rect[1] + layer.rect[3] / 2,
+            centerX = if (whole) null else layer.rect[0] + layer.rect[2] / 2,
+            strokeWidth = if (whole) 0 else maxOf(2, fontSize / 14),
+        )
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
