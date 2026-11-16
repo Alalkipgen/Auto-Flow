@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -112,7 +113,7 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
     AfCard(if (recap) "New Movie Recap" else "New Music Video") {
         AfTextField(name, { name = it }, "Project name")
         if (recap) {
-            AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
+            AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
             AfSwitch(RIGHTS_TICK, rights, { rights = it })
         }
         if (home == null) {

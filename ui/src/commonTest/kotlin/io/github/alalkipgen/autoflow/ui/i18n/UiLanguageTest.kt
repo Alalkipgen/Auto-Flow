@@ -39,6 +39,8 @@ class UiLanguageTest {
     @Test fun catalogHasMatchingNonemptyTranslationsAndPlaceholders() {
         for (key in UiText.entries) {
             assertTrue(key.en.isNotBlank(), key.name)
+            assertFalse(key.en.contains('\uFFFD'), key.name)
+            assertFalse(key.my?.contains('\uFFFD') == true, key.name)
             assertFalse(key.my.isNullOrBlank(), key.name)
             assertEquals(textPlaceholders(key.en), textPlaceholders(key.my!!), key.name)
         }
@@ -51,4 +53,18 @@ class UiLanguageTest {
         assertEquals("အတည်ပြုမယ်", UiText.APPROVE.text(UiLanguage.BURMESE))
         assertEquals("Approve", UiText.APPROVE.text(UiLanguage.ENGLISH))
     }
+    @Test fun computedPreflightLocalizesByReasonWithoutInterpretingOrChangingRawDetails() {
+        val raw = "owner supplied diagnostic မြန်မာ {n}"
+        val item = io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item(raw,
+            io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING, "Voice",
+            io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Reason.UNVOICED, 3)
+        assertEquals("3 scenes without a voice take — they will play with movie sound only.", preflightMessage(item, UiLanguage.ENGLISH))
+        assertTrue(preflightMessage(item, UiLanguage.BURMESE).contains("ပြကွက် 3"))
+        assertEquals(raw, item.message)
+        assertEquals("Voice", item.fix)
+        val unknown = item.copy(reason = io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Reason.UNKNOWN)
+        assertTrue(preflightMessage(unknown, UiLanguage.BURMESE).endsWith(raw))
+        assertEquals("အသံ", My.screen(item.fix!!, UiLanguage.BURMESE))
+    }
+
 }
