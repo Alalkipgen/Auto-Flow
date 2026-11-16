@@ -365,11 +365,11 @@ class TranscribeScenesCardTest {
         }
         onNodeWithTag("transcribe-start").performScrollTo().performClick()
         onNodeWithTag("transcribe-confirm").assertExists()
-        onNodeWithText("Transcribe 2 picked scene(s) without subtitles: 1 Gemini request(s)", substring = true).assertExists()
+        onNodeWithText(transcribeConfirmText(2, 1), substring = true).assertExists()
         assertEquals(0, requests, "nothing is sent from the confirm card")
         onNodeWithTag("transcribe-confirm-start").performScrollTo().performClick()
         waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("transcribe-summary").fetchSemanticsNodes().isNotEmpty() }
-        onNodeWithText("🎙 Transcript ✓ 2 lines from 2 scene(s)").assertExists()
+        onNodeWithText(transcriptSummary(2, 2)).assertExists()
         onNodeWithTag("transcribe-start").assertDoesNotExist()
         assertEquals(1, requests)
     }

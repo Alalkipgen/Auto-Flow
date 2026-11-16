@@ -65,28 +65,29 @@ import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardResult
 import io.github.alalkipgen.autoflow.ui.storyboard.message
+import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
 
-internal const val SHOT_SHEET_TITLE = "Shot sheet"
+internal const val SHOT_SHEET_TITLE = "Shot စာရွက်"
 internal const val SHEET_STORYBOARD = "1 · Storyboard"
 internal const val SHEET_PROMPT = "2 · Prompt"
-internal const val SHEET_REFS = "3 · Reference images (Ref A / B)"
-internal const val SHEET_FLOW = "4 · Flow handoff"
-internal const val SHEET_VIDEOS = "5 · Videos · accept"
-internal const val ALL_SHOTS = "All shots"
-internal const val NO_VIDEO_YET = "No video yet — import one in step 4."
-internal const val NO_REF_YET = "No reference image yet — copy the image prompt, make it in AI Studio or Flow, then import it."
+internal const val SHEET_REFS = "3 · Reference ပုံများ (Ref A / B)"
+internal const val SHEET_FLOW = "4 · Flow သို့ ပို့ရန်"
+internal const val SHEET_VIDEOS = "5 · ဗွီဒီယိုများ · လက်ခံရန်"
+internal const val ALL_SHOTS = "Shot အားလုံး"
+internal const val NO_VIDEO_YET = "ဗွီဒီယို မရှိသေးပါ — အဆင့် 4 မှာ တစ်ခု ထည့်ပါ။"
+internal const val NO_REF_YET = "Reference ပုံ မရှိသေးပါ — ပုံ prompt ကို ကူးပြီး AI Studio သို့မဟုတ် Flow မှာ ဆွဲပြီး ပြန်ထည့်ပါ။"
 
 /**
  * The classic screens' messages name the tab to go to ("(Shots screen)"); on the sheet the same work is a step of
  * this sheet, so the hint names the step instead. Unknown text is shown as it is.
  */
 internal fun forSheet(text: String): String = text
-    .replace(" (Ref A/B on the References screen)", " (step 3)")
-    .replace(" — compile it on the Shots screen first", " — compile it in step 2 first")
-    .replace(" (Shots screen)", " (step 2)")
+    .replace(" (Ref A/B on the References screen)", " (အဆင့် 3)")
+    .replace(" — compile it on the Shots screen first", " — အဆင့် 2 မှာ အရင် စုစည်းပါ")
+    .replace(" (Shots screen)", " (အဆင့် 2)")
 
 /**
  * Music Video shot sheet (5B-12, D-40, DESIGN.md §7 "Music Video"): one sheet per shot instead of the Storyboard /
@@ -123,7 +124,7 @@ fun ShotSheetScreen(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AfText(SHOT_SHEET_TITLE, size = 18.sp, bold = true)
             AfText(NO_STORYBOARD_TEXT, muted = true)
-            AfButton("Go to Input", onGoToInput, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Primary)
+            AfButton("ထည့်သွင်းရန် သွားမယ်", onGoToInput, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Primary)
         }
         return
     }
@@ -149,7 +150,7 @@ fun ShotSheetScreen(
 
     val list: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            AfText("Shots", bold = true)
+            AfText("Shot များ", bold = true)
             rows.forEach { r -> SheetShotItem(r, r.number == selected) { shots.select(r.number) } }
             AfText(ALL_SHOTS, bold = true)
             allShots()
@@ -158,7 +159,7 @@ fun ShotSheetScreen(
 
     val preview: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("Shot ${row.number} · media", muted = true)
+            AfText("Shot ${row.number} · မီဒီယာ", muted = true)
             flowRow?.let { f ->
                 RefThumb(f, handoff)
                 VideoThumb(f, handoff)
@@ -184,7 +185,7 @@ fun ShotSheetScreen(
                 AfText("Shot ${row.number} · ${row.timecode}", Modifier.testTag("shot-sheet-title"), size = 16.sp, bold = true)
                 StatusBadge(row.status)
             }
-            card?.lyric?.takeIf { it.isNotBlank() }?.let { AfText(it, muted = true) }
+            card?.lyric?.takeIf { it.isNotBlank() }?.let { AfText(My.breakSyllables(it), muted = true) }
             WrapRow {
                 rows.getOrNull(index - 1)?.let { p ->
                     AfButton("← Shot ${p.number}", { shots.select(p.number) }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-prev"))
@@ -198,7 +199,7 @@ fun ShotSheetScreen(
                 job.last?.takeIf { it != StoryboardResult.Done }?.message()?.let { AfText(it, color = AutoFlowColors.Amber) }
                 sbMessage?.let { AfText(it, color = AutoFlowColors.Amber) }
                 if (card != null) ShotCard(card, storyboard, busy, showHeader = false)
-                else AfText("This shot has no storyboard card.", color = AutoFlowColors.Amber)
+                else AfText("ဒီ shot မှာ storyboard ကတ် မရှိပါ။", color = AutoFlowColors.Amber)
             }
 
             AfCard(SHEET_PROMPT) {
@@ -215,11 +216,11 @@ fun ShotSheetScreen(
 
             AfCard(SHEET_FLOW) {
                 flow.message?.let { AfText(forSheet(it), color = AutoFlowColors.Amber) }
-                AfButton("Open Flow ↗", { handoff.openFlow() }, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Flow)
+                AfButton("Flow ဖွင့်မယ် ↗", { handoff.openFlow() }, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Flow)
                 if (flowRow != null) HandoffCard(flowRow.copy(gateMsg = flowRow.gateMsg?.let(::forSheet)), LocalCompact.current, handoff, importVideo = {
                     scope.launch { handoff.pickAndImportVideo(flowRow.number) { readBytes(it) } }
                 }, fast = flow.creditHintFast, quality = flow.creditHintQuality, showHeader = false,
-                    noPromptText = "No compiled prompt — compile it in step 2.")
+                    noPromptText = "Prompt မစုစည်းရသေးပါ — အဆင့် 2 မှာ စုစည်းပါ။")
             }
 
             AfCard(SHEET_VIDEOS) {
@@ -243,10 +244,10 @@ fun ShotSheetScreen(
 private fun RefSection(row: RefRow, model: ReferencesModel, importRef: () -> Unit) {
     row.copyGateMsg?.let { AfText("⚠ ${forSheet(it)}", color = AutoFlowColors.Amber, size = 12.sp) }
     WrapRow {
-        AfButton("📋 Copy Image Prompt", { model.copyImagePrompt(row.number) }, Modifier.heightIn(min = 48.dp),
+        AfButton("📋 ပုံ ${My.COPY_PROMPT}", { model.copyImagePrompt(row.number) }, Modifier.heightIn(min = 48.dp),
             kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null)
-        AfButton("Open AI Studio ↗", { model.openAiStudio() }, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Secondary)
-        AfButton("📂 Import Image", importRef, Modifier.heightIn(min = 48.dp).testTag("ref-import"), kind = ButtonKind.Secondary)
+        AfButton("AI Studio ဖွင့်မယ် ↗", { model.openAiStudio() }, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Secondary)
+        AfButton("📂 ပုံ ထည့်မယ်", importRef, Modifier.heightIn(min = 48.dp).testTag("ref-import"), kind = ButtonKind.Secondary)
     }
     if (row.refs.isEmpty()) {
         AfText(NO_REF_YET, muted = true, size = 12.sp)
@@ -255,7 +256,7 @@ private fun RefSection(row: RefRow, model: ReferencesModel, importRef: () -> Uni
     WrapRow(spacing = 12.dp) {
         row.refs.forEachIndexed { i, id -> RefTile(ReferencesModel.refLabel(i), id, id == row.chosenRef, model) { model.setChosenRef(row.number, id) } }
     }
-    val approveLabel = if (row.refApproved) "✓ Ref approved" else "✓ Approve ${row.refs.indexOf(row.chosenRef).takeIf { it >= 0 }?.let(ReferencesModel::refLabel) ?: "reference"}"
+    val approveLabel = if (row.refApproved) "✓ Reference ${My.APPROVED}" else "✓ ${row.refs.indexOf(row.chosenRef).takeIf { it >= 0 }?.let(ReferencesModel::refLabel) ?: "Reference"} ${My.APPROVE}"
     AfButton(approveLabel, { model.approveRef(row.number, !row.refApproved) }, Modifier.heightIn(min = 48.dp).testTag("ref-approve"),
         kind = if (row.refApproved) ButtonKind.Primary else ButtonKind.Secondary, enabled = row.chosenRef != null)
 }
@@ -277,7 +278,7 @@ private fun SheetShotItem(row: ShotRow, selected: Boolean, onClick: () -> Unit) 
             AfText("#${row.number.toString().padStart(2, '0')} · ${row.timecode}", bold = true, size = 13.sp)
             StatusBadge(row.status)
         }
-        if (row.lyric.isNotBlank()) AfText(row.lyric, muted = true, size = 12.sp)
+        if (row.lyric.isNotBlank()) AfText(My.breakSyllables(row.lyric), muted = true, size = 12.sp)
     }
 }
 
@@ -295,7 +296,7 @@ private fun RefTile(label: String, id: ArtifactId, chosen: Boolean, model: Refer
         ) {
             val img = image
             if (img != null) Image(img, contentDescription = label, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-            else AfText("Image", muted = true, size = 11.sp)
+            else AfText("ပုံ", muted = true, size = 11.sp)
         }
         AfChip(if (chosen) "$label ✓" else label, chosen, onPick, Modifier.heightIn(min = 48.dp).testTag("ref-pick-${label.removePrefix("Ref ")}"))
     }

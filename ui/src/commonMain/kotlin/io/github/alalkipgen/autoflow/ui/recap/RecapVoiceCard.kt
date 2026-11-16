@@ -32,8 +32,8 @@ import io.github.alalkipgen.autoflow.ui.recap.SpeakAllEta
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 const val SPEAK_ALL = "🔊 Speak all (Gemini TTS)"
-const val RECORD = "● Record"
-const val STOP = "■ Stop"
+const val RECORD = "● အသံသွင်းမယ်"
+const val STOP = "■ ရပ်မယ်"
 
 /** Card 4 · Voice (docs/specs/recap.md §5, D-34): recorded or Gemini TTS narration per segment. */
 @Composable

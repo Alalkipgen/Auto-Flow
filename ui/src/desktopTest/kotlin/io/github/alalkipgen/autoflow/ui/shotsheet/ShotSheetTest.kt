@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shotsheet
 
+import io.github.alalkipgen.autoflow.ui.textFitProblems
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.toAwtImage
@@ -110,17 +111,17 @@ class ShotSheetTest {
         waitForIdle()
         assertEquals(listOf(false, true, false, false), project.shots.map { it.approvals.storyboard })
 
-        onNodeWithText("⚠ Compile the shot prompt first (step 2)").performScrollTo().assertExists()
+        onNodeWithText("⚠ Compile the shot prompt first (အဆင့် 2)").performScrollTo().assertExists()
         // 2 · Prompt: compile, approve.
-        onNodeWithText("Compile Prompt").performScrollTo().performClick()
+        onNodeWithText("Prompt စုစည်းမယ်").performScrollTo().performClick()
         waitForIdle()
         assertNotNull(project.shots[1].promptIr)
-        onNodeWithText("✓ Approve Prompt").performScrollTo().performClick()
+        onNodeWithText("✓ Prompt ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVE}").performScrollTo().performClick()
         waitForIdle()
         assertTrue(project.shots[1].approvals.prompt)
 
         // 3 · Ref A / B: copy the image prompt, import two images, pick B, approve it.
-        onNodeWithText("📋 Copy Image Prompt").performScrollTo().performClick()
+        onNodeWithText("📋 ပုံ ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}").performScrollTo().performClick()
         assertTrue(copied.last().isNotBlank())
         picker.files = listOf("/in/a.png")
         onNodeWithTag("ref-import").performScrollTo().performClick()
@@ -134,28 +135,28 @@ class ShotSheetTest {
         onNodeWithTag("ref-pick-B").performScrollTo().performClick()
         waitForIdle()
         assertEquals(refB, project.shots[1].chosenRef)
-        onNodeWithTag("ref-approve").assertTextContains("✓ Approve Ref B").performScrollTo().performClick()
+        onNodeWithTag("ref-approve").assertTextContains("✓ Ref B ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVE}").performScrollTo().performClick()
         waitForIdle()
         assertTrue(project.shots[1].approvals.ref)
-        onNodeWithTag("ref-approve").assertTextContains("✓ Ref approved")
+        onNodeWithTag("ref-approve").assertTextContains("✓ Reference ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVED}")
 
         // 4 · Flow handoff: copy the Veo prompt, open Flow, import two videos.
-        onNodeWithText("📋 Copy Prompt").performScrollTo().performClick()
+        onNodeWithText("📋 ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}").performScrollTo().performClick()
         waitForIdle()
         assertEquals(HandoffState.SENT_TO_FLOW, project.shots[1].handoff.state)
         assertTrue(copied.last().length > 40, "the Veo / Flow prompt: ${copied.last()}")
-        onNodeWithText("Open Flow ↗").performScrollTo().performClick()
+        onNodeWithText("Flow ဖွင့်မယ် ↗").performScrollTo().performClick()
         assertEquals("https://labs.google/fx/tools/flow", opened.last())
         picker.files = listOf("/in/v1.mp4")
-        onNodeWithText("📂 Import Video").performScrollTo().performClick()
+        onNodeWithText("📂 ဗွီဒီယို ထည့်မယ်").performScrollTo().performClick()
         waitUntil(timeoutMillis = 5_000) { project.shots[1].videos.size == 1 }
         onNodeWithText(CREDITS_QUESTION).performScrollTo().assertExists()
         picker.files = listOf("/in/v2.mp4")
-        onNodeWithText("📂 Import Video").performScrollTo().performClick()
+        onNodeWithText("📂 ဗွီဒီယို ထည့်မယ်").performScrollTo().performClick()
         waitUntil(timeoutMillis = 5_000) { project.shots[1].videos.size == 2 }
 
         // 5 · Videos: two versions, newest first; use the older one.
-        onNodeWithText("Videos (2 versions)").performScrollTo().assertExists()
+        onNodeWithText(io.github.alalkipgen.autoflow.ui.shots.versionsTitle(2)).performScrollTo().assertExists()
         onAllNodesWithText(USE_VERSION_BUTTON)[1].performScrollTo().performClick()
         waitForIdle()
         val s2 = project.shots[1]
@@ -183,9 +184,9 @@ class ShotSheetTest {
 
     @Test
     fun hintsNameTheSheetStepNotTheOldTab() {
-        assertEquals("Compile the shot prompt first (step 2)", forSheet("Compile the shot prompt first (Shots screen)"))
-        assertEquals("Import a reference image first (step 3)", forSheet("Import a reference image first (Ref A/B on the References screen)"))
-        assertEquals("No compiled prompt for shot 2 — compile it in step 2 first",
+        assertEquals("Compile the shot prompt first (အဆင့် 2)", forSheet("Compile the shot prompt first (Shots screen)"))
+        assertEquals("Import a reference image first (အဆင့် 3)", forSheet("Import a reference image first (Ref A/B on the References screen)"))
+        assertEquals("No compiled prompt for shot 2 — အဆင့် 2 မှာ အရင် စုစည်းပါ",
             forSheet("No compiled prompt for shot 2 — compile it on the Shots screen first"))
         assertEquals("Approve the reference image first", forSheet("Approve the reference image first"))
     }
@@ -196,7 +197,7 @@ class ShotSheetTest {
         var went = 0
         setContent { ShotSheetScreen(storyboard, jobs, shots, refs, handoff, { null }, 412f, onGoToInput = { went++ }) }
         onNodeWithText(NO_STORYBOARD_TEXT).assertExists()
-        onNodeWithText("Go to Input").performClick()
+        onNodeWithText("ထည့်သွင်းရန် သွားမယ်").performClick()
         assertEquals(1, went)
     }
 
@@ -227,7 +228,7 @@ class ShotSheetTest {
 
     private fun layout(width: Int, font: Float) = runDesktopComposeUiTest(width = width, height = 1000) {
         open()
-        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, font)) { Box { sheet(width.toFloat())() } } }
+        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family) { Box { sheet(width.toFloat())() } } }
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
         if (width < 840) {
             onNodeWithTag("shot-sheet-chip-2").performScrollTo().performClick()
@@ -252,6 +253,7 @@ class ShotSheetTest {
         } else {
             onNodeWithText("0/4 approved").performScrollTo().assertIsDisplayed()
         }
+        assertEquals(emptyList<String>(), textFitProblems(width, font))
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/studio-layout").apply { mkdirs() }
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "shotsheet-$width-font${(font * 100).toInt()}.png"))
     }

@@ -33,6 +33,7 @@ import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
+import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Quick Recap wizard state for the UI (not persisted here). */
@@ -65,8 +66,8 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            AfText("Home", Modifier.weight(1f), size = 20.sp, bold = true)
-            AfButton("⚙ Settings", onOpenSettings, Modifier.testTag("home-settings"))
+            AfText("ပင်မ", Modifier.weight(1f), size = 20.sp, bold = true)
+            AfButton(My.SETTINGS, onOpenSettings, Modifier.testTag("home-settings"))
         }
         status?.let { AfText(it, muted = true, size = 12.sp) }
 
@@ -74,15 +75,15 @@ fun HomeScreen(
         QuickRecapWizardCard(onQuickRecapStart)
 
         // Create shortcuts
-        AfCard("Create") {
+        AfCard("အသစ်လုပ်မယ်") {
             WrapRow {
-                AfButton("🎬 New Movie Recap", onNewRecap, kind = ButtonKind.Primary)
-                AfButton("🎵 New Music Video", onNewMusicVideo)
+                AfButton("🎬 Movie Recap အသစ်", onNewRecap, kind = ButtonKind.Primary)
+                AfButton("🎵 Music Video အသစ်", onNewMusicVideo)
             }
         }
 
-        AfCard("Recent projects") {
-            if (recent.isEmpty()) AfText("No projects yet. New ones show here; all of them are in the Projects tab.", muted = true)
+        AfCard("မကြာသေးမီက ပရောဂျက်များ") {
+            if (recent.isEmpty()) AfText("ပရောဂျက် မရှိသေးပါ။ အသစ်လုပ်ရင် ဒီမှာ ပေါ်မယ်၊ အားလုံးကို ပရောဂျက်များ မှာ ကြည့်ပါ။", muted = true)
             recent.forEach { entry ->
                 val kind = if (entry.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "🎬" else "🎵"
                 AfButton("$kind ${entry.name}", { onOpenProject(entry.path) }, Modifier.fillMaxWidth().testTag("recent-${entry.name}"))
@@ -97,47 +98,47 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
     var targetMs by remember { mutableStateOf(300_000L) }
     var style by remember { mutableStateOf(RecapStyle.PLAIN) }
 
-    AfCard("⚡ Quick Recap") {
+    AfCard("⚡ အမြန် Recap") {
         when (step) {
             WizardStep.IDLE -> {
-                AfText("Turn a movie into a recap in one tap — stops only for your approval.", muted = true, size = 12.sp)
-                AfText("Needs subtitles or a transcript embedded in the movie.", muted = true, size = 11.sp)
-                AfButton("Start Quick Recap…", { step = WizardStep.LENGTH }, kind = ButtonKind.Primary)
+                AfText("ရုပ်ရှင်တစ်ကားကို တစ်ချက်နှိပ်ရုံနဲ့ recap လုပ်မယ် — သင် အတည်ပြုဖို့ပဲ ရပ်မယ်။", muted = true, size = 12.sp)
+                AfText("ရုပ်ရှင်ထဲမှာ စာတန်းထိုး (subtitle) သို့မဟုတ် transcript ပါရမယ်။", muted = true, size = 11.sp)
+                AfButton("အမြန် Recap စမယ်…", { step = WizardStep.LENGTH }, kind = ButtonKind.Primary)
             }
             WizardStep.LENGTH -> {
-                AfText("Target length", bold = true)
+                AfText("ကြာချိန်", bold = true)
                 WrapRow {
-                    listOf(60_000L to "1 min", 180_000L to "3 min", 300_000L to "5 min", 600_000L to "10 min").forEach { (ms, label) ->
+                    listOf(60_000L, 180_000L, 300_000L, 600_000L).map { it to My.minutes(it / 60_000) }.forEach { (ms, label) ->
                         AfChip(label, targetMs == ms, onClick = { targetMs = ms })
                     }
                 }
                 WrapRow {
-                    AfButton("Next: Style →", { step = WizardStep.STYLE }, kind = ButtonKind.Primary)
-                    AfButton("Cancel", { step = WizardStep.IDLE })
+                    AfButton("နောက်အဆင့်: ပုံစံ →", { step = WizardStep.STYLE }, kind = ButtonKind.Primary)
+                    AfButton(My.CANCEL, { step = WizardStep.IDLE })
                 }
             }
             WizardStep.STYLE -> {
-                AfText("Style", bold = true)
+                AfText("ပုံစံ", bold = true)
                 WrapRow {
-                    AfChip("Plain", style == RecapStyle.PLAIN, onClick = { style = RecapStyle.PLAIN })
-                    AfChip("Commentary", style == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY })
+                    AfChip(styleLabel(RecapStyle.PLAIN), style == RecapStyle.PLAIN, onClick = { style = RecapStyle.PLAIN })
+                    AfChip(styleLabel(RecapStyle.COMMENTARY), style == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY })
                 }
                 WrapRow {
-                    AfButton("Start →", { step = WizardStep.CONFIRM }, kind = ButtonKind.Primary)
-                    AfButton("Back", { step = WizardStep.LENGTH })
+                    AfButton("${My.START} →", { step = WizardStep.CONFIRM }, kind = ButtonKind.Primary)
+                    AfButton(My.BACK, { step = WizardStep.LENGTH })
                 }
             }
             WizardStep.CONFIRM -> {
-                val minLabel = "${targetMs / 60_000} min"
-                AfText("Quick Recap · $minLabel · $style", bold = true)
-                AfText("Scenes will be detected, AI picks scenes, Gemini writes the script. Stops at Story review — you approve or edit.", muted = true, size = 12.sp)
-                AfText("Then TTS and render run as background jobs.", muted = true, size = 12.sp)
+                val minLabel = My.minutes(targetMs / 60_000)
+                AfText("အမြန် Recap · $minLabel · ${styleLabel(style)}", bold = true)
+                AfText("ပြကွက်တွေ ရှာမယ်၊ AI က ပြကွက် ရွေးမယ်၊ Gemini က script ရေးမယ်။ ဇာတ်လမ်း စစ်ချိန်မှာ ရပ်မယ် — သင် ${My.APPROVE} သို့မဟုတ် ${My.EDIT}။", muted = true, size = 12.sp)
+                AfText("ပြီးရင် TTS နဲ့ render က နောက်ကွယ်မှာ အလုပ်များ အဖြစ် ဆက်လုပ်မယ်။", muted = true, size = 12.sp)
                 WrapRow {
-                    AfButton("Start", {
+                    AfButton(My.START, {
                         onStart(targetMs, style)
                         step = WizardStep.IDLE
                     }, kind = ButtonKind.Primary)
-                    AfButton("Back", { step = WizardStep.STYLE })
+                    AfButton(My.BACK, { step = WizardStep.STYLE })
                 }
             }
         }
@@ -160,24 +161,30 @@ private fun QuickRecapStageList() {
     val active = jobs.filter { it.kind == AiJobKind.QUICK_RECAP || it.kind == AiJobKind.TTS_ALL }
         .filter { it.state != AiJobState.DONE && it.state != AiJobState.CANCELLED }
     if (active.isEmpty()) return
-    AfCard("⚡ Running jobs") {
+    AfCard("⚡ လုပ်နေသော အလုပ်များ") {
         active.forEach { job ->
             val eta = job.etaSeconds()
             val etaText = if (eta != null && eta > 0) " · ~${eta}s" else ""
             val itemsLeft = job.items.size
             val stateLabel = when (job.state) {
-                AiJobState.RUNNING -> "Running"
-                AiJobState.QUEUED -> "Queued"
-                AiJobState.PAUSED -> "Paused"
-                AiJobState.FAILED -> "Failed"
+                AiJobState.RUNNING -> "လုပ်နေသည်"
+                AiJobState.QUEUED -> "စောင့်နေသည်"
+                AiJobState.PAUSED -> "ခဏရပ်ထားသည်"
+                AiJobState.FAILED -> "မအောင်မြင်ပါ"
                 else -> job.state.name
             }
             val name = job.project.substringAfterLast('/').removeSuffix(".autoflow")
             AfText(
-                "[$stateLabel] $name · ${job.kind.name} · $itemsLeft left$etaText",
+                "[$stateLabel] $name · ${job.kind.name} · $itemsLeft ခု ကျန်$etaText",
                 size = 12.sp,
                 color = if (job.state == AiJobState.FAILED) AutoFlowColors.Amber else AutoFlowColors.Text,
             )
         }
     }
+}
+
+/** Burmese name of a Quick Recap style (5B-13); the saved value stays the enum. */
+internal fun styleLabel(style: RecapStyle): String = when (style) {
+    RecapStyle.PLAIN -> "ရိုးရိုး"
+    RecapStyle.COMMENTARY -> "မှတ်ချက်ပေး"
 }

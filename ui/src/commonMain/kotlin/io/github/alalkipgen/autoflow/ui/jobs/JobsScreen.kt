@@ -16,9 +16,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.etaSeconds
+import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -64,14 +66,14 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         add(JobRow(JobSource.RECAP, "Movie Recap — $label", projectName(recap.projectDir), recap.progress, canCancel = recap.job == RecapModel.WRITING))
     }
     render?.let { run ->
-        val kind = if (run.quality == Quality.PREVIEW) "Preview 540p" else "Export"
+        val kind = if (run.quality == Quality.PREVIEW) "နမူနာ 540p" else "ထုတ်ယူ"
         val name = projectName(run.projectDir)
         when (val s = run.state) {
-            RenderState.Queued -> add(JobRow(JobSource.RENDER, "Render — $kind (waiting)", name, canCancel = true))
+            RenderState.Queued -> add(JobRow(JobSource.RENDER, "Render — $kind (စောင့်နေသည်)", name, canCancel = true))
             is RenderState.Running -> add(JobRow(JobSource.RENDER, "Render — $kind", name, s.fraction, canCancel = true))
-            is RenderState.Done -> add(JobRow(JobSource.RENDER, "Render — $kind finished", name, 1.0, running = false))
-            is RenderState.Failed -> add(JobRow(JobSource.RENDER, "Render — $kind failed", s.reason, running = false, failed = true))
-            RenderState.Cancelled -> add(JobRow(JobSource.RENDER, "Render — $kind cancelled", name, running = false))
+            is RenderState.Done -> add(JobRow(JobSource.RENDER, "Render — $kind ပြီးပြီ", name, 1.0, running = false))
+            is RenderState.Failed -> add(JobRow(JobSource.RENDER, "Render — $kind မအောင်မြင်ပါ", s.reason, running = false, failed = true))
+            RenderState.Cancelled -> add(JobRow(JobSource.RENDER, "Render — $kind ပယ်ဖျက်ပြီး", name, running = false))
         }
     }
     storyboard?.running?.let { add(JobRow(JobSource.STORYBOARD, "Storyboard — $it", canCancel = true)) }
@@ -79,17 +81,35 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         val active = job.state == AiJobState.RUNNING || job.state == AiJobState.QUEUED
         val detail = listOfNotNull(
             projectName(job.project),
-            "${job.items.size} left",
-            job.etaSeconds()?.let { "about ${it}s" },
+            "${job.items.size} ခု ကျန်",
+            job.etaSeconds()?.let { "~${it}s" },
             job.error,
         ).joinToString(" · ")
         add(
             JobRow(
-                JobSource.AI, "${job.kind.name.lowercase().replaceFirstChar { it.uppercase() }} — ${job.state.name.lowercase()}", detail,
+                JobSource.AI, "${aiKindLabel(job.kind)} — ${aiStateLabel(job.state)}", detail,
                 running = active, failed = job.state == AiJobState.FAILED, canCancel = active, aiJobId = job.id,
             ),
         )
     }
+}
+
+/** Burmese name of an AI job kind (5B-13); the saved kind stays the enum. */
+internal fun aiKindLabel(kind: AiJobKind): String = when (kind) {
+    AiJobKind.TTS_ALL -> "အားလုံး အသံထုတ်"
+    AiJobKind.TRANSCRIBE -> "စာသားပြောင်း"
+    AiJobKind.QUICK_RECAP -> "အမြန် Recap"
+    AiJobKind.PUBLISH_KIT -> "Publish Kit"
+}
+
+/** Burmese job state (5B-13). */
+internal fun aiStateLabel(state: AiJobState): String = when (state) {
+    AiJobState.QUEUED -> "စောင့်နေသည်"
+    AiJobState.RUNNING -> "လုပ်နေသည်"
+    AiJobState.PAUSED -> "ခဏရပ်ထားသည်"
+    AiJobState.DONE -> "ပြီးပြီ"
+    AiJobState.FAILED -> "မအောင်မြင်ပါ"
+    AiJobState.CANCELLED -> "ပယ်ဖျက်ပြီး"
 }
 
 /** Badge for the Jobs tab: > 0 = jobs still running, < 0 = that many failed, 0 = none. */
@@ -141,11 +161,11 @@ fun JobsScreen(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        AfText("Jobs", size = 20.sp, bold = true)
+        AfText("အလုပ်များ", size = 20.sp, bold = true)
         if (rows.isEmpty()) {
             AfText(
-                "Nothing is running. Finding scenes, writing the script, voice, storyboard and renders show here while they run, " +
-                    "and keep going when you switch screens.",
+                "ဘာမှ လုပ်မနေပါ။ ပြကွက်ရှာခြင်း၊ script ရေးခြင်း၊ အသံ၊ storyboard နဲ့ render တွေ လုပ်နေချိန် ဒီမှာ ပေါ်မယ်၊ " +
+                    "တခြားစာမျက်နှာ ပြောင်းလည်း ဆက်လုပ်နေမယ်။",
                 Modifier.testTag("jobs-empty"),
                 muted = true,
             )
@@ -155,9 +175,9 @@ fun JobsScreen(
                 row.detail?.let { AfText(it, color = if (row.failed) AutoFlowColors.Amber else AutoFlowColors.Muted, size = 12.sp) }
                 row.progress?.takeIf { row.running }?.let { AfText("${(it * 100).toInt()} %", size = 12.sp) }
                 WrapRow {
-                    if (row.source != JobSource.AI) AfButton("Open", { onOpen(row.source) }, kind = ButtonKind.Primary)
+                    if (row.source != JobSource.AI) AfButton(My.OPEN, { onOpen(row.source) }, kind = ButtonKind.Primary)
                     if (row.canCancel) {
-                        AfButton("Cancel", {
+                        AfButton(My.CANCEL, {
                             when (row.source) {
                                 JobSource.RECAP -> koin.getOrNull<RecapModel>()?.cancelScript()
                                 JobSource.RENDER -> koin.getOrNull<ExportModel>()?.cancel()

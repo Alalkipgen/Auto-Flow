@@ -75,7 +75,7 @@ class RecapLivePreviewTest {
         assertTrue(near(0.5f, moved[1]), "strip dragged up ≈ 0.3: $moved")
         assertTrue(near(1f, moved[2]) && near(0.17f, moved[3]), "same size: $moved")
         assertEquals(MaskPreset.LOGO_TR.rect, rect(MaskPreset.LOGO_TR), "the other box is untouched")
-        onNodeWithText("Bottom strip (subtitles): drag to move · pinch or mouse wheel to resize").assertExists()
+        onNodeWithText(boxHint(MaskPreset.BOTTOM)).assertExists()
     }
 
     @Test
@@ -124,7 +124,7 @@ class RecapLivePreviewTest {
             val open by current.state.collectAsState()
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
-        onNodeWithText("Exact frame").performClick()
+        onNodeWithText(EXACT_FRAME).performClick()
         waitUntil(timeoutMillis = 5_000) { onAllNodes(androidx.compose.ui.test.hasText("ffmpeg was not found", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 }

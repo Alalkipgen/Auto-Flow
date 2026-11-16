@@ -102,8 +102,8 @@ class RecapExportTest {
         // v2 rows (audit F07): by block id, the take that plays.
         val rows = RecapFit.rows(recap(), m.state.value.story!!)
         assertEquals(FitStatus.NO_VOICE, rows[1].status)
-        assertEquals("No voice", rows[1].label())
-        assertTrue(fitFooter(recap(), rows).endsWith("· 1 of 2 voiced"))
+        assertEquals(io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE, rows[1].label())
+        assertTrue(fitFooter(recap(), rows).endsWith("· 2 ခုအနက် 1 ခု အသံပါ"))
 
         e.refresh()
         val ready = assertNotNull(e.state.value.recap)

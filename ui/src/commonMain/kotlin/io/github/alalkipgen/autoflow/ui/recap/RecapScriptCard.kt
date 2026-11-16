@@ -173,7 +173,7 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
     val t = state.transcribe
     if (!t.available || recap.movie == null) return
     if (t.lines > 0 || t.transcribedScenes > 0) {
-        AfText("🎙 Transcript ✓ ${t.lines} lines from ${t.transcribedScenes} scene(s)", Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
+        AfText(transcriptSummary(t.lines, t.transcribedScenes), Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
     }
     val running = state.job?.startsWith("Transcribing") == true
     val confirm = t.confirm
@@ -181,37 +181,37 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
     when {
         running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText(state.job.orEmpty(), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
-            AfButton("Cancel", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
         }
         confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(
-                "Transcribe ${confirm.scenes} picked scene(s) without subtitles: ${confirm.requests} Gemini request(s), " +
-                    "${clock(confirm.audioMs)} of sound. Only these scenes' sound is sent — never the picture or the whole movie. " +
-                    "Today so far: ${confirm.usedToday?.toString() ?: "…"} request(s).",
+                transcribeConfirmText(confirm.scenes, confirm.requests) + " အသံ ${clock(confirm.audioMs)}။ " +
+                    "ဒီပြကွက်တွေရဲ့ အသံကိုပဲ ပို့မယ် — ရုပ်ပုံ ဒါမှမဟုတ် ရုပ်ရှင်တစ်ကားလုံးကို ဘယ်တော့မှ မပို့ပါ။ " +
+                    "ယနေ့အထိ: request ${confirm.usedToday?.toString() ?: "…"} ခု။",
                 Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton("Start", { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
-                AfButton("Back", { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
+                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.START, { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
+                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
             }
         }
         job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(
-                (job.error ?: "Transcribe stopped.") + " ${job.items.size} request(s) left.",
+                (job.error ?: "စာသားပြောင်းခြင်း ရပ်သွားတယ်။") + " request ${job.items.size} ခု ကျန်။",
                 Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton("Retry", { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
-                AfButton("Cancel job", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.RETRY, { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
+                AfButton("အလုပ် ပယ်ဖျက်မယ်", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
             }
         }
         job != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("Transcribe is running (${job.items.size} request(s) left): see Jobs.", Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
-            AfButton("Cancel", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+            AfText("စာသားပြောင်းနေတယ် (request ${job.items.size} ခု ကျန်): အလုပ်များ မှာ ကြည့်ပါ။", Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
         }
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            AfText("${t.todoScenes} picked scene(s) have no subtitles. Gemini can transcribe just their sound for the script.", muted = true, size = 12.sp)
-            AfButton("🎙 Transcribe picked scenes", { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)
+            AfText("ရွေးထားသော ပြကွက် ${t.todoScenes} ခုမှာ စာတန်း မရှိပါ။ Gemini က သူတို့ရဲ့ အသံကိုပဲ script အတွက် စာသားပြောင်းပေးနိုင်တယ်။", muted = true, size = 12.sp)
+            AfButton("🎙 ရွေးထားသော ပြကွက်များကို စာသားပြောင်းမယ်", { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)
         }
     }
 }
@@ -257,4 +257,9 @@ private fun clock(ms: Long): String {
     val s = ms / 1000; return "${s / 3600}:${(s / 60 % 60).toString().padStart(2,'0')}:${(s % 60).toString().padStart(2,'0')}"
 }
 
+/** "Transcribe picked scenes" summary once lines are saved (5B-1, 5B-13 Burmese). */
+internal fun transcriptSummary(lines: Int, scenes: Int): String = "🎙 Transcript ✓ ပြကွက် $scenes ခုမှ $lines ကြောင်း"
 
+/** First sentence of the Transcribe confirm card: picked scenes without subtitles and the Gemini requests. */
+internal fun transcribeConfirmText(scenes: Int, requests: Int): String =
+    "စာတန်းမရှိသော ရွေးထားသည့် ပြကွက် $scenes ခုကို စာသားပြောင်းမယ်: Gemini request $requests ခု။"

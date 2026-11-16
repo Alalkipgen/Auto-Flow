@@ -16,7 +16,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Presentation state only. Persisted project/block identifiers never depend on translated labels. */
 enum class RecapStep(val label: String) {
-    SOURCE("Source"), STORY("Story"), VOICE("Voice"), STYLE("Style"), EXPORT("Export");
+    SOURCE("ရင်းမြစ်"), STORY("ဇာတ်လမ်း"), VOICE("အသံ"), STYLE("ပုံစံ"), EXPORT("ထုတ်ယူ");
     fun previous(): RecapStep? = entries.getOrNull(ordinal - 1)
     fun next(): RecapStep? = entries.getOrNull(ordinal + 1)
 }
@@ -29,10 +29,10 @@ fun RecapStepHeader(step: RecapStep, onBack: () -> Unit, onNext: () -> Unit, onC
             progressBarRangeInfo = ProgressBarRangeInfo((step.ordinal + 1).toFloat(), 0f..5f, 4)
         }, bold = true)
         WrapRow {
-            AfButton("← Back", onBack, Modifier.heightIn(min = 48.dp).testTag("recap-back"))
-            if (step.next() != null) AfButton("Next: ${step.next()!!.label} →", onNext,
+            AfButton("← ယခင်အဆင့်", onBack, Modifier.heightIn(min = 48.dp).testTag("recap-back"))
+            if (step.next() != null) AfButton("နောက်အဆင့်: ${step.next()!!.label} →", onNext,
                 Modifier.heightIn(min = 48.dp).testTag("recap-next"), kind = ButtonKind.Primary)
-            AfButton("Classic Recap", onClassic, Modifier.heightIn(min = 48.dp).testTag("classic-recap"))
+            AfButton("Recap ပုံစံဟောင်း", onClassic, Modifier.heightIn(min = 48.dp).testTag("classic-recap"))
         }
     }
 }
@@ -60,7 +60,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.refresh() }
     val recap = state.recap
-    if (recap == null) { AfText("Open a Movie Recap project."); return }
+    if (recap == null) { AfText("Movie Recap project တစ်ခု ဖွင့်ပါ။"); return }
     var selectedId by remember(state.projectDir) { mutableStateOf<String?>(null) }
     var selectedScene by remember(state.projectDir) { mutableIntStateOf(0) }
     val blocks = state.story?.blocks.orEmpty()
@@ -68,7 +68,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     val wide = windowWidthDp >= 840f
     val list: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText(if (step == RecapStep.SOURCE) "Scenes" else "Blocks", bold = true)
+            AfText(if (step == RecapStep.SOURCE) "ပြကွက်များ" else "အပိုင်းများ", bold = true)
             if (step == RecapStep.SOURCE) {
                 recap.scenes.forEachIndexed { i, scene ->
                     AfButton("${if (scene.picked) "☑" else "☐"} #${i + 1} · ${RecapModel.clock(scene.startMs)}", { selectedScene = i },
@@ -76,14 +76,14 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
                         kind = if (i == selectedScene) ButtonKind.Primary else ButtonKind.Secondary)
                 }
             } else {
-                if (blocks.isEmpty()) AfText("Create the story first.", muted = true)
+                if (blocks.isEmpty()) AfText("ဇာတ်လမ်း အရင်ရေးပါ။", muted = true)
                 blocks.forEachIndexed { i, b ->
                     AfButton("#${i + 1} · ${b.textMy.take(70)}", { selectedId = b.id },
                         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("block-select-$i"),
                         kind = if (i == selectedIndex) ButtonKind.Primary else ButtonKind.Secondary)
                     TakeVoiceLabel(recap.takeFor(b.id), recap.voiceLock)
-                    if (state.isStale(i)) AfText("⚠ Stale", color = AutoFlowColors.Amber)
-                    else if (state.currentTake(i) == null) AfText("No voice", muted = true)
+                    if (state.isStale(i)) AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}", color = AutoFlowColors.Amber)
+                    else if (state.currentTake(i) == null) AfText(io.github.alalkipgen.autoflow.ui.i18n.My.NO_VOICE, muted = true)
                 }
             }
         }
@@ -91,7 +91,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     val preview: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // This is explicitly a still-render preview until the separate playback milestone is implemented.
-            AfText("Export preview · still frame", muted = true)
+            AfText("ထုတ်ယူမည့်ပုံ · ရုပ်ငြိမ်", muted = true)
             ExactFrameCard(model)
         }
     }
@@ -113,7 +113,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
                 RecapStep.EXPORT -> Unit // Export has its own job-aware screen in AppShell.
             }
             if (!wide && step in listOf(RecapStep.STORY, RecapStep.VOICE, RecapStep.STYLE)) {
-                AfText("Export preview · still frame", muted = true)
+                AfText("ထုတ်ယူမည့်ပုံ · ရုပ်ငြိမ်", muted = true)
                 ExactFrameCard(model)
             }
         }
