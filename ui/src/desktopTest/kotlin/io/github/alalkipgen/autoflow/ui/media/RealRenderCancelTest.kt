@@ -68,16 +68,23 @@ class RealRenderCancelTest {
 
     private fun sha(f: File) = MessageDigest.getInstance("SHA-256").digest(f.readBytes())
 
-    /** ffmpeg processes still running for this [marker] (their command line names it). */
-    private fun ffmpegsFor(marker: String) = ProcessHandle.allProcesses()
-        .filter { it.isAlive && it.info().commandLine().orElse("").let { c -> "ffmpeg" in c && marker in c } }.count()
+    /** Only this test JVM's children. Windows does not expose ProcessHandle.Info.commandLine reliably;
+     * there we identify the real ffmpeg executable (CI bypasses Chocolatey shims). Tests run serially.
+     * Both platforms still require exactly one live encoder before cancel and none after it.
+     */
+    private fun ffmpegsFor(marker: String): Long = ProcessHandle.current().descendants().use { children ->
+        val windows = System.getProperty("os.name").startsWith("Windows")
+        children.filter { child -> child.isAlive && if (windows) {
+            File(child.info().command().orElse("")).name.equals("ffmpeg.exe", ignoreCase = true)
+        } else child.info().commandLine().orElse("").let { c -> "ffmpeg" in c && marker in c } }.count()
+    }
 
     @Test
     fun cancellingRealDesktopRenderMustCleanPartialFile() = runBlocking {
         val ff = ffmpeg; val fp = ffprobe
         if (ff == null || fp == null) {
             if (System.getenv("AUTOFLOW_EXPECT_FFMPEG") == "1") fail("AUTOFLOW_EXPECT_FFMPEG=1 but no ffmpeg / ffprobe")
-            println("SKIP RealRenderCancelTest: no ffmpeg / ffprobe binary"); return@runBlocking
+            throw org.junit.AssumptionViolatedException("RealRenderCancelTest not executed: no ffmpeg / ffprobe")
         }
         val dir = Files.createTempDirectory("render-cancel").toFile()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
