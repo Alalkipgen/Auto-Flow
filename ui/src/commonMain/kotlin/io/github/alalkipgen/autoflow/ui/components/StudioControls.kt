@@ -84,9 +84,9 @@ fun SectionCard(title: String, modifier: Modifier = Modifier, initiallyExpanded:
 
 @Composable
 fun OptionCard(title: String, explanation: String, selected: Boolean, onSelect: () -> Unit,
-    modifier: Modifier = Modifier, recommended: Boolean = false,
+    modifier: Modifier = Modifier, recommended: Boolean = false, enabled: Boolean = true,
 ) {
-    AfCard(title, modifier.clickable(role = Role.RadioButton, onClick = onSelect).semantics { this.selected = selected }, selected) {
+    AfCard(title, modifier.clickable(enabled = enabled, role = Role.RadioButton, onClick = onSelect).semantics { this.selected = selected }, selected) {
         AfText(explanation, muted = true)
         if (recommended) AfText(tr(UiText.V3_RECOMMENDED), color = AutoFlowColors.Cyan)
     }

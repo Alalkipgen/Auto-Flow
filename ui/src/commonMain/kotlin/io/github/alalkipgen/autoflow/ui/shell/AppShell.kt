@@ -315,6 +315,7 @@ private fun StudioV2App(
                     Column(Modifier.fillMaxSize()) {
                         if (isRecap && screen in listOf("Recap", "Export")) {
                             val nativeBlocks = screen == "Recap" && nav.recapStep in listOf(
+                                io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE,
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.STORY, io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE)
                             if (!nativeBlocks) {
                             io.github.alalkipgen.autoflow.ui.components.WrapRow {

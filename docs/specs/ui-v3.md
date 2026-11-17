@@ -389,3 +389,30 @@ New EN/MY copy for owner review:
 | `V3_STORY_WRITING_HINT` | Style and register apply on the next story write. | ပုံစံနှင့် စကားပုံစံကို နောက်တစ်ကြိမ် ဇာတ်လမ်း ရေးရာတွင် သုံးမယ်။ |
 | `V3_APPROVE_STORY` | Approve story | ဇာတ်လမ်း အတည်ပြုမယ် |
 | `V3_SELECT_BLOCK` | Select a block to edit its script, movie cuts and voice. | စာသား၊ ရုပ်ရှင် ဖြတ်ချိန်နှင့် အသံ ပြင်ရန် အပိုင်းတစ်ခု ရွေးပါ။ |
+
+
+## Source presentation checkpoint (PR-4b / Q-26)
+
+- Native step 1/5 uses ProjectTopBar/Classic overflow and a measured sticky Import or Next: Story. Movie metadata uses the stored duration and known positive resolution; unknown dimensions and rounded-zero size are omitted. No Saved chip, sample thumbnail/name/count or estimated scan speed. A project/revision-bound replacement confirmation precedes the unchanged import, whose existing pointer-clearing effects are stated explicitly; Cancel does not open the picker.
+- Fewer/Normal/More OptionCards select transient thresholds 16/10/6. Only the explicit Find scenes action invokes the existing scanner/save path; Normal (10) remains Recommended. The helper states that a successful scan does not rebuild Story clips/takes and does clear the existing Story approval. Failed scans retain the saved project and expose the actual reason for retry.
+- Subtitles, Summary and Transcribe move from Studio Story writing options to Source, without duplication. Classic keeps the same shared controls. Existing .srt import/replace/remove, text-track extraction by real stream index, picture-track explanation, immediate summary save, request/today confirmation and transcription Cancel/Retry remain on their unchanged model paths.
+- Inspection found that `RecapModel.refresh()` dropped transient embedded-track metadata immediately after import/selection. Keep it only for the same project/movie. A reopened movie is **unprobed**, not “no tracks”: the explicit Read subtitle tracks action reuses the existing off-main MediaProbe without saving, rejects results after a project/revision change, and permits retry with the actual probe failure reason, not an import/copy message. Track chips reflect the existing selected stream pointer. Empty states make no unmeasured scan-time claim. This is UI metadata only, not a new persisted field, probe engine or extraction format.
+- Scene picks use actual start/end times, target/selected duration, picked-only, clear and 30-row pagination. Picking does not reset the current page; project switches reset transient selection/confirmation. No eager decoder calls: lazy cached thumbnails remain a separate tested PR. Existing wide-pane reachability is retained, not claimed as the PR-8 list · preview · inspector redesign.
+- Tests cover the 27-cell actual-shell EN/MY/font/bundled/fallback matrix, real scroll/pointer actions, visible sticky bar, density browse with byte-identical files, scroll-visible transcription Start/Back and cancellation, plus replacement cancellation (including registered platform Back and outside dismissal), import/extraction, scan failure/retry/busy controls, persisted summary/subtitles/picks/reopen and immutable Story/Voice history. Full/actual-remote/CI results belong to this unit's PR and handoff; phone/PC acceptance remains pending.
+
+New EN/MY copy for owner review (generated from the implemented UiText additions):
+
+| Key | English | Burmese |
+| --- | --- | --- |
+| `V3_MOVIE` | Movie | ရုပ်ရှင် |
+| `V3_READ_TRACKS` | Read subtitle tracks | စာတန်း track များ ဖတ်မယ် |
+| `V3_TRACKS_UNREADABLE` | Could not read subtitle tracks: {detail} | စာတန်း track များ ဖတ်မရပါ: {detail} |
+| `V3_AUDIO_FOUND` | Audio found | အသံ ပါသည် |
+| `V3_SPLIT_MOVIE` | How should the movie be split? | ရုပ်ရှင်ကို ဘယ်လို ပြကွက်ခွဲမလဲ။ |
+| `V3_DENSITY_FEWER` | Higher cut threshold · fewer detections | ဖြတ်မှတ်အဆင့် ပိုမြင့် · ပြကွက်တွေ့မှု ပိုနည်း |
+| `V3_DENSITY_NORMAL` | Default cut threshold | ပုံမှန် ဖြတ်မှတ်အဆင့် |
+| `V3_DENSITY_MORE` | Lower cut threshold · more detections | ဖြတ်မှတ်အဆင့် ပိုနိမ့် · ပြကွက်တွေ့မှု ပိုများ |
+| `V3_SCAN_RESULT` | Scan result · {n} scenes | ရှာဖွေမှု ရလဒ် · ပြကွက် {n} ခု |
+| `V3_SCAN_HINT` | Scans offline. A successful scan clears Story approval; existing Story clips and takes stay. | Offline စစ်မယ်။ ရှာဖွေမှု အောင်မြင်လျှင် ဇာတ်လမ်း ပြန်အတည်ပြုရန် လိုမယ်။ လက်ရှိ ဇာတ်လမ်း clip နှင့် take များ မပြောင်းပါ။ |
+| `V3_NO_SCENES` | No scenes yet. Choose a split option and find scenes. | ပြကွက် မရှိသေးပါ။ ခွဲပုံ ရွေးပြီး ပြကွက် ရှာပါ။ |
+| `V3_REPLACE_MOVIE_CONFIRM` | Choose a replacement movie? Import clears the current scenes, Story pointer, approval and take list. Existing artifact files are kept. | အစားထိုး ရုပ်ရှင် ရွေးမလား။ ထည့်လျှင် လက်ရှိ ပြကွက်၊ ဇာတ်လမ်း ချိတ်ဆက်မှု၊ အတည်ပြုချက်နှင့် take စာရင်းကို ရှင်းမယ်။ Artifact ဖိုင်အဟောင်းများ မပျက်ပါ။ |

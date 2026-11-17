@@ -55,46 +55,11 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         LaunchedEffect(state.projectDir, state.story?.style, state.story?.register) {
             if (studioOptions) { model.setStyle(style); model.setRegister(register) }
         }
-        AfText(tr(UiText.STORY_SUMMARY_HINT), muted = true, size = 12.sp)
-        AfTextField(state.summary, { model.setSummary(it) }, tr(UiText.SUMMARY), Modifier.fillMaxWidth(), lines = 5, mono = false, enabled = !state.busy)
-        WrapRow {
-            if (recap.subtitles == null) {
-                AfButton(tr(UiText.IMPORT_SUBTITLES), { model.importSubtitles() }, enabled = !state.busy)
-            } else {
-                AfText(tr(UiText.SUBTITLES_PRESENT), color = AutoFlowColors.Green)
-                AfButton(tr(UiText.REPLACE), { model.importSubtitles() }, enabled = !state.busy)
-                AfButton(tr(UiText.REMOVE), { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
-            }
+        if (!studioOptions) {
+            SourceSummary(model, state)
+            SourceSubtitles(model, state, recap)
+            TranscribeSection(model, state, recap)
         }
-        // Subtitle track selection (5B-1): show embedded tracks found in the movie.
-        if (recap.movie != null && recap.subtitles == null) {
-            val movieTracks = state.movieSubtitleTracks
-            if (movieTracks.isNotEmpty()) {
-                AfText(tr(UiText.EXTRACT_FROM_MOVIE), muted = true, size = 12.sp)
-                WrapRow {
-                    movieTracks.forEach { track ->
-                        val label = buildString {
-                            append(tr(UiText.SUBTITLE_TRACK, "index" to (track.index)))
-                            track.language?.let { append(" [$it]") }
-                            track.title?.let { append(" — $it") }
-                            append(if (track.isText) "" else tr(UiText.IMAGE_TRACK_SUFFIX))
-                        }
-                        AfChip(label, false, onClick = {
-                            if (!state.busy) {
-                                if (track.isText) model.extractSubtitleTrack(track)
-                                else model.setSubtitleTrack(track.index)
-                            }
-                        })
-                    }
-                }
-                if (movieTracks.any { !it.isText }) {
-                    AfText(tr(UiText.IMAGE_TRACK_HINT), muted = true, size = 11.sp)
-                }
-            } else if (recap.movie != null) {
-                AfText(tr(UiText.NO_EMBEDDED_SUBS), muted = true, size = 12.sp)
-            }
-        }
-        TranscribeSection(model, state, recap)
         if (studioOptions) AfText(My.breakSyllables(tr(UiText.V3_STORY_WRITING_HINT)), muted = true)
         AfText(tr(UiText.STYLE), muted = true, size = 12.sp)
         WrapRow {
@@ -177,13 +142,55 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
     else AfCard(tr(UiText.RECAP_SCRIPT_CARD), content = content)
 }
 
+/** Shared bindings: Studio puts source context on Source; Classic retains its original controls. */
+@Composable
+internal fun SourceSummary(model: RecapModel, state: RecapUiState) {
+    AfText(tr(UiText.STORY_SUMMARY_HINT), muted = true)
+    AfTextField(state.summary, { model.setSummary(it) }, tr(UiText.SUMMARY), Modifier.fillMaxWidth().testTag("source-summary"), lines = 5, mono = false, enabled = !state.busy)
+}
+
+@Composable
+internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+    WrapRow {
+        if (recap.subtitles == null) {
+            AfButton(tr(UiText.IMPORT_SUBTITLES), { model.importSubtitles() }, enabled = !state.busy)
+        } else {
+            AfText(tr(UiText.SUBTITLES_PRESENT), color = AutoFlowColors.Green)
+            AfButton(tr(UiText.REPLACE), { model.importSubtitles() }, enabled = !state.busy)
+            AfButton(tr(UiText.REMOVE), { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
+        }
+    }
+    if (recap.movie != null && recap.subtitles == null) {
+        val movieTracks = state.movieSubtitleTracks
+        if (!state.movieSubtitleTracksRead) {
+            AfButton(tr(UiText.V3_READ_TRACKS), { model.readMovieSubtitleTracks() }, Modifier.testTag("source-read-tracks"), enabled = !state.busy)
+        } else if (movieTracks.isNotEmpty()) {
+            AfText(tr(UiText.EXTRACT_FROM_MOVIE), muted = true)
+            WrapRow {
+                movieTracks.forEach { track ->
+                    val label = buildString {
+                        append(tr(UiText.SUBTITLE_TRACK, "index" to track.index))
+                        track.language?.let { append(" [$it]") }
+                        track.title?.let { append(" — $it") }
+                        append(if (track.isText) "" else tr(UiText.IMAGE_TRACK_SUFFIX))
+                    }
+                    AfChip(label, recap.sources.subtitleTrack == track.index, {
+                        if (track.isText) model.extractSubtitleTrack(track) else model.setSubtitleTrack(track.index)
+                    }, Modifier.testTag("source-track-${track.index}"), enabled = !state.busy)
+                }
+            }
+            if (movieTracks.any { !it.isText }) AfText(tr(UiText.IMAGE_TRACK_HINT), muted = true)
+        } else AfText(tr(UiText.NO_EMBEDDED_SUBS), muted = true)
+    }
+}
+
 /**
  * "Transcribe picked scenes" (5B-1, D-44): offered for picked scenes without `.srt` lines; a confirm card (scenes,
  * requests, today's usage) before anything is sent; progress with Cancel; Retry for a paused or failed job (only the
  * requests left are sent).
  */
 @Composable
-private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     val t = state.transcribe
     if (!t.available || recap.movie == null) return
     if (t.lines > 0 || t.transcribedScenes > 0) {
@@ -204,7 +211,7 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
                     tr(UiText.TRANSCRIBE_USED_TODAY, "toString" to (confirm.usedToday?.toString() ?: "…")),
                 Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WrapRow {
                 AfButton(tr(UiText.START), { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
                 AfButton(tr(UiText.BACK), { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
             }
@@ -214,7 +221,7 @@ private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Rec
                 (job.error ?: tr(UiText.TRANSCRIBE_STOPPED)) + tr(UiText.TRANSCRIBE_REQUESTS_LEFT, "size" to (job.items.size)),
                 Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WrapRow {
                 AfButton(tr(UiText.RETRY), { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
                 AfButton(tr(UiText.CANCEL_JOB), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
             }
