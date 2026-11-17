@@ -101,6 +101,8 @@ data class RecapUiState(
     val speakAllEta: SpeakAllEta? = null,
     /** Subtitle tracks found in the imported movie (5B-1). Populated after movie import or on demand. */
     val movieSubtitleTracks: List<io.github.alalkipgen.autoflow.core.recap.SubtitleTrack> = emptyList(),
+    /** Transient probe state: an unopened movie is not evidence of zero tracks. */
+    val movieSubtitleTracksRead: Boolean = false,
     /** "Transcribe picked scenes" (5B-1): what is left, the confirm card and the project's last unfinished job. */
     val transcribe: TranscribeUi = TranscribeUi(),
 ) {
@@ -238,6 +240,9 @@ class RecapModel(
             takeFiles = takeFiles(open?.dir, recap, (story as? CoreResult.Ok)?.value),
             bgmName = recap?.audio?.bgm?.let { id -> session.artifacts()?.get(id)?.let { (it as? CoreResult.Ok)?.value?.inputs?.get(BGM_NAME_INPUT) } },
             movieName = session.moviePath()?.substringAfterLast('/'),
+            // Probe metadata is UI-only. Keep it through same-movie saves/done(), never across projects/movies.
+            movieSubtitleTracks = keep?.takeIf { it.recap?.movie == recap?.movie }?.movieSubtitleTracks.orEmpty(),
+            movieSubtitleTracksRead = keep?.takeIf { it.recap?.movie == recap?.movie }?.movieSubtitleTracksRead ?: false,
             transcribe = transcribeUi(open?.dir, recap, keep?.transcribe),
             job = keep?.job,
             progress = keep?.progress,
@@ -277,7 +282,7 @@ class RecapModel(
                 hasAudio = info.hasAudio,
             )
             val saved = update { it.copy(movie = movie, scenes = emptyList(), story = null, storyApproved = false, takes = emptyList()) }
-            if (saved) _state.value = _state.value.copy(movieSubtitleTracks = info.subtitleTracks)
+            if (saved) _state.value = _state.value.copy(movieSubtitleTracks = info.subtitleTracks, movieSubtitleTracksRead = true)
             val trackHint = if (info.subtitleTracks.isNotEmpty()) UiNotice(UiText.MOVIE_TRACK_HINT, "n" to info.subtitleTracks.size) else ""
             doneNotice(if (saved) UiNotice(UiText.MOVIE_READY, "duration" to clock(movie.durationMs), "tracks" to trackHint) else null, ok = saved)
         }
@@ -389,6 +394,29 @@ class RecapModel(
     /** Sets the selected subtitle stream track index (5B-1). */
     fun setSubtitleTrack(index: Int?) {
         update { it.copy(sources = it.sources.copy(subtitleTrack = index)) }
+    }
+
+    /** Read-only UI metadata refresh for a reopened movie; the existing probe remains authoritative. */
+    fun readMovieSubtitleTracks(): Job? {
+        val open = session.open ?: return null
+        val movie = open.project.recap?.movie ?: return null
+        if (_state.value.busy) return null
+        val runner = media?.runner
+        val ffprobe = media?.ffprobe()
+        if (runner == null || ffprobe == null) { sayNotice(UiNotice(UiText.MOVIE_FFMPEG_UNAVAILABLE)); return null }
+        return scope.launch {
+            val notice = UiNotice(UiText.V3_READ_TRACKS)
+            busyNotice(notice)
+            val path = joinPath(open.dir, movie.file)
+            val result = withContext(Dispatchers.Default) { MediaProbe(runner, ffprobe).probe(path, MediaTools.parentOf(path)) }
+            val current = session.open
+            if (current?.dir != open.dir || current.project.id != open.project.id || current.project.updatedAt != open.project.updatedAt) {
+                if (_state.value.projectDir == open.dir && _state.value.jobNotice == notice) done(null)
+                return@launch
+            }
+            doneNotice(if (result is MediaProbe.Result.Failed) UiNotice(UiText.V3_TRACKS_UNREADABLE, "detail" to result.reason) else null)
+            if (result is MediaProbe.Result.Ok) _state.value = _state.value.copy(movieSubtitleTracks = result.info.subtitleTracks, movieSubtitleTracksRead = true)
+        }
     }
 
     /**
