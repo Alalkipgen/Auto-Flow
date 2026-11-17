@@ -429,3 +429,15 @@ New EN/MY copy for owner review (generated from the implemented UiText additions
 | `V3_CHAPTERS` | Chapters | အခန်းများ |
 | `V3_COPY_HASHTAGS` | Copy hashtags | Hashtag များ ကူးမယ် |
 | `V3_COPY_CHAPTERS` | Copy chapters | အခန်းများ ကူးမယ် |
+
+## Jobs presentation (PR-5b / Q-28; validation pending)
+Running / Needs you / Finished share JobCard and StatusChip; red failures preserve their reason, and cancelled is not Done. No theoretical ETA, fake approval-wait, thumbnail, Pause or Clear-finished action is added. TTS/Transcribe Resume/Retry uses the existing runner and exact persisted remaining items. Current live IDs are rechecked before cancellation, resume or output actions. Open switches to the row's project through the existing Dashboard open path; unbound storyboard opens Projects, and a failed open stays in Jobs with its actual reason. Render Play/Share/Save-to-Gallery require the live matching completed run, existing file and platform port; actual results/errors stay with that stable job row, not an off-screen global header. Existing Open/Cancel controls remain; no history or pipeline changes. Project/index titles are preferred; unavailable titles fall back to the folder name, never a concept name.
+
+| Key | EN | MY (owner review pending) |
+| --- | --- | --- |
+| V3_JOBS_NEEDS_YOU | Needs you | သင် လုပ်ဆောင်ရန် လိုသည် |
+| V3_JOBS_FINISHED | Finished | ပြီးဆုံးသော အလုပ်များ |
+| V3_RESUME_REMAINING | Resume {n} remaining | ကျန် {n} ခု ဆက်လုပ်မယ် |
+| V3_JOB_OUTPUT_UNAVAILABLE | This output is no longer available. Open its project to check. | ဒီဖိုင်ကို ယခု ဖွင့်၍ မရပါ။ ပရောဂျက်ကို ဖွင့်ပြီး စစ်ပါ။ |
+
+27-cell real-container pointer/scroll/Back matrix, persistent local runner Resume/Retry/Cancel and immutable-project checks are required. Fixture reuse changes only ExportHarness test visibility, not its behavior. Wide/global nav and owner phone/PC remain pending; a controlled queue screenshot is not evidence of a real background export.

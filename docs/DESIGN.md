@@ -69,7 +69,7 @@ Studio v2 words (D-67, code: `ui/i18n/My.kt`): nav ပင်မ · ပရော�
 Mockups: `docs/mockups/phase5.html` — eight AI-drawn screens with English labels (image models garble Burmese); the app uses Burmese strings (§6). Known mockup slips: Quick Recap card numbers repeat (should be 1–5); the desktop script box shows a quote instead of narration.
 
 ### Navigation
-Home · Projects · Library · Jobs. Phone (< 600 dp): bottom nav. ≥ 600 dp: nav rail. ≥ 840 dp: project screens in three panes (list · preview · inspector). One set of composables for every width — no desktop-only layout (D-22). Jobs badge = Needs-you count in amber, else running count in cyan, else none. No avatar or account (D-06).
+Home · Projects · Library · Jobs. Phone (< 600 dp): bottom nav. ≥ 600 dp: nav rail. ≥ 840 dp: project screens in three panes (list · preview · inspector). One set of composables for every width — no desktop-only layout (D-22). Jobs badge = actual Paused + Failed Needs-you count in amber first, else Running + Queued count in cyan, else none; no invented approval-wait rows. Compact rail also shows the count. Tested by JobRowsTest and StudioJobsLayoutTest. No avatar or account (D-06).
 
 ### Home
 Continue (last project + its step) · Quick Recap card (movie → length → style → Start; "stops only for your approval") · Create: Recap · Music Video · Dubbing (disabled Planned) · Quick tools: existing standalone routes only, otherwise disabled Planned · Running jobs (actual progress, no unmeasured ETA).

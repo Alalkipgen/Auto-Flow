@@ -37,7 +37,7 @@ import java.util.Base64
 import javax.imageio.ImageIO
 import kotlin.test.*
 
-private class ExportHarness : AutoCloseable {
+internal class ExportHarness : AutoCloseable {
     val root = Files.createTempDirectory("uiv3-export").toFile()
     val fixture = QaRecapFixture.create(root)
     val fs = JvmFs()
