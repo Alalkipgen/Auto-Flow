@@ -108,7 +108,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?) 
                 }
                 BlockScriptCard(model, state, detail.block, detail.index)
                 state.script?.let { VoiceBlockCard(model, state, recap, it, detail.index, back, showBack = false, showScript = false) }
-                RecapTimelinePreview(model)
+                RecapTimelinePreview(model, blockId = detail.block.id, studio = true)
                 ExactFrameCard(model)
             }
         }

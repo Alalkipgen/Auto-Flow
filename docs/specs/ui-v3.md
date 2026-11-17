@@ -301,3 +301,20 @@ Voice list additions for owner copy review:
 | `V3_SPOKEN_HELP` | Blank uses caption text + pronunciation. | အလွတ်ဆို စာတန်းထိုးနှင့် အသံထွက် အဘိဓာန်ကို သုံးမယ်။ |
 | `V3_SPOKEN_HINT` | Leave blank to speak the caption text with the pronunciation dictionary. Saving clears Story approval; existing takes stay in history. | အလွတ်ထားလျှင် စာတန်းထိုး စာသားကို အသံထွက် အဘိဓာန်ဖြင့် ဖတ်မယ်။ သိမ်းလျှင် ဇာတ်လမ်း အတည်ပြုချက် ပြန်လိုမယ်။ Take အဟောင်းများ မပျက်ပါ။ |
 | `V3_BLOCK_REVISION_CHANGED` | Project revision changed; cancel and reopen the block | Project ဗားရှင်း ပြောင်းသွားသည် — ပယ်ဖျက်ပြီး အပိုင်းကို ပြန်ဖွင့်ပါ |
+
+### Preview controls checkpoint (PR-3b, Q-21)
+
+- Shared foundation `AfScrubber` uses a real 48 dp graphic hit area, pointer tap/horizontal drag, focused arrow/Home/End keys and accessible range semantics. It controls the existing `RecapPlaybackClock`; no dependency or player/timeline engine is added. Font scale changes UI labels, not output-caption rasterization.
+- Voice detail starts at the selected stable block ID's first output interval, not its source timestamp. Playback/scrubbing continues across all native clips, including the block's later clips and Fit mapping, and is labelled **All clips · output time · muted**. A missing block interval is unavailable, not a silent first-clip fallback. Opening or seeking does not write project files.
+- Normal controls: output time label, scrubber, Play/Pause, ±5 s and Close player. Exact Frame remains below and uses the unchanged native export compiler at the same output cursor. Before playback, an honest Play/Exact-frame hint replaces any fabricated still; the concept-04 preview-first inspector is still a follow-up.
+- Exact-ms input, active IDs, raw time/caption readouts and the detailed rasterization limitation move under collapsed **Diagnostics**. Their existing test hooks remain. Actual video has the active caption as accessible state even when Diagnostics is collapsed. Classic retains its existing readouts.
+- No-VLC error/fallback, native-frame composition, source/revision binding and player disposal remain in the existing platform path. A still capture is not live-runtime proof. Navigator, selected-take/history presentation, per-block confirmation and the separate thumbnail/waveform tasks are not completed by this controls checkpoint.
+
+| Key | EN | MY |
+| --- | --- | --- |
+| `V3_TIMELINE_SCOPE` | All clips · output time · muted | Clip အားလုံး · output အချိန် · အသံပိတ် |
+| `V3_PREVIEW_IDLE` | Play to preview, or use Exact frame. | ဖွင့်၍ ကြည့်ပါ၊ သို့မဟုတ် အတိအကျ ပုံကို သုံးပါ။ |
+| `V3_OUTPUT_POSITION` | Output {position} / {duration} | Output {position} / {duration} |
+| `V3_SCRUB_OUTPUT` | Seek output timeline | Output အချိန်လိုင်း ရွှေ့မယ် |
+| `V3_LIVE_PREVIEW` | Muted output preview | အသံပိတ် output အကြိုကြည့်ပုံ |
+| `V3_BLOCK_PREVIEW_UNAVAILABLE` | This block has no playable output interval. | ဒီအပိုင်းတွင် ဖွင့်ကြည့်နိုင်သော output အချိန် မရှိပါ။ |
