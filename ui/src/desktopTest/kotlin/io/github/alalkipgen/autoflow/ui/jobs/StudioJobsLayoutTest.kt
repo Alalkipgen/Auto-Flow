@@ -185,37 +185,57 @@ class StudioJobsWorkflowTest {
                 ).forEach(store::save)
                 val calls = Collections.synchronizedList(mutableListOf<String>())
                 val gate = CompletableDeferred<Unit>()
+                val heldEntered = CompletableDeferred<Unit>()
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 val runner = DesktopAiJobRunner(store, scope, object : AiItemProcessor {
                     override suspend fun alreadyDone(job: AiJob, item: String) = File(outputs, item).exists()
                     override suspend fun process(job: AiJob, item: String) {
                         calls += item
-                        if (item == "held") gate.await()
+                        if (item == "held") {
+                            heldEntered.complete(Unit)
+                            gate.await()
+                        }
                         File(outputs, item).writeText("${job.project}:${job.id}")
                     }
                 }, pacer = { RpmPacer(1_000) })
+                val actions = JobsActions(scope, runner = runner)
                 try {
                     setContent {
                         val jobs by runner.jobs.collectAsState()
-                        JobsScreen(jobRows(null, null, null, jobs), scope, {}, actions = remember { JobsActions(scope, runner = runner) })
+                        JobsScreen(jobRows(null, null, null, jobs), scope, {}, actions = actions)
                     }
                     fun click(id: String) = onNodeWithTag(id).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+                    fun awaitDone(id: String) {
+                        // Disk is saved before onChange publishes the UI state. Do not click the next
+                        // moving group while the previous row's disk checkpoint is ahead of composition.
+                        waitUntil(timeoutMillis = 60_000) { runner.jobs.value.any { it.id == id && it.state == AiJobState.DONE } }
+                        onNodeWithTag("job-resume-$id").assertDoesNotExist()
+                        onNodeWithTag("job-card-$id").performScrollTo().assertIsDisplayed()
+                        assertEquals(AiJobState.DONE, store.load(id)?.state, "published Done must also be durable")
+                    }
                     waitUntil(timeoutMillis = 60_000) { runner.jobs.value.size == 3 }
                     click("job-resume-resume-real")
-                    waitUntil(timeoutMillis = 60_000) { store.load("resume-real")?.state == AiJobState.DONE }
+                    awaitDone("resume-real")
                     click("job-resume-retry-real")
-                    waitUntil(timeoutMillis = 60_000) { store.load("retry-real")?.state == AiJobState.DONE }
+                    awaitDone("retry-real")
                     click("job-resume-cancel-real")
-                    waitUntil(timeoutMillis = 60_000) { store.load("cancel-real")?.state == AiJobState.RUNNING }
+                    waitUntil(timeoutMillis = 60_000) { heldEntered.isCompleted }
+                    assertEquals(AiJobState.RUNNING, runner.jobs.value.single { it.id == "cancel-real" }.state)
                     click("job-cancel-cancel-real")
-                    waitUntil(timeoutMillis = 60_000) { store.load("cancel-real")?.state == AiJobState.CANCELLED }
+                    waitUntil(timeoutMillis = 60_000) { runner.jobs.value.none { it.id == "cancel-real" } }
                     assertEquals(listOf("remaining", "retry", "held"), calls.toList())
                     assertEquals("immutable previous output", File(outputs, "already").readText())
                     assertFalse(File(outputs, "held").exists())
                     val reloaded = AiJobStore(h.fs, dir.path)
+                    assertEquals(AiJobState.DONE, reloaded.load("resume-real")!!.state)
+                    assertEquals(AiJobState.DONE, reloaded.load("retry-real")!!.state)
+                    assertEquals(AiJobState.CANCELLED, reloaded.load("cancel-real")!!.state)
                     assertTrue(reloaded.load("resume-real")!!.items.isEmpty())
                     assertEquals(listOf("held"), reloaded.load("cancel-real")!!.items)
                     assertEquals(before, h.bytes())
+                } catch (e: Throwable) {
+                    throw AssertionError("Jobs pointer workflow: states=${runner.jobs.value.map { Triple(it.id, it.state, it.items) }}; " +
+                        "calls=${calls.toList()}; notice=${actions.notice}", e)
                 } finally { scope.cancel() }
             }
         }
