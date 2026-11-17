@@ -27,6 +27,8 @@ import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import javax.imageio.ImageIO
 import kotlin.test.*
 
@@ -60,6 +62,16 @@ private fun ComposeUiTest.styleCapture(name: String, width: Int, font: Float) {
     assertTrue(next.top >= bar.top && next.bottom <= bar.bottom && (next.bottom - next.top).value >= 48f)
     val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "style").apply { mkdirs() }
     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "$name.png"))
+}
+
+/** Native fontconfig v7 sidecars made by the existing Linux ffmpeg, not arbitrary .cache files. */
+private fun nativeFontconfigSidecar(path: String, bytes: ByteArray): Boolean {
+    if (path == ".cache/fontconfig/CACHEDIR.TAG")
+        return bytes.decodeToString().startsWith("Signature: 8a477f597d28d172789f06886806bc55\n")
+    val name = Regex("\\.cache/fontconfig/(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})-le64\\.cache-7")
+    if (!name.matches(path) || bytes.size < 16) return false
+    val header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+    return header.int == 0xfc02fc04.toInt() && header.int == 7 && header.long == bytes.size.toLong()
 }
 
 @RunWith(Parameterized::class)
@@ -136,6 +148,25 @@ class StudioStyleLayoutTest(val width: Int, val font: Float, val language: UiLan
 
 @OptIn(ExperimentalTestApi::class)
 class StudioStyleWorkflowTest {
+    @Test fun fontconfigSidecarsRequireNativeNamesSignaturesVersionAndSize() {
+        val header = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN)
+            .putInt(0xfc02fc04.toInt()).putInt(7).putLong(16).array()
+        val digest = ".cache/fontconfig/4c599c202bc5c08e2d34565a40eac3b2-le64.cache-7"
+        val uuid = ".cache/fontconfig/ec436be7-5540-43fd-8afe-0621da12243b-le64.cache-7"
+        assertTrue(nativeFontconfigSidecar(digest, header))
+        assertTrue(nativeFontconfigSidecar(uuid, header))
+        assertTrue(nativeFontconfigSidecar(".cache/fontconfig/CACHEDIR.TAG",
+            "Signature: 8a477f597d28d172789f06886806bc55\n# native cache tag\n".encodeToByteArray()))
+        for (path in listOf("project.json", "artifacts/story.json", ".cache/fontconfig/project.json",
+            ".cache/fontconfig/nested/${digest.substringAfterLast('/')}", "$digest.extra", digest.replace("cache-7", "cache-8")))
+            assertFalse(nativeFontconfigSidecar(path, header), path)
+        assertFalse(nativeFontconfigSidecar(digest, "{}".encodeToByteArray()))
+        assertFalse(nativeFontconfigSidecar(digest, header.copyOf().also { it[0] = 0 }))
+        assertFalse(nativeFontconfigSidecar(digest, header.copyOf().also { it[4] = 8 }))
+        assertFalse(nativeFontconfigSidecar(digest, header.copyOf().also { it[8] = 15 }))
+        assertFalse(nativeFontconfigSidecar(".cache/fontconfig/CACHEDIR.TAG", "{}".encodeToByteArray()))
+    }
+
     @Test fun percentSaveReopenDiscardAndProjectSwitchKeepStableLayersTakesAndArtifacts() =
         runDesktopComposeUiTest(width = 412, height = 760) {
             ExportHarness().use { h ->
@@ -204,8 +235,15 @@ class StudioStyleWorkflowTest {
                 val added = (after.keys - before.keys).map { it.replace('\\', '/') }
                 assertTrue(added.any { it.matches(Regex("\\.cache/frames/\\d+\\.png")) }, "real cached frame required: $added")
                 assertTrue(added.all { it == ".cache/fonts/NotoSansMyanmar.ttf" ||
-                    it.matches(Regex("\\.cache/frames/\\d+\\.png(?:\\.ass(?:\\.layer-\\d+\\.ass)?)?")) },
-                    "only the existing Exact Frame font/still/ASS caches may be added: $added")
+                    it.matches(Regex("\\.cache/frames/\\d+\\.png(?:\\.ass(?:\\.layer-\\d+\\.ass)?)?")) ||
+                    nativeFontconfigSidecar(it, File(h.fixture.dir, it).readBytes()) },
+                    "only existing Exact Frame font/still/ASS and validated native fontconfig sidecars may be added: $added")
+                if (System.getenv("AUTOFLOW_EXPECT_FONTCONFIG_CACHE") == "1")
+                    assertTrue(added.any { it.endsWith(".cache-7") &&
+                        nativeFontconfigSidecar(it, File(h.fixture.dir, it).readBytes()) },
+                        "cold native fontconfig sidecars must actually be produced")
+                println("STYLE_EXACT_FRAME_CACHE_EVIDENCE: ${before.size} original file hashes unchanged; " +
+                    "real cached PNG required; validated native sidecars=${added.filter { it.startsWith(".cache/fontconfig/") }.sorted()}")
             }
         }
 
