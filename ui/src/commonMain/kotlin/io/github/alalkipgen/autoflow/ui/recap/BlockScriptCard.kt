@@ -26,7 +26,7 @@ internal fun BlockScriptCard(model: RecapModel, state: RecapUiState, block: Reca
         AfText(tr(UiText.V3_SPEAK_AS, "text" to SpokenText.of(block, state.lexicon)), muted = true)
         AfButton(tr(UiText.EDIT), { editor.edit(block.id) }, Modifier.testTag("block-script-edit"), enabled = idle)
     }
-    val draft = edit.draft?.takeIf { it.block.id == block.id } ?: return
+    val draft = edit.draft?.takeIf { it.block.id == block.id && !edit.editingClips } ?: return
     key(draft.token) {
         var text by remember { mutableStateOf(draft.block.textMy) }
         var spoken by remember { mutableStateOf(draft.block.speakMy.orEmpty()) }

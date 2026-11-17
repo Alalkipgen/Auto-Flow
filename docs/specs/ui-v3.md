@@ -345,3 +345,30 @@ New EN/MY strings for owner review:
 | V3_ONLY_BLOCK | Only block {n} will change | အပိုင်း {n} ကိုသာ ပြောင်းမယ် |
 | V3_ONE_VOICE_REQUEST | 1 voice request; retries may send more. | အသံထုတ် request ၁ ခု။ ပြန်စမ်းလျှင် ပိုပို့နိုင်သည်။ |
 | V3_NEW_TAKE_EFFECT | The new take becomes selected; old takes stay in history. Existing exported files do not update. | Take အသစ်ကို ရွေးမယ်။ Take အဟောင်းများ မပျက်ပါ။ ထုတ်ပြီး ဖိုင်အဟောင်းများ မပြောင်းပါ။ |
+
+## Native source-cut draft checkpoint (Q-20/Q-23; PR-4 prerequisite)
+
+- `Movie source ranges` is shared native UI, first reachable below Script in Voice detail and intended for reuse by Story. Start/End accept exact decimal seconds (up to 3 decimals), never floating-point timestamps. Trim/add/reorder/remove/split/join remain unsaved until Save; Discard, Back/dismiss and project/detail disposal cancel the draft.
+- Split means two source ranges **inside the same stable block**, at an explicit source time. Join is allowed only for consecutive ranges whose source endpoints touch. A gap is never silently included and an overlap is never discarded. Automatic block/text/take splitting/merging is not implemented or implied. At least one range remains; each is ≥500 ms and within the captured movie.
+- Save writes a new native `rs` through the unchanged ArtifactStore/ProjectSession, clears Story approval, and preserves block IDs/text/speak-as, selected takes/history, Fit, caption windows, layers and every unrelated project field. Voice is not made stale merely by a cut-only edit: the existing spoken-text hash is unchanged. No schema, approval rule, renderer or save-engine change. Revision/project conflicts reject the draft.
+- Accurate native timeline/preview/export use the saved range order through their existing compiler; the editor never converts through the v1 first-clip projection. The Story/Source screen redesign remains separate.
+
+New EN/MY copy for owner review:
+
+| Key | English | Burmese |
+| --- | --- | --- |
+| `V3_CLIPS` | Movie source ranges | ရုပ်ရှင် ရင်းမြစ် အချိန်ပိုင်းများ |
+| `V3_EDIT_CLIPS` | Edit movie cuts | ရုပ်ရှင် ဖြတ်ချိန်များ ပြင်မယ် |
+| `V3_CLIP_NUMBER` | Range {n} | အချိန်ပိုင်း {n} |
+| `V3_CLIP_FROM` | Start (seconds) | အစ (စက္ကန့်) |
+| `V3_CLIP_TO` | End (seconds) | အဆုံး (စက္ကန့်) |
+| `V3_CLIP_SPLIT_AT` | Split at source time (seconds) | ရင်းမြစ် အချိန်မှ ခွဲမယ် (စက္ကန့်) |
+| `V3_CLIP_SPLIT` | Split range | အချိန်ပိုင်း ခွဲမယ် |
+| `V3_CLIP_MERGE` | Join next range | နောက် အချိန်ပိုင်းနှင့် ဆက်မယ် |
+| `V3_EARLIER` | Earlier | အရှေ့ ရွှေ့မယ် |
+| `V3_LATER` | Later | အနောက် ရွှေ့မယ် |
+| `V3_CLIP_ADD` | Add movie range | ရုပ်ရှင် အချိန်ပိုင်း ထည့်မယ် |
+| `V3_CLIPS_HINT` | Movie cuts; Save needs Story approval again. | ရုပ်ရှင် ဖြတ်ချိန်သာ။ သိမ်းလျှင် ဇာတ်လမ်း ပြန်အတည်ပြုပါ။ |
+| `V3_CLIPS_NOTE` | Movie cuts only, not voice/caption timing. Existing takes stay unchanged. | ရုပ်ရှင် ဖြတ်ချိန်သာ ဖြစ်ပြီး အသံ၊ စာတန်းချိန် မဟုတ်ပါ။ Take အဟောင်းများ မပြောင်းပါ။ |
+| `V3_CLIP_INVALID` | Keep at least one range, each ≥0.5 seconds and inside the movie. Use seconds with up to 3 decimal places. | ရုပ်ရှင်အတွင်း အနည်းဆုံး ၀.၅ စက္ကန့်စီ ရှည်သော အချိန်ပိုင်း တစ်ခု ရှိရမယ်။ စက္ကန့်ကို ဒသမ ၃ နေရာအထိ ထည့်နိုင်သည်။ |
+| `V3_CLIP_MERGE_HINT` | Only touching source ranges can join. Each split part must be ≥0.5 seconds. | ရင်းမြစ်တွင် ဆက်နေသော အချိန်ပိုင်းများသာ ဆက်နိုင်သည်။ ခွဲပြီး တစ်ပိုင်းစီ အနည်းဆုံး ၀.၅ စက္ကန့် ရှိရမယ်။ |

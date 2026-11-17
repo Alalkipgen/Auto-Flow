@@ -8,6 +8,7 @@ kotlinx-serialization = "1.12.0"
 ktor = "3.6.1"
 koin = "4.2.2"
 androidx-activity = "1.13.0"
+androidx-navigationevent = "1.1.0"
 jna = "5.17.0"
 vlcj = "4.8.3"
 media3 = "1.11.1"
@@ -36,6 +37,7 @@ compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.re
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "compose-multiplatform" }
+navigationevent-compose = { module = "org.jetbrains.androidx.navigationevent:navigationevent-compose", version.ref = "androidx-navigationevent" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 vlcj = { module = "uk.co.caprica:vlcj", version.ref = "vlcj" }
