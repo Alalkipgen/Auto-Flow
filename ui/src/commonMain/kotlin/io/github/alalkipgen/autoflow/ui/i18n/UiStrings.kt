@@ -57,6 +57,11 @@ enum class UiText(val en: String, val my: String?) {
     V3_RESUME_REMAINING("Resume {n} remaining", "ကျန် {n} ခု ဆက်လုပ်မယ်"),
     V3_JOB_OUTPUT_UNAVAILABLE("This output is no longer available. Open its project to check.", "ဒီဖိုင်ကို ယခု ဖွင့်၍ မရပါ။ ပရောဂျက်ကို ဖွင့်ပြီး စစ်ပါ။"),
     SOURCE("Source", "ရင်းမြစ်"),
+
+    V3_STYLE_LAYERS("Layers", "Layer များ"),
+    V3_STYLE_CAPTIONS("Captions", "စာတန်း"),
+    V3_STYLE_LOOK("Look", "မြင်ကွင်း ပုံစံ"),
+    V3_STYLE_AUDIO("Audio", "အသံ"),
     STORY("Story", "ဇာတ်လမ်း"),
     VOICE("Voice", "အသံ"),
     STYLE("Style", "ပုံစံ"),

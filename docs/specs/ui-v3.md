@@ -441,3 +441,21 @@ Running / Needs you / Finished share JobCard and StatusChip; red failures preser
 | V3_JOB_OUTPUT_UNAVAILABLE | This output is no longer available. Open its project to check. | ဒီဖိုင်ကို ယခု ဖွင့်၍ မရပါ။ ပရောဂျက်ကို ဖွင့်ပြီး စစ်ပါ။ |
 
 27-cell real-container pointer/scroll/Back matrix, persistent local runner Resume/Retry/Cancel and immutable-project checks are required. Fixture reuse changes only ExportHarness test visibility, not its behavior. Wide/global nav and owner phone/PC remain pending; a controlled queue screenshot is not evidence of a real background export.
+
+
+## Style presentation (PR-6 / Q-29; scoped implementation)
+
+Native step 4/5 owns the project header/Classic overflow and measured keyboard-safe Next Export/Previous bar. Wrapping Layers/Captions/Look/Audio chips are presentation state only, reset by project identity. The existing muted native output player, scrubber, diagnostics and Exact Frame stay reachable; unavailable player reasons retain Exact Frame as an explicit fallback. No new decoder, caption painter or rendering path.
+
+Layers keeps all five supported types and stable testTags. Normal labels omit engine IDs; exact timing/rect values, IDs and the legacy separate gesture surface remain expandable. Percent convenience sliders edit the same output-frame normalized rect draft, not movie-picture masks. Existing validation, staged order, image import, explicit Save/Discard and reference-only Remove remain authoritative. Back cancels a draft before leaving; section/Next/Classic actions cannot silently discard it. No visibility toggle implies export exclusion. The on-video handles task is still pending.
+
+Layers More options retains ratio, pre-Looks source-movie mask controls/gestures, background, watermark, Brand Kit save/name/cancel and per-block Smart Fit. Captions retains burn toggle, manual colours/custom hex/apply/clear, S/M/L and custom factor, outline width/colour, dark box, Library preset naming/save/cancel and always-.srt explanation. Current factors are S=0.85, M=1.0, L=1.2; existing custom factor is 0.5–3.0. CaptionStyle has no font-family or arbitrary position field; Settings/Library font resolution and existing caption placement/painter stay unchanged. Clean/Bold/Boxed/Outline and any XL convenience are not claimed complete in this presentation PR: renderer-supported presets are a separate task. Look retains all existing Looks; Audio retains movie/BGM volume, BGM add/change/remove/duck, polish, normalization and trim-new-takes. Classic calls the same reused controls with no grouping filter.
+
+| New key | EN | MY |
+| --- | --- | --- |
+| V3_STYLE_LAYERS | Layers | Layer များ |
+| V3_STYLE_CAPTIONS | Captions | စာတန်း |
+| V3_STYLE_LOOK | Look | မြင်ကွင်း ပုံစံ |
+| V3_STYLE_AUDIO | Audio | အသံ |
+
+Fresh final-code local validation: targeted 67/67, full check --rerun-tasks --no-build-cache 1372/1372 (UI 780), expanded installed-VLC/ffmpeg plus real unavailable-player fallback regression 395/395; failures/errors/skips 0/0/0. The 32 selected Style screenshots were opened individually against concepts 05/06; fresh full/targeted/expanded captures reproduce those reviewed bytes. The 14 MY selector failures were reproduced with raw semantics before a test-only correction: exact rendered catalog text, real scroll/display and actual TextLayoutResult syllable-cut assertions, with no weakened visibility, 48dp, tolerances or forced clicks. Earlier failed attempts remain retained. The rectangle-helper test repeats ratio/Looks labels without passing them to the helper and is not ratio/Looks mapping proof. Exact-remote reruns and six-job CI results must be recorded in this scoped Draft PR/handoff; local passes do not substitute for them. Global wide/header/nav work stays PR-8_PENDING; PHONE_PENDING / OWNER_PC_PENDING and owner wording review remain pending. This is scoped presentation, not complete concept parity.

@@ -79,6 +79,8 @@ import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
+internal enum class PictureSection { LAYERS, CAPTIONS }
+
 const val HIDE_ON_MOVIE = "ရုပ်ရှင်ပေါ်က အရာတွေ ဖုံးမယ် (သူ့စာတန်း၊ logo)"
 const val CAPTIONS_ON_BOX = "ကျွန်ုပ်ရဲ့ စာတန်းကို အောက်ဘက် ဘောင်ပေါ် တင်မယ်"
 
@@ -87,15 +89,16 @@ const val CAPTIONS_ON_BOX = "ကျွန်ုပ်ရဲ့ စာတန်�
  * differs from the video's, and captions on the bottom box. Applied when the video is rendered.
  */
 @Composable
-internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapModel) {
+internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapModel, section: PictureSection? = null) {
     val v = recap.visual
+    if (section != PictureSection.CAPTIONS) {
     // ── 🎬 Output ──────────────────────────────────────────────────────────────
     AfCard(tr(UiText.OUTPUT_CARD)) {
         AfH3(tr(UiText.VIDEO_RATIO))
         WrapRow {
             AfChip(tr(UiText.DEFAULT_RATIO), v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
             Ratio.entries.forEach { r ->
-                AfChip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) })
+                AfChip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) }, Modifier.testTag("style-ratio-${r.name}"))
             }
         }
     }
@@ -137,8 +140,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
         }
     }
 
-    RecapTimelinePreview(model)
-    ExactFrameCard(model)
+    if (section == null) { RecapTimelinePreview(model); ExactFrameCard(model) }
 
     // ── 🖼 Background ──────────────────────────────────────────────────────────
     if (Look.FILL !in recap.looks) {
@@ -169,7 +171,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
     }
 
-    RecapLayerControls(recap, idle, model)
+    if (section == null) RecapLayerControls(recap, idle, model)
 
     // ── 💧 Watermark ───────────────────────────────────────────────────────────
     AfCard(tr(UiText.WATERMARK_CARD)) {
@@ -193,8 +195,9 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
         }
     }
 
+    }
     // ── ✍️ Captions ────────────────────────────────────────────────────────────
-    AfCard(tr(UiText.CAPTIONS_CARD)) {
+    if (section != PictureSection.LAYERS) AfCard(tr(UiText.CAPTIONS_CARD), Modifier.testTag("caption-controls")) {
         // Colour presets
         AfH3(tr(UiText.COLOUR))
         WrapRow {
@@ -224,7 +227,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
             io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { sz ->
                 AfChip(sz.uiLabel(), recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
                     if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(size = sz, customSizeFactor = null)) }
-                })
+                }, Modifier.testTag("caption-size-${sz.name}"))
             }
         }
         AfH3(tr(UiText.CUSTOM_SIZE_FACTOR))

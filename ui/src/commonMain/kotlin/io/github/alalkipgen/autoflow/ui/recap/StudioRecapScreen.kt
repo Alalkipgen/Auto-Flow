@@ -70,6 +70,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     if (step == RecapStep.VOICE) { StudioVoiceScreen(model, navigation); return }
     if (step == RecapStep.STORY) { StudioStoryScreen(model, windowWidthDp, navigation); return }
     if (step == RecapStep.SOURCE) { StudioSourceScreen(model, windowWidthDp, navigation); return }
+    if (step == RecapStep.STYLE) { StudioStyleScreen(model, windowWidthDp, navigation, onGoToExport); return }
     var selectedId by remember(state.projectDir) { mutableStateOf<String?>(null) }
     var selectedScene by remember(state.projectDir) { mutableIntStateOf(0) }
     val blocks = state.story?.blocks.orEmpty()
