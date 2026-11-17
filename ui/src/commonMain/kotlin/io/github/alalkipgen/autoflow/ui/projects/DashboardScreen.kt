@@ -54,10 +54,14 @@ const val RIGHTS_TICK = "I own this footage or have permission to use it"
 
 /** Dashboard (DESIGN.md §3): project list, New Music Video, New Movie Recap, Open folder. */
 @Composable
-fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modifier = Modifier, clock: Clock = Clock.System) {
+fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modifier = Modifier, clock: Clock = Clock.System,
+    createMode: Mode? = null, onCreateModeChange: ((Mode?) -> Unit)? = null,
+) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
-    var creating by remember { mutableStateOf<Mode?>(null) }
+    var localCreating by remember { mutableStateOf<Mode?>(null) }
+    val creating = if (onCreateModeChange == null) localCreating else createMode
+    val setCreating: (Mode?) -> Unit = onCreateModeChange ?: { localCreating = it }
     val compact = LocalCompact.current
     LaunchedEffect(model) { model.refresh() }
     Column(
@@ -69,9 +73,9 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             if (model.projectsHome == null) AfButton(tr(UiText.OPEN_FOLDER), { scope.launch { if (model.openFolder()) onOpened() } })
         }
         val newMusicVideo: @Composable () -> Unit = {
-            AfButton(tr(UiText.NEW_MUSIC_VIDEO), { creating = Mode.MUSIC_VIDEO }, kind = ButtonKind.Primary, enabled = creating == null)
+            AfButton(tr(UiText.NEW_MUSIC_VIDEO), { setCreating(Mode.MUSIC_VIDEO) }, kind = ButtonKind.Primary, enabled = creating == null)
         }
-        val newMovieRecap: @Composable () -> Unit = { AfButton(tr(UiText.NEW_MOVIE_RECAP), { creating = Mode.MOVIE_RECAP }, enabled = creating == null) }
+        val newMovieRecap: @Composable () -> Unit = { AfButton(tr(UiText.NEW_MOVIE_RECAP), { setCreating(Mode.MOVIE_RECAP) }, enabled = creating == null) }
         // Long translations / large fonts need wrapping on desktop too, not just in the phone layout.
         AfText(tr(UiText.PROJECTS), size = 18.sp, bold = true)
         WrapRow {
@@ -80,7 +84,7 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
         }
         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
         creating?.let { mode ->
-            NewProjectCard(model, mode, onCancel = { creating = null }, onCreated = { creating = null; onOpened() })
+            NewProjectCard(model, mode, onCancel = { setCreating(null) }, onCreated = { setCreating(null); onOpened() })
         }
         if (state.rows.isEmpty()) {
             AfText(

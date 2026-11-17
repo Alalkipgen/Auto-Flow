@@ -15,6 +15,17 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class JobRowsTest {
+    @Test fun homeAndJobsUseActualStatesAndNeverRpmBasedEtas() {
+        AiJobState.entries.forEach { state ->
+            val job = AiJob("stable-job", AiJobKind.TTS_ALL, "/projects/QA Landscape.autoflow", listOf("stable-a"), state = state)
+            val row = jobRows(null, null, null, listOf(job)).single()
+            assertEquals(state.name, row.status.name)
+            assertEquals(state in listOf(AiJobState.QUEUED, AiJobState.RUNNING), row.running)
+            assertFalse(row.detail!!.contains("~"), "No theoretical ETA in either surface")
+            assertTrue(row.detail!!.contains("QA Landscape"))
+        }
+    }
+
     private fun run(state: RenderState) = ExportRun("/p/Ngam.autoflow", Quality.EXPORT, "j1", "exports/export.mp4", state)
 
     @Test
