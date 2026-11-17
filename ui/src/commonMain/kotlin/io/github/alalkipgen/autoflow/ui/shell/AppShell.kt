@@ -355,7 +355,7 @@ private fun StudioV2App(
                             }
                         } else {
                             V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
-                            Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen, windowWidthDp) { openProjectScreen(it) } }
+                            Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen, windowWidthDp, backHandler, open?.dir) { openProjectScreen(it) } }
                         }
                     }
                 }
@@ -393,7 +393,8 @@ private fun StudioV2App(
 
 /** One project screen inside Studio v2; [go] moves to another one. */
 @Composable
-private fun V2ProjectScreen(screen: String, windowWidthDp: Float, go: (String) -> Unit) {
+private fun V2ProjectScreen(screen: String, windowWidthDp: Float,
+    backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> }, projectDir: String? = null, go: (String) -> Unit) {
     when (screen) {
         "Recap", "Classic Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { go("Export") })
         "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { go(SHOT_SHEET) })
@@ -404,6 +405,8 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float, go: (String) -
                 readBytes = { path -> runCatching { fs.read(path) }.getOrNull() },
                 windowWidthDp = windowWidthDp,
                 onGoToInput = { go("Input") },
+                projectKey = projectDir,
+                handleBack = backHandler,
             )
         }
         MV_CLASSIC -> MvClassicSteps(go)

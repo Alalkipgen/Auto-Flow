@@ -459,3 +459,23 @@ Layers More options retains ratio, pre-Looks source-movie mask controls/gestures
 | V3_STYLE_AUDIO | Audio | အသံ |
 
 Fresh final-code local validation: targeted 68/68, full check --rerun-tasks --no-build-cache 1373/1373 (UI 781), expanded installed-VLC/ffmpeg plus real unavailable-player fallback regression 396/396; failures/errors/skips 0/0/0. The 32 selected normal Style screenshots were opened individually against concepts 05/06 and reproduced byte-identically; one additional cold-fontconfig Exact Frame image was reviewed separately because native font metrics differ. The 14 MY selector failures were reproduced with raw semantics before a test-only correction: exact rendered catalog text, real scroll/display and actual TextLayoutResult syllable-cut assertions, with no weakened visibility, 48dp, tolerances or forced clicks. Initial Style CI check had 1372 cases, 1366 passed, 1 failed and 5 skipped (other five jobs succeeded): the new fallback test omitted legitimate native fontconfig sidecars. The test-only repair validates exact native paths, cache-directory signature, native magic/version/actual-size header; negative tests reject arbitrary files. A cold real-ffmpeg gate passes 2/2 and requires native cache creation, all original hashes unchanged and a real cached PNG. Earlier failures/skips remain retained. The rectangle-helper test repeats ratio/Looks labels without passing them to the helper and is not ratio/Looks mapping proof. Final exact-remote reruns and six-job CI results must be recorded in Draft #190/handoff; local passes do not substitute. Global wide/header/nav work stays PR8_PENDING; PHONE_PENDING / OWNER_PC_PENDING and owner wording review remain pending. This is scoped presentation, not complete concept parity.
+
+## Music Video presentation (PR-7 / Q-30; scoped implementation)
+
+Same ShotSheetScreen and the existing Storyboard/Shots/References/FlowHandoff models: five sections, gates, saves and confirmations are unchanged. The project bar keeps Input · Shot sheet · Inbox · Export · Classic steps; Storyboard/Shots/References/Flow Handoff stay under Classic steps, and approve-all, credit counter and batch sheet stay under All shots. No schema, engine, WorkflowRules, import or handoff change; Flow stays manual.
+
+- Shot list: existing ShotStatus badges, a real "{n} shots · {accepted} accepted" summary and transient All / Not accepted / Accepted filters with actual counts. Filters are never saved, reset per project and only change which rows are listed; the open shot stays open when filtered out.
+- Below 840 dp the list comes first, then one shot's sheet. "← Shot list" and platform Back close the sheet before the shell Back leaves (Music Video detail → shot list); the selection is kept and a project switch returns to that project's list. At/above 840 dp the existing list · sheet · media panes remain; global wide reordering is PR-8.
+- Navigator: Shot N · time, badge, position i / n, ← / → only where a neighbour exists (no inert arrows).
+- Prompt text is monospace. Copy prompt is the one sticky primary, calling the existing FlowHandoffModel.copyPrompt with its gate (disabled while step 4 shows the gate reason); Open Flow is the sticky secondary and only opens the URL. Import video, pass, credits and batch remain manual in step 4. Classic Flow Handoff keeps its own card buttons.
+- "Use this version" (one listed version) stays separate from "Accept video" (newest import on the Flow card).
+- Concept 09 differences: no Saved chip (no reliable save state), no five-step ProjectTopBar (Music Video has no five-step flow), no hero player above the sheet on narrow (per-version preview stays in step 5, the media pane on wide), no collapsed Prompt & references card, no sample title/counts/durations. Real screenshots use the fake-provider synthetic test project because the QA fixture has no Music Video project. Owner phone/PC checks remain pending.
+
+| New key | EN | MY |
+| --- | --- | --- |
+| V3_MV_SUMMARY | {n} shots · {accepted} accepted | Shot {n} ခု · လက်ခံပြီး {accepted} ခု |
+| V3_MV_OPEN_COUNT | Not accepted {n} | မလက်ခံရသေး {n} |
+| V3_MV_ACCEPTED_COUNT | Accepted {n} | လက်ခံပြီး {n} |
+| V3_MV_FILTER_EMPTY | No shots match this filter. | ဒီ filter နှင့် ကိုက်ညီသော shot မရှိပါ။ |
+| V3_MV_SHOT_LIST | ← Shot list | ← Shot စာရင်း |
+| V3_MV_MANUAL_HINT | Manual Flow handoff · import the video in step 4 | Flow သို့ ကိုယ်တိုင် ပို့ရန် · ဗွီဒီယိုကို အဆင့် 4 မှာ ထည့်ပါ |

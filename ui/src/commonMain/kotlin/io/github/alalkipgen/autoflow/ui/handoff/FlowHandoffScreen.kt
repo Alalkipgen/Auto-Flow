@@ -102,6 +102,8 @@ internal fun HandoffCard(
     quality: Int,
     showHeader: Boolean = true,
     noPromptText: String = tr(UiText.FLOW_COMPILE_FIRST),
+    /** False on the shot sheet, whose sticky bar owns the one Copy prompt action (same model call and gate). */
+    showCopy: Boolean = true,
 ) {
     var showCredits by remember(row.number) { mutableStateOf(false) }
     var creditInput by remember(row.number) { mutableStateOf("") }
@@ -181,7 +183,7 @@ internal fun HandoffCard(
 
         // Actions
         WrapRow {
-            HandoffActions(row, model, importVideo, showCredits = showCredits, onShowCredits = { showCredits = true })
+            HandoffActions(row, model, importVideo, showCredits = showCredits, onShowCredits = { showCredits = true }, showCopy = showCopy)
         }
         if (row.askCredits || showCredits) {
             CreditQuestion(row, model, creditInput, onCreditChange = { creditInput = it }, fast, quality, onDone = {
@@ -287,9 +289,10 @@ private fun HandoffActions(
     importVideo: () -> Unit,
     showCredits: Boolean,
     onShowCredits: () -> Unit,
+    showCopy: Boolean = true,
 ) {
     val hasPrompt = row.promptText != null
-    AfButton("📋 ${tr(UiText.COPY_PROMPT)}", { model.copyPrompt(row.number) },
+    if (showCopy) AfButton("📋 ${tr(UiText.COPY_PROMPT)}", { model.copyPrompt(row.number) },
         kind = ButtonKind.Primary,
         enabled = hasPrompt && row.gateMsg == null,
     )

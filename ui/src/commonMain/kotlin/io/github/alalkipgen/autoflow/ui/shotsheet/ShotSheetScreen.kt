@@ -23,6 +23,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -43,6 +44,9 @@ import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
+import io.github.alalkipgen.autoflow.ui.components.StickyActionBar
+import io.github.alalkipgen.autoflow.ui.components.StudioAction
+import io.github.alalkipgen.autoflow.core.workflow.ShotStatus
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.handoff.BatchPanel
@@ -99,7 +103,8 @@ internal fun forSheet(text: String, language: UiLanguage = UiLanguage.ENGLISH): 
  * (compile / approve), Ref A / B (copy image prompt, import, pick, approve), Flow handoff (open Flow, copy prompt,
  * pass, import video, credits) and the video versions with accept. Every action is the existing model action of
  * the classic screens (same gates, same saves into the open project); nothing here keeps its own copy of the shot.
- * ≥ 840 dp window: shots list · sheet · media preview; narrower: the sheet with shot chips and "All shots".
+ * ≥ 840 dp window: shots list · sheet · media preview; narrower: the shot list, then one shot's sheet (Back → list).
+ * UI v3 (PR-7): filters and navigator are presentation only; Copy prompt / Open Flow sit once in the sticky bar.
  */
 @Composable
 fun ShotSheetScreen(
@@ -111,6 +116,8 @@ fun ShotSheetScreen(
     readBytes: suspend (String) -> ByteArray?,
     windowWidthDp: Float,
     onGoToInput: () -> Unit,
+    projectKey: String? = null,
+    handleBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
 ) {
     val sb by storyboard.state.collectAsState(storyboard.current())
     val sbMessage by storyboard.message.collectAsState()
@@ -122,6 +129,9 @@ fun ShotSheetScreen(
     val uiLanguage = LocalUiLanguage.current
     val busy = job.running != null
     val wide = windowWidthDp >= 840f
+    val identity = projectKey ?: shotsState.projectName
+    var detailOpen by remember(identity) { mutableStateOf(false) }
+    var filter by remember(identity) { mutableStateOf(ShotFilter.ALL) }
 
     if (shotsState.projectName == null) { AfText(tr(UiText.OPEN_PROJECT_FIRST), Modifier.padding(16.dp), muted = true); return }
     val rows = shotsState.rows
@@ -141,6 +151,11 @@ fun ShotSheetScreen(
     val detail = shotsState.detail?.takeIf { it.number == selected }
     val refRow = refState.rows.firstOrNull { it.number == selected }
     val flowRow = flow.rows.firstOrNull { it.number == selected }
+    // Narrow: shot list → shot detail; Back closes the detail first (specs/ui-v3.md §1). Transient, per project.
+    val sheetOpen = wide || detailOpen
+    handleBack(!wide && detailOpen) { detailOpen = false }
+    val counts = ShotFilter.entries.associateWith { f -> rows.count(f::matches) }
+    val openShot: (Int) -> Unit = { n -> shots.select(n); if (!wide) detailOpen = true }
 
     // Always the wrapping (phone) arrangement: the list pane is narrow, and a large font must not push buttons out.
     val allShots: @Composable () -> Unit = {
@@ -153,12 +168,38 @@ fun ShotSheetScreen(
         }
     }
 
+    // Real counts from the existing ShotStatus badges; the filter only changes which rows are listed.
+    val shotList: @Composable () -> Unit = {
+        AfText(My.breakSyllables(tr(UiText.V3_MV_SUMMARY, "n" to rows.size, "accepted" to counts.getValue(ShotFilter.ACCEPTED))),
+            Modifier.testTag("shot-sheet-summary"), muted = true)
+        WrapRow {
+            ShotFilter.entries.forEach { f ->
+                AfChip(My.breakSyllables(tr(f.label, "n" to counts.getValue(f))), f == filter, { filter = f },
+                    Modifier.heightIn(min = 48.dp).testTag("shot-filter-${f.name}"))
+            }
+        }
+        val visible = rows.filter(filter::matches)
+        if (visible.isEmpty()) AfText(My.breakSyllables(tr(UiText.V3_MV_FILTER_EMPTY)), muted = true)
+        visible.forEach { r -> SheetShotItem(r, r.number == selected) { openShot(r.number) } }
+    }
+
     val list: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(tr(UiText.SHOTS), bold = true)
-            rows.forEach { r -> SheetShotItem(r, r.number == selected) { shots.select(r.number) } }
+            shotList()
             AfText(tr(UiText.ALL_SHOTS), bold = true)
             allShots()
+        }
+    }
+
+    val listPage: @Composable () -> Unit = {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp).testTag("shot-sheet-list"),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText(tr(UiText.SHOTS), size = 16.sp, bold = true)
+            shotList()
+            var open by remember { mutableStateOf(false) }
+            AfButton((if (open) "▼ " else "▶ ") + tr(UiText.ALL_SHOTS), { open = !open }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-all"))
+            if (open) allShots()
         }
     }
 
@@ -173,30 +214,31 @@ fun ShotSheetScreen(
     }
 
     val sheet: @Composable () -> Unit = {
+        val scroll = key(identity, selected) { rememberScrollState() }
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp).testTag("shot-sheet"),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(8.dp).testTag("shot-sheet"),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (!wide) {
+            if (!wide) AfButton(tr(UiText.V3_MV_SHOT_LIST), { detailOpen = false }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-back"))
+            // Navigator: which shot of how many, its badge, previous / next (no inert arrow at either end).
+            Column(
+                Modifier.fillMaxWidth().clip(AutoFlowShapes.Card).border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+                    .background(AutoFlowColors.Panel).padding(10.dp).testTag("shot-sheet-navigator"),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 WrapRow {
-                    rows.forEach { r ->
-                        AfChip("#${r.number}", r.number == selected, { shots.select(r.number) },
-                            Modifier.heightIn(min = 48.dp).testTag("shot-sheet-chip-${r.number}"))
+                    AfText("Shot ${row.number} · ${row.timecode}", Modifier.testTag("shot-sheet-title"), size = 16.sp, bold = true)
+                    StatusBadge(row.status)
+                    AfText("${index + 1} / ${rows.size}", Modifier.testTag("shot-sheet-position"), muted = true)
+                }
+                card?.lyric?.takeIf { it.isNotBlank() }?.let { AfText(My.breakSyllables(it), muted = true) }
+                WrapRow {
+                    rows.getOrNull(index - 1)?.let { p ->
+                        AfButton("← Shot ${p.number}", { shots.select(p.number) }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-prev"))
                     }
-                }
-            }
-            // Header: which shot, its badge, previous / next.
-            WrapRow {
-                AfText("Shot ${row.number} · ${row.timecode}", Modifier.testTag("shot-sheet-title"), size = 16.sp, bold = true)
-                StatusBadge(row.status)
-            }
-            card?.lyric?.takeIf { it.isNotBlank() }?.let { AfText(My.breakSyllables(it), muted = true) }
-            WrapRow {
-                rows.getOrNull(index - 1)?.let { p ->
-                    AfButton("← Shot ${p.number}", { shots.select(p.number) }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-prev"))
-                }
-                rows.getOrNull(index + 1)?.let { n ->
-                    AfButton("Shot ${n.number} →", { shots.select(n.number) }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-next"))
+                    rows.getOrNull(index + 1)?.let { n ->
+                        AfButton("Shot ${n.number} →", { shots.select(n.number) }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-next"))
+                    }
                 }
             }
 
@@ -219,29 +261,43 @@ fun ShotSheetScreen(
                 })
             }
 
+            // Copy prompt and Open Flow live once, in the sticky bar; import and acceptance stay here and manual.
             AfCard(tr(UiText.SHEET_FLOW)) {
                 flow.message?.let { AfText(flow.notice?.text(uiLanguage) ?: forSheet(it, uiLanguage), color = AutoFlowColors.Amber) }
-                AfButton(tr(UiText.OPEN_FLOW), { handoff.openFlow() }, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Flow)
                 if (flowRow != null) HandoffCard(flowRow.copy(gateMsg = flowRow.gateMsg?.let { forSheet(it, uiLanguage) }), LocalCompact.current, handoff, importVideo = {
                     scope.launch { handoff.pickAndImportVideo(flowRow.number) { readBytes(it) } }
                 }, fast = flow.creditHintFast, quality = flow.creditHintQuality, showHeader = false,
-                    noPromptText = tr(UiText.SHEET_COMPILE_FIRST))
+                    noPromptText = tr(UiText.SHEET_COMPILE_FIRST), showCopy = false)
             }
 
             AfCard(tr(UiText.SHEET_VIDEOS)) {
                 if (detail != null && detail.versions.isNotEmpty()) VersionBrowser(detail, shots)
                 else AfText(tr(UiText.SHEET_NO_VIDEO), muted = true)
             }
-
-            if (!wide) {
-                var open by remember { mutableStateOf(false) }
-                AfButton((if (open) "▼ " else "▶ ") + tr(UiText.ALL_SHOTS), { open = !open }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-all"))
-                if (open) allShots()
-            }
         }
     }
 
-    ProjectPanes(windowWidthDp, list = list, editor = sheet, preview = preview)
+    Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            ProjectPanes(windowWidthDp, list = list, editor = if (sheetOpen) sheet else listPage, preview = preview)
+        }
+        if (sheetOpen) StickyActionBar(
+            primary = StudioAction("📋 ${tr(UiText.COPY_PROMPT)}", { handoff.copyPrompt(row.number) },
+                enabled = flowRow != null && flowRow.promptText != null && flowRow.gateMsg == null, tag = "shot-sheet-copy-prompt"),
+            secondary = StudioAction(tr(UiText.OPEN_FLOW), { handoff.openFlow() }, tag = "shot-sheet-open-flow"),
+            caption = My.breakSyllables(tr(UiText.V3_MV_MANUAL_HINT)),
+        )
+    }
+}
+
+/** Shot-list filter over the existing badges; presentation state only, never saved. */
+internal enum class ShotFilter(val label: UiText) {
+    ALL(UiText.V3_ALL_COUNT), OPEN(UiText.V3_MV_OPEN_COUNT), ACCEPTED(UiText.V3_MV_ACCEPTED_COUNT);
+    fun matches(row: ShotRow): Boolean = when (this) {
+        ALL -> true
+        OPEN -> row.status != ShotStatus.ACCEPTED
+        ACCEPTED -> row.status == ShotStatus.ACCEPTED
+    }
 }
 
 /** Ref A / B for one shot: the image prompt (copy), AI Studio, import, a tile per image to pick it, approve. */

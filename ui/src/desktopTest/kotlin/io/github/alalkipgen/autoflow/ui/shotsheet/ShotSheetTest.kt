@@ -13,6 +13,10 @@ import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithText
@@ -111,6 +115,10 @@ class ShotSheetTest {
         onNodeWithTag("shot-sheet-select-2").performClick()
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 2 · 0:08")
+        onNodeWithTag("shot-sheet-position").assertTextEquals("2 / 4")
+        // One Copy prompt (sticky, existing handoff gate): disabled until the prompt passes the gate.
+        onNodeWithTag("shot-sheet-copy-prompt").assertIsDisplayed().assertIsNotEnabled()
+        onAllNodesWithText("📋 ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}").assertCountEquals(1)
 
         // 1 · Storyboard: approve this shot only.
         onNodeWithText(APPROVE).performScrollTo().performClick()
@@ -147,11 +155,13 @@ class ShotSheetTest {
         onNodeWithTag("ref-approve").assertTextContains("✓ Reference ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVED}")
 
         // 4 · Flow handoff: copy the Veo prompt, open Flow, import two videos.
-        onNodeWithText("📋 ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}").performScrollTo().performClick()
+        onNodeWithTag("shot-sheet-copy-prompt").assertIsDisplayed().assertIsEnabled()
+            .assertTextContains("📋 ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}").performMouseInput { click() }
         waitForIdle()
         assertEquals(HandoffState.SENT_TO_FLOW, project.shots[1].handoff.state)
         assertTrue(copied.last().length > 40, "the Veo / Flow prompt: ${copied.last()}")
-        onNodeWithText("Flow ဖွင့်မယ် ↗").performScrollTo().performClick()
+        onAllNodesWithText("Flow ဖွင့်မယ် ↗").assertCountEquals(1)
+        onNodeWithTag("shot-sheet-open-flow").assertIsDisplayed().assertTextContains("Flow ဖွင့်မယ် ↗").performMouseInput { click() }
         assertEquals("https://labs.google/fx/tools/flow", opened.last())
         picker.files = listOf("/in/v1.mp4")
         onNodeWithText("📂 ဗွီဒီယို ထည့်မယ်").performScrollTo().performClick()
@@ -177,6 +187,27 @@ class ShotSheetTest {
             val s = saved.shots[i]
             assertTrue(s.promptIr == null && s.refImages.isEmpty() && s.videos.isEmpty() && !s.approvals.storyboard, "shot ${s.number}: $s")
         }
+
+        // Filters: real badge counts; browsing them never writes the project.
+        val savedBytes = fs.read("/p/Rain.autoflow/project.json")
+        val mm = UiLanguage.BURMESE
+        onNodeWithTag("shot-sheet-summary").assertTextEquals(
+            io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.V3_MV_SUMMARY.text(mm, "n" to 4, "accepted" to 1)))
+        onNodeWithTag("shot-filter-ACCEPTED").performScrollTo().assertTextEquals(
+            io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.V3_MV_ACCEPTED_COUNT.text(mm, "n" to 1))).performMouseInput { click() }
+        waitForIdle()
+        onNodeWithTag("shot-sheet-select-2").assertExists()
+        for (n in listOf(1, 3, 4)) onNodeWithTag("shot-sheet-select-$n").assertDoesNotExist()
+        onNodeWithTag("shot-filter-OPEN").performScrollTo().assertTextEquals(
+            io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.V3_MV_OPEN_COUNT.text(mm, "n" to 3))).performMouseInput { click() }
+        waitForIdle()
+        onNodeWithTag("shot-sheet-select-2").assertDoesNotExist()
+        for (n in listOf(1, 3, 4)) onNodeWithTag("shot-sheet-select-$n").assertExists()
+        onNodeWithTag("shot-sheet-title").assertTextContains("Shot 2 · 0:08") // the open shot stays open while filtered out
+        onNodeWithTag("shot-filter-ALL").performScrollTo().performMouseInput { click() }
+        waitForIdle()
+        for (n in 1..4) onNodeWithTag("shot-sheet-select-$n").assertExists()
+        assertContentEquals(savedBytes, fs.read("/p/Rain.autoflow/project.json"))
 
         // Previous / next.
         onNodeWithTag("shot-sheet-next").performScrollTo().performClick()
@@ -213,14 +244,17 @@ class ShotSheetTest {
     fun anotherProjectShowsItsOwnShotsAndActionsStayThere() = runDesktopComposeUiTest(width = 412, height = 1200) {
         open()
         setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { sheet(412f)() } }
-        onNodeWithTag("shot-sheet-chip-4").performScrollTo().performClick()
+        onNodeWithTag("shot-sheet-select-4").performScrollTo().performClick()
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 4 · 0:24")
-        // Open a second, shorter project (2 shots): shot 4 does not exist there → its first shot.
+        // Open a second, shorter project (2 shots): the narrow view returns to that project's own shot list.
         open("/p/Sun.autoflow", "Sun", durationMs = 16_000)
         waitForIdle()
+        onNodeWithTag("shot-sheet-list").assertExists()
+        onNodeWithTag("shot-sheet-select-3").assertDoesNotExist()
+        onNodeWithTag("shot-sheet-select-1").performScrollTo().performClick()
+        waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 1 · 0:00")
-        onNodeWithTag("shot-sheet-chip-3").assertDoesNotExist()
         onNodeWithText(APPROVE).performScrollTo().performClick()
         waitForIdle()
         assertEquals(listOf(true, false), project.shots.map { it.approvals.storyboard })
@@ -228,6 +262,41 @@ class ShotSheetTest {
         assertFalse(rain.shots.any { it.approvals.storyboard }, "the first project is untouched")
     }
 
+    @Test
+    fun narrowBackClosesTheShotBeforeLeavingAndKeepsTheSelection() = runDesktopComposeUiTest(width = 412, height = 900) {
+        open()
+        val projectPath = current.state.value!!.dir + "/project.json"
+        val originalBytes = fs.read(projectPath)
+        var back: (() -> Unit)? = null
+        setContent {
+            ShotSheetScreen(storyboard, jobs, shots, refs, handoff, readBytes = { null }, windowWidthDp = 412f, onGoToInput = {},
+                handleBack = { enabled, onBack -> back = if (enabled) onBack else null })
+        }
+        onNodeWithTag("shot-sheet-list").assertExists()
+        onNodeWithTag("sticky-action-bar").assertDoesNotExist()
+        assertEquals(null, back, "the list leaves through the shell's own Back")
+        onNodeWithTag("shot-sheet-select-3").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        waitForIdle()
+        onNodeWithTag("shot-sheet-title").assertTextContains("Shot 3 · 0:16")
+        onNodeWithTag("shot-sheet-copy-prompt").assertIsDisplayed()
+        val platformBack = assertNotNull(back, "an open shot registers Back")
+        runOnIdle { platformBack() }
+        waitForIdle()
+        onNodeWithTag("shot-sheet-list").assertExists()
+        onNodeWithTag("shot-sheet").assertDoesNotExist()
+        assertEquals(null, back)
+        assertEquals(3, shots.current().selected, "Back keeps the selected shot")
+        // The visible back button follows the same rule.
+        onNodeWithTag("shot-sheet-select-2").performScrollTo().performMouseInput { click() }
+        waitForIdle()
+        onNodeWithTag("shot-sheet-back").assertIsDisplayed().performMouseInput { click() }
+        waitForIdle()
+        onNodeWithTag("shot-sheet-list").assertExists()
+        assertContentEquals(originalBytes, fs.read(projectPath), "browsing shots never saves")
+    }
+
+    @Test fun phone360MyFont200Fallback() = ShotSheetTest().layoutCase(360, 2f, UiLanguage.BURMESE, bundled = false)
+    @Test fun desktop1440() { for (language in UiLanguage.entries) ShotSheetTest().layoutCase(1440, 1f, language, bundled = true, height = 900) }
     @Test fun phoneFont100() = layout(412, 1f)
     @Test fun phoneFont130() = layout(412, 1.3f)
     @Test fun phoneFont200() = layout(412, 2f)
@@ -242,32 +311,48 @@ class ShotSheetTest {
         }
     }
 
-    private fun layoutCase(width: Int, font: Float, language: UiLanguage, bundled: Boolean) = runDesktopComposeUiTest(width = width, height = 760) {
+    private fun layoutCase(width: Int, font: Float, language: UiLanguage, bundled: Boolean, height: Int = 760) = runDesktopComposeUiTest(width = width, height = height) {
         open()
         val projectPath = current.state.value!!.dir + "/project.json"
         val originalBytes = fs.read(projectPath)
         setContent { CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides language, LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides if (bundled) io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family else FontFamily.Default) { Box { sheet(width.toFloat())() } } }
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
-        if (width < 840) {
-            onNodeWithTag("shot-sheet-chip-2").performScrollTo().assertIsDisplayed().performMouseInput { click() }
-        } else {
-            onNodeWithTag("shot-sheet-select-2").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        val shotsDir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "music-video").apply { mkdirs() }
+        val cell = "$width-${language.code}-${"%.1f".format(java.util.Locale.ROOT, font)}-$bundled"
+        for (tag in ShotFilter.entries.map { "shot-filter-${it.name}" } + "shot-sheet-select-1") {
+            val node = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
+            assertTrue(node.boundsInRoot.height >= 48f && node.boundsInRoot.right <= width.toFloat() + 0.5f, "$tag 48 dp and inside at font $font")
         }
+        if (width < 840) {
+            onNodeWithTag("sticky-action-bar").assertDoesNotExist()
+            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shotsDir, "09-shotsheet-list-$cell.png"))
+        }
+        onNodeWithTag("shot-sheet-select-2").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 2 · 0:08")
-        val tags = listOf("shot-sheet-prev", "shot-sheet-next") + if (width < 840) listOf("shot-sheet-chip-1", "shot-sheet-all") else emptyList()
+        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shotsDir, "09-shotsheet-detail-$cell.png"))
+        val bar = onNodeWithTag("sticky-action-bar").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        for (tag in listOf("shot-sheet-copy-prompt", "shot-sheet-open-flow")) {
+            val node = onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()
+            assertTrue(node.boundsInRoot.height >= 48f && node.boundsInRoot.right <= width.toFloat() + 0.5f, "$tag 48 dp and inside at font $font")
+        }
+        val tags = listOf("shot-sheet-prev", "shot-sheet-next") + if (width < 840) listOf("shot-sheet-back") else emptyList()
         for (tag in tags) {
             val node = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
             assertTrue(node.boundsInRoot.height >= 48f, "$tag must have a 48 dp touch target at font $font")
             assertTrue(node.boundsInRoot.left >= 0f && node.boundsInRoot.right <= width.toFloat(), "$tag inside the window at font $font")
+            assertTrue(node.boundsInRoot.bottom <= bar.top + 0.5f, "$tag is not covered by the sticky bar at font $font")
         }
         val scene = storyboard.current().cards.first { it.number == 2 }.spec!!.sceneMy
         onNodeWithText(scene).performScrollTo().assertIsDisplayed()
         for (title in listOf(UiText.SHEET_STORYBOARD, UiText.SHEET_PROMPT, UiText.SHEET_REFS, UiText.SHEET_FLOW, UiText.SHEET_VIDEOS).map { it.text(language) }) {
             val node = onNodeWithText(title).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
             assertTrue(node.boundsInRoot.right <= width.toFloat() + 0.5f, "$title inside the window at font $font")
+            assertTrue(node.boundsInRoot.bottom <= bar.top + 0.5f, "$title is not covered by the sticky bar at font $font")
         }
         if (width < 840) {
+            onNodeWithTag("shot-sheet-back").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            waitForIdle()
             onNodeWithTag("shot-sheet-all").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             onNodeWithText(UiText.STORYBOARD_APPROVED_COUNT.text(language, "approvedCount" to 0, "size" to 4)).performScrollTo().assertIsDisplayed()
         } else {
