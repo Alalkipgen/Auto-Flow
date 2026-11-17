@@ -102,8 +102,8 @@ fun PresetTile(title: String, explanation: String, selected: Boolean, onSelect: 
     OptionCard(title, explanation, selected, onSelect, modifier)
 
 @Composable
-fun PlannedTile(title: String, explanation: String, modifier: Modifier = Modifier) {
-    AfCard(title, modifier.semantics { disabled() }) { StatusChip(StudioStatus.PLANNED); AfText(explanation, muted = true) }
+fun PlannedTile(title: String, explanation: String? = null, modifier: Modifier = Modifier) {
+    AfCard(title, modifier.semantics { disabled() }) { StatusChip(StudioStatus.PLANNED); explanation?.let { AfText(My.breakSyllables(it), muted = true) } }
 }
 
 @Composable

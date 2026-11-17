@@ -200,20 +200,25 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
 }
 
 /** Where Studio v2 is: tab, project screen (null = the project list) and whether Settings is open over it. */
-data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE)
+data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE, val createMode: io.github.alalkipgen.autoflow.core.model.Mode? = null)
 
 /** Android Back in Studio v2: closes Settings, then steps project screen → list, then any tab → Home; null = leave. */
 fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
     nav.settings -> nav.copy(settings = false)
+    nav.createMode != null -> nav.copy(createMode = null)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Export" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Classic Recap" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Recap" && recap && nav.recapStep.previous() != null -> nav.copy(recapStep = nav.recapStep.previous()!!)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen in MV_CLASSIC_SCREENS && !recap -> nav.copy(projectScreen = MV_CLASSIC)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == MV_CLASSIC && !recap -> nav.copy(projectScreen = SHOT_SHEET)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null -> nav.copy(projectScreen = null)
-    nav.dest != StudioV2Dest.HOME -> V2Nav(projectScreen = nav.projectScreen)
+    nav.dest != StudioV2Dest.HOME -> nav.copy(dest = StudioV2Dest.HOME)
     else -> null
 }
+
+/** Tab switches retain the actual open step; selecting Projects again still returns to its list. */
+fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null,
+    projectScreen = if (dest == StudioV2Dest.PROJECTS && nav.dest == dest) null else nav.projectScreen)
 
 /** Music Video in Studio v2 (5B-12): one shot sheet instead of the Storyboard / Shots / References / Flow Handoff tabs. */
 const val SHOT_SHEET = "Shot sheet"
@@ -271,17 +276,28 @@ private fun StudioV2App(
         } else when (nav.dest) {
             StudioV2Dest.HOME -> {
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
+                val dashboardState by dashboard.state.collectAsState()
                 HomeScreen(
-                    onNewRecap = { openProjectScreen(null) },
-                    onNewMusicVideo = { openProjectScreen(null) },
+                    onNewRecap = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) },
+                    onNewMusicVideo = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO) },
                     onQuickRecapStart = { targetMs, style ->
                         if (dashboard.createQuickRecap(targetMs, style)) openProjectScreen("Recap")
                     },
                     onOpenSettings = { nav = nav.copy(settings = true) },
                     status = status,
-                    recent = dashboard.state.collectAsState().value.rows.filter { !it.missing }.take(3).map { it.entry },
+                    notice = dashboardState.notice?.text(LocalUiLanguage.current) ?: dashboardState.message,
+                    jobs = rows,
+                    onViewJobs = { nav = v2Select(nav, StudioV2Dest.JOBS) },
+                    backHandler = backHandler,
+                    continueProjectPath = open?.dir,
+                    continueStep = if (open != null && isRecap && nav.projectScreen in listOf("Recap", "Export")) {
+                        val step = if (nav.projectScreen == "Export") io.github.alalkipgen.autoflow.ui.recap.RecapStep.EXPORT else nav.recapStep
+                        tr(UiText.V3_STEP, "step" to tr(step.textKey), "n" to step.ordinal + 1)
+                    } else null,
+                    recent = dashboardState.rows.filter { !it.missing }.map { it.entry },
                     onOpenProject = { dir ->
-                        if (dashboard.open(dir)) {
+                        if (open?.dir == dir && nav.projectScreen != null) nav = v2Select(nav, StudioV2Dest.PROJECTS)
+                        else if (dashboard.open(dir)) {
                             val mode = currentProject.state.value?.project?.mode
                             openProjectScreen(if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
                         }
@@ -291,7 +307,7 @@ private fun StudioV2App(
             StudioV2Dest.PROJECTS -> {
                 val screen = nav.projectScreen
                 if (screen == null) {
-                    DashboardScreen(koinInject(), onOpened = {
+                    DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) }, onOpened = {
                         val mode = currentProject.state.value?.project?.mode
                         openProjectScreen(if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
                     })
@@ -346,7 +362,7 @@ private fun StudioV2App(
     StudioV2Shell(
         selected = nav.dest,
         // Projects again while on Projects = back to the list; other tabs keep the open project screen for later.
-        onSelect = { nav = V2Nav(it, if (it == StudioV2Dest.PROJECTS && nav.dest == StudioV2Dest.PROJECTS) null else nav.projectScreen) },
+        onSelect = { nav = v2Select(nav, it) },
         jobsBadge = badge,
         windowWidthDp = windowWidthDp,
         content = content,

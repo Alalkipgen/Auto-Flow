@@ -215,3 +215,26 @@ Registered shared-component additions (owner review; registration does not claim
 | `V3_SAVED` | Saved | သိမ်းပြီး |
 | `V3_UNSAVED` | Unsaved changes | မသိမ်းရသေးသော ပြောင်းလဲမှုများ |
 | `V3_SAVE_FAILED` | Save failed | သိမ်း၍ မရပါ |
+
+### Home implementation checkpoint (PR-2a)
+
+- Header/Settings, existing Length → Style → Confirm wizard, Step-by-step mode-specific create form, most-recent Continue, compact Create rows and disabled Planned tools. Home performs no media probe/decode.
+- Continue shows the retained step only for the same currently open project; otherwise mode only and Source/Input on reopen (Q-16). Recent projects remain in Projects. No invented progress or Saved state.
+- Running uses the identical `jobRows` projection as Jobs, including real queued/running state and pending item count; no theoretical RPM-based ETA. Empty Running is omitted.
+- Home create routes use the existing Dashboard form/rights confirmation; transient create state is cancelled before route Back. Tabs retain the actual open Recap step. Wizard Back steps through its transient state before app Back.
+- Visual evidence: real QA Landscape fixture in the actual `StudioV2Shell`; concept 01 pairs, 412 EN/MY × font1/2, 360 MY/font2, 840 matrix and 1440×900 wide. This is Home evidence, not completion of the project-wide layout.
+
+Home additions for owner copy review:
+
+| Key | EN | MY |
+| --- | --- | --- |
+| `V3_APP_NAME` | Auto Flow | Auto Flow |
+| `V3_CONTINUE` | Continue editing | ဆက်တည်းဖြတ်မယ် |
+| `V3_STEP_BY_STEP` | Step-by-step → | တစ်ဆင့်ချင်း လုပ်မယ် → |
+| `V3_APPROVAL_BEFORE_VOICE` | Approval before voice · stops at Story review | အသံမထုတ်မီ ဇာတ်လမ်းကို စစ်ပြီး အတည်ပြုရမယ် |
+| `V3_DUBBING` | Dubbing | အသံ အစားထိုးခြင်း |
+| `V3_QUICK_TOOLS` | Quick tools | အမြန် ကိရိယာများ |
+| `V3_VOICE_AUDIO` | Voice & Audio | အသံနှင့် Audio |
+| `V3_SUBTITLES` | Subtitles | စာတန်းထိုး |
+| `V3_TOOLS_IN_PROJECT` | Standalone tool planned; existing controls are inside projects. | သီးသန့် ကိရိယာကို နောက်မှ ထည့်မယ်။ လက်ရှိ ကိရိယာများကို ပရောဂျက်ထဲမှာ သုံးနိုင်တယ်။ |
+| `V3_VIEW_JOBS` | View jobs → | အလုပ်များ ကြည့်မယ် → |

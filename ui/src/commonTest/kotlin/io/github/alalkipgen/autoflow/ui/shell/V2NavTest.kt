@@ -34,6 +34,16 @@ class V2NavTest {
         assertEquals(style, v2Back(style.copy(projectScreen = "Classic Recap"), recap = true))
     }
 
+    @Test fun homeContinueRetainsTheOpenStepAndBackCancelsCreationFirst() {
+        val voice = V2Nav(StudioV2Dest.PROJECTS, "Recap", recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE)
+        val home = v2Select(voice, StudioV2Dest.HOME)
+        assertEquals(voice, v2Select(home, StudioV2Dest.PROJECTS))
+        assertEquals(home, v2Back(voice.copy(projectScreen = null), recap = true)?.copy(projectScreen = "Recap"))
+        val form = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP)
+        assertEquals(form.copy(createMode = null), v2Back(form, recap = true))
+        assertNull(v2Select(form, StudioV2Dest.HOME).createMode)
+    }
+
     @Test
     fun musicVideoUsesTheShotSheetAndKeepsTheClassicStepsBehindOneEntry() {
         assertEquals(listOf("Recap", "Export"), v2ProjectScreens(recap = true))
