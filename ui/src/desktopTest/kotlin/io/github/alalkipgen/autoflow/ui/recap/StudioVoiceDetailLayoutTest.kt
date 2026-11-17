@@ -54,6 +54,7 @@ class StudioVoiceDetailLayoutTest(val width: Int, val font: Float, val language:
             fun number(n: Int) = onNodeWithTag("voice-detail-number").performScrollTo().assertIsDisplayed()
                 .assertTextEquals(UiText.V3_BLOCK_OF.text(language, "n" to n, "total" to 2))
             click("voice-open-0"); number(1)
+            assertProjectPanesAndStickyActions(width, "voice-block-request")
             onNodeWithTag("voice-detail-previous").assertIsNotEnabled()
             onNodeWithTag("voice-detail-source").assertTextEquals(UiText.V3_SOURCE_RANGES.text(language, "ranges" to "0:02–0:04 · 0:06–0:08"))
             onNodeWithTag("voice-detail-output").assertTextEquals(UiText.V3_OUTPUT_RANGE.text(language, "range" to "0:00–0:04"))

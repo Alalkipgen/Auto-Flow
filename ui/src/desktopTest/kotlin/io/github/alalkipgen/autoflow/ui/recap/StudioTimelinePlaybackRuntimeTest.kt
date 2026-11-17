@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
 import androidx.compose.runtime.*
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.toPixelMap
@@ -111,6 +112,17 @@ class StudioTimelinePlaybackRuntimeTest {
                 click("voice-open-1"); await { position() == 4_000L }
                 onNodeWithTag("timeline-time").assertTextEquals("Output 0:04 / 0:05")
                 click("timeline-play"); await { position() > 4_250 }; pause()
+                // Retain the pointer gates above/below; additionally exercise Space against the actual decoder.
+                scrub(500)
+                fun space() {
+                    reach("timeline-time").performMouseInput { click() }
+                    onNodeWithTag("project-shortcuts").assertIsFocused().performKeyInput { pressKey(Key.Spacebar) }
+                    mainClock.advanceTimeByFrame()
+                }
+                space(); await { playing() && position() > 750 }
+                space(); await { !playing() }
+                val keyboardPausedAt = position(); Thread.sleep(200); mainClock.advanceTimeByFrame()
+                assertTrue(kotlin.math.abs(position() - keyboardPausedAt) < 100, "Space pauses the real clock")
                 patch(2500, true, true, false); val blankInk = captionInk()
                 patch(500, false, true, false); await { captionInk() > blankInk + 20 }
                 onNodeWithTag("timeline-video").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "FIRST"))

@@ -31,6 +31,13 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
     val approved = recap.storyApproved && gate.allowed
     val back = { if (detail != null) selectedId = null else navigation?.back?.invoke(); Unit }
     navigation?.handleBack?.invoke(detail != null, back)
+    // Same targets as the detail ← / → buttons; from the list, → opens the first block.
+    BlockShortcuts(
+        previous = detail?.let { d -> rows.getOrNull(d.index - 1) }?.takeIf { state.recording == null }
+            ?.let { p -> { selectedId = p.block.id } },
+        next = (if (detail == null) rows.firstOrNull() else rows.getOrNull(detail.index + 1))?.takeIf { state.recording == null }
+            ?.let { n -> { selectedId = n.block.id } },
+    )
     val blocks: @Composable () -> Unit = {
         AfText(tr(UiText.BLOCKS), bold = true)
         if (rows.isEmpty()) AfText(tr(UiText.WRITE_STORY_FIRST), muted = true)
@@ -79,6 +86,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     RecapTimelinePreview(model, blockId = detail?.block?.id, studio = true)
                     ExactFrameCard(model)
+                    AfText(My.breakSyllables(tr(UiText.V3_SHORTCUTS_HINT)), Modifier.testTag("shortcuts-hint"), muted = true)
                 }
             })
         }

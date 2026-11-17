@@ -3,10 +3,14 @@ package io.github.alalkipgen.autoflow.ui.shotsheet
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.click
 import kotlin.test.assertContentEquals
 import io.github.alalkipgen.autoflow.ui.textFitProblems
+import io.github.alalkipgen.autoflow.ui.recap.assertProjectPanesAndStickyActions
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.toAwtImage
@@ -94,6 +98,17 @@ class ShotSheetTest {
     }
 
     private val project get() = current.state.value!!.project
+
+    private fun projectFiles(): Map<String, List<Byte>> {
+        val result = linkedMapOf<String, List<Byte>>()
+        fun visit(path: String) {
+            val children = fs.list(path)
+            if (children.isNotEmpty()) children.forEach { visit("$path/$it") }
+            else runCatching { fs.read(path).toList() }.getOrNull()?.let { result[path] = it }
+        }
+        visit(current.state.value!!.dir)
+        return result
+    }
     private fun png(rgb: Int): ByteArray = ByteArrayOutputStream().also { out ->
         ImageIO.write(BufferedImage(16, 9, BufferedImage.TYPE_INT_RGB).apply { for (x in 0 until 16) for (y in 0 until 9) setRGB(x, y, rgb) }, "png", out)
     }.toByteArray()
@@ -267,6 +282,7 @@ class ShotSheetTest {
         open()
         val projectPath = current.state.value!!.dir + "/project.json"
         val originalBytes = fs.read(projectPath)
+        val originalFiles = projectFiles()
         var back: (() -> Unit)? = null
         setContent {
             ShotSheetScreen(storyboard, jobs, shots, refs, handoff, readBytes = { null }, windowWidthDp = 412f, onGoToInput = {},
@@ -293,6 +309,26 @@ class ShotSheetTest {
         waitForIdle()
         onNodeWithTag("shot-sheet-list").assertExists()
         assertContentEquals(originalBytes, fs.read(projectPath), "browsing shots never saves")
+        assertEquals(originalFiles, projectFiles(), "Back/browse leaves every project file byte-identical")
+    }
+
+    @Test fun keyboardArrowsRespectShotBoundariesAndBrowseNeverWrites() = runDesktopComposeUiTest(width = 840, height = 760) {
+        open()
+        val before = fs.read("/p/Rain.autoflow/project.json")
+        setContent { sheet(840f)() }
+        val host = onNodeWithTag("project-shortcuts").assertIsFocused()
+        host.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionLeft) }
+        assertEquals(1, shots.current().selected)
+        repeat(6) { host.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) } }
+        assertEquals(4, shots.current().selected)
+        onNodeWithTag("shot-sheet-next").assertDoesNotExist()
+        host.performKeyInput { keyDown(androidx.compose.ui.input.key.Key.CtrlLeft); pressKey(androidx.compose.ui.input.key.Key.DirectionLeft); keyUp(androidx.compose.ui.input.key.Key.CtrlLeft) }
+        assertEquals(4, shots.current().selected)
+        repeat(6) { host.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionLeft) } }
+        assertEquals(1, shots.current().selected)
+        onNodeWithTag("shot-sheet-prev").assertDoesNotExist()
+        onNodeWithTag("shot-sheet-title").assertTextContains("Shot 1 · 0:00")
+        assertContentEquals(before, fs.read("/p/Rain.autoflow/project.json"))
     }
 
     @Test fun phone360MyFont200Fallback() = ShotSheetTest().layoutCase(360, 2f, UiLanguage.BURMESE, bundled = false)
@@ -315,6 +351,7 @@ class ShotSheetTest {
         open()
         val projectPath = current.state.value!!.dir + "/project.json"
         val originalBytes = fs.read(projectPath)
+        val originalFiles = projectFiles()
         setContent { CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides language, LocalDensity provides Density(1f, font), io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily provides if (bundled) io.github.alalkipgen.autoflow.ui.BurmeseTestFont.family else FontFamily.Default) { Box { sheet(width.toFloat())() } } }
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
         val shotsDir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "music-video").apply { mkdirs() }
@@ -331,6 +368,7 @@ class ShotSheetTest {
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 2 · 0:08")
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shotsDir, "09-shotsheet-detail-$cell.png"))
+        assertProjectPanesAndStickyActions(width, "shot-sheet-copy-prompt", "shot-sheet-open-flow")
         val bar = onNodeWithTag("sticky-action-bar").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         for (tag in listOf("shot-sheet-copy-prompt", "shot-sheet-open-flow")) {
             val node = onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()
@@ -360,6 +398,7 @@ class ShotSheetTest {
         }
         assertEquals(emptyList<String>(), textFitProblems(width, font))
         assertContentEquals(originalBytes, fs.read(projectPath), "UI language/layout/navigation never saves project content")
+        assertEquals(originalFiles, projectFiles(), "opening and browsing never changes any artifact or project file")
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/studio-layout").apply { mkdirs() }
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "shotsheet-$width-font${(font * 100).toInt()}-${language.code}-${if (bundled) "bundled" else "fallback"}.png"))
     }

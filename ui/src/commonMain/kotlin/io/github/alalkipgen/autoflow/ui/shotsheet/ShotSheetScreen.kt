@@ -46,6 +46,8 @@ import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.StickyActionBar
 import io.github.alalkipgen.autoflow.ui.components.StudioAction
+import io.github.alalkipgen.autoflow.ui.components.ProjectShortcutHost
+import io.github.alalkipgen.autoflow.ui.components.BlockShortcuts
 import io.github.alalkipgen.autoflow.core.workflow.ShotStatus
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
@@ -210,6 +212,7 @@ fun ShotSheetScreen(
                 RefThumb(f, handoff)
                 VideoThumb(f, handoff)
             }
+            AfText(My.breakSyllables(tr(UiText.V3_MV_SHORTCUTS_HINT)), Modifier.testTag("shortcuts-hint"), muted = true)
         }
     }
 
@@ -277,7 +280,12 @@ fun ShotSheetScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+    ProjectShortcutHost { Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+        // ← / → = the navigator's previous / next shot buttons, only while a sheet is shown.
+        BlockShortcuts(
+            previous = rows.getOrNull(index - 1)?.takeIf { sheetOpen }?.let { p -> { shots.select(p.number) } },
+            next = rows.getOrNull(index + 1)?.takeIf { sheetOpen }?.let { n -> { shots.select(n.number) } },
+        )
         Box(Modifier.fillMaxWidth().weight(1f)) {
             ProjectPanes(windowWidthDp, list = list, editor = if (sheetOpen) sheet else listPage, preview = preview)
         }
@@ -287,7 +295,7 @@ fun ShotSheetScreen(
             secondary = StudioAction(tr(UiText.OPEN_FLOW), { handoff.openFlow() }, tag = "shot-sheet-open-flow"),
             caption = My.breakSyllables(tr(UiText.V3_MV_MANUAL_HINT)),
         )
-    }
+    } }
 }
 
 /** Shot-list filter over the existing badges; presentation state only, never saved. */

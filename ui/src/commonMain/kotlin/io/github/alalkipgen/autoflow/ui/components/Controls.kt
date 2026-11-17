@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,18 +20,30 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,6 +51,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
@@ -60,14 +75,40 @@ fun AfText(
     mono: Boolean = false,
     color: Color? = null,
 ) {
+    // The bundled Burmese fonts do not contain U+21BB, and a system symbol font is
+    // not guaranteed. Draw that decoration only; retain the exact label/semantics and prose font.
+    val content = remember(text) {
+        if ('↻' !in text) AnnotatedString(text) else buildAnnotatedString {
+            text.forEach { char ->
+                if (char == '↻') appendInlineContent("regenerate-symbol", "↻") else append(char)
+            }
+        }
+    }
+    val ink = color ?: if (muted) AutoFlowColors.Muted else AutoFlowColors.Text
     BasicText(
-        text = text,
+        text = content,
         modifier = modifier,
         style = TextStyle(
-            color = color ?: if (muted) AutoFlowColors.Muted else AutoFlowColors.Text,
+            color = ink,
             fontSize = size,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
             fontFamily = if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
+        ),
+        inlineContent = if ('↻' !in text) emptyMap() else mapOf(
+            "regenerate-symbol" to InlineTextContent(Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val w = this.size.width
+                    val h = this.size.height
+                    drawArc(ink, 45f, 315f, false, Offset(w * .17f, h * .17f),
+                        Size(w * .66f, h * .66f), style = Stroke(w * .10f, cap = StrokeCap.Round))
+                    drawPath(Path().apply {
+                        moveTo(w * .69f, h * .39f)
+                        lineTo(w * .83f, h * .58f)
+                        lineTo(w * .97f, h * .39f)
+                        close()
+                    }, ink)
+                }
+            },
         ),
     )
 }
