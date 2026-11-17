@@ -27,7 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,14 +60,14 @@ private val THREE_PANE_WIDTH = 840.dp
 
 /**
  * Studio v2 shell: bottom nav < 600 dp, nav rail ≥ 600 dp, three-pane ≥ 840 dp (5A-6, DESIGN.md §7).
- * [jobsBadge]: running job count, negative = at least one failed.
+ * [jobsBadge]: negative Needs-you count, else positive running count, else none.
  * Uses one set of composables for every width — no desktop-only layout (D-22).
  */
 @Composable
 fun StudioV2Shell(
     selected: StudioV2Dest,
     onSelect: (StudioV2Dest) -> Unit,
-    jobsBadge: Int,            // > 0: running count; < 0: failure; 0: none
+    jobsBadge: Int,            // > 0: running/queued; < 0: paused/failed; 0: none
     windowWidthDp: Float,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
@@ -98,6 +100,7 @@ private fun V2NavRailCompact(
     onSelect: (StudioV2Dest) -> Unit,
     jobsBadge: Int,
 ) {
+    val badgeDescription = jobsBadgeDescription(jobsBadge, LocalUiLanguage.current)
     val destIcons = mapOf(
         StudioV2Dest.HOME to "🏠",
         StudioV2Dest.PROJECTS to "📁",
@@ -130,13 +133,16 @@ private fun V2NavRailCompact(
             ) {
                 if (on) Box(Modifier.height(2.dp).fillMaxWidth().background(AutoFlowColors.Purple))
                 BasicText(
-                    if (showBadge) "$icon●" else icon,
+                    icon,
                     style = TextStyle(
-                        color = if (showBadge && jobsBadge < 0) AutoFlowColors.Amber else ink,
+                        color = ink,
                         fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 18.sp,
                     ),
                 )
+                if (showBadge) BasicText(kotlin.math.abs(jobsBadge).toString(),
+                    Modifier.testTag("jobs-badge").semantics { stateDescription = badgeDescription },
+                    style = TextStyle(color = jobsBadgeColor(jobsBadge), fontSize = 12.sp, fontWeight = FontWeight.Bold))
             }
         }
     }
@@ -213,7 +219,8 @@ private fun JobsBadgeLabel(
     fontSize: androidx.compose.ui.unit.TextUnit = 12.sp,
 ) {
     val showBadge = dest == StudioV2Dest.JOBS && jobsBadge != 0
-    val badgeColor = if (jobsBadge < 0) AutoFlowColors.Amber else AutoFlowColors.Green
+    val badgeDescription = jobsBadgeDescription(jobsBadge, LocalUiLanguage.current)
+    val badgeColor = jobsBadgeColor(jobsBadge)
     val label = if (showBadge) {
         val n = kotlin.math.abs(jobsBadge)
         "${tr(dest.textKey)} ($n)"
@@ -222,9 +229,10 @@ private fun JobsBadgeLabel(
     }
     BasicText(
         io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(label),
-        Modifier.padding(horizontal = 2.dp, vertical = 10.dp),
+        Modifier.padding(horizontal = 2.dp, vertical = 10.dp).then(if (showBadge)
+            Modifier.testTag("jobs-badge").semantics { stateDescription = badgeDescription } else Modifier),
         style = TextStyle(
-            color = if (showBadge && jobsBadge < 0) badgeColor else ink,
+            color = if (showBadge) badgeColor else ink,
             fontWeight = if (dest == StudioV2Dest.JOBS && jobsBadge != 0) FontWeight.Bold else if (ink == Color.White) FontWeight.Bold else FontWeight.Normal,
             fontSize = fontSize,
             fontFamily = LocalUiFontFamily.current,
@@ -233,3 +241,7 @@ private fun JobsBadgeLabel(
         overflow = TextOverflow.Visible,
     )
 }
+
+internal fun jobsBadgeColor(value: Int): Color = if (value < 0) AutoFlowColors.Amber else AutoFlowColors.Cyan
+internal fun jobsBadgeDescription(value: Int, language: UiLanguage): String =
+    (if (value < 0) UiText.V3_JOBS_NEEDS_YOU else UiText.JOB_RUNNING).text(language) + " ${kotlin.math.abs(value)}"

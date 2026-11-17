@@ -360,14 +360,15 @@ private fun StudioV2App(
                 }
             }
             StudioV2Dest.LIBRARY -> LibraryScreen(koinInject<LibraryModel>(), focusLexicon = nav.libraryLexicon)
-            StudioV2Dest.JOBS -> io.github.alalkipgen.autoflow.ui.jobs.JobsScreen(rows, scope, onOpen = { source ->
-                when (source) {
-                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.RECAP -> openProjectScreen("Recap")
-                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.RENDER -> openProjectScreen("Export")
-                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.STORYBOARD -> openProjectScreen(SHOT_SHEET)
-                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.AI -> Unit
-                }
-            })
+            StudioV2Dest.JOBS -> {
+                val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
+                val state by dashboard.state.collectAsState()
+                var openFailed by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.jobs.JobRow?>(null) }
+                io.github.alalkipgen.autoflow.ui.jobs.JobsScreen(rows, scope, onOpen = { row ->
+                    val target = io.github.alalkipgen.autoflow.ui.jobs.openJobProject(row, dashboard, currentProject)
+                    if (target != null) nav = target else openFailed = row
+                }, notice = if (openFailed != null) state.notice?.text(LocalUiLanguage.current) ?: state.message else null, noticeRow = openFailed)
+            }
         }
     }
 

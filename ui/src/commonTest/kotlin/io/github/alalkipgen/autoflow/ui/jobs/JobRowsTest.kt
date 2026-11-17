@@ -13,8 +13,37 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertNull
 
 class JobRowsTest {
+    @Test fun needsYouCountsPausedAndFailedBeforeRunningWithoutInventingApprovalRows() {
+        val jobs = AiJobState.entries.map { AiJob(it.name, AiJobKind.TTS_ALL, "/p/A.autoflow", listOf("stable-block"), it) }
+        val rows = jobRows(null, null, null, jobs)
+        assertEquals(-2, jobsBadgeValue(rows))
+        assertEquals(2, rows.count { it.group == JobGroup.NEEDS_YOU })
+        assertEquals(2, rows.count { it.group == JobGroup.RUNNING })
+        assertEquals(2, rows.count { it.group == JobGroup.FINISHED })
+        assertEquals(2, jobsBadgeValue(rows.filter { it.group == JobGroup.RUNNING }))
+        assertEquals(0, jobsBadgeValue(rows.filter { it.group == JobGroup.FINISHED }))
+    }
+    @Test fun resumeOnlyOffersSupportedRemainingItemsAndKeepsRoutingIdentity() {
+        AiJobKind.entries.forEach { kind ->
+            val job = AiJob("stable", kind, "/p/A.autoflow", listOf("stable-b"), AiJobState.PAUSED)
+            val row = jobRows(null, null, null, listOf(job), projectNames = mapOf(job.project to "Real saved name")).single()
+            assertEquals(if (kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE)) 1 else null, row.resumeCount)
+            assertEquals(job.project, row.projectDir); assertEquals(job.id, row.jobId)
+            assertEquals("Real saved name", row.projectTitle)
+            assertNull(jobRows(null, null, null, listOf(job.copy(items = emptyList()))).single().resumeCount)
+        }
+    }
+    @Test fun failedRenderKeepsProjectAndReasonWhileCancelledIsNotDone() {
+        val failed = jobRows(null, run(RenderState.Failed("retained failure")), null, emptyList()).single()
+        assertEquals("/p/Ngam.autoflow", failed.projectDir)
+        assertEquals("Ngam", failed.projectTitle); assertEquals("retained failure", failed.detail)
+        val cancelled = jobRows(null, run(RenderState.Cancelled), null, emptyList()).single()
+        assertEquals(io.github.alalkipgen.autoflow.ui.components.StudioStatus.CANCELLED, cancelled.status)
+        assertEquals(JobGroup.FINISHED, cancelled.group)
+    }
     @Test fun homeAndJobsUseActualStatesAndNeverRpmBasedEtas() {
         AiJobState.entries.forEach { state ->
             val job = AiJob("stable-job", AiJobKind.TTS_ALL, "/projects/QA Landscape.autoflow", listOf("stable-a"), state = state)
