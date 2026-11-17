@@ -169,7 +169,7 @@ Rules (D-65, owner 2026-11-16): one coherent task/subtask per PR; automated chec
 
 Baseline: owner-tested `c2cd1e08f3f2ea4717ec05a7b928faaacace9c47`, open Draft #175. Stack new scoped Draft PRs above it; engine/schema/backup unchanged. Spec: `specs/ui-v3.md`. Each task: targeted tests → commit/push → Draft PR/CI before the next. No merge, main push, force, release or tag.
 
-- [ ] PR-0 spec/control map/states/conflicts + compressed reference images; documentation checkpoint in progress.
+- [x] PR-0 (#176): spec/control map/states/conflicts + 11 compressed WebP reference images. Remote binary hashes and dimensions verified; no original PNGs. Implementation tasks below remain open.
 - [ ] PR-1 shared design system and accessibility tests.
 - [ ] PR-2 shell/Home/navigation/Settings/Diagnostics; PR-3 Voice list/detail; PR-4 Story/Source.
 - [ ] PR-5 Export/Jobs; PR-6 Style; PR-7 Music Video; PR-8 wide layout/shortcuts.
