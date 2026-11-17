@@ -314,7 +314,7 @@ private fun StudioV2App(
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         if (isRecap && screen in listOf("Recap", "Export")) {
-                            val nativeBlocks = screen == "Recap" && nav.recapStep in listOf(
+                            val nativeBlocks = screen == "Export" || screen == "Recap" && nav.recapStep in listOf(
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE,
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.STORY, io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE)
                             if (!nativeBlocks) {
@@ -343,12 +343,13 @@ private fun StudioV2App(
                                         handleBack = backHandler,
                                     ),
                                 ) else {
-                                    val recapModel = koinInject<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()
-                                    io.github.alalkipgen.autoflow.ui.recap.ProjectPanes(windowWidthDp,
-                                        list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText(tr(UiText.EXPORT), bold = true); AfText(tr(UiText.SHELL_EXPORT_HINT), muted = true) } },
-                                        editor = { io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject()) },
-                                        preview = { Column(Modifier.verticalScroll(rememberScrollState())) { io.github.alalkipgen.autoflow.ui.recap.ExactFrameCard(recapModel) } },
-                                    )
+                                    io.github.alalkipgen.autoflow.ui.export.StudioExportScreen(koinInject(), koinInject(), windowWidthDp,
+                                        io.github.alalkipgen.autoflow.ui.recap.RecapNavigation(
+                                            back = { nav = v2Back(nav, true) ?: nav },
+                                            next = {},
+                                            classic = { nav = nav.copy(projectScreen = "Classic Recap") },
+                                            handleBack = backHandler,
+                                        ))
                                 }
                             }
                         } else {

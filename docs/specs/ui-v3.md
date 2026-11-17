@@ -416,3 +416,16 @@ New EN/MY copy for owner review (generated from the implemented UiText additions
 | `V3_SCAN_HINT` | Scans offline. A successful scan clears Story approval; existing Story clips and takes stay. | Offline စစ်မယ်။ ရှာဖွေမှု အောင်မြင်လျှင် ဇာတ်လမ်း ပြန်အတည်ပြုရန် လိုမယ်။ လက်ရှိ ဇာတ်လမ်း clip နှင့် take များ မပြောင်းပါ။ |
 | `V3_NO_SCENES` | No scenes yet. Choose a split option and find scenes. | ပြကွက် မရှိသေးပါ။ ခွဲပုံ ရွေးပြီး ပြကွက် ရှာပါ။ |
 | `V3_REPLACE_MOVIE_CONFIRM` | Choose a replacement movie? Import clears the current scenes, Story pointer, approval and take list. Existing artifact files are kept. | အစားထိုး ရုပ်ရှင် ရွေးမလား။ ထည့်လျှင် လက်ရှိ ပြကွက်၊ ဇာတ်လမ်း ချိတ်ဆက်မှု၊ အတည်ပြုချက်နှင့် take စာရင်းကို ရှင်းမယ်။ Artifact ဖိုင်အဟောင်းများ မပျက်ပါ။ |
+
+## Export presentation (PR-5a / Q-27; validation pending)
+
+- Native step 5 uses ProjectTopBar, Classic overflow and one measured sticky Export/Preview bar. The same shared Export content retains quality, real prerequisite findings, Exact-frame make/remake/select/stale/use-thumbnail, render cancellation/progress, completed output and loudness/failure notes. Help stays in the scrolling Output card so it cannot crowd out content at font 2. Run/result kind does not encode resolved dimensions, so status/history say Export rather than assuming 1080p. No render or approval engine changes.
+- Publish Kit is collapsible in Studio. Title, description, hashtags and chapters have Copy; Save, draft Discard, share-file and saved-title thumbnail controls remain reachable. Project identity resets transient text drafts. Browsing/Copy/Discard must not write project files.
+- Preflight rows are still the existing core report, not a completed Fix-navigation feature. No inert “Fix →” text is presented as an action. Existing wide panes remain until PR-8; no sample preview, fake Saved/ETA or owner-device acceptance.
+
+| Key | English | Burmese |
+| --- | --- | --- |
+| `V3_HASHTAGS` | Hashtags | Hashtag များ |
+| `V3_CHAPTERS` | Chapters | အခန်းများ |
+| `V3_COPY_HASHTAGS` | Copy hashtags | Hashtag များ ကူးမယ် |
+| `V3_COPY_CHAPTERS` | Copy chapters | အခန်းများ ကူးမယ် |
