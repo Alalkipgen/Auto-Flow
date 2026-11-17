@@ -51,6 +51,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?) 
     val state by model.state.collectAsState()
     val open by model.previewSource.projects.collectAsState()
     val recap = state.recap ?: return
+    if (open?.dir != state.projectDir || open?.project?.recap != recap) return
     val rows = remember(state) { voiceBlockViews(state) }
     var selected by remember(state.projectDir) { mutableStateOf<VoiceSelection?>(null) }
     var filter by remember(state.projectDir) { mutableIntStateOf(0) }
@@ -59,6 +60,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?) 
     val idle = !state.busy && state.recording == null
     val gate = RecapRulesV2.canVoice(recap, state.story)
     val remaining = rows.count { !it.voiced && SpokenText.of(it.block, state.lexicon).isNotBlank() }
+    val scroll = key(state.projectDir, selected?.id) { rememberScrollState() }
     val back = { if (selected != null) selected = null else navigation?.back?.invoke(); Unit }
     navigation?.handleBack?.invoke(detail != null, back)
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -66,7 +68,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?) 
             ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, options = listOf(
                 StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap")))
         }
-        Column(Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(14.dp)
+        Column(Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth().verticalScroll(scroll).padding(14.dp)
             .testTag("voice-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.busy) StatusChip(StudioStatus.RUNNING)
             state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
@@ -102,14 +104,11 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?) 
                 }
             } else {
                 if (navigation == null) AfButton(tr(UiText.BACK), back)
-                if (selected?.showFit == true) AfCard(tr(UiText.V3_FIX_TIMING)) {
-                    StatusChip(detail.status, deltaMs = detail.deltaMs)
-                    SmartFitChoices(model, recap, detail.block.id, detail.fit, idle, showOverrunHint = false)
+                key(detail.block.id) {
+                    StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true) {
+                        selected = VoiceSelection(it)
+                    }
                 }
-                BlockScriptCard(model, state, detail.block, detail.index)
-                state.script?.let { VoiceBlockCard(model, state, recap, it, detail.index, back, showBack = false, showScript = false) }
-                RecapTimelinePreview(model, blockId = detail.block.id, studio = true)
-                ExactFrameCard(model)
             }
         }
         if (detail == null) StickyActionBar(
@@ -117,6 +116,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?) 
                 idle && gate.allowed && remaining > 0, "voice-remaining"),
             navigation?.let { StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.STYLE)), it.next, idle, "recap-next") },
             tr(UiText.V3_VOICE_COUNT, "n" to remaining))
+        else key(detail.block.id) { StudioBlockVoiceAction(model, state, detail) }
     }
     state.speakAllEta?.let { confirmation ->
         Dialog(onDismissRequest = model::cancelSpeakAll) {

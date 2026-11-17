@@ -91,7 +91,7 @@ No omission from a concept authorizes removal. Diagnostics is an accessible dest
 | Voice detail / 04 | Speak tab, voice details, text, caption timing auto/custom/edit/save/cancel | Script/Voice sections; exact numeric caption windows under More options |
 | Voice detail / 04 | Record/Stop, import, teleprompter current/next | Record section; same recorder lifecycle |
 | Voice detail / 04 | Clean selected take, stale warning, trim/polish; Clone Labs | Clean section; existing Labs gate, no new clone capability |
-| Voice detail / 04 | Take selector/history, selected audio playback | Takes section; duration bar until separate waveform task lands |
+| Voice detail / 04 | Selected audio playback; history exists in data, no old chooser/Compare UI (Q-22) | Takes section; duration bar until separate waveform task lands |
 | Voice detail / 04 | Re-voice this block | Sticky primary + real scope/requests confirmation; no other block changed |
 | Style / 05 | Native preview Play/Pause, seek, mute/proxy explanation | Large preview + scrubber/time; engine details via ⓘ/Diagnostics |
 | Style / 05 | Exact Frame render/unavailable/result | Visible preview action; real native-v2 compiler unchanged |
@@ -318,3 +318,30 @@ Voice list additions for owner copy review:
 | `V3_SCRUB_OUTPUT` | Seek output timeline | Output အချိန်လိုင်း ရွှေ့မယ် |
 | `V3_LIVE_PREVIEW` | Muted output preview | အသံပိတ် output အကြိုကြည့်ပုံ |
 | `V3_BLOCK_PREVIEW_UNAVAILABLE` | This block has no playable output interval. | ဒီအပိုင်းတွင် ဖွင့်ကြည့်နိုင်သော output အချိန် မရှိပါ။ |
+
+### Voice inspector checkpoint (PR-3b, Q-22)
+
+- Shared native stable-ID navigator, source ranges (all clips), compiler-derived output interval, preview-first layout and Exact Frame. Preview remains the existing all-clips muted player, not an invented clip loop. Voice lock, Script/speak-as, Smart Fit and recorded/import/clean/caption-timing tools remain reachable.
+- Read existing immutable take history off the UI thread; selected take first, measured durations and a duration bar, other takes collapsed. Missing files are explicit. No fake waveform/Compare, chooser write, new schema or engine. Selected-take play moves to Takes; Record keeps its teleprompter.
+- One sticky block-scoped generation/re-voice action opens a real confirmation. Capture the project revision and stable block ID; reject old confirmations after project/edit/navigation changes. Resolve the ID at confirmation before calling the unchanged synthesis action; core approval rules remain authoritative. Existing exports are not silently updated.
+- Each block resets transient controls/scroll. Back still returns detail → list → previous step. Wide three-pane composition remains PR-8.
+
+New EN/MY strings for owner review:
+
+| Key | English | Burmese |
+| --- | --- | --- |
+| V3_PREVIOUS_BLOCK | Previous block | ယခင် အပိုင်း |
+| V3_NEXT_BLOCK | Next block | နောက် အပိုင်း |
+| V3_BLOCK_OF | Block {n} of {total} | စုစုပေါင်း {total} ပိုင်းမှ အပိုင်း {n} |
+| V3_SOURCE_RANGES | Source {ranges} | ရင်းမြစ် {ranges} |
+| V3_OUTPUT_RANGE | Output {range} | Output {range} |
+| V3_TAKES_COUNT | Takes · {n} | အသံမှတ်တမ်း · {n} |
+| V3_LOADING_TAKES | Loading takes… | အသံမှတ်တမ်းများ ဖတ်နေသည်… |
+| V3_TAKE_DURATION | Take {n} · {duration} | အသံမှတ်တမ်း {n} · {duration} |
+| V3_SELECTED | Selected | ရွေးထားသည် |
+| V3_TAKE_HISTORY | Other takes · {n} | အခြား အသံမှတ်တမ်း · {n} |
+| V3_BLOCK_TOOLS | Block voice tools | အပိုင်းအတွက် အသံ ကိရိယာများ |
+| V3_REVOICE_BLOCK | Re-voice this block | ဒီအပိုင်း အသံပြန်ထုတ်မယ် |
+| V3_ONLY_BLOCK | Only block {n} will change | အပိုင်း {n} ကိုသာ ပြောင်းမယ် |
+| V3_ONE_VOICE_REQUEST | 1 voice request; retries may send more. | အသံထုတ် request ၁ ခု။ ပြန်စမ်းလျှင် ပိုပို့နိုင်သည်။ |
+| V3_NEW_TAKE_EFFECT | The new take becomes selected; old takes stay in history. Existing exported files do not update. | Take အသစ်ကို ရွေးမယ်။ Take အဟောင်းများ မပျက်ပါ။ ထုတ်ပြီး ဖိုင်အဟောင်းများ မပြောင်းပါ။ |
