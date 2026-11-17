@@ -33,6 +33,9 @@ jobs:
         run: |
           chmod +x gradlew
           AUTOFLOW_EXPECT_FFMPEG=1 xvfb-run -a ./gradlew check --rerun-tasks --no-build-cache --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+      - name: UI v3 real-build concept contact sheets
+        if: always()
+        run: bash tools/ui-v3-contact-sheets.sh
       - name: Fresh executed / failed / skipped counts
         if: always()
         run: python tools/ci-test-summary.py
@@ -44,6 +47,7 @@ jobs:
             */build/test-results/**/*.xml
             ui/build/reports/s10
             ui/build/reports/playback
+            ui/build/reports/ui-v3
             build/qa
           if-no-files-found: warn
           retention-days: 30

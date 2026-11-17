@@ -6,6 +6,7 @@ Reference mockup: `docs/mockups/autoflow-ui.html` (open in a browser).
 - Dark studio theme. Background `#0B1020`, panel `#131A2E`, card `#1A2340`, line `#263153`
 - Text `#E6EAF5`, muted `#8A94B3`
 - Accent purple `#8B5CF6` (primary actions), cyan `#22D3EE` (Flow / external), green `#22C55E` (accepted), amber `#F59E0B` (stale/warn), red `#F87171` (failed)
+- Primary button fill `#7C3AED` keeps white action text above WCAG AA 4.5:1; selection accent stays `#8B5CF6`.
 - Fonts: UI Burmese = Pyidaungsu → Noto Sans Myanmar fallback; Latin = Inter/Segoe UI; prompt text = monospace
 - Radius 12, subtle 1px borders, no heavy shadows inside panels
 - Logo: gradient purple→cyan rounded square with white play triangle

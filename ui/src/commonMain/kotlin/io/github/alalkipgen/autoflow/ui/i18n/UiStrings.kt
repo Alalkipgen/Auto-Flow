@@ -1006,6 +1006,22 @@ enum class UiText(val en: String, val my: String?) {
     TRANSCRIPTION_UNAVAILABLE("Transcription is not available here", "ဒီနေရာတွင် အသံမှ စာရေးစနစ် မရနိုင်ပါ"),
     MOVIE_NO_SOUND_TO_TRANSCRIBE("This movie has no sound to transcribe.", "ဒီရုပ်ရှင်တွင် စာရေးယူရန် အသံ မပါပါ။"),
     NATIVE_IMAGE_UNAVAILABLE("Image unavailable: {file}. Native output preview cannot omit it; use Exact frame after restoring the image.", "ပုံ မရနိုင်ပါ: {file}။ Native output preview တွင် ၎င်းကို ချန်ထား၍ မရပါ။ ပုံကို ပြန်ထည့်ပြီးနောက် တိကျသော frame ကို သုံးပါ။"),
+    V3_PLAIN_HINT("Straight narration", "ဇာတ်ကြောင်းကို ရိုးရိုး ပြောပြမယ်"),
+    V3_EXPANDED("Expanded", "ဖွင့်ထားသည်"),
+    V3_COLLAPSED("Collapsed", "ခေါက်ထားသည်"),
+    V3_STEP("{step} · Step {n} of 5", "{step} · အဆင့် ၅ ဆင့်မှ {n}"),
+    V3_MORE_OPTIONS("More options", "ရွေးချယ်စရာများ"),
+    V3_RECOMMENDED("Recommended", "အကြံပြုထားသည်"),
+    V3_PLANNED("Planned", "နောက်မှ ထည့်မည်"),
+    V3_SCRIPT_CHANGED("Script changed", "စာသား ပြောင်းထားသည်"),
+    V3_FITS("Fits", "ကိုက်တယ်"),
+    V3_TOO_LONG("+{seconds} s too long", "+{seconds} စက္ကန့် ပိုရှည်သည်"),
+    V3_TOO_SHORT("−{seconds} s short", "−{seconds} စက္ကန့် လိုသည်"),
+    V3_NO_VOICE("No voice", "အသံ မရှိသေး"),
+    V3_BLOCK("Block {n}", "အပိုင်း {n}"),
+    V3_SAVED("Saved", "သိမ်းပြီး"),
+    V3_UNSAVED("Unsaved changes", "မသိမ်းရသေးသော ပြောင်းလဲမှုများ"),
+    V3_SAVE_FAILED("Save failed", "သိမ်း၍ မရပါ"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }
