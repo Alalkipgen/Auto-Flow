@@ -44,6 +44,7 @@ internal fun StudioVoiceDetail(model: RecapModel, state: RecapUiState, row: Voic
     RecapTimelinePreview(model, blockId = row.block.id, studio = true)
     ExactFrameCard(model)
     BlockScriptCard(model, state, row.block, row.index)
+    BlockClipsCard(model, state, row.block)
     AfCard(tr(UiText.VOICE)) { VoiceLockControls(model, state, recap, !state.busy && state.recording == null, compact = true) }
     SectionCard(tr(UiText.V3_FIX_TIMING), initiallyExpanded = showFit || row.status == StudioStatus.TIMING) {
         SmartFitChoices(model, recap, row.block.id, row.fit, !state.busy && state.recording == null, showOverrunHint = false)
