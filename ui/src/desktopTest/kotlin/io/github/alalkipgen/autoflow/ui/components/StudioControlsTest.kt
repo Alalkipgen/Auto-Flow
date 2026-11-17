@@ -96,3 +96,14 @@ class StudioStatusTest {
         assertTrue(1.05 / (luminance(AutoFlowColors.PrimaryFill) + .05) >= 4.5, "white primary text must meet AA")
     }
 }
+
+
+@OptIn(ExperimentalTestApi::class)
+class AfChipStateTest {
+    @Test fun busyChoiceIsActuallyDisabledNotAnEnabledNoOp() = runDesktopComposeUiTest {
+        var changed = 0
+        setContent { AfChip("Fit", false, { changed++ }, Modifier.testTag("choice"), enabled = false) }
+        onNodeWithTag("choice").assertIsDisplayed().assertIsNotEnabled().performMouseInput { click() }
+        assertEquals(0, changed)
+    }
+}

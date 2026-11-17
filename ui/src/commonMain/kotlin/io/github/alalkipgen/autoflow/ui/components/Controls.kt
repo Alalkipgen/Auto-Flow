@@ -105,7 +105,7 @@ fun AfButton(
 
 /** Single-choice chip (ratio, clip length, filters). */
 @Composable
-fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val shape = RoundedCornerShape(50)
     Box(
         modifier
@@ -113,7 +113,7 @@ fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
             .clip(shape)
             .background(if (selected) AutoFlowColors.Purple.copy(alpha = 0.25f) else AutoFlowColors.Card)
             .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
-            .clickable(role = Role.RadioButton, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .semantics { stateDescription = if (selected) "selected" else "not selected" }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,

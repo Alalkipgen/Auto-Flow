@@ -314,6 +314,8 @@ private fun StudioV2App(
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         if (isRecap && screen in listOf("Recap", "Export")) {
+                            val voiceList = screen == "Recap" && nav.recapStep == io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE
+                            if (!voiceList) {
                             io.github.alalkipgen.autoflow.ui.components.WrapRow {
                                 io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
                                 projectName?.let { AfText(it, bold = true) }
@@ -328,10 +330,17 @@ private fun StudioV2App(
                                 },
                                 onClassic = { nav = nav.copy(projectScreen = "Classic Recap") },
                             )
+                            }
                             Box(Modifier.fillMaxWidth().weight(1f)) {
-                                if (screen == "Recap") io.github.alalkipgen.autoflow.ui.recap.StudioRecapScreen(koinInject(), nav.recapStep, windowWidthDp) {
-                                    nav = nav.copy(projectScreen = "Export", recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE)
-                                } else {
+                                if (screen == "Recap") io.github.alalkipgen.autoflow.ui.recap.StudioRecapScreen(koinInject(), nav.recapStep, windowWidthDp,
+                                    onGoToExport = { nav = nav.copy(projectScreen = "Export", recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE) },
+                                    navigation = io.github.alalkipgen.autoflow.ui.recap.RecapNavigation(
+                                        back = { nav = v2Back(nav, true) ?: nav },
+                                        next = { nav = nav.copy(recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE) },
+                                        classic = { nav = nav.copy(projectScreen = "Classic Recap") },
+                                        handleBack = backHandler,
+                                    ),
+                                ) else {
                                     val recapModel = koinInject<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()
                                     io.github.alalkipgen.autoflow.ui.recap.ProjectPanes(windowWidthDp,
                                         list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText(tr(UiText.EXPORT), bold = true); AfText(tr(UiText.SHELL_EXPORT_HINT), muted = true) } },

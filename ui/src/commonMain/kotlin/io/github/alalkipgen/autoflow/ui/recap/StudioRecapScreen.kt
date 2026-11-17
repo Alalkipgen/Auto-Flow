@@ -60,11 +60,14 @@ fun ProjectPanes(
 
 /** Native v2 editor presentation; Classic Recap still uses the original numbered cards. */
 @Composable
-fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, onGoToExport: () -> Unit) {
+fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, onGoToExport: () -> Unit,
+    navigation: RecapNavigation? = null,
+) {
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.refresh() }
     val recap = state.recap
     if (recap == null) { AfText(tr(UiText.OPEN_RECAP_PROJECT)); return }
+    if (step == RecapStep.VOICE) { StudioVoiceScreen(model, navigation); return }
     var selectedId by remember(state.projectDir) { mutableStateOf<String?>(null) }
     var selectedScene by remember(state.projectDir) { mutableIntStateOf(0) }
     val blocks = state.story?.blocks.orEmpty()
