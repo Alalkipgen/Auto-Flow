@@ -61,7 +61,7 @@ internal fun LayerType.labelMy(language: UiLanguage = UiLanguage.ENGLISH): Strin
 }
 
 @Composable
-internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel) {
+internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel, studio: Boolean = false) {
     val editor = model.layerEditor
     val state by editor.state.collectAsState()
     val project by model.state.collectAsState()
@@ -74,7 +74,7 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
             }
         }
         recap.layers.forEachIndexed { index, layer ->
-            AfButton("${index + 1} · ${layer.type.labelMy(LocalUiLanguage.current)} · ${layer.id}", { editor.edit(layer.id) },
+            AfButton("${index + 1} · ${layer.type.labelMy(LocalUiLanguage.current)}${if (studio) "" else " · ${layer.id}"}", { editor.edit(layer.id) },
                 Modifier.fillMaxWidth().testTag("layer-edit-${layer.id}"), enabled = idle && state.draft == null)
         }
         state.problem?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
@@ -84,23 +84,38 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
             val value = form.read(d.layer)
             val problem = if (value == null) tr(UiText.NUMBERS_INVALID) else LayerEdits.problem(value)?.let { tr(UiText.RESULT_DETAIL, "detail" to it) }
             // No persisted convenience toggle, no conversion to recap.visual.masks.
-            AfText("${d.layer.type.labelMy(LocalUiLanguage.current)} · ${d.layer.id}", bold = true)
+            AfText(d.layer.type.labelMy(LocalUiLanguage.current) + if (studio) "" else " · ${d.layer.id}", bold = true)
             @Composable fun input(key: String, label: String, lines: Int = 1) {
                 AfText(label, muted = true)
                 AfTextField(form.fields.getValue(key), { form = form.set(key, it) }, label,
                     Modifier.fillMaxWidth().testTag("layer-field-$key"), lines = lines, mono = key != "text", enabled = idle && !state.importing)
             }
-            input("from", tr(UiText.LAYER_FROM))
-            input("to", tr(UiText.LAYER_TO))
-            if (LayerEdits.usesRect(d.layer.type)) {
-                AfText(tr(UiText.LAYER_RECT_HINT), muted = true)
-                input("x", tr(UiText.RECT_X)); input("y", tr(UiText.RECT_Y))
-                input("w", tr(UiText.RECT_W)); input("h", tr(UiText.RECT_H))
-                AfText(tr(UiText.LAYER_RECT_GESTURES), muted = true)
-                val r = value?.takeIf { LayerEdits.problem(it) == null }?.rect ?: d.layer.rect
-                LayerRectEditor(r, RenderPresets.preview(model.outputRatio(recap)).let { it.width.toFloat() / it.height }, d.token,
-                    enabled = idle && !state.importing, onRect = { form = form.rect(it) })
-            } else AfText(tr(UiText.LAYER_FULL_FRAME), muted = true)
+            val r = value?.takeIf { LayerEdits.problem(it) == null }?.rect ?: d.layer.rect
+            if (studio && LayerEdits.usesRect(d.layer.type)) {
+                listOf(UiText.RECT_X, UiText.RECT_Y, UiText.RECT_W, UiText.RECT_H).forEachIndexed { index, label ->
+                    AfText("${tr(label)} · ${kotlin.math.round(r[index] * 1000) / 10}%")
+                    val maximum = if (index < 2) 1f - r[index + 2] else 1f - r[index - 2]
+                    AfScrubber(if (maximum > 0) r[index] / maximum else 0f, tr(label),
+                        { form = form.rect(layerPercentRect(r, index, it)) },
+                        Modifier.testTag("layer-percent-$index"), enabled = idle && !state.importing && maximum > 0)
+                }
+            }
+            val exact: @Composable () -> Unit = {
+                input("from", tr(UiText.LAYER_FROM))
+                input("to", tr(UiText.LAYER_TO))
+                if (LayerEdits.usesRect(d.layer.type)) {
+                    AfText(tr(UiText.LAYER_RECT_HINT), muted = true)
+                    input("x", tr(UiText.RECT_X)); input("y", tr(UiText.RECT_Y))
+                    input("w", tr(UiText.RECT_W)); input("h", tr(UiText.RECT_H))
+                    AfText(tr(UiText.LAYER_RECT_GESTURES), muted = true)
+                    LayerRectEditor(r, RenderPresets.preview(model.outputRatio(recap)).let { it.width.toFloat() / it.height }, d.token,
+                        enabled = idle && !state.importing, onRect = { form = form.rect(it) })
+                } else AfText(tr(UiText.LAYER_FULL_FRAME), muted = true)
+            }
+            if (studio) SectionCard(tr(UiText.V3_MORE_OPTIONS), Modifier.testTag("layer-exact-options"), initiallyExpanded = false) {
+                AfText(d.layer.id, muted = true)
+                exact()
+            } else exact()
             when (d.layer.type) {
                 LayerType.BLUR -> { input("sigma", tr(UiText.LAYER_SIGMA)); input("feather", tr(UiText.LAYER_FEATHER)) }
                 LayerType.IMAGE -> input("opacity", tr(UiText.LAYER_OPACITY))
@@ -123,11 +138,20 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
             }
             if (problem != null) AfText(problem, color = AutoFlowColors.Amber)
             WrapRow {
-                AfButton(tr(UiText.SAVE), { value?.let(editor::save) }, Modifier.testTag("layer-save"), enabled = idle && !state.importing && problem == null)
+                AfButton(tr(UiText.SAVE), { value?.let(editor::save) }, Modifier.testTag("layer-save"), enabled = idle && !state.importing && problem == null,
+                    kind = if (studio) ButtonKind.Primary else ButtonKind.Secondary)
                 AfButton(tr(UiText.DISCARD), editor::cancel, Modifier.testTag("layer-cancel"))
                 if (!d.isNew) AfButton(tr(UiText.REMOVE_LAYER), { editor.remove() }, Modifier.testTag("layer-remove"), enabled = idle && !state.importing, kind = ButtonKind.Danger)
             }
         }
+    }
+}
+
+/** Slider convenience only: the saved numbers still describe the existing normalized output rect. */
+internal fun layerPercentRect(rect: List<Float>, index: Int, fraction: Float): List<Float> = rect.toMutableList().apply {
+    val maximum = 1f - rect[if (index < 2) index + 2 else index - 2]
+    this[index] = (maximum * fraction.coerceIn(0f, 1f)).let {
+        if (index < 2) it else it.coerceAtLeast(minOf(0.001f, maximum))
     }
 }
 

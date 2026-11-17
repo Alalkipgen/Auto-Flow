@@ -96,38 +96,9 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         RecapPictureControls(recap, idle, model)
         AfSwitch(tr(UiText.BURN_CAPTIONS), recap.burnCaptions, { if (idle) model.setBurnCaptions(it) })
         // Caption style settings are in RecapPictureControls → ✍️ Captions section (D-58).
-        if (recap.burnCaptions) {
-        // Brand Kit save (5B-3, D-51) and Caption Preset save (5B-8, D-51)
-        var showBrandKitName by remember { mutableStateOf("") }
-        var showCaptionPresetName by remember { mutableStateOf("") }
-        WrapRow {
-            AfButton(tr(UiText.SAVE_CAPTION_PRESET), {
-                showCaptionPresetName = "Caption ${recap.captionStyle.size.label} ${if (recap.captionStyle.box) "box" else "outline"}"
-            }, enabled = idle)
-        }
-        if (showCaptionPresetName.isNotEmpty()) {
-            AfTextField(showCaptionPresetName, { showCaptionPresetName = it }, tr(UiText.CAPTION_PRESET_NAME))
-            WrapRow {
-                AfButton(tr(UiText.SAVE_TO_LIBRARY), {
-                    if (showCaptionPresetName.isNotBlank()) { model.saveCaptionPreset(showCaptionPresetName); showCaptionPresetName = "" }
-                }, kind = ButtonKind.Primary, enabled = idle && showCaptionPresetName.isNotBlank())
-                AfButton(tr(UiText.CANCEL), { showCaptionPresetName = "" })
-            }
-        }
-    }
-    AfText(tr(UiText.CAPTIONS_SRT_ALWAYS), muted = true, size = 12.sp)
-    // Brand Kit save (5B-3, D-51)
-    var brandKitName by remember { mutableStateOf("") }
-    WrapRow { AfButton(tr(UiText.SAVE_BRAND_KIT), { brandKitName = "My Brand Kit" }, enabled = idle) }
-    if (brandKitName.isNotEmpty()) {
-        AfTextField(brandKitName, { brandKitName = it }, tr(UiText.BRAND_KIT_NAME))
-        WrapRow {
-            AfButton(tr(UiText.SAVE_TO_LIBRARY), {
-                if (brandKitName.isNotBlank()) { model.saveBrandKit(brandKitName); brandKitName = "" }
-            }, kind = ButtonKind.Primary, enabled = idle && brandKitName.isNotBlank())
-            AfButton(tr(UiText.CANCEL), { brandKitName = "" })
-        }
-    }
+        if (recap.burnCaptions) SaveCaptionPresetControls(recap, idle, model)
+        AfText(tr(UiText.CAPTIONS_SRT_ALWAYS), muted = true, size = 12.sp)
+        SaveBrandKitControls(recap, idle, model)
         val render = RecapRulesV2.canRender(recap, story, state.lexicon)
         render.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), color = AutoFlowColors.Amber) }
         AfButton(tr(UiText.GO_TO_EXPORT), onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
@@ -150,7 +121,7 @@ internal fun SmartFitChoices(model: RecapModel, recap: RecapV2, block: String, r
 
 /** Sound (5B-4): voice polish, background music with ducking, even loudness. Applied when the video is rendered. */
 @Composable
-private fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.RecapAudio, bgmName: String?, idle: Boolean, model: RecapModel) {
+internal fun RecapSoundControls(audio: io.github.alalkipgen.autoflow.core.recap.RecapAudio, bgmName: String?, idle: Boolean, model: RecapModel) {
     AfSwitch(tr(UiText.VOICE_POLISH), audio.polish, { if (idle) model.setAudio { a -> a.copy(polish = it) } })
     AfSwitch(tr(UiText.LOUDNESS_NORMALIZE, "toInt" to (audio.loudnessLufs.toInt())), audio.loudness, { if (idle) model.setAudio { a -> a.copy(loudness = it) } })
     AfSwitch(tr(UiText.TRIM_NEW_TAKES), audio.trimSilence, { if (idle) model.setAudio { a -> a.copy(trimSilence = it) } })
@@ -188,4 +159,39 @@ private fun CaptionStyleControls(style: io.github.alalkipgen.autoflow.core.recap
         }
     }
     AfSwitch(tr(UiText.CAPTION_DARK_BOX), style.box, { on -> if (idle) model.setCaptionStyle { it.copy(box = on) } })
+}
+
+/** Same Library copy operations as Classic; names are transient and project-bound in Studio. */
+@Composable
+internal fun SaveCaptionPresetControls(recap: RecapV2, idle: Boolean, model: RecapModel, projectKey: String? = null) {
+    var name by remember(projectKey) { mutableStateOf("") }
+    WrapRow {
+        AfButton(tr(UiText.SAVE_CAPTION_PRESET), {
+            name = "Caption ${recap.captionStyle.size.label} ${if (recap.captionStyle.box) "box" else "outline"}"
+        }, enabled = idle)
+    }
+    if (name.isNotEmpty()) {
+        AfTextField(name, { name = it }, tr(UiText.CAPTION_PRESET_NAME))
+        WrapRow {
+            AfButton(tr(UiText.SAVE_TO_LIBRARY), {
+                if (name.isNotBlank()) { model.saveCaptionPreset(name); name = "" }
+            }, kind = ButtonKind.Primary, enabled = idle && name.isNotBlank())
+            AfButton(tr(UiText.CANCEL), { name = "" })
+        }
+    }
+}
+
+@Composable
+internal fun SaveBrandKitControls(recap: RecapV2, idle: Boolean, model: RecapModel, projectKey: String? = null) {
+    var name by remember(projectKey) { mutableStateOf("") }
+    WrapRow { AfButton(tr(UiText.SAVE_BRAND_KIT), { name = "My Brand Kit" }, enabled = idle) }
+    if (name.isNotEmpty()) {
+        AfTextField(name, { name = it }, tr(UiText.BRAND_KIT_NAME))
+        WrapRow {
+            AfButton(tr(UiText.SAVE_TO_LIBRARY), {
+                if (name.isNotBlank()) { model.saveBrandKit(name); name = "" }
+            }, kind = ButtonKind.Primary, enabled = idle && name.isNotBlank())
+            AfButton(tr(UiText.CANCEL), { name = "" })
+        }
+    }
 }

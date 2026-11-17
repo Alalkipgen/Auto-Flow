@@ -316,7 +316,8 @@ private fun StudioV2App(
                         if (isRecap && screen in listOf("Recap", "Export")) {
                             val nativeBlocks = screen == "Export" || screen == "Recap" && nav.recapStep in listOf(
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE,
-                                io.github.alalkipgen.autoflow.ui.recap.RecapStep.STORY, io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE)
+                                io.github.alalkipgen.autoflow.ui.recap.RecapStep.STORY, io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE,
+                                io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE)
                             if (!nativeBlocks) {
                             io.github.alalkipgen.autoflow.ui.components.WrapRow {
                                 io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
