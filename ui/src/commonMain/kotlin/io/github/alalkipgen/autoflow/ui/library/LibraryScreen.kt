@@ -10,6 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,7 +53,9 @@ import io.github.alalkipgen.autoflow.ui.i18n.My
  * "Apply" copies the item into the current project (D-39).
  */
 @Composable
-fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier) {
+fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier, focusLexicon: Boolean = false) {
+    val lexicon = remember { BringIntoViewRequester() }
+    LaunchedEffect(focusLexicon) { if (focusLexicon) { withFrameNanos { }; lexicon.bringIntoView() } }
     val state by model.state.collectAsState()
     Column(
         modifier
@@ -62,7 +69,7 @@ fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier) {
 
         BrandKitsSection(state.library.brandKits, model)
         VoicesSection(state.library.voices, model)
-        LexiconSection(state.library.lexicon, model)
+        LexiconSection(state.library.lexicon, model, Modifier.testTag("library-lexicon").bringIntoViewRequester(lexicon))
         MusicSection(state.library.music, model)
         FontsSection(state.library.fonts, model)
         PresetsSection(state.library.presets, model)
@@ -144,8 +151,8 @@ private fun VoicesSection(items: List<SavedVoice>, model: LibraryModel) {
 }
 
 @Composable
-private fun LexiconSection(items: List<LexiconEntry>, model: LibraryModel) {
-    AfCard(tr(UiText.LIBRARY_LEXICON, "size" to (items.size))) {
+private fun LexiconSection(items: List<LexiconEntry>, model: LibraryModel, modifier: Modifier = Modifier) {
+    AfCard(tr(UiText.LIBRARY_LEXICON, "size" to (items.size)), modifier) {
         AfText(tr(UiText.LIBRARY_LEXICON_HINT), muted = true, size = 12.sp)
         if (items.isEmpty()) {
             AfText(tr(UiText.LIBRARY_LEXICON_EMPTY), muted = true)

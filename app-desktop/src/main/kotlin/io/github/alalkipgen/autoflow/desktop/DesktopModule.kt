@@ -25,6 +25,7 @@ import io.github.alalkipgen.autoflow.ui.jobs.RecapJobProcessor
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.media.InProcessRenderQueue
 import io.github.alalkipgen.autoflow.ui.settings.BundledConfig
+import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import java.awt.Frame
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,7 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     single<io.github.alalkipgen.autoflow.platform.VoiceRecorder> { io.github.alalkipgen.autoflow.platform.DesktopVoiceRecorder() }
     single<ToolLocator> { DesktopToolLocator(get()) }
     single<ToolRunner> { DesktopToolRunner() }
+    single { AppInfo(readResource("/config/build.txt").trim()) }
     single<BundledConfig> {
         object : BundledConfig {
             override fun modelsJson(): String = readResource("/config/models.json")

@@ -40,6 +40,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -50,8 +52,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -86,7 +86,6 @@ import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import io.github.alalkipgen.autoflow.ui.theme.UiFont
 import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.ui.components.AfButton
-import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import org.koin.compose.getKoin
@@ -200,7 +199,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
 }
 
 /** Where Studio v2 is: tab, project screen (null = the project list) and whether Settings is open over it. */
-data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE, val createMode: io.github.alalkipgen.autoflow.core.model.Mode? = null)
+data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE, val createMode: io.github.alalkipgen.autoflow.core.model.Mode? = null, val libraryLexicon: Boolean = false)
 
 /** Android Back in Studio v2: closes Settings, then steps project screen → list, then any tab → Home; null = leave. */
 fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
@@ -217,7 +216,7 @@ fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
 }
 
 /** Tab switches retain the actual open step; selecting Projects again still returns to its list. */
-fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null,
+fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null, libraryLexicon = false,
     projectScreen = if (dest == StudioV2Dest.PROJECTS && nav.dest == dest) null else nav.projectScreen)
 
 /** Music Video in Studio v2 (5B-12): one shot sheet instead of the Storyboard / Shots / References / Flow Handoff tabs. */
@@ -271,7 +270,8 @@ private fun StudioV2App(
         if (nav.settings) {
             Column(Modifier.fillMaxSize()) {
                 V2SubBar(tr(UiText.BACK), status) { nav = nav.copy(settings = false) }
-                Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup) }
+                Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup,
+                    onOpenLexicon = { nav = nav.copy(settings = false, dest = StudioV2Dest.LIBRARY, libraryLexicon = true) }) }
             }
         } else when (nav.dest) {
             StudioV2Dest.HOME -> {
@@ -347,7 +347,7 @@ private fun StudioV2App(
                     }
                 }
             }
-            StudioV2Dest.LIBRARY -> LibraryScreen(koinInject<LibraryModel>())
+            StudioV2Dest.LIBRARY -> LibraryScreen(koinInject<LibraryModel>(), focusLexicon = nav.libraryLexicon)
             StudioV2Dest.JOBS -> io.github.alalkipgen.autoflow.ui.jobs.JobsScreen(rows, scope, onOpen = { source ->
                 when (source) {
                     io.github.alalkipgen.autoflow.ui.jobs.JobSource.RECAP -> openProjectScreen("Recap")
@@ -425,15 +425,15 @@ private fun MvClassicSteps(go: (String) -> Unit) {
 
 /** Top bar of a Studio v2 sub-screen: a back button and [status] (AI provider) on the right. */
 @Composable
-private fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
+internal fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        io.github.alalkipgen.autoflow.ui.components.AfButton(backLabel, onBack)
-        Spacer(Modifier.weight(1f))
-        AfText(status, muted = true, size = 12.sp)
+        io.github.alalkipgen.autoflow.ui.components.AfButton("←", onBack, Modifier.testTag("subscreen-back")
+            .semantics { contentDescription = backLabel })
+        AfText(My.breakSyllables(status), Modifier.weight(1f), muted = true, size = 12.sp)
     }
 }
 

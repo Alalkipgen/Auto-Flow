@@ -99,7 +99,8 @@ class PhoneShellTest {
         MoreScreens.filter { it != "Settings" && it in ShellModel.SCREEN_STEPS }.forEach { onNodeWithText("$it $LOCK_GLYPH").assertExists() }
         onNodeWithText(UiText.SETTINGS_TITLE.text(UiLanguage.ENGLISH)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
-        onNodeWithText("AI providers").assertExists()
+        onNodeWithContentDescription(UiText.V3_AI_KEYS.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText(UiText.USE_FAKE_AI.en).assertIsDisplayed()
         onNode(tab(MORE)).assertIsSelected()
     }
 
@@ -113,7 +114,8 @@ class PhoneShellTest {
         waitForIdle()
         onNodeWithText(UiText.SETTINGS_TITLE.text(UiLanguage.ENGLISH)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
-        onNodeWithText("AI providers").assertExists()
+        onNodeWithContentDescription(UiText.V3_AI_KEYS.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText(UiText.USE_FAKE_AI.en).assertIsDisplayed()
         assertNotNull(back).invoke()
         waitForIdle()
         onNodeWithText("References $LOCK_GLYPH").assertExists()
