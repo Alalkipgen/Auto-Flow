@@ -8,6 +8,7 @@ Reference mockup: `docs/mockups/autoflow-ui.html` (open in a browser).
 - Accent purple `#8B5CF6` (primary actions), cyan `#22D3EE` (Flow / external), green `#22C55E` (accepted), amber `#F59E0B` (stale/warn), red `#F87171` (failed)
 - Primary button fill `#7C3AED` keeps white action text above WCAG AA 4.5:1; selection accent stays `#8B5CF6`.
 - Fonts: UI Burmese = Pyidaungsu → Noto Sans Myanmar fallback; Latin = Inter/Segoe UI; prompt text = monospace
+- Regenerate decoration: the bundled Burmese fonts lack `↻` (U+21BB). `AfText` draws only that character inline, at 1 em and in the text's enabled/disabled colour; its exact accessible label and the surrounding selected prose font remain unchanged. No platform symbol font, extra dependency or different button/confirmation is required (PR-7 recheck follow-up in the PR-8 stack).
 - Radius 12, subtle 1px borders, no heavy shadows inside panels
 - Logo: gradient purple→cyan rounded square with white play triangle
 
