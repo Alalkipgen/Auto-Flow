@@ -1088,6 +1088,8 @@ enum class UiText(val en: String, val my: String?) {
     V3_MV_FILTER_EMPTY("No shots match this filter.", "ဒီ filter နှင့် ကိုက်ညီသော shot မရှိပါ။"),
     V3_MV_SHOT_LIST("← Shot list", "← Shot စာရင်း"),
     V3_MV_MANUAL_HINT("Manual Flow handoff · import the video in step 4", "Flow သို့ ကိုယ်တိုင် ပို့ရန် · ဗွီဒီယိုကို အဆင့် 4 မှာ ထည့်ပါ"),
+    V3_SHORTCUTS_HINT("Click background for keys: Space play / pause · ← / → previous / next block", "နောက်ခံကို နှိပ်ပြီး ကီးသုံးပါ: Space ဖွင့် / ခဏရပ် · ← / → ယခင် / နောက် အပိုင်း"),
+    V3_MV_SHORTCUTS_HINT("Click background for keys: ← / → previous / next shot", "နောက်ခံကို နှိပ်ပြီး ကီးသုံးပါ: ← / → ယခင် / နောက် shot"),
     V3_FIX_TIMING("Fix timing", "အချိန်ကိုက် ပြင်မယ်"),
     V3_REVOICE("Re-voice", "အသံ ပြန်ထုတ်မယ်"),
     V3_GENERATE_VOICE("Generate voice", "အသံ ထုတ်မယ်"),

@@ -96,6 +96,7 @@ class StudioStyleLayoutTest(val width: Int, val font: Float, val language: UiLan
                                 isBackEnabled = enabled, onBackCompleted = action) }))
                     }
                 } }
+                assertProjectPanesAndStickyActions(width, "recap-next")
                 fun click(tag: String) = reachStyle(tag).assertIsEnabled().performMouseInput { click() }
                 fun expand(tag: String) = onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and
                     hasAnyAncestor(hasTestTag(tag))).performScrollTo().assertIsDisplayed().performMouseInput { click() }

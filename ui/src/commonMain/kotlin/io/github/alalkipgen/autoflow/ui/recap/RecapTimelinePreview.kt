@@ -46,6 +46,9 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
         var images by remember { mutableStateOf<Map<String, ImageBitmap>?>(null) }
         LaunchedEffect(source.key) { images = withContext(Dispatchers.Default) { model.previewSource.images(source, recap) } }
         LaunchedEffect(outputMs) { model.previewSource.position(source, outputMs) }
+        // Space (studio project screens only) runs exactly this Play/Pause button action.
+        val togglePlay: () -> Unit = { enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }
+        if (studio) PlayPauseShortcut(togglePlay)
         AfCard(tr(UiText.TIMELINE_CARD)) {
             AfText(tr(if (studio) UiText.V3_TIMELINE_SCOPE else UiText.TIMELINE_HINT), muted = true, size = 12.sp)
             val previewLabel = tr(UiText.V3_LIVE_PREVIEW)
@@ -89,7 +92,7 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                     Modifier.testTag("timeline-scrubber"))
             } else readouts()
             WrapRow {
-                AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), { enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }, Modifier.testTag("timeline-play"))
+                AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), togglePlay, Modifier.testTag("timeline-play"))
                 AfButton(tr(UiText.BACK_FIVE_SECONDS), { clock.seek(clock.positionMs - 5_000); refresh++ }, Modifier.testTag("timeline-back"))
                 AfButton(tr(UiText.FORWARD_FIVE_SECONDS), { clock.seek(clock.positionMs + 5_000); refresh++ }, Modifier.testTag("timeline-forward"))
                 AfButton(tr(UiText.CLOSE_PLAYER), { enabled = false; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"), enabled = enabled)

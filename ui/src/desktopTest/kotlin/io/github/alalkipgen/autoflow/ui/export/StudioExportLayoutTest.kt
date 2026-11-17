@@ -117,6 +117,7 @@ class StudioExportLayoutTest(val width: Int, val font: Float, val language: UiLa
                                 rememberNavigationEventState(NavigationEventInfo.None), isBackEnabled = enabled, onBackCompleted = action) }))
                     }
                 } }
+                assertProjectPanesAndStickyActions(width, "export-render", "export-preview")
                 fun click(tag: String) = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() }
                 fun title() = onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("publish-title")))
                 fun capture(state: String) {

@@ -32,7 +32,7 @@ class StudioVoiceLayoutTest(val width: Int, val font: Float, val language: UiLan
         @JvmStatic @Parameterized.Parameters(name = "{0}px/{1}/{2}/bundled={3}")
         fun cases() = listOf(412, 840).flatMap { w -> listOf(1f, 1.3f, 2f).flatMap { f ->
             UiLanguage.entries.flatMap { l -> listOf(true, false).map { b -> arrayOf<Any>(w, f, l, b) } }
-        } } + listOf(arrayOf<Any>(360, 2f, UiLanguage.BURMESE, true), arrayOf<Any>(1440, 1f, UiLanguage.ENGLISH, true))
+        } } + listOf(arrayOf<Any>(360, 2f, UiLanguage.BURMESE, true), arrayOf<Any>(1440, 1f, UiLanguage.ENGLISH, true), arrayOf<Any>(1440, 1f, UiLanguage.BURMESE, true))
     }
     @Test fun voiceListRealFiltersScrollingDetailBackAndPrimaryActions() = runDesktopComposeUiTest(width = width, height = if (width == 1440) 900 else 760) {
         val before = File(fixture.dir, "project.json").readBytes()
@@ -51,6 +51,7 @@ class StudioVoiceLayoutTest(val width: Int, val font: Float, val language: UiLan
                     }
                 }
             }
+            assertProjectPanesAndStickyActions(width, "voice-remaining", "recap-next")
             onNodeWithTag("voice-remaining").assertIsDisplayed().assertIsNotEnabled()
             onNodeWithText(UiText.V3_ATTENTION_COUNT.text(language, "n" to 1)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
             onNodeWithTag("block-select-0").assertExists()

@@ -75,9 +75,9 @@ class AdaptiveRecapTest {
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
         if (width >= 840) {
             val a = onNodeWithTag("project-list").fetchSemanticsNode().boundsInRoot
-            val b = onNodeWithTag("project-editor").fetchSemanticsNode().boundsInRoot
-            val c = onNodeWithTag("project-preview").fetchSemanticsNode().boundsInRoot
-            assertTrue(a.right <= b.left && b.right <= c.left, "list, editor and preview must not overlap")
+            val b = onNodeWithTag("project-preview").fetchSemanticsNode().boundsInRoot
+            val c = onNodeWithTag("project-editor").fetchSemanticsNode().boundsInRoot
+            assertTrue(a.right <= b.left && b.right <= c.left, "list, preview and inspector must follow spec order without overlap")
             assertTrue(c.right <= width, "rail must be included in the 840 dp breakpoint")
         }
         onNodeWithTag("block-select-1").performScrollTo().assertIsDisplayed().performMouseInput { click() }

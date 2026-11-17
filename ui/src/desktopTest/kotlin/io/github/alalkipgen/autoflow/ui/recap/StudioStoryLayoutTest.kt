@@ -37,7 +37,7 @@ class StudioStoryLayoutTest(val width: Int, val font: Float, val language: UiLan
                 scenes = listOf(RecapScene(2_000, 4_000, true), RecapScene(6_000, 8_000, true))))) as CoreResult.Ok).value)
         }
         @JvmStatic @Parameterized.Parameters(name = "{0}px/{1}/{2}/bundled={3}")
-        fun cases() = StudioVoiceLayoutTest.cases() + listOf(arrayOf<Any>(1440, 1f, UiLanguage.BURMESE, true))
+        fun cases() = StudioVoiceLayoutTest.cases()
     }
     @Test fun nativeStoryOptionsEditorsVoiceConfirmationAndBackUseVisibleControlsWithoutWriting() =
         runDesktopComposeUiTest(width = width, height = if (width == 1440) 900 else 760) {
@@ -61,6 +61,7 @@ class StudioStoryLayoutTest(val width: Int, val font: Float, val language: UiLan
                     assertEquals(emptyList(), textFitProblems(width, font))
                     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "04-story-$state-$width-${language.code}-$font-$bundled.png"))
                 }
+                assertProjectPanesAndStickyActions(width, "recap-next", "recap-back")
                 onNodeWithTag("recap-next").assertIsDisplayed().assertIsEnabled()
                 repeat(5) { onNodeWithTag("progress-segment-$it").assertExists() }
                 onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()

@@ -81,6 +81,7 @@ class StudioSourceLayoutTest(val width: Int, val font: Float, val language: UiLa
                         StudioRecapScreen(model, RecapStep.SOURCE, width.toFloat(), {}, RecapNavigation({ back++ }, { next++ }, { classic++ }))
                     }
                 } }
+                assertProjectPanesAndStickyActions(width, "recap-next")
                 fun click(tag: String) = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() }
                 val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "source").apply { mkdirs() }
                 fun capture(state: String) {
