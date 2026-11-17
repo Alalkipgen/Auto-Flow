@@ -56,6 +56,7 @@ fun VoiceBlockCard(
     segmentIndex: Int,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    showBack: Boolean = true,
 ) {
     val seg = script.segments.getOrNull(segmentIndex) ?: return
     val take = state.currentTake(segmentIndex)
@@ -68,7 +69,7 @@ fun VoiceBlockCard(
 
     AfCard(tr(UiText.VOICE_BLOCK_TITLE, "segmentIndex1" to (segmentIndex + 1)), modifier = modifier) {
         // Back link
-        AfButton(tr(UiText.BACK), onClose)
+        if (showBack) AfButton(tr(UiText.BACK), onClose)
         AfText("${clock(seg.startMs)}–${clock(seg.endMs)} · ${seconds(seg.durationMs)}", muted = true, size = 12.sp)
         TakeVoiceLabel(recap.takeFor(state.story!!.blocks[segmentIndex].id), recap.voiceLock)
 

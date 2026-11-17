@@ -258,3 +258,29 @@ Settings additions for owner copy review:
 | `V3_BUILD_UNAVAILABLE` | Build identity is not available on this platform. | ဒီ platform မှာ build အချက်အလက် မရရှိပါ။ |
 | `V3_TOOL_DETECTED` | ffmpeg detected; version check has not run. | ffmpeg တွေ့ရှိသည်။ Version မစစ်ရသေးပါ။ |
 | `V3_SELFTEST_ANDROID` | The on-device Self-test is available in Android builds. | ဖုန်းပေါ် ကိုယ်တိုင် စမ်းသပ်မှုကို Android build မှာ သုံးနိုင်တယ်။ |
+
+
+### Voice list implementation checkpoint (PR-3a)
+
+- Concept 03 now uses native block IDs, every clip range, chosen current takes and the live pronunciation snapshot. All / Needs attention / Voiced counts come from those rows, not take-history order or scene indices. A valid short take is still voiced; speak-remaining does not replace it.
+- The timing chip compares `(selected take duration + existing 400 ms tail) / effective Fit voice speed` with the sum of native clip durations. Signed differences beyond ±400 ms are attention hints; no workflow gate or render graph changes (Q-19). Stale and different/unknown-voice messages remain visible. Fix timing opens the existing core-backed Smart Fit choices.
+- This route uses the five-segment ProjectTopBar and one counted speak-remaining primary plus Next: Style in the sticky bar. Classic Recap is in the actual overflow. Back from a block returns to the list before the previous step; platform Back uses the same rule.
+- Change voice retains the existing lock/stale/keep/regenerate flow. In compact UI the policy is inside that dialog; the new confirmation shows actual request counts, not the old theoretical RPM ETA. Batch generation uses the existing confirmation and job pipeline, preserves valid selected takes and can be cancelled without writing.
+- Block controls, recorded voice, selected-take play, Smart Fit, muted native timeline preview and Exact Frame remain reachable in the existing block editor. This is a deliberate interim fallback: concept 04 navigator, script/takes inspector and per-block re-voice confirmation remain PR-3b, not completed by this list PR. Thumbnails and waveforms remain separate tasks; time ranges and durations are the honest fallback.
+- Busy Smart Fit chips are semantically disabled, not enabled no-op controls. Block selection and its Fit-open intent are one transient, project-bound value; the pointer matrix caught the previous separate-state reset when opening Fix timing.
+- Browsing filters, opening/closing a block, navigating and cancelling confirmation must leave the QA fixture bytes unchanged. The separate fake-TTS persistence test confirms only the missing native block is generated and survives reopen, with other selected take/story/layers/approval intact. No live provider call.
+
+Voice list additions for owner copy review:
+
+| Key | EN | MY |
+| --- | --- | --- |
+| `V3_ALL_COUNT` | All {n} | အားလုံး {n} |
+| `V3_ATTENTION_COUNT` | Needs attention {n} | စစ်ဆေးရန် {n} |
+| `V3_VOICED_COUNT` | Voiced {n} | အသံပါ {n} |
+| `V3_FIX_TIMING` | Fix timing | အချိန်ကိုက် ပြင်မယ် |
+| `V3_REVOICE` | Re-voice | အသံ ပြန်ထုတ်မယ် |
+| `V3_GENERATE_VOICE` | Generate voice | အသံ ထုတ်မယ် |
+| `V3_VOICE_REMAINING` | Voice {n} remaining | ကျန် {n} ပိုင်း အသံထုတ်မယ် |
+| `V3_VOICE_COUNT` | {n} voice requests | အသံထုတ် request {n} ခု |
+| `V3_VOICE_REQUESTS` | {n} voice requests · existing valid takes stay unchanged | အသံထုတ် request {n} ခု · မှန်ကန်သော take အဟောင်းများ မပြောင်းပါ |
+| `V3_REVOICE_COUNT` | Re-voice {n} blocks | အပိုင်း {n} ပိုင်း အသံပြန်ထုတ်မယ် |

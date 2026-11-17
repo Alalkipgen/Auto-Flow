@@ -79,19 +79,7 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
             // Smart Fit choices (5A-8): shown when the take runs over by > 400 ms
             if (row.status == FitStatus.RUNS_ON && row.overMs > 400) {
                 val block = row.block ?: story.blocks[row.segment].id
-                val current = recap.fitChoice(block) ?: FitChoice.EXTEND
-                AfText(tr(UiText.FIT_ACTIONS, "overMs" to (seconds(row.overMs))), muted = true, size = 11.sp)
-                WrapRow {
-                    listOf(
-                        FitChoice.EXTEND to tr(UiText.FIT_EXTEND),
-                        FitChoice.NEXT_RANGE to tr(UiText.FIT_NEXT_RANGE),
-                        FitChoice.SPEED to tr(UiText.FIT_SPEED),
-                        FitChoice.SLOW_VIDEO to tr(UiText.FIT_SLOW_VIDEO),
-                        FitChoice.FREEZE to tr(UiText.FIT_FREEZE),
-                    ).forEach { (choice, label) ->
-                        AfChip(label, current == choice, onClick = { model.setFitChoice(block, choice) })
-                    }
-                }
+                SmartFitChoices(model, recap, block, row)
             }
         }
         AfText(fitFooter(recap, rows, LocalUiLanguage.current), bold = true)
@@ -143,6 +131,20 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
         val render = RecapRulesV2.canRender(recap, story, state.lexicon)
         render.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), color = AutoFlowColors.Amber) }
         AfButton(tr(UiText.GO_TO_EXPORT), onGoToExport, kind = ButtonKind.Primary, enabled = render.allowed)
+    }
+}
+
+/** The existing Smart Fit choices, also reached from a Voice block; policy remains in the engine. */
+@Composable
+internal fun SmartFitChoices(model: RecapModel, recap: RecapV2, block: String, row: FitRow, enabled: Boolean = true, showOverrunHint: Boolean = true) {
+    val current = recap.fitChoice(block) ?: FitChoice.EXTEND
+    if (showOverrunHint) AfText(tr(UiText.FIT_ACTIONS, "overMs" to seconds(row.overMs)), muted = true, size = 11.sp)
+    WrapRow {
+        listOf(FitChoice.EXTEND to UiText.FIT_EXTEND, FitChoice.NEXT_RANGE to UiText.FIT_NEXT_RANGE,
+            FitChoice.SPEED to UiText.FIT_SPEED, FitChoice.SLOW_VIDEO to UiText.FIT_SLOW_VIDEO,
+            FitChoice.FREEZE to UiText.FIT_FREEZE).forEach { (choice, text) ->
+            AfChip(tr(text), current == choice, onClick = { model.setFitChoice(block, choice) }, enabled = enabled)
+        }
     }
 }
 
