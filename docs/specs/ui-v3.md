@@ -1,6 +1,6 @@
 # UI v3 — presentation over the tested engine
 
-Status: specification checkpoint; implementation/automation/device results are tracked separately in PLAN and PHONE-QA.
+Status: shared-control foundation implemented; screen migrations and separate tasks remain in progress. Implementation/automation/device results are tracked separately in PLAN and PHONE-QA.
 Baseline: owner-tested `c2cd1e08f3f2ea4717ec05a7b928faaacace9c47`, Draft #175 (unmerged).
 References: `../mockups/ui-v3/`; historical `../mockups/phase5.html` remains intact.
 
@@ -195,16 +195,23 @@ EN and Burmese, identical substitution placeholders, syllable-safe wrapping and 
 review tables are generated from the actual diff in visual PRs and included in the final owner handoff; this
 spec does not pretend strings not implemented yet are shipped. Technical names and project content are not translated.
 
-Proposed additions (owner-review wording, to be registered when used):
+Registered shared-component additions (owner review; registration does not claim every screen is redesigned):
 
-| EN | MY |
-| --- | --- |
-| Step {n} of 5 | အဆင့် ၅ ဆင့်မှ {n} |
-| Needs you | သင်ဆက်လုပ်ရန် |
-| Planned | နောက်မှ ထည့်မည် |
-| Continue editing | ဆက်ပြင်မယ် |
-| More options | ရွေးချယ်စရာများ |
-| Preview only | အစမ်းကြည့်ရန်သာ |
-| Script changed | စာသား ပြောင်းထားသည် |
-| Unsaved changes | မသိမ်းရသေးသော ပြောင်းလဲမှုများ |
-| Save failed | သိမ်း၍ မရပါ |
+| Key | EN | MY |
+| --- | --- | --- |
+| `V3_PLAIN_HINT` | Straight narration | ဇာတ်ကြောင်းကို ရိုးရိုး ပြောပြမယ် |
+| `V3_EXPANDED` | Expanded | ဖွင့်ထားသည် |
+| `V3_COLLAPSED` | Collapsed | ခေါက်ထားသည် |
+| `V3_STEP` | {step} · Step {n} of 5 | {step} · အဆင့် ၅ ဆင့်မှ {n} |
+| `V3_MORE_OPTIONS` | More options | ရွေးချယ်စရာများ |
+| `V3_RECOMMENDED` | Recommended | အကြံပြုထားသည် |
+| `V3_PLANNED` | Planned | နောက်မှ ထည့်မည် |
+| `V3_SCRIPT_CHANGED` | Script changed | စာသား ပြောင်းထားသည် |
+| `V3_FITS` | Fits | ကိုက်တယ် |
+| `V3_TOO_LONG` | +{seconds} s too long | +{seconds} စက္ကန့် ပိုရှည်သည် |
+| `V3_TOO_SHORT` | −{seconds} s short | −{seconds} စက္ကန့် လိုသည် |
+| `V3_NO_VOICE` | No voice | အသံ မရှိသေး |
+| `V3_BLOCK` | Block {n} | အပိုင်း {n} |
+| `V3_SAVED` | Saved | သိမ်းပြီး |
+| `V3_UNSAVED` | Unsaved changes | မသိမ်းရသေးသော ပြောင်းလဲမှုများ |
+| `V3_SAVE_FAILED` | Save failed | သိမ်း၍ မရပါ |

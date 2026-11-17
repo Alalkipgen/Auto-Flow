@@ -33,6 +33,9 @@ jobs:
         run: |
           chmod +x gradlew
           AUTOFLOW_EXPECT_FFMPEG=1 xvfb-run -a ./gradlew check --rerun-tasks --no-build-cache --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+      - name: UI v3 real-build concept contact sheets
+        if: always()
+        run: bash tools/ui-v3-contact-sheets.sh
       - name: Fresh executed / failed / skipped counts
         if: always()
         run: python tools/ci-test-summary.py
@@ -44,6 +47,7 @@ jobs:
             */build/test-results/**/*.xml
             ui/build/reports/s10
             ui/build/reports/playback
+            ui/build/reports/ui-v3
             build/qa
           if-no-files-found: warn
           retention-days: 30
@@ -81,8 +85,14 @@ jobs:
       - name: ":platform tests on Windows (fakes only, no secrets)"
         env: { AUTOFLOW_EXPECT_DPAPI: "1" }
         run: ./gradlew :platform:desktopTest
+      - name: ffmpeg for real UI QA fixtures (disposable runner only; never bundled)
+        shell: pwsh
+        run: |
+          choco install ffmpeg --version=7.1.1 -y --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) { throw "Pinned ffmpeg install failed" }
+          ffmpeg -version
       - name: ":ui tests on Windows (Myanmar font fallback, screenshots)"
-        env: { AUTOFLOW_EXPECT_MYANMAR_FONT: "1", AUTOFLOW_SCREENSHOTS_DIR: "${{ github.workspace }}/ui/build/screenshots" }
+        env: { AUTOFLOW_EXPECT_MYANMAR_FONT: "1", AUTOFLOW_EXPECT_FFMPEG: "1", AUTOFLOW_SCREENSHOTS_DIR: "${{ github.workspace }}/ui/build/screenshots" }
         run: ./gradlew :ui:desktopTest
       - uses: actions/upload-artifact@v4
         if: always()

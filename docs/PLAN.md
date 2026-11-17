@@ -170,7 +170,8 @@ Rules (D-65, owner 2026-11-16): one coherent task/subtask per PR; automated chec
 Baseline: owner-tested `c2cd1e08f3f2ea4717ec05a7b928faaacace9c47`, open Draft #175. Stack new scoped Draft PRs above it; engine/schema/backup unchanged. Spec: `specs/ui-v3.md`. Each task: targeted tests → commit/push → Draft PR/CI before the next. No merge, main push, force, release or tag.
 
 - [x] PR-0 (#176): spec/control map/states/conflicts + 11 compressed WebP reference images. Remote binary hashes and dimensions verified; no original PNGs. Implementation tasks below remain open.
-- [ ] PR-1 shared design system and accessibility tests.
+- [x] PR-1 foundation: shared ProjectTopBar/StickyActionBar/StatusChip/options/cards, 48 dp controls and AA primary text; PreviewOverlay stays with the separate on-video task. Local incremental `check`: 1012 cases / 1008 pass / 0 failures / 4 installed-VLC prerequisite skips (UI 420 / 417 / 0 / 3). New 26 layout/interaction cases + status test passed; real QA-fixture screenshots/contact sheets generated. Visual review fixed 360 dp/font2 header crowding and an unavailable overflow glyph. Genuine system Myanmar fallback and missing runner compiler/display prerequisites were repaired; no device pass claimed.
+- PR-1 CI follow-up: initial Windows UI run `43995031757` failed because ffmpeg was absent (new real QA-fixture setup); Linux, Android, playback and installer passed. Install pinned ffmpeg 7.1.1 on the disposable Windows test runner, require the real-render tests, and rerun. No test weakened; Windows result remains pending.
 - [ ] PR-2 shell/Home/navigation/Settings/Diagnostics; PR-3 Voice list/detail; PR-4 Story/Source.
 - [ ] PR-5 Export/Jobs; PR-6 Style; PR-7 Music Video; PR-8 wide layout/shortcuts.
 - [ ] Separate tested PRs: thumbnails; on-video layer editing; caption presets; preflight Fix navigation; take waveform. Fallbacks are not completion.

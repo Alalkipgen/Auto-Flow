@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -82,13 +84,14 @@ fun AfButton(
     enabled: Boolean = true,
 ) {
     val (fill, line, ink) = when (kind) {
-        ButtonKind.Primary -> Triple(AutoFlowColors.Purple, AutoFlowColors.Purple, Color.White)
+        ButtonKind.Primary -> Triple(AutoFlowColors.PrimaryFill, AutoFlowColors.Purple, Color.White)
         ButtonKind.Flow -> Triple(AutoFlowColors.Cyan, AutoFlowColors.Cyan, AutoFlowColors.Background)
         ButtonKind.Secondary -> Triple(AutoFlowColors.Card, AutoFlowColors.Line, AutoFlowColors.Text)
         ButtonKind.Danger -> Triple(AutoFlowColors.Card, AutoFlowColors.Amber, AutoFlowColors.Amber)
     }
     Box(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(ControlShape)
             .background(if (enabled) fill else AutoFlowColors.Panel)
             .border(AutoFlowShapes.Border, if (enabled) line else AutoFlowColors.Line, ControlShape)
@@ -106,12 +109,14 @@ fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
     val shape = RoundedCornerShape(50)
     Box(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(shape)
             .background(if (selected) AutoFlowColors.Purple.copy(alpha = 0.25f) else AutoFlowColors.Card)
             .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
             .clickable(role = Role.RadioButton, onClick = onClick)
             .semantics { stateDescription = if (selected) "selected" else "not selected" }
             .padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
     ) {
         AfText(text, color = if (selected) AutoFlowColors.Text else AutoFlowColors.Muted)
     }
@@ -122,6 +127,7 @@ fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
 fun AfSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(ControlShape)
             .clickable(role = Role.Switch) { onChange(!checked) }
             .semantics { stateDescription = if (checked) "on" else "off" }
@@ -164,6 +170,7 @@ fun AfTextField(
 ) {
     Box(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(ControlShape)
             .background(AutoFlowColors.Background)
             .border(AutoFlowShapes.Border, AutoFlowColors.Line, ControlShape)
@@ -210,17 +217,20 @@ fun AfH3(text: String, modifier: Modifier = Modifier) {
 
 /** Panel card with a [title] (DESIGN.md §1: radius 12, 1px border, no shadow). */
 @Composable
-fun AfCard(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = false, headerAction: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
             .fillMaxWidth()
             .clip(AutoFlowShapes.Card)
             .background(AutoFlowColors.Panel)
-            .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, AutoFlowShapes.Card)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        AfText(title, size = 14.sp, bold = true)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText(title, Modifier.weight(1f), size = 14.sp, bold = true)
+            headerAction?.invoke()
+        }
         content()
     }
 }
