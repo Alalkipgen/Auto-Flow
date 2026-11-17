@@ -48,6 +48,20 @@ val decodeBuiltInFonts = tasks.register("decodeBuiltInFonts") {
     }
 }
 
+// Real packaged identity for Settings/About; a local build is labelled local, never a guessed commit.
+val desktopVersion = "0.4.2"
+val desktopSha = providers.gradleProperty("gitSha").orElse(providers.environmentVariable("GITHUB_SHA")).getOrElse("local")
+val writeBuildIdentity = tasks.register("writeBuildIdentity") {
+    val out = layout.buildDirectory.file("generated/build-info/build.txt")
+    val identity = "$desktopVersion ($desktopSha)\n"
+    inputs.property("version", desktopVersion)
+    inputs.property("source", desktopSha)
+    outputs.file(out)
+    doLast {
+        out.get().asFile.apply { parentFile.mkdirs(); writeText(identity) }
+    }
+}
+
 // Ship config/models.json (D-10) on the classpath as /config/models.json; Settings can point at an override file.
 // config/features.json (D-41) ships the same way, as /config/features.json.
 tasks.named<ProcessResources>("processResources") {
@@ -55,6 +69,7 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.layout.projectDirectory.file("config/features.json")) { into("config") }
     // Built-in Burmese fonts (D-49), as /config/fonts/*.ttf.
     from(decodeBuiltInFonts) { into("config/fonts") }
+    from(writeBuildIdentity) { into("config") }
 }
 
 compose.desktop {
@@ -66,7 +81,7 @@ compose.desktop {
             targetFormats(TargetFormat.Exe)
             packageName = "AutoFlow"
             // Same as app-android versionName (an upgrade from the stale 0.2.0; Windows: MAJOR.MINOR.BUILD).
-            packageVersion = "0.4.2"
+            packageVersion = desktopVersion
             description = "Auto Flow"
             vendor = "Auto Flow"
             windows {

@@ -11,6 +11,7 @@ import io.github.alalkipgen.autoflow.ui.export.ExportModel
 import io.github.alalkipgen.autoflow.ui.media.InProcessRenderQueue
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.settings.LoadedModelConfig
+import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import java.nio.file.Files
 import kotlin.io.path.deleteRecursively
@@ -52,5 +53,9 @@ class DesktopModuleTest {
         assertNull(app.koin.get<InputModel>().state.value.projectName, "no project open yet")
         assertNull(app.koin.get<ExportModel>().state.value.projectName, "Export resolves")
         assertIs<InProcessRenderQueue>(app.koin.get<RenderQueue>(), "Export renders on the desktop")
+        val info = app.koin.get<AppInfo>()
+        assertEquals(javaClass.getResource("/config/build.txt")!!.readText().trim(), info.version)
+        assertTrue(info.version.startsWith("0.4.2 ("))
+        assertNull(info.onVersionLongPress, "Android-only Self-test must not become an inert desktop action")
     }
 }

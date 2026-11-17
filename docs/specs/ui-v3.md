@@ -238,3 +238,23 @@ Home additions for owner copy review:
 | `V3_SUBTITLES` | Subtitles | စာတန်းထိုး |
 | `V3_TOOLS_IN_PROJECT` | Standalone tool planned; existing controls are inside projects. | သီးသန့် ကိရိယာကို နောက်မှ ထည့်မယ်။ လက်ရှိ ကိရိယာများကို ပရောဂျက်ထဲမှာ သုံးနိုင်တယ်။ |
 | `V3_VIEW_JOBS` | View jobs → | အလုပ်များ ကြည့်မယ် → |
+
+### Settings implementation checkpoint (PR-2b)
+
+- Concept 10 maps to shared, collapsible AI & keys / Models / Export defaults / Fonts / Tools / Backup & restore (where available) / Preview features / Diagnostics / About. Language remains expanded. All existing Apply, Browse, Detect, masked Test, backup and version long-press actions are retained.
+- Diagnostics is visible without a long press: actual build identity, actual ffmpeg result or explicit not-yet-checked/unavailable state, configured VLC or missing-runtime explanation, and the existing Android Self-test entry. Desktop has real generated package/source identity but no device Self-test; its disabled action explains this.
+- Pronunciation opens the existing Library Lexicon and scrolls it into view. The current Library section is a list, not an editor; project pronunciation editing stays in its existing place (Q-18). No duplicate editor or implicit Apply.
+- The actual shell back control is arrow-only with an accessible localized name; provider state wraps in the remaining space at large fonts. Browsing Settings/Library does not write project files.
+
+Settings additions for owner copy review:
+
+| Key | EN | MY |
+| --- | --- | --- |
+| `V3_AI_KEYS` | AI & keys | AI နှင့် Key များ |
+| `V3_EXPORT_DEFAULTS` | Export defaults | ပုံမှန် ထုတ်ယူမှု ဆက်တင် |
+| `V3_PRONUNCIATION` | Pronunciation | အသံထွက် |
+| `V3_OPEN_LEXICON` | Open Library → Lexicon | စာကြည့်တိုက် → အသံထွက် အဘိဓာန် ဖွင့်မယ် |
+| `V3_DIAGNOSTICS` | Diagnostics | စနစ် စစ်ဆေးမှု |
+| `V3_BUILD_UNAVAILABLE` | Build identity is not available on this platform. | ဒီ platform မှာ build အချက်အလက် မရရှိပါ။ |
+| `V3_TOOL_DETECTED` | ffmpeg detected; version check has not run. | ffmpeg တွေ့ရှိသည်။ Version မစစ်ရသေးပါ။ |
+| `V3_SELFTEST_ANDROID` | The on-device Self-test is available in Android builds. | ဖုန်းပေါ် ကိုယ်တိုင် စမ်းသပ်မှုကို Android build မှာ သုံးနိုင်တယ်။ |

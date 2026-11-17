@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.settings
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -25,6 +26,7 @@ import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.BackupResult
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.SecretNames
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,23 +47,28 @@ class SettingsScreenTest {
         { AiResult.Ok(Unit, Usage(model = "gemini-x", latencyMs = 1)) },
     )
 
+    private fun ComposeUiTest.openSection(key: UiText) {
+        onNodeWithContentDescription(key.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+    }
+
     @Test
     fun keyIsSavedMaskedTestedAndRemoved() = runComposeUiTest {
         setContent { SettingsScreen(model) }
+        openSection(UiText.V3_AI_KEYS)
         onNodeWithText("Gemini API key: not saved").assertExists()
         onNodeWithText("Test").assertIsNotEnabled()
-        onNodeWithContentDescription("Paste a Gemini API key").performTextInput("test-key-not-real")
-        onNodeWithText("Save").performClick()
+        onNodeWithContentDescription("Paste a Gemini API key").performScrollTo().assertIsDisplayed().performTextInput("test-key-not-real")
+        onNodeWithText("Save").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         assertEquals("test-key-not-real", secrets.values[SecretNames.GEMINI_API_KEY])
         onNodeWithText("Key saved").assertExists()
         onNodeWithText("Gemini API key: saved ••••real").assertExists()
         onNodeWithText("test-key-not-real", substring = true).assertDoesNotExist()
 
-        onNodeWithText("Test").assertIsEnabled().performClick()
+        onNodeWithText("Test").assertIsEnabled().performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         onNodeWithText("Key works (gemini-x)").assertExists()
-        onNodeWithText("Remove").performClick()
+        onNodeWithText("Remove").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         onNodeWithText("Gemini API key: not saved").assertExists()
     }
@@ -69,10 +76,13 @@ class SettingsScreenTest {
     @Test
     fun modeDefaultsAndToolsChangeSettings() = runComposeUiTest {
         setContent { SettingsScreen(model) }
-        onNodeWithText("Use fake AI providers (offline, no key needed)").performClick()
-        onNodeWithText("16:9").performClick()
-        onNodeWithText("10s").performClick()
-        onNodeWithText("Detect").performScrollTo().performClick()
+        openSection(UiText.V3_AI_KEYS)
+        openSection(UiText.V3_EXPORT_DEFAULTS)
+        openSection(UiText.TOOLS)
+        onNodeWithText("Use fake AI providers (offline, no key needed)").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText("16:9").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText("10s").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText("Detect").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         val s = settings.state.value
         assertFalse(s.useFakeProviders)
@@ -82,7 +92,7 @@ class SettingsScreenTest {
         onNodeWithText("C:/ffmpeg/bin/ffmpeg.exe").assertExists()
 
         onNodeWithText("VLC 3.x not found: video playback is off.").performScrollTo()
-        onNodeWithText("Install VLC").performClick()
+        onNodeWithText("Install VLC").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         assertEquals(listOf(SettingsModel.VLC_DOWNLOAD_URL), opened)
     }
 
@@ -95,6 +105,7 @@ class SettingsScreenTest {
             { AiResult.Ok(Unit, Usage(model = "gemini-x", latencyMs = 1)) },
         )
         setContent { SettingsScreen(bundled) }
+        openSection(UiText.TOOLS)
         onNodeWithText("ffmpeg: bundled with the app.").performScrollTo().assertExists()
         onNodeWithContentDescription("Path to ffmpeg.exe").assertDoesNotExist()
         onNodeWithText("Install VLC").assertDoesNotExist()
@@ -105,8 +116,10 @@ class SettingsScreenTest {
     fun typedPathAppliesAndModelConfigIsShown() = runComposeUiTest {
         tools.vlcDirs += "D:/VLC"
         setContent { SettingsScreen(model) }
+        openSection(UiText.TOOLS)
+        openSection(UiText.MODEL_CONFIG)
         onNodeWithContentDescription("Auto-detect").performScrollTo().performTextInput("D:/VLC")
-        onNodeWithText("Apply").performClick()
+        onNodeWithText("Apply").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         assertEquals("D:/VLC", settings.state.value.vlcPath)
         onNodeWithText("Using VLC in D:/VLC").assertExists()
@@ -117,9 +130,10 @@ class SettingsScreenTest {
     fun aboutShowsTheVersionAndLongPressOpensTheSelfTest() = runComposeUiTest {
         var opens = 0
         setContent { SettingsScreen(model, info = AppInfo("0.1.0 (abc1234)") { opens++ }) }
+        openSection(UiText.ABOUT)
         onNodeWithText("Auto Flow 0.1.0 (abc1234)").performScrollTo().assertExists()
         onNodeWithText("Long-press the version to open the Self-test.").assertExists()
-        onNodeWithTag("about-version").performClick()
+        onNodeWithTag("about-version").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         assertEquals(0, opens)
         onNodeWithTag("about-version").performTouchInput { longClick() }
@@ -142,16 +156,17 @@ class SettingsScreenTest {
         val fake = FakeBackup()
         val backup = BackupModel(fake, index, fs, CoroutineScope(Dispatchers.Unconfined))
         setContent { SettingsScreen(model, backup = backup) }
+        openSection(UiText.BACKUP)
         onNodeWithText("1 project").performScrollTo().assertExists()
         onNodeWithText("Share…").assertDoesNotExist()
-        onNodeWithText("Back up all projects").performScrollTo().performClick()
+        onNodeWithText("Back up all projects").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         onNodeWithTag("backup-progress").assertExists()
         onNodeWithText("Backing up… 25 %").assertExists()
         fake.gate.complete(PlatformResult.Ok(BackupResult("Download/AutoFlow/AutoFlow-backup-1.zip", 2_000_000, 1, 4, "content://x")))
         waitForIdle()
         onNodeWithText("Saved Download/AutoFlow/AutoFlow-backup-1.zip (2.0 MB, 1 project)").performScrollTo().assertExists()
-        onNodeWithText("Share…").performScrollTo().performClick()
+        onNodeWithText("Share…").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         assertEquals(1, fake.shared.size)
     }
@@ -167,13 +182,13 @@ class SettingsScreenTest {
         var second: SettingsModel? = null
         setContent { PreviewFeaturesCard(if (reopened) second!! else first) }
         assertFalse(first.state.value.features.studioV2)
-        onNodeWithText("studioV2").performClick()
+        onNodeWithText("studioV2").assertIsDisplayed().performMouseInput { click() }
         assertEquals(true, first.state.value.features.studioV2)
         second = fresh()
         reopened = true
         waitForIdle()
         assertEquals(true, second!!.state.value.features.studioV2)
-        onNodeWithText("studioV2").performClick()
+        onNodeWithText("studioV2").assertIsDisplayed().performMouseInput { click() }
         assertFalse(second!!.state.value.features.studioV2)
         assertEquals(emptyMap(), SettingsStore(fs, "/a/settings.json").state.value.featureOverrides)
         assertEquals(false, second!!.state.value.features.labs.wholeMovieTranscribe)
