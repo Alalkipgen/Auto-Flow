@@ -139,6 +139,8 @@ data class ExportUiState(
     val thumbs: ExportThumbs? = null,
     /** The Publish Kit thumbnail of the open recap (5B-10); null = none yet. */
     val publishThumb: PublishThumb? = null,
+    /** UI identity only; never persist a draft or show another project's result. */
+    val projectDir: String? = null,
 ) {
     val busy: Boolean get() = run != null && !run.state.finished
     val canRender: Boolean
@@ -169,6 +171,7 @@ class ExportModel(
 
     private val _state = MutableStateFlow(ExportUiState())
     val state: StateFlow<ExportUiState> = _state.asStateFlow()
+    val projects: StateFlow<OpenProject?> get() = session.state
     private var watching: Job? = null
 
     init {
@@ -191,6 +194,7 @@ class ExportModel(
             val fingerprint = runCatching { frames.fingerprint(open) }.getOrNull()
             val before = _state.value
             _state.value = ExportUiState(
+                projectDir = open.dir,
                 projectName = p.name,
                 font = font?.family,
                 lowBattery = battery?.read()?.lowWarning == true,
@@ -207,6 +211,7 @@ class ExportModel(
         val saved = session.readLyricTimings()
         val synced = timings()
         _state.value = ExportUiState(
+            projectDir = open.dir,
             projectName = p.name,
             shots = p.shots.count { it.durationMs > 0 },
             accepted = p.shots.count { s -> s.durationMs > 0 && s.acceptedVideo?.let { videoFile(open, it) } != null },
@@ -355,6 +360,8 @@ class ExportModel(
         val field: Any = when (label) {
             "title" -> UiNotice(UiText.TITLE)
             "description" -> UiNotice(UiText.DESCRIPTION)
+            "hashtags" -> UiNotice(UiText.V3_HASHTAGS)
+            "chapters" -> UiNotice(UiText.V3_CHAPTERS)
             else -> label
         }
         when (cb.copyText(text)) {

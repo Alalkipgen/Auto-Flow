@@ -44,6 +44,9 @@ import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
+import io.github.alalkipgen.autoflow.ui.components.SectionCard
+import io.github.alalkipgen.autoflow.ui.components.StatusChip
+import io.github.alalkipgen.autoflow.ui.components.StudioStatus
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.projects.RIGHTS_NOTICE
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
@@ -60,20 +63,23 @@ internal const val LOUDNESS = "အသံကျယ်မှု"
  * progress + Cancel, then Open / Share. The battery warning (below 20 % and not charging) warns, it does not block.
  */
 @Composable
-fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
+fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Boolean = false) {
     val state by model.state.collectAsState()
-    LaunchedEffect(model) { model.refresh() }
+    val open by model.projects.collectAsState()
+    LaunchedEffect(model, open?.dir, open?.project?.id) { model.refresh() }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AfText(tr(UiText.EXPORT), size = 18.sp, bold = true)
+        if (!studio) AfText(tr(UiText.EXPORT), size = 18.sp, bold = true)
+        // Never expose another project's controls during the frame before the refresh effect runs.
+        if (state.projectDir != open?.dir) return@Column
         if (state.projectName == null) {
             AfText(tr(UiText.EXPORT_NO_PROJECT), muted = true)
             return@Column
         }
         val recap = state.recap
-        if (recap != null) RecapSummary(recap, state.font, model) else AfCard(tr(UiText.VIDEO)) {
+        if (recap != null) RecapSummary(recap, state.font, model, studio, state.busy) else AfCard(tr(UiText.VIDEO)) {
             AfText(tr(UiText.EXPORT_SHOT_COUNT, "shots" to (state.shots), "durationMs" to (InputModel.formatDuration(state.durationMs))))
             val pending = state.shots - state.accepted
             AfText(
@@ -97,36 +103,40 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
                 AfText(tr(UiText.LYRICS_TIMING_STALE), color = AutoFlowColors.Amber)
             }
         }
-        AfCard(tr(UiText.RENDER_HEADING)) {
+        if (studio && recap != null && recap.preflight.isNotEmpty()) PreflightCard(recap.preflight)
+        if (!studio || state.run != null || state.lastRenders.isNotEmpty() ||
+            state.unavailable != null || state.lowBattery || state.message != null) AfCard(tr(UiText.RENDER_HEADING)) {
             state.unavailable?.let { AfText(if (it == ExportModel.NO_QUEUE) tr(UiText.EXPORT_NO_QUEUE) else tr(UiText.RESULT_DETAIL, "detail" to it), color = AutoFlowColors.Amber) }
             if (state.lowBattery) AfText(tr(UiText.LOW_BATTERY_EXPORT), color = AutoFlowColors.Amber)
-            WrapRow {
-                AfButton(tr(UiText.PREVIEW_BUTTON), { model.render(Quality.PREVIEW) }, enabled = state.canRender)
+            if (!studio) WrapRow {
+                AfButton(tr(UiText.PREVIEW_BUTTON), { model.render(Quality.PREVIEW) }, Modifier.testTag("export-preview"), enabled = state.canRender)
                 val exportLabel = state.recap?.let { tr(UiText.EXPORT_WITH_QUALITY, "quality" to it.quality.uiLabel()) } ?: tr(UiText.EXPORT_BUTTON)
-                AfButton(exportLabel, { model.render(Quality.EXPORT) }, kind = ButtonKind.Primary, enabled = state.canRender)
+                AfButton(exportLabel, { model.render(Quality.EXPORT) }, Modifier.testTag("export-render"), kind = ButtonKind.Primary, enabled = state.canRender)
             }
-            AfText(tr(UiText.RENDER_BACKGROUND_HINT), muted = true)
+            if (!studio) AfText(tr(UiText.RENDER_BACKGROUND_HINT), muted = true)
             state.run?.let { RunStatus(it, model, state.savingToGallery) }
             if (state.run == null) state.lastRenders.forEach { LastRenderStatus(it, model) }
             state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
         // Pre-flight (5B-9): blockers and warnings shown before export
         state.recap?.let { recap ->
-            if (recap.preflight.isNotEmpty()) PreflightCard(recap.preflight)
+            if (!studio && recap.preflight.isNotEmpty()) PreflightCard(recap.preflight)
             // Exact-frame thumbnails (5B-9): stills made by the export compiler itself.
             ExactFramesCard(state.thumbs, canMake = recap.movieFile != null && !state.busy, model)
         }
         // Publish Kit (5B-10): only for Recap projects
         state.recap?.let { recap ->
-            PublishKitCard(recap.publishKit, recap.chapters, state.publishThumb, model)
+            androidx.compose.runtime.key(open?.dir, open?.project?.id) {
+                PublishKitCard(recap.publishKit, recap.chapters, state.publishThumb, model, studio)
+            }
         }
     }
 }
 
 /** Movie Recap project (docs/specs/recap.md §6): scenes, voice, sound, looks, captions, quality and the rights reminder. */
 @Composable
-private fun RecapSummary(recap: RecapExport, font: String?, model: ExportModel) {
-    AfCard("Movie Recap") {
+private fun RecapSummary(recap: RecapExport, font: String?, model: ExportModel, studio: Boolean, busy: Boolean) {
+    AfCard(if (studio) tr(UiText.OUTPUT_CARD) else "Movie Recap", Modifier.testTag("export-output")) {
         AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
         AfText(tr(UiText.RECAP_SCENE_COUNT, "segments" to (recap.segments), "durationMs" to (InputModel.formatDuration(recap.durationMs))) + (recap.movieFile?.let { " · 🎬 $it" } ?: ""))
         val silent = recap.segments - recap.voiced
@@ -147,10 +157,12 @@ private fun RecapSummary(recap: RecapExport, font: String?, model: ExportModel) 
         AfText(tr(UiText.EXPORT_QUALITY), muted = true)
         WrapRow {
             ExportQuality.entries.forEach { q ->
-                AfChip(q.uiLabel(), q == recap.quality, onClick = { model.setRecapQuality(q) })
+                AfChip(q.uiLabel(), q == recap.quality, onClick = { model.setRecapQuality(q) },
+                    modifier = Modifier.testTag("export-quality-${q.name}"), enabled = !busy)
             }
         }
         recap.blocker?.let { AfText(recap.workflowBlocker?.text(LocalUiLanguage.current) ?: tr(UiText.EXPORT_MOVIE_FIRST), color = AutoFlowColors.Amber) }
+        if (studio) AfText(tr(UiText.RENDER_BACKGROUND_HINT), muted = true, size = 12.sp)
     }
 }
 
@@ -159,12 +171,16 @@ internal fun loudnessLine(l: RenderState.Loudness, language: UiLanguage = UiLang
     if (l.twoPass) UiText.LOUDNESS_TWO_PASS.text(language, "target" to l.targetLufs, "measured" to l.measured!!.inputI)
     else UiText.LOUDNESS_NOTE.text(language, "note" to (l.note ?: UiText.LOUDNESS_ONE_PASS.text(language, "target" to l.targetLufs)))
 
+/** Run/result kind alone does not encode the resolved output size. Never infer 1080p from EXPORT. */
+private fun outputLabel(quality: Quality, language: UiLanguage): String =
+    if (quality == Quality.EXPORT) UiText.EXPORT.text(language) else ExportModel.label(quality, language)
+
 /** A finished render read back from its `exports/<name>.result.json` (5B-4), e.g. after the app restarted. */
 @Composable
 private fun LastRenderStatus(last: LastRender, model: ExportModel) {
     val r = last.result
     AfText(
-        tr(UiText.LAST_RENDER, "quality" to (ExportModel.label(last.quality, LocalUiLanguage.current)), "durationMs" to (InputModel.formatDuration(r.durationMs)), "wallMs1000" to (r.wallMs / 1000)),
+        tr(UiText.LAST_RENDER, "quality" to (outputLabel(last.quality, LocalUiLanguage.current)), "durationMs" to (InputModel.formatDuration(r.durationMs)), "wallMs1000" to (r.wallMs / 1000)),
         Modifier.testTag("export-last"),
         color = AutoFlowColors.Green,
     )
@@ -178,7 +194,14 @@ private fun LastRenderStatus(last: LastRender, model: ExportModel) {
 
 @Composable
 private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
-    val what = ExportModel.label(run.quality, LocalUiLanguage.current)
+    val what = outputLabel(run.quality, LocalUiLanguage.current)
+    StatusChip(when (run.state) {
+        RenderState.Queued -> StudioStatus.QUEUED
+        is RenderState.Running -> StudioStatus.RUNNING
+        is RenderState.Done -> StudioStatus.DONE
+        is RenderState.Failed -> StudioStatus.FAILED
+        RenderState.Cancelled -> StudioStatus.CANCELLED
+    })
     when (val s = run.state) {
         RenderState.Queued -> {
             AfText(tr(UiText.RENDER_QUEUED, "what" to (what)), Modifier.testTag("export-status"))
@@ -206,7 +229,7 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
             }
         }
         is RenderState.Failed -> {
-            AfText(tr(UiText.RENDER_FAILED, "what" to (what), "reason" to (s.reason)), Modifier.testTag("export-status"), color = AutoFlowColors.Amber)
+            AfText(tr(UiText.RENDER_FAILED, "what" to (what), "reason" to (s.reason)), Modifier.testTag("export-status"), color = AutoFlowColors.Failed)
             if (s.tail.isNotEmpty()) AfText(s.tail.takeLast(6).joinToString("\n"), muted = true, mono = true, size = 11.sp)
         }
         RenderState.Cancelled -> AfText(tr(UiText.RENDER_CANCELLED, "what" to (what)), Modifier.testTag("export-status"), muted = true)
@@ -255,15 +278,15 @@ private fun ExactFramesCard(thumbs: ExportThumbs?, canMake: Boolean, model: Expo
  * (`exports/export.thumb.jpg`) is an export-size Exact frame with the saved title as a TEXT layer.
  */
 @Composable
-private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter>, thumb: PublishThumb?, model: ExportModel) {
+private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter>, thumb: PublishThumb?, model: ExportModel, studio: Boolean) {
     val scope = rememberCoroutineScope()
     var title by remember(kit.title) { mutableStateOf(kit.title) }
     var description by remember(kit.description) { mutableStateOf(kit.description) }
     var hashtags by remember(kit.hashtags) { mutableStateOf(kit.hashtags.joinToString(" ")) }
-    AfCard("Publish Kit") {
+    SectionCard("Publish Kit", Modifier.testTag("publish-kit"), initiallyExpanded = !studio) {
         AfText(tr(UiText.TITLE), muted = true, size = 12.sp)
-        AfTextField(title, { title = it }, tr(UiText.VIDEO_TITLE_MY), Modifier.fillMaxWidth())
-        AfButton(tr(UiText.COPY_TITLE), { model.copyPublishText(title, "title") })
+        AfTextField(title, { title = it }, tr(UiText.VIDEO_TITLE_MY), Modifier.fillMaxWidth().testTag("publish-title"))
+        AfButton(tr(UiText.COPY_TITLE), { model.copyPublishText(title, "title") }, Modifier.testTag("publish-copy-title"))
         AfText(tr(UiText.DESCRIPTION), muted = true, size = 12.sp)
         val posted = PublishKitText.withChapters(kit, chapters)
         val chapterLines = PublishKitText.chapterLines(posted.chapters)
@@ -272,15 +295,21 @@ private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.
             else tr(UiText.CHAPTERS_FROM_SCRIPT) + chapterLines.joinToString("\n"),
             Modifier.testTag("publish-chapters"), muted = true, size = 11.sp,
         )
+        AfButton(tr(UiText.V3_COPY_CHAPTERS), { model.copyPublishText(chapterLines.joinToString("\n"), "chapters") },
+            Modifier.testTag("publish-copy-chapters"))
         AfTextField(description, { description = it }, tr(UiText.DESCRIPTION_MY), Modifier.fillMaxWidth(), lines = 4, mono = false)
-        AfButton(tr(UiText.COPY_DESCRIPTION), { model.copyPublishText(PublishKitText.description(posted.copy(description = description)), "description") })
+        AfButton(tr(UiText.COPY_DESCRIPTION), { model.copyPublishText(PublishKitText.description(posted.copy(description = description)), "description") },
+            Modifier.testTag("publish-copy-description"))
         AfText(tr(UiText.HASHTAGS_HINT), muted = true, size = 12.sp)
         AfTextField(hashtags, { hashtags = it }, "#မြန်မာ #movie", Modifier.fillMaxWidth())
+        AfButton(tr(UiText.V3_COPY_HASHTAGS), { model.copyPublishText(hashtags, "hashtags") }, Modifier.testTag("publish-copy-hashtags"))
         WrapRow {
             AfButton(tr(UiText.SAVE), {
                 val parsedHashtags = hashtags.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
                 model.setPublishKit(kit.copy(title = title, description = description, hashtags = parsedHashtags))
-            }, kind = ButtonKind.Primary)
+            }, Modifier.testTag("publish-save"), kind = ButtonKind.Primary)
+            AfButton(tr(UiText.DISCARD), { title = kit.title; description = kit.description; hashtags = kit.hashtags.joinToString(" ") },
+                Modifier.testTag("publish-discard"))
             AfButton(tr(UiText.SHARE_FILE), { scope.launch { model.sharePublishFile("export") } })
         }
         PublishThumbSection(kit, thumb, model)
@@ -319,14 +348,14 @@ private fun PublishThumbSection(kit: PublishKit, thumb: PublishThumb?, model: Ex
 
 /**
  * Pre-flight checklist card (5B-9, studio-v2.md §9): blockers and warnings shown before export.
- * Each row has a "Fix →" label pointing to the step to fix it.
+ * Fix navigation is a separate UI v3 task; plain report text must not pretend to be a working link.
  */
 @Composable
 private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item>) {
     AfCard(tr(UiText.PREFLIGHT)) {
         items.forEach { item ->
             val color = when (item.kind) {
-                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER -> AutoFlowColors.Amber
+                io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER -> AutoFlowColors.Failed
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING -> AutoFlowColors.Amber.copy(alpha = 0.8f)
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.INFO -> null
             }
@@ -335,7 +364,7 @@ private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.P
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING -> "⚠ "
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.INFO -> "ℹ "
             }
-            val text = prefix + preflightMessage(item, LocalUiLanguage.current) + item.fix?.let { tr(UiText.PREFLIGHT_FIX, "it" to (My.screen(it, LocalUiLanguage.current))) }.orEmpty()
+            val text = prefix + preflightMessage(item, LocalUiLanguage.current)
             AfText(text, color = color, size = 12.sp)
         }
         val blockers = items.count { it.kind == io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER }
