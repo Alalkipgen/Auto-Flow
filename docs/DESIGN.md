@@ -5,7 +5,7 @@ Reference mockup: `docs/mockups/autoflow-ui.html` (open in a browser).
 ## 1. Visual language
 - Dark studio theme. Background `#0B1020`, panel `#131A2E`, card `#1A2340`, line `#263153`
 - Text `#E6EAF5`, muted `#8A94B3`
-- Accent purple `#8B5CF6` (primary actions), cyan `#22D3EE` (Flow / external), green `#22C55E` (accepted), amber `#F59E0B` (stale/warn)
+- Accent purple `#8B5CF6` (primary actions), cyan `#22D3EE` (Flow / external), green `#22C55E` (accepted), amber `#F59E0B` (stale/warn), red `#F87171` (failed)
 - Fonts: UI Burmese = Pyidaungsu → Noto Sans Myanmar fallback; Latin = Inter/Segoe UI; prompt text = monospace
 - Radius 12, subtle 1px borders, no heavy shadows inside panels
 - Logo: gradient purple→cyan rounded square with white play triangle
@@ -54,7 +54,10 @@ Bottom nav: Projects · Storyboard · Shots · Inbox · More (Input, References,
 - Every destructive or quota-consuming action has a confirm dialog that states what will be generated and what becomes stale.
 - Regenerate never replaces; it adds a version. Version chooser shows side-by-side.
 - Keyboard: `Ctrl+C` on a selected shot copies its prompt; `A` approves; `←/→` moves between shots.
-- Empty states explain the next step in Burmese.
+- Empty states explain the next step in the selected EN/MY UI language.
+- UI v3: see `specs/ui-v3.md` for the complete control map. ProjectTopBar uses five segments; step navigation moves to StickyActionBar. Secondary tools remain in overflow/sections/Diagnostics.
+- Back: modal/draft → block list → previous Recap step → project list → Home → leave confirmation. Top-left and Android Back share this rule.
+- Sticky actions observe keyboard insets; content reserves their space. No fake Saved, ETA, quota or concept sample data.
 
 ## 6. Copy (Burmese UI strings — keep these exact)
 Approve = "အတည်ပြုမယ်" · Edit = "ပြင်မယ်" · Regenerate = "ပြန်ထုတ်မယ်" · Copy Prompt = "Prompt ကူးမယ်" · Needs Flow = "Flow မှာ လုပ်ရန်" · Stale = "ပြန်ထုတ်ရန် လိုသည်" · Accept video = "ဗွီဒီယို လက်ခံမယ်"
@@ -65,27 +68,30 @@ Studio v2 words (D-67, code: `ui/i18n/My.kt`): nav ပင်မ · ပရော�
 Mockups: `docs/mockups/phase5.html` — eight AI-drawn screens with English labels (image models garble Burmese); the app uses Burmese strings (§6). Known mockup slips: Quick Recap card numbers repeat (should be 1–5); the desktop script box shows a quote instead of narration.
 
 ### Navigation
-Home · Projects · Library · Jobs. Phone (< 600 dp): bottom nav. ≥ 600 dp: nav rail. ≥ 840 dp: project screens in three panes (list · editor · preview). One set of composables for every width — no desktop-only layout (D-22). Jobs badge = running count, red when one failed. No avatar or account (D-06).
+Home · Projects · Library · Jobs. Phone (< 600 dp): bottom nav. ≥ 600 dp: nav rail. ≥ 840 dp: project screens in three panes (list · preview · inspector). One set of composables for every width — no desktop-only layout (D-22). Jobs badge = Needs-you count in amber, else running count in cyan, else none. No avatar or account (D-06).
 
 ### Home
-Continue (last project + its step) · Quick Recap card (movie → length → style → Start; "stops only for your approval") · Create: Recap · Music Video (· Dubbing when Labs is on) · Quick tools: Voice & Audio, Subtitles · Running jobs (progress, ETA).
+Continue (last project + its step) · Quick Recap card (movie → length → style → Start; "stops only for your approval") · Create: Recap · Music Video · Dubbing (disabled Planned) · Quick tools: existing standalone routes only, otherwise disabled Planned · Running jobs (actual progress, no unmeasured ETA).
 
 ### Recap — five steps
 Step header "Voice · 3/5" (shown "အသံ · 3/5") with back / next (no tab bar: Burmese labels at a large font do not fit). Steps: Source · Story · Voice · Style · Export. Small preview on Story and Voice, big preview on Style.
 - **Source:** movie card (length, size, sound), subtitle tracks (Extract), `.srt` import, summary, "Transcribe picked scenes" (confirm card: requests, today's usage), scenes with picks and target chips (as Phase 4).
 - **Story:** block list — #, time, thumbnail, first line, chips ✓ Fits · +1.8 s · No voice · ⚠ Stale · Different voice. Tap → block editor: text (written / spoken toggle, speak-as line), clips (trim, add range, split, merge), take (▶, Speak, Record), Smart Fit choice. "Approve story" at the bottom.
-- **Voice:** voice lock card ("Gemini 3.8 Flash TTS · Charon · locked", "Change voice…" says what becomes stale), Speak all (requests + ETA → Jobs), takes per block. Voice & Audio for one block ("← Block 12"): tabs Speak · Record (teleprompter: current line big, next line muted) · Clean (polish, trim silences) · Clone (Labs only).
+- **Voice:** voice lock card ("Gemini 3.8 Flash TTS · Charon · locked", "Change voice…" says what becomes stale), Speak remaining (real requests → Jobs), takes per block. Voice & Audio for one block ("← Block 12"): tabs Speak · Record (teleprompter: current line big, next line muted) · Clean (polish, trim silences) · Clone (Labs only).
 - **Style:** big live preview with draggable layers (blur mask, logo, watermark, title, border, background, captions) and "Exact frame"; Brand Kit chips; Looks; caption style; BGM, ducking, movie volume.
-- **Export:** pre-flight list (✓ / ⚠ rows with "Fix →"), quality Auto / 720 / 1080 / 1440, estimated time, Preview 540p / Export, Save to Gallery, Share, Publish Kit (title, description, hashtags, chapters, thumbnail; Copy each).
+- **Export:** pre-flight list (✓ / ⚠ rows with "Fix →"), quality Auto / 720 / 1080 / 1440, measured progress only, Preview 540p / Export, Save to Gallery, Share, Publish Kit (title, description, hashtags, chapters, thumbnail; Copy each).
 
 ### Quick Recap
 Wizard: movie → length chips (1 · 3 · 5 · 10 min) → style (Brand Kit / preset) → Start. Progress list with one row per stage (each a Jobs entry). Stops at the Story review (Approve / Edit); then voice and render continue as jobs.
 
 ### Library · Jobs
-Library: Brand Kits · Voices · Lexicon · Music · Fonts · Presets; "Apply" copies into the project (D-39). Jobs: renders and AI jobs with project, progress, ETA, Pause / Resume / Cancel, failure reason + Retry, today's quota.
+Library: Brand Kits · Voices · Lexicon · Music · Fonts · Presets; "Apply" copies into the project (D-39). Jobs: renders and AI jobs with project, actual progress, supported Pause / Resume / Cancel, failure reason + Retry; no remaining-quota promise.
 
 ### Music Video
 Shot sheet per shot: storyboard text (edit / approve), prompt (copy), Ref A / B, Flow handoff (open Flow, import video), video versions, accept. The shots list keeps the §3 cards and badges. *As implemented (5B-12)*: five numbered sections on one sheet (1 Storyboard · 2 Prompt · 3 Ref A / B · 4 Flow handoff · 5 Videos · accept) with ← / → shot buttons; ≥ 840 dp: shots list (+ "All shots") · sheet · media preview. The classic tabs stay one release behind "Classic steps".
 
 ### Accessibility
 Check every screen at font scale 1.0, 1.3 and 2.0 (the owner uses a large font); touch targets ≥ 48 dp; Burmese text wraps, never cut inside a syllable.
+
+### UI v3 status vocabulary
+Fits / Done / Accepted = green; duration mismatch / Script changed / Paused = amber; No voice = neutral; Running = cyan; Failed = red; Planned = muted. `StatusChip` owns this mapping. Model and voice labels are resolved data, never the illustrative names above. See UI v3 spec for components, transient visibility and separate thumbnail/overlay/preset/preflight/waveform tasks.
