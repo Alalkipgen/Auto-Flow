@@ -22,10 +22,10 @@ import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
-import io.github.alalkipgen.autoflow.core.recap.etaSeconds
 import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderState
+import io.github.alalkipgen.autoflow.ui.components.StudioStatus
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfText
@@ -57,6 +57,7 @@ data class JobRow(
     val canCancel: Boolean = false,
     /** [AiJob.id] for AI runner rows. */
     val aiJobId: String? = null,
+    val status: StudioStatus = if (failed) StudioStatus.FAILED else if (running) StudioStatus.RUNNING else StudioStatus.DONE,
 )
 
 /**
@@ -72,7 +73,7 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         val kind = if (run.quality == Quality.PREVIEW) UiText.JOB_PREVIEW.text(language) else UiText.EXPORT.text(language)
         val name = projectName(run.projectDir)
         when (val s = run.state) {
-            RenderState.Queued -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_QUEUED.text(language, "kind" to (kind)), name, canCancel = true))
+            RenderState.Queued -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_QUEUED.text(language, "kind" to (kind)), name, canCancel = true, status = StudioStatus.QUEUED))
             is RenderState.Running -> add(JobRow(JobSource.RENDER, "Render — $kind", name, s.fraction, canCancel = true))
             is RenderState.Done -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_DONE.text(language, "kind" to (kind)), name, 1.0, running = false))
             is RenderState.Failed -> add(JobRow(JobSource.RENDER, UiText.JOB_RENDER_FAILED.text(language, "kind" to (kind)), s.reason, running = false, failed = true))
@@ -85,13 +86,17 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         val detail = listOfNotNull(
             projectName(job.project),
             UiText.JOB_ITEMS_LEFT.text(language, "size" to (job.items.size)),
-            job.etaSeconds()?.let { "~${it}s" },
             job.error,
         ).joinToString(" · ")
         add(
             JobRow(
                 JobSource.AI, "${aiKindLabel(job.kind, language)} — ${aiStateLabel(job.state, language)}", detail,
                 running = active, failed = job.state == AiJobState.FAILED, canCancel = active, aiJobId = job.id,
+                status = when (job.state) {
+                    AiJobState.QUEUED -> StudioStatus.QUEUED; AiJobState.RUNNING -> StudioStatus.RUNNING
+                    AiJobState.PAUSED -> StudioStatus.PAUSED; AiJobState.FAILED -> StudioStatus.FAILED
+                    AiJobState.DONE -> StudioStatus.DONE; AiJobState.CANCELLED -> StudioStatus.CANCELLED
+                },
             ),
         )
     }
