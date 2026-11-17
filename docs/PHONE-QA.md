@@ -1,6 +1,6 @@
 # One consolidated Studio v2 phone-QA session
 
-Status: **RESTORE FAIL reported; fixed-device retest PHONE_PENDING**. Other acceptance rows remain pending.
+Status: **owner-reported narrow PASS on build 595 / c2cd1e0; UI v3 regression PHONE_PENDING**. All other acceptance rows remain pending/deferred.
 Run this once after the combined QA APK is ready, not after every milestone. JVM tests, Compose desktop screenshots,
 fake providers, simulated executor reconstruction and emulator runs do **not** close these rows.
 
@@ -45,8 +45,39 @@ run’s checks are green before installing. Physical-phone/emulator and owner-PC
   via `ProjectZip.restore` and `AndroidProjectBackup.restore`.
 - Bundled ffmpeg concat / Burmese ASS / 1080p audio-mixed self-tests were reported **PASS**.
   This is restore failure evidence, not evidence of failed backup creation or rendering.
-- Hotfix update/retry of the **same** fixture: **PHONE_PENDING**. Keep the consolidated session;
+- Historical status at that build: hotfix update/retry was PHONE_PENDING. Build 595 restore retest is recorded below. Keep the consolidated session;
   never uninstall, clear data or replace the signing key to get past an update failure.
+
+## Owner-reported baseline — not agent-executed acceptance
+
+Installed `io.github.alalkipgen.autoflow`, `0.4.2`, stable-signed versionCode `595`, source
+`c2cd1e08f3f2ea4717ec05a7b928faaacace9c47`; Xiaomi `2312DRA50C`, Android 16 / SDK 36, arm64.
+Owner reports PASS: restore QA Landscape / Portrait / Square; UI language switch; native preview frame/caption;
+play/pause/seek; final export (file opens, audio plays, Save to Gallery); Save / Reopen / Discard; Project A/B isolation.
+Build 559 bundled ffmpeg self-test PASS remains historical evidence. These narrow results do not close broader rows
+or any new UI v3 checks. This baseline is not a release candidate. Do not reinstall after each PR.
+
+## UI v3 regression — one final combined installation
+
+Every row starts **PHONE_PENDING**; owner-PC acceptance stays **OWNER_PC_PENDING**. Emulator absence is not a pass.
+Use the final stable-signed update with versionCode >595, never uninstall/clear data or swap signing to make it install.
+Record actual final SHA, enabled flags, APK/EXE filenames, binary hashes and artifact expiry from the final handoff.
+
+| Check | Status |
+| --- | --- |
+| Back arrow and Android Back: detail → list → previous step → leave; cancel an open draft safely | PHONE_PENDING |
+| Home real project data, Continue, Quick Recap approval stop, running rows; no concept sample data | PHONE_PENDING |
+| Recap Source → Story → Voice → Style → Export end to end; old capabilities/confirmations reachable | PHONE_PENDING |
+| Voice filters, block actions, selected/history takes, record/import, Smart Fit and stale/lock warnings | PHONE_PENDING |
+| Style layer create/select/move/resize/order/timing, Discard unchanged, Save/reopen; preview vs Exact Frame/export | PHONE_PENDING |
+| Caption presets/custom values/size independent of UI font scale; captions last | PHONE_PENDING |
+| Export real preflight findings and Fix → exact step/block; output Open/Gallery/Share | PHONE_PENDING |
+| Jobs grouping/badge, supported pause/resume/retry/cancel; project-bound progress/result | PHONE_PENDING |
+| Music Video shot sheet five sections; Copy/manual Flow/import, Use version separate from Accept | PHONE_PENDING |
+| Settings visible Diagnostics, Self-test, masked keys, language, tools, Library pronunciation link, backup | PHONE_PENDING |
+| Burmese at font 2.0 and 360 dp; no syllable cuts, covered action or cut badge; EN switch unchanged content | PHONE_PENDING |
+| Keyboard vs sticky action bar; real scroll reachability of Exact Frame and last row | PHONE_PENDING |
+| Playback seek/caption/layer timing, project switching, background/foreground and cleanup after leaving | PHONE_PENDING |
 
 ## Safe setup
 
@@ -84,7 +115,7 @@ run’s checks are green before installing. Physical-phone/emulator and owner-PC
 | 8 | MV Shot sheet: storyboard edit/approval, English prompt stays English, Ref A/B, manual Flow open/copy/import only. Save/reopen, select older/newer version, accept three videos without losing history or selected version. | PHONE_PENDING |
 | 8b | **Classic screens kept one release (5B-13).** Music Video project bar → "အဆင့်ဟောင်းများ" opens the old Storyboard / Shots / References / Flow Handoff screens with the same data; Back goes classic screen → အဆင့်ဟောင်းများ → Shot စာရွက် → list. Recap → "Recap ပုံစံဟောင်း" opens Classic Recap on the same project. Changes made in either place show in the other. | PHONE_PENDING |
 | 9 | Export audio/BGM/ducking, two-pass loudness vs clearly visible fallback note after completion/reopen, Exact Frame thumbnail, readable Publish Kit frame+title JPEG, existing text copy/share and Save to Gallery. | PHONE_PENDING |
-| 10 | Back up disposable project, Restore through Android system picker to a new destination; referenced artifacts/approvals/takes survive. Collision/corruption tests must not overwrite existing projects. Check share-sheet import → Inbox too. | Reported fixture restore FAIL on `4e95a7b` / code `559` (trace above); fixed-build retest PHONE_PENDING |
+| 10 | Back up disposable project, Restore through Android system picker to a new destination; referenced artifacts/approvals/takes survive. Collision/corruption tests must not overwrite existing projects. Check share-sheet import → Inbox too. | Historical fixture restore FAIL on `4e95a7b` / code `559`; fixture restore PASS reported on `c2cd1e0` / code `595`. Broader backup/collision/corruption checks PHONE_PENDING |
 | 11a | Real WorkManager Speak All partially complete → background/screen-off/Doze → completion or truthful PAUSED. Shared queue/pacing/notifications observed. | PHONE_PENDING |
 | 11b | OS kills app process during an item/checkpoint; reopen/resume real WorkManager chain. Completed local outputs reconciled, no duplicate saved takes, false DONE or skipped incomplete items. Record actual kill mechanism and request count. | PHONE_PENDING |
 | 11c | Switch A → B with A item in flight; result saves only to A. Cancel during execution/checkpoint: no partial final output replaces a valid one; following queued job still runs. | PHONE_PENDING |

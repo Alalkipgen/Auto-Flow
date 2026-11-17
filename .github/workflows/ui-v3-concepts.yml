@@ -1,0 +1,43 @@
+name: Import compressed UI v3 references
+# The text-only repository connection cannot upload binary blobs. This one-time,
+# scoped job imports only the already-compressed owner-supplied concept images.
+on:
+  push:
+    branches: [work/phase-6-ui-v3-spec]
+    paths: [.github/ui-v3-concepts.json, .github/workflows/ui-v3-concepts.yml]
+permissions:
+  contents: write
+jobs:
+  import:
+    if: github.ref == 'refs/heads/work/phase-6-ui-v3-spec'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { ref: work/phase-6-ui-v3-spec }
+      - name: Verify and import the eleven compressed references
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json
+          from pathlib import Path
+          manifest = Path('.github/ui-v3-concepts.json')
+          if not manifest.exists():
+              raise SystemExit('No transport manifest; nothing to import')
+          rows = json.loads(manifest.read_text())
+          assert len(rows) == 11 and len({r['path'] for r in rows}) == 11
+          for row in rows:
+              path = Path(row['path'])
+              assert path.parts[:3] == ('docs', 'mockups', 'ui-v3')
+              assert '..' not in path.parts and path.suffix == '.webp'
+              data = base64.b64decode(row['base64'], validate=True)
+              assert len(data) < 150_000 and data[:4] == b'RIFF' and data[8:12] == b'WEBP'
+              assert hashlib.sha256(data).hexdigest() == row['sha256']
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+          manifest.unlink()
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/mockups/ui-v3 .github/ui-v3-concepts.json
+          git commit -m 'phase6(docs): import compressed owner UI concepts'
+          # A concurrent update rejects this ordinary push; never force or rewrite.
+          git push origin HEAD:refs/heads/work/phase-6-ui-v3-spec
