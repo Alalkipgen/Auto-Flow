@@ -85,8 +85,14 @@ jobs:
       - name: ":platform tests on Windows (fakes only, no secrets)"
         env: { AUTOFLOW_EXPECT_DPAPI: "1" }
         run: ./gradlew :platform:desktopTest
+      - name: ffmpeg for real UI QA fixtures (disposable runner only; never bundled)
+        shell: pwsh
+        run: |
+          choco install ffmpeg --version=7.1.1 -y --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) { throw "Pinned ffmpeg install failed" }
+          ffmpeg -version
       - name: ":ui tests on Windows (Myanmar font fallback, screenshots)"
-        env: { AUTOFLOW_EXPECT_MYANMAR_FONT: "1", AUTOFLOW_SCREENSHOTS_DIR: "${{ github.workspace }}/ui/build/screenshots" }
+        env: { AUTOFLOW_EXPECT_MYANMAR_FONT: "1", AUTOFLOW_EXPECT_FFMPEG: "1", AUTOFLOW_SCREENSHOTS_DIR: "${{ github.workspace }}/ui/build/screenshots" }
         run: ./gradlew :ui:desktopTest
       - uses: actions/upload-artifact@v4
         if: always()
