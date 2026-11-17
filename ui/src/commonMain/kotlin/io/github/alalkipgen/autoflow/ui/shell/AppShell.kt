@@ -314,8 +314,9 @@ private fun StudioV2App(
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         if (isRecap && screen in listOf("Recap", "Export")) {
-                            val voiceList = screen == "Recap" && nav.recapStep == io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE
-                            if (!voiceList) {
+                            val nativeBlocks = screen == "Recap" && nav.recapStep in listOf(
+                                io.github.alalkipgen.autoflow.ui.recap.RecapStep.STORY, io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE)
+                            if (!nativeBlocks) {
                             io.github.alalkipgen.autoflow.ui.components.WrapRow {
                                 io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
                                 projectName?.let { AfText(it, bold = true) }
@@ -336,7 +337,7 @@ private fun StudioV2App(
                                     onGoToExport = { nav = nav.copy(projectScreen = "Export", recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE) },
                                     navigation = io.github.alalkipgen.autoflow.ui.recap.RecapNavigation(
                                         back = { nav = v2Back(nav, true) ?: nav },
-                                        next = { nav = nav.copy(recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE) },
+                                        next = { nav.recapStep.next()?.let { nav = nav.copy(recapStep = it) } },
                                         classic = { nav = nav.copy(projectScreen = "Classic Recap") },
                                         handleBack = backHandler,
                                     ),

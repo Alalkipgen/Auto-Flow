@@ -17,7 +17,9 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class BlockClipsWorkflowTest {
-    @Test fun actualVisibleSaveReopensTrimmedNativeRangeAndPreservesUnrelatedDataAndArtifacts() = runDesktopComposeUiTest(width = 412, height = 760) {
+    @Test fun actualVisibleSaveReopensTrimmedNativeRangeAndPreservesUnrelatedDataAndArtifacts() = saveAndReopen(RecapStep.VOICE)
+    @Test fun storySaveThenExplicitApprovalUsesTheSameNativeTransaction() = saveAndReopen(RecapStep.STORY)
+    private fun saveAndReopen(step: RecapStep) = runDesktopComposeUiTest(width = 412, height = 760) {
         val f = QaRecapFixture.create(Files.createTempDirectory("uiv3-cuts-save").toFile())
         val fs = JvmFs(); val store = ProjectStore(fs)
         val current = CurrentProject().apply { set(OpenProject(f.dir.path, f.project)) }
@@ -27,10 +29,10 @@ class BlockClipsWorkflowTest {
         val old = File(f.dir, "artifacts").listFiles()!!.associate { it.name to it.readBytes().toList() }
         try {
             setContent { CompositionLocalProvider(LocalCompact provides true) {
-                StudioRecapScreen(model, RecapStep.VOICE, 412f, {}, RecapNavigation({}, {}, {}))
+                StudioRecapScreen(model, step, 412f, {}, RecapNavigation({}, {}, {}))
             } }
             fun click(tag: String) = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() }
-            click("voice-open-0"); click("block-clips-edit")
+            click("block-select-0"); click("block-clips-edit")
             click("clip-from-0")
             onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("clip-from-0"))).performTextReplacement("2.750")
             onNodeWithTag("block-clips-save").assertIsDisplayed().assertIsEnabled().performMouseInput { click() }
@@ -43,6 +45,13 @@ class BlockClipsWorkflowTest {
             click("block-clips-edit")
             onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("clip-from-0"))).assertTextEquals("2.750")
             onNodeWithTag("block-clips-discard").assertIsDisplayed().performMouseInput { click() }
+            if (step == RecapStep.STORY) {
+                onNodeWithTag("story-approve").assertIsDisplayed().assertIsEnabled().performMouseInput { click() }
+                val approved = (store.open(f.dir.path) as CoreResult.Ok).value
+                assertEquals(saved.recap!!.copy(storyApproved = true), approved.recap)
+                onNodeWithTag("recap-next").assertIsDisplayed().assertIsEnabled()
+                old.forEach { (name, bytes) -> assertEquals(bytes, File(f.dir, "artifacts/$name").readBytes().toList(), name) }
+            }
         } finally { scope.cancel() }
     }
 }

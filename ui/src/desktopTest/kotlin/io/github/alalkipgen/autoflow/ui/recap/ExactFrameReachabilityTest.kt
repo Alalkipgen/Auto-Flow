@@ -69,15 +69,13 @@ class ExactFrameReachabilityTest(
                 CompositionLocalProvider(LocalUiLanguage provides language, LocalDensity provides Density(1f, fontScale),
                     LocalUiFontFamily provides if (bundledFont) BurmeseTestFont.family else FontFamily.Default) {
                     StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat()) {
-                        if (classic) RecapScreen(model) else Column(Modifier.fillMaxSize()) {
-                            RecapStepHeader(RecapStep.STORY, {}, {}, {})
-                            Box(Modifier.weight(1f)) { StudioRecapScreen(model, RecapStep.STORY, width.toFloat(), {}) }
-                        }
+                        if (classic) RecapScreen(model) else StudioRecapScreen(model, RecapStep.STORY, width.toFloat(), {}, RecapNavigation({}, {}, {}))
                     }
                 }
             }
             // performScrollTo traverses the real production scroll ancestors. No callback, semantics OnClick,
             // hidden-node action or oversized test viewport: the pointer must hit a displayed button.
+            if (!classic) onNodeWithTag("block-select-0").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             onNodeWithText(UiText.EXACT_FRAME.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
             val failure = onNodeWithText("ffmpeg was not found", substring = true)
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("ffmpeg was not found", substring = true).fetchSemanticsNodes().isNotEmpty() }

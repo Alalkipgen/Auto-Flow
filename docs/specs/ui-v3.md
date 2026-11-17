@@ -372,3 +372,20 @@ New EN/MY copy for owner review:
 | `V3_CLIPS_NOTE` | Movie cuts only, not voice/caption timing. Existing takes stay unchanged. | ရုပ်ရှင် ဖြတ်ချိန်သာ ဖြစ်ပြီး အသံ၊ စာတန်းချိန် မဟုတ်ပါ။ Take အဟောင်းများ မပြောင်းပါ။ |
 | `V3_CLIP_INVALID` | Keep at least one range, each ≥0.5 seconds and inside the movie. Use seconds with up to 3 decimal places. | ရုပ်ရှင်အတွင်း အနည်းဆုံး ၀.၅ စက္ကန့်စီ ရှည်သော အချိန်ပိုင်း တစ်ခု ရှိရမယ်။ စက္ကန့်ကို ဒသမ ၃ နေရာအထိ ထည့်နိုင်သည်။ |
 | `V3_CLIP_MERGE_HINT` | Only touching source ranges can join. Each split part must be ≥0.5 seconds. | ရင်းမြစ်တွင် ဆက်နေသော အချိန်ပိုင်းများသာ ဆက်နိုင်သည်။ ခွဲပြီး တစ်ပိုင်းစီ အနည်းဆုံး ၀.၅ စက္ကန့် ရှိရမယ်။ |
+
+## Story presentation checkpoint (PR-4a / Q-25)
+
+- Native BlockCards use every source range, stable block ID, current spoken hash, real selected take and existing Smart Fit timing. Opening a card reuses the Voice inspector: Script/speak-as, native movie ranges, selected/history takes, Record/Import/Clean and scoped voice confirmation. No second editor, player or approval policy.
+- Story has ProjectTopBar step 2/5, Classic in overflow, and measured sticky approval/navigation. Approve calls existing `RecapModel.approveScript`/core gates; only a current approved story offers Next: Voice. Arrow/platform Back clears detail before Source. Explicit editor Save/Cancel/Discard are unchanged.
+- Story writing options retain summary, subtitle/extract/transcribe, style/register, hook, credit and existing write/rebuild confirmations. With existing blocks, narrow layouts put these secondary options after the list so the first block remains visible even with OS fallback/font 2.0; an empty story opens writing options first. Style/register are choices for the next write, not an implicit current-story edit; new Story Gemini writes always show the existing request confirmation. Source relocation is a later scoped unit.
+- Wide Story keeps the pre-existing three-pane reachability without duplicating preview controls inside its inspector. Reordering all project panes and keyboard shortcuts remains PR-8. There is no Story concept image; new captures are paired with concept 04 as a shared block-pattern reference, not claimed as a missing Story mockup.
+- No project schema, artifact format, IDs, save/TTS/preview/export engine, dependency or device-acceptance change. Source/Export/Jobs/Style/Music Video/global wide migration and the five separate tasks remain open.
+
+New EN/MY copy for owner review:
+
+| Key | English | Burmese |
+| --- | --- | --- |
+| `V3_STORY_OPTIONS` | Writing options | ရေးရန် ဆက်တင် |
+| `V3_STORY_WRITING_HINT` | Style and register apply on the next story write. | ပုံစံနှင့် စကားပုံစံကို နောက်တစ်ကြိမ် ဇာတ်လမ်း ရေးရာတွင် သုံးမယ်။ |
+| `V3_APPROVE_STORY` | Approve story | ဇာတ်လမ်း အတည်ပြုမယ် |
+| `V3_SELECT_BLOCK` | Select a block to edit its script, movie cuts and voice. | စာသား၊ ရုပ်ရှင် ဖြတ်ချိန်နှင့် အသံ ပြင်ရန် အပိုင်းတစ်ခု ရွေးပါ။ |
