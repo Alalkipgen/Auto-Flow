@@ -57,6 +57,7 @@ fun VoiceBlockCard(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     showBack: Boolean = true,
+    showScript: Boolean = true,
 ) {
     val seg = script.segments.getOrNull(segmentIndex) ?: return
     val take = state.currentTake(segmentIndex)
@@ -79,11 +80,11 @@ fun VoiceBlockCard(
                 AfChip(voiceTabLabel(t, LocalUiLanguage.current), tab == t, onClick = { tab = t })
             }
             // Clone: Labs placeholder (always disabled)
-            AfChip("${voiceTabLabel(VoiceTab.CLONE, LocalUiLanguage.current)} 🔬", false, onClick = {})
+            AfChip("${voiceTabLabel(VoiceTab.CLONE, LocalUiLanguage.current)} · ${tr(UiText.V3_PLANNED)}", false, onClick = {}, enabled = false)
         }
 
         when (tab) {
-            VoiceTab.SPEAK -> SpeakTab(model, state, recap, script, segmentIndex, idle, seg.textMy)
+            VoiceTab.SPEAK -> SpeakTab(model, state, recap, script, segmentIndex, idle, seg.textMy, showScript)
             VoiceTab.RECORD -> RecordTab(model, state, recap, script, segmentIndex, idle, seg, take, stale, playing) { playing = !playing }
             VoiceTab.CLEAN -> CleanTab(model, state, segmentIndex, idle, take)
             VoiceTab.CLONE -> AfText(tr(UiText.VOICE_CLONE_LABS), muted = true)
@@ -100,9 +101,10 @@ private fun SpeakTab(
     index: Int,
     idle: Boolean,
     text: String,
+    showScript: Boolean,
 ) {
     val seg = script.segments[index]
-    AfText(seg.textMy, size = 13.sp)
+    if (showScript) AfText(seg.textMy, size = 13.sp)
     AfText(tr(UiText.VOICE_DETAILS, "ttsVoice" to (recap.ttsVoice), "name" to (recap.voiceSource.name)), muted = true, size = 11.sp)
     WrapRow {
         AfButton(tr(UiText.SPEAK_BLOCK), { model.speak(index) },

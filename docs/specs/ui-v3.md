@@ -80,7 +80,7 @@ No omission from a concept authorizes removal. Diagnostics is an accessible dest
 | Source / 02 | Transcribe selection, confirm real requests/today, start/back, cancel/retry | Transcription section and existing confirm/progress; never whole-movie upload |
 | Story / none | Plain/commentary, written/spoken, hook, source credit Save/Cancel | Story options SectionCard; copy/context unchanged |
 | Story / none | Write script/manual, replace confirmation, approve | Block list + existing editor; Approve story primary through WorkflowRules |
-| Story / none | Per-block narration edit/save, speak-as | Block detail Script section; stale state from existing model |
+| Story / none | Per-block narration edit/save; speak-as exists in schema, not the old UI (Q-20) | Shared native block Script inspector; stale state from existing model |
 | Story / none | Clip trim, add range, split, merge, remove | Block detail Clips section; stable block IDs preserved |
 | Story / none | Selected take play, Speak, Record, Fit | BlockCard action/detail tools; same history and gates |
 | Voice list / 03 | Voice/model lock; Change voice, Keep/Re-speak confirm | Voice lock card; real config/lock, no concept voice name |
@@ -284,3 +284,20 @@ Voice list additions for owner copy review:
 | `V3_VOICE_COUNT` | {n} voice requests | အသံထုတ် request {n} ခု |
 | `V3_VOICE_REQUESTS` | {n} voice requests · existing valid takes stay unchanged | အသံထုတ် request {n} ခု · မှန်ကန်သော take အဟောင်းများ မပြောင်းပါ |
 | `V3_REVOICE_COUNT` | Re-voice {n} blocks | အပိုင်း {n} ပိုင်း အသံပြန်ထုတ်မယ် |
+
+
+### Native block Script checkpoint (PR-3b prerequisite, Q-20)
+
+- Voice detail now shows the native block text and the actual `SpokenText.of(block, liveLexicon)` line. Edit opens a scrollable shared draft for existing `textMy`/`speakMy`, with visible Save/Cancel outside the scroll content. An empty speak-as field removes the override; it never changes app language or silently translates content.
+- Drafts capture project folder, ID, revision and stable block ID. Save uses the unchanged immutable ArtifactStore and atomic/conflict-aware ProjectSession; it clears only the existing Story approval as the old script save does. Takes/chosen takes, other blocks, clip ranges and layers are preserved. Cancel and unchanged Save write nothing; a project/revision change is rejected. Clone remains disabled and explicitly Planned rather than an enabled no-op.
+- The original control inventory overstated the baseline: no native speak-as or clip-range editor was wired. This checkpoint exposes text/speak-as; clip trim/add/split/merge remain an explicit Story follow-up. Concept 04 preview-first navigator, selected-take/history inspector, scrubber and per-block confirmation are still open, not completed by this Script prerequisite. No waveform/Compare is invented.
+
+| Key | EN | MY |
+| --- | --- | --- |
+| `V3_SCRIPT` | Script | စာသား |
+| `V3_CAPTION_TEXT` | Caption text | စာတန်းထိုး စာသား |
+| `V3_SPEAK_AS` | Speak as: {text} | အသံထွက်: {text} |
+| `V3_SPOKEN_OVERRIDE` | Speak-as override (optional) | သီးသန့် အသံထွက် (မထည့်လည်း ရသည်) |
+| `V3_SPOKEN_HELP` | Blank uses caption text + pronunciation. | အလွတ်ဆို စာတန်းထိုးနှင့် အသံထွက် အဘိဓာန်ကို သုံးမယ်။ |
+| `V3_SPOKEN_HINT` | Leave blank to speak the caption text with the pronunciation dictionary. Saving clears Story approval; existing takes stay in history. | အလွတ်ထားလျှင် စာတန်းထိုး စာသားကို အသံထွက် အဘိဓာန်ဖြင့် ဖတ်မယ်။ သိမ်းလျှင် ဇာတ်လမ်း အတည်ပြုချက် ပြန်လိုမယ်။ Take အဟောင်းများ မပျက်ပါ။ |
+| `V3_BLOCK_REVISION_CHANGED` | Project revision changed; cancel and reopen the block | Project ဗားရှင်း ပြောင်းသွားသည် — ပယ်ဖျက်ပြီး အပိုင်းကို ပြန်ဖွင့်ပါ |

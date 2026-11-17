@@ -16,6 +16,31 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class StudioVoiceWorkflowTest {
+    @Test fun visibleNativeScriptSaveReopensWithSpeakAsAndKeepsAllTakesLayersAndOtherBlocks() = runDesktopComposeUiTest(width = 412, height = 760) {
+        val fixture = QaRecapFixture.create(Files.createTempDirectory("uiv3-script-save").toFile())
+        val fs = JvmFs(); val store = ProjectStore(fs)
+        val current = CurrentProject().apply { set(OpenProject(fixture.dir.path, fixture.project)) }
+        val session = ProjectSession(fs, store, ProjectIndex(fs, File(fixture.dir.parentFile, "index.json").path), current)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val model = RecapModel(session, fs, null, null, scope)
+        try {
+            setContent { CompositionLocalProvider(LocalCompact provides true) {
+                StudioRecapScreen(model, RecapStep.VOICE, 412f, {}, RecapNavigation({}, {}, {}))
+            } }
+            onNodeWithTag("voice-open-0").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithTag("block-script-edit").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithContentDescription("Caption text").performScrollTo().assertIsDisplayed().performTextReplacement("စာတန်း အသစ်")
+            onNodeWithContentDescription("Speak-as override (optional)").performScrollTo().assertIsDisplayed().performTextReplacement("အသံထွက် အသစ်")
+            onNodeWithTag("block-script-save").assertIsDisplayed().performMouseInput { click() }
+            onNodeWithTag("block-script-input").assertDoesNotExist()
+            val reopened = (store.open(fixture.dir.path) as CoreResult.Ok).value.recap!!
+            val story = (session.readJson(reopened.story!!, io.github.alalkipgen.autoflow.core.recap.RecapStory.serializer()) as CoreResult.Ok).value
+            assertEquals(fixture.story.blocks.first().copy(textMy = "စာတန်း အသစ်", speakMy = "အသံထွက် အသစ်"), story.blocks.first())
+            assertEquals(fixture.story.blocks.last(), story.blocks.last())
+            assertEquals(fixture.project.recap!!.copy(story = reopened.story, storyApproved = false), reopened)
+            onNodeWithTag("block-script-text").assertTextEquals("စာတန်း အသစ်")
+        } finally { scope.cancel() }
+    }
     @Test fun remainingVoiceRequiresVisibleConfirmationThenPersistsOnlyTheMissingNativeBlock() = runDesktopComposeUiTest(width = 412, height = 760) {
         val fixture = QaRecapFixture.create(Files.createTempDirectory("uiv3-voice-save").toFile())
         val fs = JvmFs(); val store = ProjectStore(fs); val original = fixture.project.recap!!

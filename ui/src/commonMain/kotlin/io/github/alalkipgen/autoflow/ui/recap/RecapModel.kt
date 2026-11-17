@@ -204,6 +204,7 @@ class RecapModel(
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
     val voiceSettings = RecapVoiceSettings(session, modelConfig, jobs, ::refresh)
     val layerEditor = RecapLayerEditor(session, fs, picker, scope, uiLanguage = uiLanguage, changed = ::refresh)
+    val blockEditor = RecapBlockEditor(session, fs, changed = ::refresh)
     val previewSource = RecapPreviewSource(session, fs, media)
     private val thumbs = Mutex()
     private var scriptJob: Job? = null

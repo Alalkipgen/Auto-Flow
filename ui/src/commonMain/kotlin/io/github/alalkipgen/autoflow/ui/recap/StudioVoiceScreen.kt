@@ -106,7 +106,8 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?) 
                     StatusChip(detail.status, deltaMs = detail.deltaMs)
                     SmartFitChoices(model, recap, detail.block.id, detail.fit, idle, showOverrunHint = false)
                 }
-                state.script?.let { VoiceBlockCard(model, state, recap, it, detail.index, back, showBack = false) }
+                BlockScriptCard(model, state, detail.block, detail.index)
+                state.script?.let { VoiceBlockCard(model, state, recap, it, detail.index, back, showBack = false, showScript = false) }
                 RecapTimelinePreview(model)
                 ExactFrameCard(model)
             }
