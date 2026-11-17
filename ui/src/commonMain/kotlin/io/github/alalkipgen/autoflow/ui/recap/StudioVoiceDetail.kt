@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
 /** Native ID-bound presentation; all synthesis/approval/save behaviour remains in the existing model/core. */
 @Composable
 internal fun StudioVoiceDetail(model: RecapModel, state: RecapUiState, row: VoiceBlockView,
-    rows: List<VoiceBlockView>, showFit: Boolean, onSelect: (String) -> Unit,
+    rows: List<VoiceBlockView>, showFit: Boolean, showPreview: Boolean = true, onSelect: (String) -> Unit,
 ) {
     val recap = state.recap ?: return
     val open by model.previewSource.projects.collectAsState()
@@ -41,8 +41,10 @@ internal fun StudioVoiceDetail(model: RecapModel, state: RecapUiState, row: Voic
         "${RecapModel.clock(it.inMs)}–${RecapModel.clock(it.outMs)}" }), Modifier.testTag("voice-detail-source"), muted = true)
     if (clips.isNotEmpty()) AfText(tr(UiText.V3_OUTPUT_RANGE, "range" to
         "${RecapModel.clock(clips.first().outputFromMs)}–${RecapModel.clock(clips.last().outputToMs)}"), Modifier.testTag("voice-detail-output"), muted = true)
-    RecapTimelinePreview(model, blockId = row.block.id, studio = true)
-    ExactFrameCard(model)
+    if (showPreview) {
+        RecapTimelinePreview(model, blockId = row.block.id, studio = true)
+        ExactFrameCard(model)
+    }
     BlockScriptCard(model, state, row.block, row.index)
     BlockClipsCard(model, state, row.block)
     AfCard(tr(UiText.VOICE)) { VoiceLockControls(model, state, recap, !state.busy && state.recording == null, compact = true) }
@@ -98,18 +100,22 @@ private fun StudioTakeHistory(model: RecapModel, state: RecapUiState, block: Rec
 }
 
 @Composable
-internal fun StudioBlockVoiceAction(model: RecapModel, state: RecapUiState, row: VoiceBlockView) {
+internal fun StudioBlockVoiceAction(model: RecapModel, state: RecapUiState, row: VoiceBlockView, inline: Boolean = false) {
     val open by model.previewSource.projects.collectAsState()
     var pending by remember(state.projectDir, row.block.id) { mutableStateOf<BlockVoiceRequest?>(null) }
     var rejected by remember(state.projectDir, row.block.id) { mutableStateOf(false) }
     val idle = !state.busy && state.recording == null
     val allowed = idle && state.recap?.let { RecapRulesV2.canVoice(it, state.story).allowed } == true && SpokenText.of(row.block, state.lexicon).isNotBlank()
     val label = tr(if (row.voiced || state.isStale(row.index)) UiText.V3_REVOICE_BLOCK else UiText.V3_GENERATE_VOICE)
-    StickyActionBar(StudioAction(label, {
+    val action = StudioAction(label, {
         rejected = false
         pending = model.voiceInspector.begin(row.block.id)?.takeIf { it.dir == state.projectDir && it.project == open?.project }
-    }, allowed, "voice-block-request"),
-        caption = if (rejected) tr(UiText.V3_BLOCK_REVISION_CHANGED) else tr(UiText.V3_ONLY_BLOCK, "n" to row.index + 1))
+    }, allowed, "voice-block-request")
+    val caption = if (rejected) tr(UiText.V3_BLOCK_REVISION_CHANGED) else tr(UiText.V3_ONLY_BLOCK, "n" to row.index + 1)
+    if (inline) {
+        AfText(caption, muted = true)
+        AfButton(action.label, action.onClick, Modifier.testTag("voice-block-request"), enabled = action.enabled)
+    } else StickyActionBar(action, caption = caption)
     val request = pending?.takeIf { it.project == open?.project && it.dir == state.projectDir &&
         it.spoken == SpokenText.of(row.block, state.lexicon) } ?: return
     Dialog(onDismissRequest = { pending = null }) {
