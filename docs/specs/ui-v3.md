@@ -524,3 +524,44 @@ Same ShotSheetScreen and the existing Storyboard/Shots/References/FlowHandoff mo
 | --- | --- | --- |
 | V3_SHORTCUTS_HINT | Click background for keys: Space play / pause · ← / → previous / next block | နောက်ခံကို နှိပ်ပြီး ကီးသုံးပါ: Space ဖွင့် / ခဏရပ် · ← / → ယခင် / နောက် အပိုင်း |
 | V3_MV_SHORTCUTS_HINT | Click background for keys: ← / → previous / next shot | နောက်ခံကို နှိပ်ပြီး ကီးသုံးပါ: ← / → ယခင် / နောက် shot |
+
+
+## Caption presets — separate task 3 (brief §6.06/§7.3; commit-time checkpoint)
+
+The verified task-2 head is `1fa2db68f306143591c4e7f2fc7b4e32d4a7d436`: clean fresh-clone full1476/1476/0failures/errors/skips; all six CI44306185607 jobs SUCCESS,including actualVLC8/8/0skips and12cold starts. Previous task-2 paragraphs are historical checkpoints,not current pending claims. Owner/device/MY wording acceptance is still pending.
+
+Use the existing `RecapModel.setCaptionStyle` atomic project save. Presets replace only the seven existing CaptionStyle values in one call; burn,timing,story,takes,layers,Looks,ratio,placement and Library entries are unchanged. Existing manual controls/S/M/L/testTags stay; Classic and native Style reuse the same component. New callbacks observe the open-project flow and recheck captured folder/full Project snapshot (including updatedAt) and busy state. No media/core/schema/model/dependency/config/workflow changes.
+
+| Choice | Existing field mapping |
+| --- | --- |
+| Clean | size=M(1.0),colour=#FFFFFF,box=false,customColour=null,customSizeFactor=null,strokeWidth=0,strokeColour=#000000 |
+| Boxed | Clean values with box=true; existing renderer dark-box style |
+| Outline | Clean values with strokeWidth=3; existing black outline |
+| S / M / L | unchanged factors0.85/1.0/1.2;clear the custom-size override |
+| XL | size=L plus customSizeFactor=1.4;all colour/box/stroke fields retained |
+| Manual colour/custom hex | unchanged colour/customColour precedence;no palette conversion |
+| Placement | unchanged captionsOnMask/eligible lowest lower-half mask and existing bottom fallback; no new free-position field or fake selector |
+
+`strokeWidth=0` is the EXISTING automatic outline,max(2,size/24),not a promise of outline-off. Keep the old manual control and renderer semantics; do not change the engine to manufacture Clean. True Bold is omitted: neither CaptionStyle nor Overlay exposes font weight,and AssWriter writes Bold0. Do not rename a size/outline change to imply a new bold font. Font-family selection stays Settings/Library. XL changes the existing custom pixel-size factor;the renderer's line chunking still uses L's1.2 base factor. No rewrap/schema/renderer change is hidden.
+
+Preset status normally derives from the complete existing persisted CaptionStyle; non-matching settings are Custom. After a genuine manual edit,show transient Custom even if its values equal another mapping. Choosing a preset clears this transient marker and unapplied custom text. Project switches reset it;after reconstructing the UI,an exact persisted mapping may resolve to its name again because no preset ID/manual flag is persisted. Failed saves do not mark an unapplied edit as Custom. XL is a manual size convenience,not a fourth style preset.
+
+The existing output-frame/export caption painter is unchanged. Size remains output pixels,independent of UI language/accessibility font scale. Required tests: mapping+existing-field JSON,actual Style chips and persisted reload,all non-caption/artifact bytes preserved,manual-to-Custom,busy and A/B isolation,EN/MY1×/2× at360/412/840/1440 with real scroll/pointer and48dp targets,all preset/XL production caption pixels unchanged across locale/scale,and real ffmpeg Exact Frames for every supported mapping. Existing assertions/windows/timeouts and installed-VLC regression gates stay intact. Fresh actual-final-head full and all-six CI are measured in the separate Draft PR/handoff,not assumed from this checkpoint.
+
+| Key | EN | MY (owner wording review pending) |
+| --- | --- | --- |
+| V3_CAPTION_PRESETS | Caption presets | စာတန်း ပုံစံများ |
+| V3_CAPTION_PRESET_STATUS | Preset: {name} | ပုံစံ: {name} |
+| V3_CAPTION_CLEAN | Clean | ရိုးရှင်း |
+| V3_CAPTION_BOXED | Boxed | နောက်ခံဘောင် |
+| V3_CAPTION_OUTLINE | Outline | အနားသတ် |
+| V3_CAPTION_CUSTOM | Custom | စိတ်ကြိုက် |
+| V3_CAPTION_XL | XL | XL |
+
+Q31 / PHONE_PENDING / OWNER_PC_PENDING / owner MY wording remain pending. Preflight Fix and waveform are still separate unimplemented units.
+
+Initial task-3 compilation-only attempt failed before any tests: new test scaffolding used an incomplete Output constructor and an inferred heterogeneous parameter-array type. Corrected with existing RenderPresets.preview and explicit Array<Any>,without changing assertions,windows or production engine. Failed log/source retained; not a test pass.
+
+Focused attempt2 ran50 tests:41passed/9failed/0errors/skips;all pre-existing cases passed,including actualVLC and12cold starts. Seven new matrix cases exposed a real UI guard bug: a same-value preset save advances Project.updatedAt without changing RecapUiState,so a child subscribed only to that state retained a stale full-project callback. It now also observes the existing open-project flow,retains the folder/full-snapshot guard,and avoids redundant same-value preset saves. A no-op selection has a project-byte-identity assertion. The other two new-test failures were an off-by-one ASS-column parser (now uses the existing named Format header) and a new fixture assumption that1500ms had captions (QA FIRST is[200,1200),now tested at its700ms interior). Real active-cue/ffmpeg-burn assertions remain,and cross-look comparison is strengthened to decoded ARGB pixels. All failed source/logs remain in handoff;no original assertion,test window or engine changed.
+
+Focused attempt3 passed50/50,0failures/errors/skips (9XML suites),2m23s after separate compilation prep. It covers the14new cases plus unchanged Style/caption-language and actualVLC regressions;all12cold trials pass. This is a focused pre-commit run,not the final-head full/CI gate. Five representative full-window UI captures (412EN1,412MY2,360MY2,840MY2fallback,1440EN1),all four bundled native caption looks and four real ffmpeg Exact Frames were individually reviewed. Native captions contain actual Burmese ink;the Exact Frame fixture's caption is FIRST at700ms,distinct from its existing QA Burmese TEXT layer. No new universal native/export pixel equivalence,MY export-font acceptance or owner approval is claimed.840/font2 fallback remains dense and scrollable.

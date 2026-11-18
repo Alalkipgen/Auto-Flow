@@ -198,6 +198,38 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
     // ── ✍️ Captions ────────────────────────────────────────────────────────────
     if (section != PictureSection.LAYERS) AfCard(tr(UiText.CAPTIONS_CARD), Modifier.testTag("caption-controls")) {
+        val currentState by model.state.collectAsState()
+        val open by model.previewSource.projects.collectAsState()
+        val projectDir = currentState.projectDir
+        val capturedProject = open?.project
+        var manualStyle by remember(model, projectDir) { mutableStateOf<CaptionStyle?>(null) }
+        var colourInput by remember(model, projectDir) { mutableStateOf(recap.captionStyle.customColour ?: "") }
+        var sizeInput by remember(model, projectDir) { mutableStateOf(recap.captionStyle.customSizeFactor?.toString() ?: "") }
+        fun currentProject() = capturedProject != null && open?.dir == projectDir &&
+            model.state.value.projectDir == projectDir && model.project() == capturedProject
+        fun manualChange(change: () -> Unit) {
+            if (!idle) return
+            val before = model.project()?.recap?.captionStyle
+            change()
+            val saved = model.project()?.recap?.captionStyle
+            if (saved != null && saved != before) manualStyle = saved
+        }
+        val preset = if (manualStyle == recap.captionStyle) null else matchingCaptionPreset(recap.captionStyle)
+        AfH3(tr(UiText.V3_CAPTION_PRESETS))
+        AfText(tr(UiText.V3_CAPTION_PRESET_STATUS, "name" to tr(preset?.label ?: UiText.V3_CAPTION_CUSTOM)),
+            modifier = Modifier.testTag("caption-preset-status"))
+        WrapRow {
+            CaptionLookPreset.entries.forEach { choice ->
+                AfChip(tr(choice.label), preset == choice, {
+                    if (idle && currentProject()) {
+                        if (model.project()?.recap?.captionStyle != choice.style) model.setCaptionStyle { choice.style }
+                        if (model.project()?.recap?.captionStyle == choice.style) {
+                            manualStyle = null; colourInput = ""; sizeInput = ""
+                        }
+                    }
+                }, Modifier.testTag("caption-preset-${choice.name}"), enabled = idle)
+            }
+        }
         // Colour presets
         AfH3(tr(UiText.COLOUR))
         WrapRow {
@@ -205,20 +237,19 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
                 AfChip(
                     colourPresetLabel(name),
                     recap.captionStyle.customColour == null && recap.captionStyle.colour.equals(hex, ignoreCase = true),
-                    { if (idle) { model.setCaptionColour(hex); model.setCaptionCustomColour(null) } }
+                    { manualChange { model.setCaptionColour(hex); model.setCaptionCustomColour(null) } }
                 )
             }
         }
         // Custom hex override
         AfH3(tr(UiText.CUSTOM_COLOUR))
-        var colourInput by remember { mutableStateOf(recap.captionStyle.customColour ?: "") }
         WrapRow {
-            AfTextField(colourInput, { colourInput = it }, "#RRGGBB")
+            AfTextField(colourInput, { colourInput = it }, "#RRGGBB", Modifier.testTag("caption-custom-colour"))
             AfButton(tr(UiText.APPLY), {
-                if (idle) { model.setCaptionCustomColour(colourInput.ifBlank { null }); colourInput = recap.captionStyle.customColour ?: "" }
-            })
+                manualChange { model.setCaptionCustomColour(colourInput.ifBlank { null }); colourInput = model.project()?.recap?.captionStyle?.customColour ?: "" }
+            }, Modifier.testTag("caption-colour-apply"))
             if (recap.captionStyle.customColour != null) {
-                AfButton(tr(UiText.CLEAR), { if (idle) { model.setCaptionCustomColour(null); colourInput = "" } })
+                AfButton(tr(UiText.CLEAR), { manualChange { model.setCaptionCustomColour(null); colourInput = "" } }, Modifier.testTag("caption-colour-clear"))
             }
         }
         // Size presets + custom factor
@@ -226,38 +257,44 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
         WrapRow {
             io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { sz ->
                 AfChip(sz.uiLabel(), recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
-                    if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(size = sz, customSizeFactor = null)) }
+                    manualChange { model.update { it.copy(captionStyle = it.captionStyle.copy(size = sz, customSizeFactor = null)) } }
                 }, Modifier.testTag("caption-size-${sz.name}"))
             }
+            AfChip(tr(UiText.V3_CAPTION_XL), recap.captionStyle.size == io.github.alalkipgen.autoflow.core.recap.CaptionSize.L &&
+                recap.captionStyle.customSizeFactor == CAPTION_XL_FACTOR, {
+                if (currentProject()) manualChange {
+                    model.setCaptionStyle(::captionExtraLarge)
+                    sizeInput = model.project()?.recap?.captionStyle?.customSizeFactor?.toString() ?: ""
+                }
+            }, Modifier.testTag("caption-size-XL"), enabled = idle)
         }
         AfH3(tr(UiText.CUSTOM_SIZE_FACTOR))
-        var sizeInput by remember { mutableStateOf(recap.captionStyle.customSizeFactor?.toString() ?: "") }
         WrapRow {
-            AfTextField(sizeInput, { sizeInput = it }, tr(UiText.SIZE_FACTOR_EXAMPLE))
+            AfTextField(sizeInput, { sizeInput = it }, tr(UiText.SIZE_FACTOR_EXAMPLE), Modifier.testTag("caption-custom-size"))
             AfButton(tr(UiText.APPLY), {
-                if (idle) { model.setCaptionCustomSize(sizeInput.toFloatOrNull()); sizeInput = recap.captionStyle.customSizeFactor?.toString() ?: "" }
-            })
+                manualChange { model.setCaptionCustomSize(sizeInput.toFloatOrNull()); sizeInput = model.project()?.recap?.captionStyle?.customSizeFactor?.toString() ?: "" }
+            }, Modifier.testTag("caption-factor-apply"))
             if (recap.captionStyle.customSizeFactor != null) {
-                AfButton(tr(UiText.CLEAR), { if (idle) { model.setCaptionCustomSize(null); sizeInput = "" } })
+                AfButton(tr(UiText.CLEAR), { manualChange { model.setCaptionCustomSize(null); sizeInput = "" } }, Modifier.testTag("caption-factor-clear"))
             }
         }
         // Stroke
         AfH3(tr(UiText.OUTLINE_WIDTH))
         WrapRow {
             listOf(tr(UiText.OFF) to 0, tr(UiText.THIN) to 1, tr(UiText.MEDIUM) to 3, tr(UiText.THICK) to 6).forEach { (label, px) ->
-                AfChip(label, recap.captionStyle.strokeWidth == px, { if (idle) model.setCaptionStrokeWidth(px) })
+                AfChip(label, recap.captionStyle.strokeWidth == px, { manualChange { model.setCaptionStrokeWidth(px) } })
             }
         }
         if (recap.captionStyle.strokeWidth > 0) {
             AfH3(tr(UiText.OUTLINE_COLOUR))
             WrapRow {
                 CaptionStyle.STROKE_COLOURS.forEach { (name, hex) ->
-                    AfChip(colourPresetLabel(name), recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStrokeColour(hex) })
+                    AfChip(colourPresetLabel(name), recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { manualChange { model.setCaptionStrokeColour(hex) } })
                 }
             }
         }
         // Dark box toggle
-        AfSwitch(tr(UiText.DARK_CAPTION_BOX), recap.captionStyle.box, { on -> if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(box = on)) } })
+        AfSwitch(tr(UiText.DARK_CAPTION_BOX), recap.captionStyle.box, { on -> manualChange { model.update { it.copy(captionStyle = it.captionStyle.copy(box = on)) } } })
     }
 }
 
