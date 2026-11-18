@@ -212,6 +212,7 @@ class RecapModel(
     val voiceInspector = RecapVoiceInspector(session, fs, { pronunciation }) { speak(it) }
     val previewSource = RecapPreviewSource(session, fs, media)
     internal val sceneThumbnails = RecapThumbnails(fs, media, thumbnailCacheDir)
+    internal val takeWaveforms = RecapTakeWaveforms(fs, media, thumbnailCacheDir?.let { joinPath(it, "take-waveforms-v1") })
     internal fun thumbnailSource(state: RecapUiState): RecapThumbnails.Source? = session.open?.takeIf {
         it.dir == state.projectDir && it.project.recap == state.recap
     }?.let { open -> open.project.recap?.movie?.let {
