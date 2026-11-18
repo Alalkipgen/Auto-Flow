@@ -7,6 +7,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -58,43 +60,55 @@ internal fun StudioVoiceDetail(model: RecapModel, state: RecapUiState, row: Voic
 @Composable
 private fun StudioTakeHistory(model: RecapModel, state: RecapUiState, block: RecapBlock) {
     val open by model.previewSource.projects.collectAsState()
-    var entries by remember(state.projectDir, block.id) { mutableStateOf<List<TakeHistoryEntry>?>(null) }
-    var loading by remember(state.projectDir, block.id) { mutableStateOf(true) }
-    var playing by remember(state.projectDir, block.id) { mutableStateOf<Int?>(null) }
-    LaunchedEffect(open?.project, state.projectDir, state.recap, block.id) {
-        entries = null; playing = null; loading = true
-        val captured = open
-        entries = withContext(Dispatchers.Default) { model.voiceInspector.begin(block.id)
-            ?.takeIf { it.dir == state.projectDir && it.project == captured?.project }
-            ?.let(model.voiceInspector::history) }
-        loading = false
-    }
-    val rows = entries
-    AfCard(tr(UiText.V3_TAKES_COUNT, "n" to state.recap?.takes.orEmpty().count { it.block == block.id }), Modifier.testTag("voice-takes")) {
-        if (rows == null) AfText(tr(if (loading) UiText.V3_LOADING_TAKES else UiText.TAKE_UNREADABLE), muted = true)
-        else if (rows.isEmpty()) StatusChip(StudioStatus.NO_VOICE)
-        else {
-            val maxMs = rows.maxOf { it.take.durationMs }.coerceAtLeast(1).toFloat()
-            val takeRow: @Composable (TakeHistoryEntry) -> Unit = { entry ->
-                val duration = RecapModel.seconds(entry.take.durationMs)
-                AfText(tr(UiText.V3_TAKE_DURATION, "n" to entry.number, "duration" to duration), Modifier.testTag("voice-take-${entry.number}"), bold = true)
-                if (entry.selected) AfText(tr(UiText.V3_SELECTED), Modifier.semantics { selected = true }, color = AutoFlowColors.Purple)
-                if (SpokenText.isStale(entry.take, block, state.lexicon)) StatusChip(StudioStatus.SCRIPT_CHANGED)
-                TakeVoiceLabel(entry.take, state.recap?.voiceLock)
-                Canvas(Modifier.fillMaxWidth().height(6.dp).semantics {
-                    contentDescription = duration
-                    progressBarRangeInfo = ProgressBarRangeInfo(entry.take.durationMs.toFloat().coerceIn(0f, maxMs), 0f..maxMs)
-                }) {
-                    drawRect(AutoFlowColors.Line)
-                    drawRect(if (entry.selected) AutoFlowColors.Purple else AutoFlowColors.Muted,
-                        size = size.copy(width = size.width * (entry.take.durationMs / maxMs).coerceIn(0f, 1f)))
+    val captured = open // Capture the immutable value during composition, not a live State delegate after IO starts.
+    val density = LocalDensity.current
+    var loadedHeight by remember(state.projectDir, block.id) { mutableStateOf(0.dp) }
+    // New composition identity drops old rows/player/waveform before any late IO can be relabelled.
+    key(captured?.project, state.projectDir, state.recap, block.id) {
+        var snapshot by remember { mutableStateOf<Pair<BlockVoiceRequest, List<TakeHistoryEntry>>?>(null) }
+        var loading by remember { mutableStateOf(true) }
+        var playing by remember { mutableStateOf<Int?>(null) }
+        LaunchedEffect(Unit) {
+            if (captured?.dir != state.projectDir || captured?.project?.recap != state.recap) return@LaunchedEffect
+            snapshot = withContext(Dispatchers.Default) { model.voiceInspector.begin(block.id)
+                ?.takeIf { it.dir == state.projectDir && it.project == captured?.project && it.project.recap == state.recap }
+                ?.let { request -> model.voiceInspector.history(request)?.let { request to it } } }
+            loading = false
+        }
+        val rows = snapshot?.second
+        // A loading revision must not collapse the scroller and repeatedly cancel/restart its visible decode.
+        // Reserve only the last measured height, never the old take's text/audio/waveform.
+        AfCard(tr(UiText.V3_TAKES_COUNT, "n" to state.recap?.takes.orEmpty().count { it.block == block.id }),
+            Modifier.testTag("voice-takes").heightIn(min = if (loading) loadedHeight else 0.dp)
+                .onSizeChanged { if (!loading && rows != null) loadedHeight = with(density) { it.height.toDp() } }) {
+            if (rows == null) AfText(tr(if (loading) UiText.V3_LOADING_TAKES else UiText.TAKE_UNREADABLE), muted = true)
+            else if (rows.isEmpty()) StatusChip(StudioStatus.NO_VOICE)
+            else {
+                val maxMs = rows.maxOf { it.take.durationMs }.coerceAtLeast(1).toFloat()
+                val takeRow: @Composable (TakeHistoryEntry) -> Unit = { entry ->
+                    val duration = RecapModel.seconds(entry.take.durationMs)
+                    AfText(tr(UiText.V3_TAKE_DURATION, "n" to entry.number, "duration" to duration), Modifier.testTag("voice-take-${entry.number}"), bold = true)
+                    if (entry.selected) AfText(tr(UiText.V3_SELECTED), Modifier.semantics { selected = true }, color = AutoFlowColors.Purple)
+                    if (SpokenText.isStale(entry.take, block, state.lexicon)) StatusChip(StudioStatus.SCRIPT_CHANGED)
+                    TakeVoiceLabel(entry.take, state.recap?.voiceLock)
+                    val durationBar: @Composable () -> Unit = { Canvas(Modifier.fillMaxWidth().height(6.dp).semantics {
+                        contentDescription = duration
+                        progressBarRangeInfo = ProgressBarRangeInfo(entry.take.durationMs.toFloat().coerceIn(0f, maxMs), 0f..maxMs)
+                    }) {
+                        drawRect(AutoFlowColors.Line)
+                        drawRect(if (entry.selected) AutoFlowColors.Purple else AutoFlowColors.Muted,
+                            size = size.copy(width = size.width * (entry.take.durationMs / maxMs).coerceIn(0f, 1f)))
+                    } }
+                    if (entry.selected) SelectedTakeWaveform(model, snapshot!!.first, entry, durationBar) else durationBar()
+                    entry.file?.let { Box(Modifier.testTag("voice-take-play-${entry.number}")) {
+                        AudioPlayButton(it, playing == entry.number, { playing = if (playing == entry.number) null else entry.number })
+                    } }
+                        ?: AfText(tr(UiText.TAKE_MISSING), color = AutoFlowColors.Amber)
                 }
-                entry.file?.let { AudioPlayButton(it, playing == entry.number, { playing = if (playing == entry.number) null else entry.number }) }
-                    ?: AfText(tr(UiText.TAKE_MISSING), color = AutoFlowColors.Amber)
+                rows.singleOrNull { it.selected }?.let { takeRow(it) }
+                val others = rows.filterNot { it.selected }
+                if (others.isNotEmpty()) SectionCard(tr(UiText.V3_TAKE_HISTORY, "n" to others.size), initiallyExpanded = false) { others.reversed().forEach { takeRow(it) } }
             }
-            rows.singleOrNull { it.selected }?.let { takeRow(it) }
-            val others = rows.filterNot { it.selected }
-            if (others.isNotEmpty()) SectionCard(tr(UiText.V3_TAKE_HISTORY, "n" to others.size), initiallyExpanded = false) { others.reversed().forEach { takeRow(it) } }
         }
     }
 }
