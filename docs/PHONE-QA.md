@@ -8,11 +8,11 @@ fake providers, simulated executor reconstruction and emulator runs do **not** c
 
 | Field | Value |
 | --- | --- |
-| Source branch / exact remote SHA | `work/phase-5-ui-language-acceptance`; use the exact `Source:` and run in this artifact’s `BUILD.txt` |
+| Source branch / exact remote SHA | `work/phase-6-ui-v3-final-audit`; use the exact final `Source:` and run in this artifact’s `BUILD.txt` (the report records the full remote SHA; do not substitute an earlier checkpoint) |
 | APK filename / SHA-256 / download | Use the neighboring `autoflow-debug-<sha7>.apk` and its binary `.sha256`; final download/run links are in the acceptance PR handoff |
 | Flags | Record `studioV2`, `quickRecap`, and every non-default override; Labs must remain off |
 | Device / Android / font scale | Owner records here |
-| Signing / update outcome | Record stable signing vs runner-debug; never uninstall real projects to work around a mismatch |
+| Signing / update outcome | Stable baseline595 certificate SHA-256 must equal `d7c3e543c25fa829b31b81cd459febdd10ff1cc67d9b16b32601a1962036f2f0`; app ID `io.github.alalkipgen.autoflow`, versionCode>595. Runner-debug/new-key is BLOCKED-SIGNING, never a substitute; never uninstall/clear data |
 
 The APK above must include **all completed milestones**. A checkpoint APK is not the final queue-complete APK.
 Do not claim missing features are phone-testable. See PLAN for implementation and automation status separately.
@@ -78,6 +78,9 @@ Record actual final SHA, enabled flags, APK/EXE filenames, binary hashes and art
 | Settings visible Diagnostics, Self-test, masked keys, language, tools, Library pronunciation link, backup | PHONE_PENDING |
 | Burmese at font 2.0 and 360 dp; no syllable cuts, covered action or cut badge; EN switch unchanged content | PHONE_PENDING |
 | Keyboard vs sticky action bar; real scroll reachability of Exact Frame and last row | PHONE_PENDING |
+| Projects: actual Create/Recent sections,folder/rights/Create/Cancel draft after collapse,Open,confirmed Remove only from index; A/B unchanged | PHONE_PENDING |
+| Library: all6 section jumps,empty/editable kit/preset draft retained,visible Delete and long-press confirmation,Lexicon link;real copied assets remain after Library original removal;Music copy-only vs existing Recap BGM picker,font copy-only,partial/save failure and unsupported Planned presets | PHONE_PENDING |
+| Native known RED regression: cold trial7 of CI44413049428 showedBLUE at output1500/source3500 instead ofGREEN;CI44407013390 native-without-captions export at output2500/source6500 decodedGREEN instead ofYELLOW. Compare with Exact Frame/export; do not count later finite passes as a fix. Historical Block1 thumbnail blank remains unconfirmed-cause/open owner review. | PHONE_PENDING |
 | Playback seek/caption/layer timing, project switching, background/foreground and cleanup after leaving | PHONE_PENDING |
 
 ## Safe setup
@@ -172,3 +175,8 @@ None of this passes Android lifecycle, physical-phone or owner-PC acceptance abo
 had no Android emulator/adb or `/dev/kvm`; emulator/instrumentation and physical-phone checks remain **PHONE_PENDING**.
 Windows installer/install/launch/uninstall and no-VLC packaged startup are separate gates, not Windows installed-VLC
 movie playback proof. Installed-VLC playback and real-project acceptance on the owner PC remain **OWNER_PC_PENDING**.
+
+
+### UI-v3 final-source delivery discipline
+
+All phone rows above remain PHONE_PENDING and owner-PC acceptance remains OWNER_PC_PENDING; this document does not upgrade desktop/fake/compile/disposable-runner evidence into device acceptance. The final combined APK must update the existing stable595 installation without uninstall/clear-data. If certificate verification is unavailable or mismatched,report BLOCKED-SIGNING and do not offer a runner-debug substitute. Use only the matching final-source APK/UNSIGNED EXE,BUILD/MANIFEST,binary hashes,FEATURES,QA backup and source/license companions in the final report. Q31 project shortcut semantics and newMY wording remain owner decisions. Native/core/media failure repair is outside this UI-only scope; retain every failure record.

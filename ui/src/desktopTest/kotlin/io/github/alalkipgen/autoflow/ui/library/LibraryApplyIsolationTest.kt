@@ -34,10 +34,18 @@ internal class LibraryTestFixture : AutoCloseable {
     private val realFs = JvmFs()
     var failProjectWrites = false
     var failLibraryWrites = false
+    val injectedWrites = mutableListOf<String>()
+    fun rejectsWrite(path: String): Boolean {
+        val normalized = path.replace('\\', '/')
+        return (failProjectWrites && normalized.contains(".autoflow/")) ||
+            (failLibraryWrites && normalized.contains("/library/library.json"))
+    }
     val fs = object : FileSystem by realFs {
         override fun writeDurably(path: String, bytes: ByteArray) {
-            if (failProjectWrites && path.contains(".autoflow/") || failLibraryWrites && path.contains("/library/library.json"))
+            if (rejectsWrite(path)) {
+                injectedWrites += path.replace('\\', '/')
                 error("deliberate test write failure")
+            }
             realFs.writeDurably(path, bytes)
         }
     }
@@ -114,6 +122,7 @@ class LibraryApplyIsolationTest {
         assertEquals(aBefore, LibraryTestFixture.bytes(File(f.a.dir)))
         f.failProjectWrites = true
         f.model.applyVoice("voice"); assertFalse(f.model.state.value.messageOk); assertEquals(UiText.SAVE_FAILED, f.model.state.value.notice!!.key)
+        assertEquals(1, f.injectedWrites.size, "the deliberate project-write fault actually fired")
         assertEquals(aBefore, LibraryTestFixture.bytes(File(f.a.dir)))
         f.failProjectWrites = false
         File(f.libraryDir, "files/qa-font.ttf").delete()
@@ -133,9 +142,25 @@ class LibraryApplyIsolationTest {
         f.model.saveBrandKit("ပိုင်ရှင် kit"); assertTrue(f.model.state.value.messageOk)
         assertEquals("ပိုင်ရှင် kit", f.libraryStore.load().brandKits.last().name)
         f.model.deleteBrandKit("kit"); assertFalse(f.libraryStore.load().brandKits.any { it.id == "kit" })
+        val libraryBefore = LibraryTestFixture.bytes(f.libraryDir)
         f.failLibraryWrites = true; f.model.saveCaptionPreset("Cannot save")
         assertFalse(f.model.state.value.messageOk); assertEquals(UiText.SAVE_FAILED, f.model.state.value.notice!!.key)
+        assertEquals(1, f.injectedWrites.size, "the deliberate Library-write fault actually fired")
+        assertTrue(f.injectedWrites.single().endsWith("/library/library.json.tmp"))
+        assertEquals(libraryBefore, LibraryTestFixture.bytes(f.libraryDir), "failed save cannot mutate Library bytes")
         assertEquals(aBefore, LibraryTestFixture.bytes(File(f.a.dir))); assertEquals(bBefore, LibraryTestFixture.bytes(File(f.b.dir)))
+    }
+
+    @Test fun failureProbeRecognizesPosixWindowsAndMixedSeparatorsWithoutWriting() = LibraryTestFixture().use { f ->
+        f.failLibraryWrites = true
+        listOf("/tmp/root/library/library.json.tmp", "C:\\temp\\root\\library/library.json.tmp",
+            "C:\\temp\\root\\library\\library.json.tmp").forEach { assertTrue(f.rejectsWrite(it), it) }
+        assertFalse(f.rejectsWrite("/tmp/root/QA.autoflow/project.json.tmp"))
+        f.failLibraryWrites = false; f.failProjectWrites = true
+        listOf("/tmp/root/QA.autoflow/project.json.tmp", "C:\\temp\\root\\QA.autoflow/project.json.tmp",
+            "C:\\temp\\root\\QA.autoflow\\project.json.tmp").forEach { assertTrue(f.rejectsWrite(it), it) }
+        assertFalse(f.rejectsWrite("/tmp/root/library/library.json.tmp"))
+        assertEquals(emptyList(), f.injectedWrites, "probe inspection performs no write")
     }
 
     @Test fun switchedProjectReceivesOnlyItsOwnExplicitCopiesAndNonRecapNoOpIsNotGreenApplied() = LibraryTestFixture().use { f ->
