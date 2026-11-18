@@ -1118,6 +1118,7 @@ enum class UiText(val en: String, val my: String?) {
     V3_SELFTEST_ANDROID("The on-device Self-test is available in Android builds.", "ဖုန်းပေါ် ကိုယ်တိုင် စမ်းသပ်မှုကို Android build မှာ သုံးနိုင်တယ်။"),
     V3_APP_NAME("Auto Flow", "Auto Flow"),
     V3_CONTINUE("Continue editing", "ဆက်တည်းဖြတ်မယ်"),
+    V3_PROJECT_CREATE("Create project", "ပရောဂျက် အသစ်လုပ်မယ်"),
     V3_STEP_BY_STEP("Step-by-step →", "တစ်ဆင့်ချင်း လုပ်မယ် →"),
     V3_APPROVAL_BEFORE_VOICE("Approval before voice · stops at Story review", "အသံမထုတ်မီ ဇာတ်လမ်းကို စစ်ပြီး အတည်ပြုရမယ်"),
     V3_DUBBING("Dubbing", "အသံ အစားထိုးခြင်း"),
