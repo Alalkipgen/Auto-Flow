@@ -20,16 +20,23 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Real muted native-v2 timeline playback, decoded once underneath the output-frame Compose compositor. */
 @Composable
-internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false) {
+internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false, editLayers: Boolean = false) {
     val state by model.state.collectAsState()
     val open by model.previewSource.projects.collectAsState()
     val source = remember(state, open) { model.previewSource.resolve(state) } ?: return
     val recap = state.recap ?: return
     val movie = recap.movie ?: return
+    val edit by model.layerEditor.state.collectAsState()
+    val draftRecap = remember(recap, edit, editLayers) { if (editLayers) model.layerEditor.preview(recap) else recap }
+    val imageLayers = draftRecap.layers.filter { it.type == io.github.alalkipgen.autoflow.core.recap.LayerType.IMAGE ||
+        it.type == io.github.alalkipgen.autoflow.core.recap.LayerType.BACKGROUND }.map { Triple(it.type, it.params.mode, it.params.image) }
     val output = RenderPresets.preview(model.outputRatio(recap))
     val startMs = if (blockId == null) 0L else source.timeline.clips.firstOrNull { it.blockId == blockId }?.outputFromMs
     if (startMs == null) { AfText(tr(UiText.V3_BLOCK_PREVIEW_UNAVAILABLE), muted = true); return }
-    key(source.key, source.path, source.timeline, blockId) {
+    // A layer-only Save does not change the timeline. Keep the paused output time for its Exact-frame check,
+    // but still reset on another project/movie/timeline; Source continues guarding every read by revision.
+    val playbackKey: Any = if (editLayers) source.projectDir to open?.project?.id else source.key
+    key(playbackKey, source.path, source.timeline, blockId) {
         val clock = remember { RecapPlaybackClock(source.timeline).apply { if (startMs > 0) seek(startMs) } }
         var refresh by remember { mutableLongStateOf(0) }
         var enabled by remember { mutableStateOf(false) }
@@ -44,8 +51,19 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
         val problem = clock.problem
         var frame by remember { mutableStateOf<ImageBitmap?>(null) }
         var images by remember { mutableStateOf<Map<String, ImageBitmap>?>(null) }
-        LaunchedEffect(source.key) { images = withContext(Dispatchers.Default) { model.previewSource.images(source, recap) } }
-        LaunchedEffect(outputMs) { model.previewSource.position(source, outputMs) }
+        LaunchedEffect(source.key, imageLayers) {
+            images = null
+            images = withContext(Dispatchers.Default) { model.previewSource.images(source, draftRecap) }
+        }
+        LaunchedEffect(if (editLayers) edit.draft?.token else null, editLayers && model.layerEditor.value() != null) {
+            if (editLayers && model.layerEditor.value() != null) {
+                clock.setPlaying(false)
+                clock.seek(model.layerEditor.value()!!.fromMs)
+                enabled = true
+                refresh++
+            }
+        }
+        LaunchedEffect(source.key, outputMs) { model.previewSource.position(source, outputMs) }
         // Space (studio project screens only) runs exactly this Play/Pause button action.
         val togglePlay: () -> Unit = { enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }
         if (studio) PlayPauseShortcut(togglePlay)
@@ -69,7 +87,11 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                     Box(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
                         val raw = frame
                         val assets = images
-                        if (raw != null && assets != null) NativeOutputPicture(raw, recap, output, outputMs, captions, assets, Modifier.fillMaxSize())
+                        if (raw != null && assets != null) {
+                            if (editLayers) NativeLayerPreview(raw, recap, output, outputMs, captions, assets, model.layerEditor,
+                                !playing && !state.busy && state.recording == null, Modifier.fillMaxSize())
+                            else NativeOutputPicture(raw, recap, output, outputMs, captions, assets, Modifier.fillMaxSize())
+                        }
                         else AfText(tr(UiText.PREPARING_FRAME), muted = true)
                     }
                 }

@@ -80,23 +80,24 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
         state.problem?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
         val d = state.draft
         if (d != null) {
-            var form by remember(d.token) { mutableStateOf(LayerForm.of(d.layer)) }
+            val form = LayerForm(state.fields)
             val value = form.read(d.layer)
             val problem = if (value == null) tr(UiText.NUMBERS_INVALID) else LayerEdits.problem(value)?.let { tr(UiText.RESULT_DETAIL, "detail" to it) }
             // No persisted convenience toggle, no conversion to recap.visual.masks.
             AfText(d.layer.type.labelMy(LocalUiLanguage.current) + if (studio) "" else " · ${d.layer.id}", bold = true)
             @Composable fun input(key: String, label: String, lines: Int = 1) {
                 AfText(label, muted = true)
-                AfTextField(form.fields.getValue(key), { form = form.set(key, it) }, label,
+                AfTextField(form.fields.getValue(key), { editor.field(d.token, key, it) }, label,
                     Modifier.fillMaxWidth().testTag("layer-field-$key"), lines = lines, mono = key != "text", enabled = idle && !state.importing)
             }
             val r = value?.takeIf { LayerEdits.problem(it) == null }?.rect ?: d.layer.rect
+            if (studio && d.layer.type == LayerType.IMAGE) AfText(tr(UiText.V3_IMAGE_ASPECT), muted = true)
             if (studio && LayerEdits.usesRect(d.layer.type)) {
                 listOf(UiText.RECT_X, UiText.RECT_Y, UiText.RECT_W, UiText.RECT_H).forEachIndexed { index, label ->
                     AfText("${tr(label)} · ${kotlin.math.round(r[index] * 1000) / 10}%")
                     val maximum = if (index < 2) 1f - r[index + 2] else 1f - r[index - 2]
                     AfScrubber(if (maximum > 0) r[index] / maximum else 0f, tr(label),
-                        { form = form.rect(layerPercentRect(r, index, it)) },
+                        { editor.rect(d.token, layerPercentRect(r, index, it)) },
                         Modifier.testTag("layer-percent-$index"), enabled = idle && !state.importing && maximum > 0)
                 }
             }
@@ -109,7 +110,7 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
                     input("w", tr(UiText.RECT_W)); input("h", tr(UiText.RECT_H))
                     AfText(tr(UiText.LAYER_RECT_GESTURES), muted = true)
                     LayerRectEditor(r, RenderPresets.preview(model.outputRatio(recap)).let { it.width.toFloat() / it.height }, d.token,
-                        enabled = idle && !state.importing, onRect = { form = form.rect(it) })
+                        enabled = idle && !state.importing, onRect = { editor.rect(d.token, it) })
                 } else AfText(tr(UiText.LAYER_FULL_FRAME), muted = true)
             }
             if (studio) SectionCard(tr(UiText.V3_MORE_OPTIONS), Modifier.testTag("layer-exact-options"), initiallyExpanded = false) {
@@ -122,7 +123,7 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
                 LayerType.TEXT -> { input("text", tr(UiText.LAYER_TEXT_FIELD), 3); input("style", tr(UiText.LAYER_FONT)) }
                 LayerType.BORDER -> { input("px", tr(UiText.LAYER_BORDER_PX)); input("colour", tr(UiText.COLOUR_HEX)) }
                 LayerType.BACKGROUND -> {
-                    WrapRow { BackgroundMode.entries.forEach { mode -> AfChip(mode.uiLabel(), form.fields["mode"] == mode.name, { form = form.set("mode", mode.name) }) } }
+                    WrapRow { BackgroundMode.entries.forEach { mode -> AfChip(mode.uiLabel(), form.fields["mode"] == mode.name, { editor.field(d.token, "mode", mode.name) }) } }
                     if (form.fields["mode"] == BackgroundMode.COLOUR.name) input("colour", tr(UiText.COLOUR_HEX))
                 }
             }

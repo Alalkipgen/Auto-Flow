@@ -1128,6 +1128,10 @@ enum class UiText(val en: String, val my: String?) {
     V3_NO_VOICE("No voice", "အသံ မရှိသေး"),
     V3_BLOCK("Block {n}", "အပိုင်း {n}"),
     V3_SAVED("Saved", "သိမ်းပြီး"),
+    V3_LAYER_MOVE("Move layer", "Layer ကို ရွှေ့မယ်"),
+    V3_LAYER_RESIZE("Resize layer", "Layer အရွယ်အစား ပြောင်းမယ်"),
+    V3_LAYER_DRAFT_PREVIEW("Unsaved preview. Save or discard the layer before Exact frame / export.", "မသိမ်းရသေးသော preview ပါ။ အတိအကျ ပုံ / ထုတ်ယူ မလုပ်မီ Layer ကို သိမ်းပါ သို့မဟုတ် ပယ်ပါ။"),
+    V3_IMAGE_ASPECT("Image aspect is kept; width sets its rendered size.", "ပုံအချိုးကို ထိန်းထားသည်။ အကျယ်က ပြမည့် အရွယ်အစားကို သတ်မှတ်သည်။"),
     V3_UNSAVED("Unsaved changes", "မသိမ်းရသေးသော ပြောင်းလဲမှုများ"),
     V3_SAVE_FAILED("Save failed", "သိမ်း၍ မရပါ"),
     ;

@@ -447,14 +447,14 @@ private fun hexColour(hex: String): Color =
  * watermark, burned-in captions with the real font) — the preview above is close, this is exact.
  */
 @Composable
-internal fun ExactFrameCard(model: RecapModel) {
+internal fun ExactFrameCard(model: RecapModel, enabled: Boolean = true) {
     val open by model.previewSource.projects.collectAsState()
     // A completed/in-flight still belongs to this project revision, never the next project on screen.
-    androidx.compose.runtime.key(open?.dir, open?.project?.id, open?.project?.updatedAt) { ExactFrameContent(model) }
+    androidx.compose.runtime.key(open?.dir, open?.project?.id, open?.project?.updatedAt) { ExactFrameContent(model, enabled) }
 }
 
 @Composable
-private fun ExactFrameContent(model: RecapModel) {
+private fun ExactFrameContent(model: RecapModel, enabled: Boolean) {
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
     var working by remember { mutableStateOf(false) }
@@ -466,8 +466,9 @@ private fun ExactFrameContent(model: RecapModel) {
                 val at = model.previewSource.currentPosition()
                 scope.launch { try { result = model.exactFrame(at) } finally { working = false } }
             }
-        }, enabled = !working)
-        when (val r = result) {
+        }, enabled = !working && enabled)
+        if (!enabled) AfText(tr(UiText.V3_LAYER_DRAFT_PREVIEW), muted = true)
+        when (val r = result.takeIf { enabled }) {
             is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Ok -> {
                 val bmp = remember(r.frame) { decodeImage(r.frame.bytes) }
                 bmp?.let {
