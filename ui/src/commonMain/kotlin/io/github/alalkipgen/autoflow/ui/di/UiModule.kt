@@ -89,7 +89,7 @@ val uiModule = module {
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull(), frames = getOrNull()) }
     // Library (5A-7)
     single { io.github.alalkipgen.autoflow.core.library.LibraryStore(get(), get<AppDirs>().library) }
-    single { io.github.alalkipgen.autoflow.ui.library.LibraryModel(get(), get(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.library.LibraryModel(get(), get(), MainScope(), fs = get()) }
     factory {
         val registry = get<ProviderRegistry>()
         val dirs = getOrNull<AppDirs>()
