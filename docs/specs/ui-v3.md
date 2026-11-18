@@ -137,6 +137,16 @@ No omission from a concept authorizes removal. Diagnostics is an accessible dest
 | Desktop / 11 | Existing input/scrubber keys; historical copy/approve intent | Preserve input/scrubber behavior. Space playback and arrows navigate only on project-surface focus; Ctrl+C/A project actions await Q-31 (no handlers found at PR-7). |
 
 ## 4. Screen states
+Projects completion audit / Q-35: the actual AppShell Projects destination mounts `projects/DashboardScreen.kt`.
+`ProjectsScreen.kt` is an unused historical prototype, not evidence of the routed UI. Create and Recent projects
+now use shared collapsible SectionCards; existing project rows use AfCard with wrapping real metadata at every
+width. Folder/create/rights and Cancel, row open, long-press Remove confirmation and missing-folder index removal
+are unchanged. The new matrix uses the real QA fixture, visible pointer/scroll, all-file byte identity and
+360/412/840/1440 EN/MY/font/fallback cases; a separate actual App route test checks the mounted sections.
+No engine/data change or owner acceptance is implied. Fresh targeted/full/CI results are
+recorded only after execution.
+
+New copy for owner review: `V3_PROJECT_CREATE`: EN "Create project"; MY "ပရောဂျက် အသစ်လုပ်မယ်".
 
 Every screen has a real empty state and a next action, not concept sample data.
 
@@ -630,3 +640,12 @@ Waveform focused attempt4:112/113 passed,1 failure,0 errors/skips,13 suites;nati
 
 
 Final waveform focused checkpoint (attempt5):113/113 passed,0 failures/errors/skips,13 XML suites,3m31s after isolated compilation;real VLC3.0.21/ffmpeg7.0.2 required,12/12 cold source-marker trials. The revision test’s unchanged exact decode count is1→2. All existing test files/assertions/windows/control tags remain unchanged.82 new waveform PNGs across27 matrix cells plus explicit unavailable state;8 representative full-window waveform PNGs and the retained native failure frame were individually inspected,not all82. The82 focused5 PNGs reproduce focused2’s matrix byte-for-byte; hashes are reproduction,not individual visual review. Actual selected/history/next-block/fallback screens remain scrollable and controls≥48dp. Four new MY keys remain owner-review pending. This measured focused pass does not erase attempt2’s unchanged-native wrong-marker timeout or establish its root cause/stability. Exact committed-head fresh full and all-six/native CI are still pending; final results belong in the separate Draft PR/handoff,not guessed into this commit-time document.
+
+
+## Projects completion audit — Q-35 (brief §4/§6 Projects/§9)
+
+Actual AppShell Projects routes to DashboardScreen, not ProjectsScreen. Create/Recent use SectionCard, real rows use AfCard, facts and Create/Cancel wrap at every width, and the screen uses the existing shared background. The existing creation form remains mounted outside the collapsible action section so a collapse or language change cannot discard its name/folder/rights draft. Open-folder, rights gating, creation, row open, missing-folder removal and long-press confirmed index-only removal are unchanged. No project/artifact deletion or model/data/engine behavior changed.
+
+`StudioProjectsLayoutTest` covers27 EN/MY/bundled/fallback/412/840 matrix cells plus360MY2 and1440EN/MY, ordinary displayed pointer/long-press/scroll, form draft retention, cancel/open/remove and complete project-tree byte identity. `StudioProjectsRoutingTest` follows actual App → Projects and back Home. Focused attempt3:87/87,0 failures/errors/skips,8 suites,27 QA captures including unchanged Home/Dashboard/catalog regression. Earlier attempt1:59 old passes and28 new-harness failures; its logs/XML/source remain, with mouse-hover input and Main-dispatcher setup corrected in the new tests only. Attempt2 passed87/87; attempt3 reverified the shared-background adjustment. Actual-final-remote full/CI results are separate; no phone/PC/MY-wording acceptance.
+
+New catalog key for owner wording review: `V3_PROJECT_CREATE` — EN Create project; MY ပရောဂျက် အသစ်လုပ်မယ်.
