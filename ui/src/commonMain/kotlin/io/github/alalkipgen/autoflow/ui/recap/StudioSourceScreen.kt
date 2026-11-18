@@ -116,7 +116,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
     }
 }
 
-/** Honest time-only fallback; lazy cached thumbnails are a separately tested PR. */
+/** Actual scene times/picks remain authoritative; missing thumbnails leave the time-only fallback. */
 @Composable
 private fun SourcePicks(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     SectionCard(tr(UiText.SCENES)) {
@@ -142,6 +142,7 @@ private fun SourcePicks(model: RecapModel, state: RecapUiState, recap: RecapV2) 
                 .testTag("scene-pick-$index").toggleable(scene.picked, enabled = idle, role = Role.Checkbox) { model.togglePick(index) },
                 selected = scene.picked) {
                 AfText("${RecapModel.clock(scene.startMs)}–${RecapModel.clock(scene.endMs)}", mono = true)
+                RecapThumbnail(model, state, scene.startMs, scene.endMs, "scene-thumbnail-$index")
             }
         }
         if (pages > 1) WrapRow {

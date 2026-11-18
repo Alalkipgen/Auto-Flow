@@ -68,6 +68,7 @@ Record actual final SHA, enabled flags, APK/EXE filenames, binary hashes and art
 | Back arrow and Android Back: detail → list → previous step → leave; cancel an open draft safely | PHONE_PENDING |
 | Home real project data, Continue, Quick Recap approval stop, running rows; no concept sample data | PHONE_PENDING |
 | Recap Source → Story → Voice → Style → Export end to end; old capabilities/confirmations reachable | PHONE_PENDING |
+| UI v3 thumbnails: scroll Source scenes and Story/Voice blocks at 360/412 dp, font 1.0/1.3/2.0, EN/MY. Visible rows show real source frames (scene midpoint / first block-range midpoint); picks, filters, paging, Back and sticky actions still work. Revisit/reopen, switch A/B during loading, background/foreground, and test missing tools/media: no wrong-project picture, hang or project mutation; unavailable images keep times. Cache/performance/touch checks need actual device evidence. | PHONE_PENDING |
 | Voice filters, block actions, selected/history takes, record/import, Smart Fit and stale/lock warnings | PHONE_PENDING |
 | Style layer create/select/move/resize/order/timing, Discard unchanged, Save/reopen; preview vs Exact Frame/export | PHONE_PENDING |
 | Caption presets/custom values/size independent of UI font scale; captions last | PHONE_PENDING |

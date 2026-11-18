@@ -199,6 +199,8 @@ class RecapModel(
     /** Cuts the scenes' sound for Transcribe; null = ffmpeg from [media]. */
     sceneAudio: SceneAudioCutter? = null,
     private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
+    /** Rebuildable app cache outside every project; null keeps time-only rows in hosts without a cache. */
+    thumbnailCacheDir: String? = null,
 ) {
     private val pronunciation: Lexicon get() = lexicons?.value ?: lexicon
     private val scenesTx = SceneTranscriber(session, fs, media, transcriber, sceneAudio, clock)
@@ -209,6 +211,14 @@ class RecapModel(
     val blockEditor = RecapBlockEditor(session, fs, changed = ::refresh)
     val voiceInspector = RecapVoiceInspector(session, fs, { pronunciation }) { speak(it) }
     val previewSource = RecapPreviewSource(session, fs, media)
+    internal val sceneThumbnails = RecapThumbnails(fs, media, thumbnailCacheDir)
+    internal fun thumbnailSource(state: RecapUiState): RecapThumbnails.Source? = session.open?.takeIf {
+        it.dir == state.projectDir && it.project.recap == state.recap
+    }?.let { open -> open.project.recap?.movie?.let {
+        RecapThumbnails.Source(open.dir, open.project.id, open.project.updatedAt.toString(), it)
+    } }
+    internal fun thumbnailIsCurrent(source: RecapThumbnails.Source): Boolean =
+        thumbnailSource(_state.value) == source
     private val thumbs = Mutex()
     private var scriptJob: Job? = null
 
