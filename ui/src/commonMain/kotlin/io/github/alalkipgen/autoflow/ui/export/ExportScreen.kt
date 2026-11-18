@@ -50,6 +50,7 @@ import io.github.alalkipgen.autoflow.ui.components.StudioStatus
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.projects.RIGHTS_NOTICE
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
+import io.github.alalkipgen.autoflow.ui.recap.RecapStep
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 const val PREVIEW_BUTTON = "နမူနာ 540p"
@@ -63,9 +64,16 @@ internal const val LOUDNESS = "အသံကျယ်မှု"
  * progress + Cancel, then Open / Share. The battery warning (below 20 % and not charging) warns, it does not block.
  */
 @Composable
-fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Boolean = false) {
+fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Boolean = false,
+    onPreflightFix: ((RecapStep) -> Unit)? = null,
+) {
     val state by model.state.collectAsState()
     val open by model.projects.collectAsState()
+    val displayed = open
+    val fix: ((io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item, RecapStep) -> Unit)? =
+        if (studio && onPreflightFix != null) { item, step ->
+            if (preflightNavigationAllowed(model, displayed, item) && preflightStep(item) == step) onPreflightFix(step)
+        } else null
     LaunchedEffect(model, open?.dir, open?.project?.id) { model.refresh() }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
@@ -103,7 +111,7 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Bool
                 AfText(tr(UiText.LYRICS_TIMING_STALE), color = AutoFlowColors.Amber)
             }
         }
-        if (studio && recap != null && recap.preflight.isNotEmpty()) PreflightCard(recap.preflight)
+        if (studio && recap != null && recap.preflight.isNotEmpty()) PreflightCard(recap.preflight, fix, !state.busy)
         if (!studio || state.run != null || state.lastRenders.isNotEmpty() ||
             state.unavailable != null || state.lowBattery || state.message != null) AfCard(tr(UiText.RENDER_HEADING)) {
             state.unavailable?.let { AfText(if (it == ExportModel.NO_QUEUE) tr(UiText.EXPORT_NO_QUEUE) else tr(UiText.RESULT_DETAIL, "detail" to it), color = AutoFlowColors.Amber) }
@@ -348,12 +356,15 @@ private fun PublishThumbSection(kit: PublishKit, thumb: PublishThumb?, model: Ex
 
 /**
  * Pre-flight checklist card (5B-9, studio-v2.md §9): blockers and warnings shown before export.
- * Fix navigation is a separate UI v3 task; plain report text must not pretend to be a working link.
+ * Native Fix uses core's destination; Classic/no-router callers remain an honest read-only report.
  */
 @Composable
-private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item>) {
-    AfCard(tr(UiText.PREFLIGHT)) {
-        items.forEach { item ->
+private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item>,
+    onFix: ((io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item, RecapStep) -> Unit)? = null,
+    enabled: Boolean = true,
+) {
+    AfCard(tr(UiText.PREFLIGHT), Modifier.testTag("preflight-report")) {
+        items.forEachIndexed { index, item ->
             val color = when (item.kind) {
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER -> AutoFlowColors.Failed
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING -> AutoFlowColors.Amber.copy(alpha = 0.8f)
@@ -365,7 +376,11 @@ private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.P
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.INFO -> "ℹ "
             }
             val text = prefix + preflightMessage(item, LocalUiLanguage.current)
-            AfText(text, color = color, size = 12.sp)
+            AfText(text, Modifier.testTag("preflight-message-$index"), color = color, size = 12.sp)
+            if (onFix != null) preflightStep(item)?.let { step ->
+                AfButton(tr(UiText.V3_PREFLIGHT_FIX, "step" to tr(step.textKey)), { onFix(item, step) },
+                    Modifier.testTag("preflight-fix-${item.reason.name}-$index"), enabled = enabled)
+            }
         }
         val blockers = items.count { it.kind == io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER }
         val warnings = items.count { it.kind == io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING }

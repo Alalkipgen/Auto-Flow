@@ -219,6 +219,10 @@ fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
 fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null, libraryLexicon = false,
     projectScreen = if (dest == StudioV2Dest.PROJECTS && nav.dest == dest) null else nav.projectScreen)
 
+/** Preflight changes only transient navigation, never approval, selection IDs or project data. */
+internal fun v2PreflightFix(nav: V2Nav, step: io.github.alalkipgen.autoflow.ui.recap.RecapStep): V2Nav =
+    nav.copy(dest = StudioV2Dest.PROJECTS, projectScreen = "Recap", recapStep = step)
+
 /** Music Video in Studio v2 (5B-12): one shot sheet instead of the Storyboard / Shots / References / Flow Handoff tabs. */
 const val SHOT_SHEET = "Shot sheet"
 
@@ -350,7 +354,7 @@ private fun StudioV2App(
                                             next = {},
                                             classic = { nav = nav.copy(projectScreen = "Classic Recap") },
                                             handleBack = backHandler,
-                                        ))
+                                        ), onPreflightFix = { step -> nav = v2PreflightFix(nav, step) })
                                 }
                             }
                         } else {

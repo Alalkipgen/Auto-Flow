@@ -449,7 +449,7 @@ New EN/MY copy for owner review (generated from the implemented UiText additions
 
 - Native step 5 uses ProjectTopBar, Classic overflow and one measured sticky Export/Preview bar. The same shared Export content retains quality, real prerequisite findings, Exact-frame make/remake/select/stale/use-thumbnail, render cancellation/progress, completed output and loudness/failure notes. Help stays in the scrolling Output card so it cannot crowd out content at font 2. Run/result kind does not encode resolved dimensions, so status/history say Export rather than assuming 1080p. No render or approval engine changes.
 - Publish Kit is collapsible in Studio. Title, description, hashtags and chapters have Copy; Save, draft Discard, share-file and saved-title thumbnail controls remain reachable. Project identity resets transient text drafts. Browsing/Copy/Discard must not write project files.
-- Preflight rows are still the existing core report, not a completed Fix-navigation feature. No inert “Fix →” text is presented as an action. Existing wide panes remain until PR-8; no sample preview, fake Saved/ETA or owner-device acceptance.
+- At the PR-5a checkpoint, Preflight rows were the existing core report, not completed Fix navigation. The separate task-4 section below defines the later native Fix contract; no inert “Fix →” text is presented as an action. Existing wide panes remain until PR-8; no sample preview, fake Saved/ETA or owner-device acceptance.
 
 | Key | English | Burmese |
 | --- | --- | --- |
@@ -558,10 +558,41 @@ The existing output-frame/export caption painter is unchanged. Size remains outp
 | V3_CAPTION_CUSTOM | Custom | စိတ်ကြိုက် |
 | V3_CAPTION_XL | XL | XL |
 
-Q31 / PHONE_PENDING / OWNER_PC_PENDING / owner MY wording remain pending. Preflight Fix and waveform are still separate unimplemented units.
+Q31 / PHONE_PENDING / OWNER_PC_PENDING / owner MY wording remain pending. At this task-3 commit-time checkpoint, Preflight Fix and waveform were separate unimplemented units; see the later task-4 checkpoint below.
 
 Initial task-3 compilation-only attempt failed before any tests: new test scaffolding used an incomplete Output constructor and an inferred heterogeneous parameter-array type. Corrected with existing RenderPresets.preview and explicit Array<Any>,without changing assertions,windows or production engine. Failed log/source retained; not a test pass.
 
 Focused attempt2 ran50 tests:41passed/9failed/0errors/skips;all pre-existing cases passed,including actualVLC and12cold starts. Seven new matrix cases exposed a real UI guard bug: a same-value preset save advances Project.updatedAt without changing RecapUiState,so a child subscribed only to that state retained a stale full-project callback. It now also observes the existing open-project flow,retains the folder/full-snapshot guard,and avoids redundant same-value preset saves. A no-op selection has a project-byte-identity assertion. The other two new-test failures were an off-by-one ASS-column parser (now uses the existing named Format header) and a new fixture assumption that1500ms had captions (QA FIRST is[200,1200),now tested at its700ms interior). Real active-cue/ffmpeg-burn assertions remain,and cross-look comparison is strengthened to decoded ARGB pixels. All failed source/logs remain in handoff;no original assertion,test window or engine changed.
 
 Focused attempt3 passed50/50,0failures/errors/skips (9XML suites),2m23s after separate compilation prep. It covers the14new cases plus unchanged Style/caption-language and actualVLC regressions;all12cold trials pass. This is a focused pre-commit run,not the final-head full/CI gate. Five representative full-window UI captures (412EN1,412MY2,360MY2,840MY2fallback,1440EN1),all four bundled native caption looks and four real ffmpeg Exact Frames were individually reviewed. Native captions contain actual Burmese ink;the Exact Frame fixture's caption is FIRST at700ms,distinct from its existing QA Burmese TEXT layer. No new universal native/export pixel equivalence,MY export-font acceptance or owner approval is claimed.840/font2 fallback remains dense and scrollable.
+
+
+### Final measured caption checkpoint (PR195)
+
+Exact caption head `aad3f860fe9445fc4ac17e0c18f3fffbf094d847`: clean fresh-clone unfiltered full1490/1490 passed,0 failures/errors/skips,242 suites; all six CI44315179235 jobs succeeded. Dedicated actualVLC8/8,0 skips,12/12 cold starts. Linux7/Windows6 prerequisite skips are explicit,not live passes. Existing XL/chunking,AUTO outline,Bold omission,transient Custom and owner MY/export-font limitations remain. This measured result supersedes only the caption gate-pending prose,not its failures or device/owner acceptance.
+
+## Preflight Fix — separate task 4 (brief §6.07/§7.4; commit-time checkpoint)
+
+Only the existing core `PreflightCheck` report supplies rows/severity/count/destination. No new free-space,voice,caption,rights,ETA or approval policy is inferred from the broader studio-v2 wish list. Preserve all existing export controls,gates,Exact Frame,Publish Kit,history and testTags.
+
+| Core Item.fix | Native destination / limitation |
+| --- | --- |
+| Voice | RecapStep.VOICE; current UNVOICED,STALE,RUNS_ON aggregate warnings |
+| Script | RecapStep.STORY; explicit Item contract,not emitted by current checks |
+| null / unknown | Report only; no fake enabled action or message parsing |
+
+The report contains no block IDs. Open the exact native step only; do not select a guessed block or promise exact-block navigation. Visible localized Fix buttons use shared AfButton (minimum48dp),new stable preflight tags and real scrolling/pointer input. The production AppShell callback uses the same transient `v2PreflightFix` helper as the routing test. It never saves,approves,regenerates,speaks or renders. Back follows ordinary native previous-step semantics,not an invented Export return stack. Native callers without a router remain read-only; Classic behavior is unchanged.
+
+Click-time guards recheck the captured folder/full Project snapshot,the current model folder/report item and render-busy status. No stale A callback may route B,even with identical aggregate findings. Busy controls are disabled and the helper also rejects an obsolete callback. No schema/engine/WorkflowRules/core/media/dependency/config/workflow change.
+
+Required verification: explicit core mapping (including unknown/null/Script),real native Voice destinations for all3 current warnings,unchanged report/render gates/full project trees,project-switch and stale-report isolation,busy/no-router behavior,ordinary visible Back,and the existing412/840 × EN/MY ×1/1.3/2 × bundled/fallback matrix plus360 and1440. RUNS_ON duration metadata is synthetic report data,not audio-playback proof. Preserve every existing test/assertion/window; require actual VLC/ffmpeg regressions and review real screenshots (concept07 Export → concept03 Voice). WIP import was corrected before any compilation. Focused/fresh-head full/all-six CI outcomes must be measured in the separate Draft PR/handoff,not assumed from this document.
+
+The unchanged base branch's later CI44319788706 at aad completed FAILURE despite earlier green44315179235 at that SHA. Desktop-playback prerequisite apt failed/timed out all3 attempts; real decoder tests never started,no JUnit XML existed,and playback artifact upload failed for missing files. Five other jobs succeeded. Underlying apt diagnostics are absent from annotations,so no package/network root cause is asserted. It is not a CI test of the uncommitted Preflight WIP. Earlier PR194 native failures and later apt/ffmpeg setup failures remain in their historical paragraphs/PRs/handoffs.
+
+| Key | EN | MY (owner wording review pending) |
+| --- | --- | --- |
+| V3_PREFLIGHT_FIX | Fix → {step} | ပြင်ရန် → {step} |
+
+Q31 / PHONE_PENDING / OWNER_PC_PENDING / owner MY wording remain pending. Selected-take waveform still uses the duration bar; its separate stacked Draft PR cannot begin until this unit's exact-head fresh-full and all-six/native CI gates pass. No APK/EXE delivery.
+
+Pre-commit attempt1 FAILED at compilation: new test setup tried copying RecapV2.movieVolume (a getter,not a constructor field). Corrected to existing audio.copy(movieVolume=...),without changing the model or removing assertions.0 tests ran; source/log retained. Focused attempt2 PASSED77/77,0 failures/errors/skips,10 XML suites in3m11s after isolated compilation. Includes27 new UI matrix cells,the mapping/busy/isolation tests and unchanged selected Export/shell/actualVLC tests;12/12 real cold starts.162 Preflight PNGs were generated.13 representative full-window PNGs were individually reviewed,not all162;360/412MY2 and840MY2fallback Fix targets remain visible above the measured bar,1440 shows the actual step with no guessed block. Dense large-font Voice/Export content needs ordinary scrolling. This is focused evidence,not exact-head full/CI or owner/device acceptance. Final remote gates are measured in the Draft PR/handoff after commit.
