@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.toAwtImage
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -45,7 +46,14 @@ class OnVideoTimelinePlaybackRuntimeTest {
                     StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat()) { StudioRecapScreen(model, RecapStep.STYLE, width.toFloat(), {}, RecapNavigation({}, {}, {})) }
                 } }
                 mainClock.autoAdvance = false
-                fun await(condition: () -> Boolean) = waitUntil(timeoutMillis = 20_000) { mainClock.advanceTimeByFrame(); condition() }
+                fun await(condition: () -> Boolean) {
+                    try { waitUntil(timeoutMillis = 20_000) { mainClock.advanceTimeByFrame(); condition() } }
+                    catch (failure: Throwable) {
+                        runCatching { ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(evidence, "failure.png")) }
+                        val tree = runCatching { onRoot().printToString() }.getOrDefault("tree unavailable")
+                        throw AssertionError("on-video $width/${language.code}/font=$font; output=${model.previewSource.currentPosition()}; draft=${model.layerEditor.value()}; ${tree.take(2500)}", failure)
+                    }
+                }
                 fun reach(label: String, preview: Boolean = false, target: () -> SemanticsNodeInteraction): SemanticsNodeInteraction {
                     repeat(24) {
                         mainClock.advanceTimeBy(500)
@@ -55,7 +63,7 @@ class OnVideoTimelinePlaybackRuntimeTest {
                         if (y >= viewport.top - .5f && y + node.size.height <= viewport.bottom + .5f) return target().assertIsDisplayed()
                         val above = y < viewport.top
                         onNodeWithTag(container).performTouchInput {
-                            swipe(Offset(width * .5f, height * if (above) .25f else .75f), Offset(width * .5f, height * if (above) .75f else .25f), 250)
+                            swipe(Offset(center.x, this.height * if (above) .25f else .75f), Offset(center.x, this.height * if (above) .75f else .25f), 250)
                         }
                     }
                     error("real scrolling could not reach $label")
@@ -67,10 +75,16 @@ class OnVideoTimelinePlaybackRuntimeTest {
                 click("layer-edit-qa-image")
                 await { onAllNodesWithTag("layer-move-handle").fetchSemanticsNodes().size == 1 && model.previewSource.currentPosition() == 1500L }
                 assertFalse(playing()); reach("timeline-video")
+                fun greenSourceFrame(): Boolean {
+                    val pixels = onNodeWithTag("timeline-video").captureToImage().toPixelMap()
+                    val c = pixels[(pixels.width * .1f).toInt(), (pixels.height * .1f).toInt()]
+                    return c.red < .2f && c.green > .7f && c.blue < .2f
+                }
+                await { greenSourceFrame() } // Independent temporal patch: output 1500 -> source 3500, not a priming frame.
                 val frame = onNodeWithTag("timeline-video").fetchSemanticsNode().size
                 val old = model.layerEditor.value()!!.rect
                 onNodeWithTag("layer-move-handle").assertIsDisplayed().performMouseInput {
-                    val p = Offset(width * .25f, height * .25f); moveTo(p); press(); moveTo(p + Offset(-frame.width * .05f, frame.height * .04f)); release()
+                    val p = center; moveTo(p); press(); moveTo(p + Offset(-frame.width * .05f, frame.height * .04f)); release()
                 }
                 mainClock.advanceTimeBy(500)
                 val draft = model.layerEditor.value()!!
@@ -79,7 +93,7 @@ class OnVideoTimelinePlaybackRuntimeTest {
                 onNode(hasText(UiText.EXACT_FRAME.text(language)) and hasClickAction()).assertIsNotEnabled()
                 click("layer-save"); await { model.layerEditor.state.value.draft == null && model.previewSource.currentPosition() == 1500L }
                 assertEquals(draft, h.session.open!!.project.recap!!.layers.single { it.id == draft.id }); assertFalse(playing())
-                reach("timeline-video"); onNodeWithTag("layer-move-handle").assertDoesNotExist()
+                reach("timeline-video"); await { greenSourceFrame() }; onNodeWithTag("layer-move-handle").assertDoesNotExist()
                 ImageIO.write(onNodeWithTag("timeline-video").captureToImage().toAwtImage(), "png", File(evidence, "live-saved-1500.png"))
                 val exact = onNode(hasText(UiText.EXACT_FRAME.text(language)) and hasClickAction())
                 reach("Exact frame", preview = true) { exact }.assertIsEnabled().performMouseInput { click() }
