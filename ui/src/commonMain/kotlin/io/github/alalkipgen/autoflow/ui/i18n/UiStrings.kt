@@ -69,6 +69,7 @@ enum class UiText(val en: String, val my: String?) {
     V3_CAPTION_OUTLINE("Outline", "အနားသတ်"),
     V3_CAPTION_CUSTOM("Custom", "စိတ်ကြိုက်"),
     V3_CAPTION_XL("XL", "XL"),
+    V3_PREFLIGHT_FIX("Fix → {step}", "ပြင်ရန် → {step}"),
     STORY("Story", "ဇာတ်လမ်း"),
     VOICE("Voice", "အသံ"),
     STYLE("Style", "ပုံစံ"),

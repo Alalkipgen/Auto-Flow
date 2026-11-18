@@ -15,7 +15,9 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** UI-only step 5; the shared Export controls still call the same model/queue/compiler. */
 @Composable
-fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp: Float, navigation: RecapNavigation) {
+fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp: Float, navigation: RecapNavigation,
+    onPreflightFix: ((RecapStep) -> Unit)? = null,
+) {
     val state by model.state.collectAsState()
     val open by model.projects.collectAsState()
     val current = open != null && state.projectDir == open?.dir
@@ -30,7 +32,7 @@ fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp
                         AfText(tr(UiText.EXPORT), bold = true)
                         AfText(tr(UiText.SHELL_EXPORT_HINT), muted = true)
                     }
-                }, editor = { ExportScreen(model, studio = true) },
+                }, editor = { ExportScreen(model, studio = true, onPreflightFix = onPreflightFix) },
                     preview = { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { ExactFrameCard(recapModel) } })
             }
             StickyActionBar(
