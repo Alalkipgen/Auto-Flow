@@ -45,7 +45,10 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
             BlockCard(row.index + 1, row.block.clips.joinToString(" · ") {
                 "${RecapModel.clock(it.inMs)}–${RecapModel.clock(it.outMs)}"
             }, row.block.textMy, row.status, { selectedId = row.block.id },
-                Modifier.testTag("block-select-${row.index}"), selected = detail?.block?.id == row.block.id, deltaMs = row.deltaMs) {
+                Modifier.testTag("block-select-${row.index}"), selected = detail?.block?.id == row.block.id, deltaMs = row.deltaMs,
+                thumbnail = { row.block.clips.firstOrNull()?.let {
+                    RecapThumbnail(model, state, it.inMs, it.outMs, "block-thumbnail-${row.block.id}")
+                } }) {
                 TakeVoiceLabel(recap.takeFor(row.block.id), recap.voiceLock)
                 state.takeFiles[row.index]?.takeIf { row.voiced }?.let { file ->
                     AudioPlayButton(file, playing == row.block.id, { playing = if (playing == row.block.id) null else row.block.id })
