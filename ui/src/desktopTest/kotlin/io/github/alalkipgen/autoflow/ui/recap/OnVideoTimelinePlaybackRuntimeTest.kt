@@ -46,12 +46,12 @@ class OnVideoTimelinePlaybackRuntimeTest {
                     StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat()) { StudioRecapScreen(model, RecapStep.STYLE, width.toFloat(), {}, RecapNavigation({}, {}, {})) }
                 } }
                 mainClock.autoAdvance = false
-                fun await(condition: () -> Boolean) {
+                fun await(what: String, condition: () -> Boolean) {
                     try { waitUntil(timeoutMillis = 20_000) { mainClock.advanceTimeByFrame(); condition() } }
                     catch (failure: Throwable) {
                         runCatching { ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(evidence, "failure.png")) }
                         val tree = runCatching { onRoot().printToString() }.getOrDefault("tree unavailable")
-                        throw AssertionError("on-video $width/${language.code}/font=$font; output=${model.previewSource.currentPosition()}; draft=${model.layerEditor.value()}; ${tree.take(2500)}", failure)
+                        throw AssertionError("on-video waiting=$what; $width/${language.code}/font=$font; output=${model.previewSource.currentPosition()}; draft=${model.layerEditor.value()}; ${tree.take(2500)}", failure)
                     }
                 }
                 fun reach(label: String, preview: Boolean = false, target: () -> SemanticsNodeInteraction): SemanticsNodeInteraction {
@@ -69,37 +69,37 @@ class OnVideoTimelinePlaybackRuntimeTest {
                     error("real scrolling could not reach $label")
                 }
                 fun reach(tag: String) = reach(tag, preview = tag.startsWith("timeline-")) { onNodeWithTag(tag) }
-                fun click(tag: String) { reach(tag).performMouseInput { click() }; mainClock.advanceTimeBy(500) }
+                fun click(tag: String) { reach(tag).performMouseInput { moveTo(center); click(); exit() }; mainClock.advanceTimeBy(500) }
                 fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text == UiText.PAUSE.text(language) }
                 val before = h.bytes()
                 click("layer-edit-qa-image")
-                await { onAllNodesWithTag("layer-move-handle").fetchSemanticsNodes().size == 1 && model.previewSource.currentPosition() == 1500L }
+                await("paused layer handle at output 1500") { onAllNodesWithTag("layer-move-handle").fetchSemanticsNodes().size == 1 && model.previewSource.currentPosition() == 1500L }
                 assertFalse(playing()); reach("timeline-video")
                 fun greenSourceFrame(): Boolean {
                     val pixels = onNodeWithTag("timeline-video").captureToImage().toPixelMap()
                     val c = pixels[(pixels.width * .1f).toInt(), (pixels.height * .1f).toInt()]
                     return c.red < .2f && c.green > .7f && c.blue < .2f
                 }
-                await { greenSourceFrame() } // Independent temporal patch: output 1500 -> source 3500, not a priming frame.
+                await("green source 3500 before drag") { greenSourceFrame() } // Independent temporal patch: output 1500 -> source 3500, not a priming frame.
                 val frame = onNodeWithTag("timeline-video").fetchSemanticsNode().size
                 val old = model.layerEditor.value()!!.rect
                 onNodeWithTag("layer-move-handle").assertIsDisplayed().performMouseInput {
-                    val p = center; moveTo(p); press(); moveTo(p + Offset(-frame.width * .05f, frame.height * .04f)); release()
+                    val p = center; moveTo(p); press(); moveTo(p + Offset(-frame.width * .05f, frame.height * .04f)); release(); exit()
                 }
                 mainClock.advanceTimeBy(500)
                 val draft = model.layerEditor.value()!!
                 assertTrue(abs(draft.rect[0] - old[0] + .05f) < .01f); assertEquals(before, h.bytes())
                 ImageIO.write(onNodeWithTag("timeline-video").captureToImage().toAwtImage(), "png", File(evidence, "live-unsaved.png"))
                 onNode(hasText(UiText.EXACT_FRAME.text(language)) and hasClickAction()).assertIsNotEnabled()
-                click("layer-save"); await { model.layerEditor.state.value.draft == null && model.previewSource.currentPosition() == 1500L }
+                click("layer-save"); await("saved draft at output 1500") { model.layerEditor.state.value.draft == null && model.previewSource.currentPosition() == 1500L }
                 assertEquals(draft, h.session.open!!.project.recap!!.layers.single { it.id == draft.id }); assertFalse(playing())
-                reach("timeline-video"); await { greenSourceFrame() }; onNodeWithTag("layer-move-handle").assertDoesNotExist()
+                reach("timeline-video"); await("green source 3500 after Save") { greenSourceFrame() }; onNodeWithTag("layer-move-handle").assertDoesNotExist()
                 ImageIO.write(onNodeWithTag("timeline-video").captureToImage().toAwtImage(), "png", File(evidence, "live-saved-1500.png"))
                 val exact = onNode(hasText(UiText.EXACT_FRAME.text(language)) and hasClickAction())
-                reach("Exact frame", preview = true) { exact }.assertIsEnabled().performMouseInput { click() }
-                await { onAllNodesWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)).fetchSemanticsNodes().size == 1 }
+                reach("Exact frame", preview = true) { exact }.assertIsEnabled().performMouseInput { moveTo(center); click(); exit() }
+                await("saved Exact frame") { onAllNodesWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)).fetchSemanticsNodes().size == 1 }
                 assertEquals(1500L, model.previewSource.currentPosition())
-                val savedBytes = h.bytes(); click("layer-edit-qa-image"); await { model.layerEditor.value() != null }
+                val savedBytes = h.bytes(); click("layer-edit-qa-image"); await("reopened layer draft") { model.layerEditor.value() != null }
                 click("layer-cancel"); assertEquals(savedBytes, h.bytes(), "Discard cannot write project/artifact/output bytes")
                 val dir = File(h.root, "other.autoflow").path
                 val other = (h.store.create(dir, "Other", Mode.MOVIE_RECAP) as CoreResult.Ok).value
