@@ -20,16 +20,23 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Real muted native-v2 timeline playback, decoded once underneath the output-frame Compose compositor. */
 @Composable
-internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false) {
+internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false, editLayers: Boolean = false) {
     val state by model.state.collectAsState()
     val open by model.previewSource.projects.collectAsState()
     val source = remember(state, open) { model.previewSource.resolve(state) } ?: return
     val recap = state.recap ?: return
     val movie = recap.movie ?: return
+    val edit by model.layerEditor.state.collectAsState()
+    val draftRecap = remember(recap, edit, editLayers) { if (editLayers) model.layerEditor.preview(recap) else recap }
+    val imageLayers = draftRecap.layers.filter { it.type == io.github.alalkipgen.autoflow.core.recap.LayerType.IMAGE ||
+        it.type == io.github.alalkipgen.autoflow.core.recap.LayerType.BACKGROUND }.map { Triple(it.type, it.params.mode, it.params.image) }
     val output = RenderPresets.preview(model.outputRatio(recap))
     val startMs = if (blockId == null) 0L else source.timeline.clips.firstOrNull { it.blockId == blockId }?.outputFromMs
     if (startMs == null) { AfText(tr(UiText.V3_BLOCK_PREVIEW_UNAVAILABLE), muted = true); return }
-    key(source.key, source.path, source.timeline, blockId) {
+    // A layer-only Save does not change the timeline. Keep the paused output time for its Exact-frame check,
+    // but still reset on another project/movie/timeline; Source continues guarding every read by revision.
+    val playbackKey: Any = if (editLayers) source.projectDir to open?.project?.id else source.key
+    key(playbackKey, source.path, source.timeline, blockId) {
         val clock = remember { RecapPlaybackClock(source.timeline).apply { if (startMs > 0) seek(startMs) } }
         var refresh by remember { mutableLongStateOf(0) }
         var enabled by remember { mutableStateOf(false) }
@@ -43,11 +50,31 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
         val playing = clock.playing
         val problem = clock.problem
         var frame by remember { mutableStateOf<ImageBitmap?>(null) }
+        // The existing desktop decoder prepares, but does not decode, a never-played paused movie.
+        // Keep the sole OUTPUT clock frozen. Do not pause on the first PLAYING/bitmap pair: both can
+        // precede the queued source seek. Warm the decoder, confirm Pause, then seek the exact target again.
+        // Only a subsequent paused-seek frame may become the editable output; warming pixels stay hidden.
+        var editFramePrime by remember { mutableStateOf<LayerEditFramePrime?>(null) }
         var images by remember { mutableStateOf<Map<String, ImageBitmap>?>(null) }
-        LaunchedEffect(source.key) { images = withContext(Dispatchers.Default) { model.previewSource.images(source, recap) } }
-        LaunchedEffect(outputMs) { model.previewSource.position(source, outputMs) }
+        LaunchedEffect(source.key, imageLayers) {
+            images = null
+            images = withContext(Dispatchers.Default) { model.previewSource.images(source, draftRecap) }
+        }
+        LaunchedEffect(if (editLayers) edit.draft?.token else null, editLayers && model.layerEditor.value() != null) {
+            if (editLayers && model.layerEditor.value() != null) {
+                clock.setPlaying(false)
+                clock.seek(model.layerEditor.value()!!.fromMs)
+                frame = null
+                editFramePrime = LayerEditFramePrime(clock.request)
+                enabled = true
+                refresh++
+            }
+            // Save/Discard during preparation must not expose an old priming frame either.
+            // The same handshake may finish with no draft; project/movie/timeline changes dispose it.
+        }
+        LaunchedEffect(source.key, outputMs) { model.previewSource.position(source, outputMs) }
         // Space (studio project screens only) runs exactly this Play/Pause button action.
-        val togglePlay: () -> Unit = { enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }
+        val togglePlay: () -> Unit = { editFramePrime = null; enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }
         if (studio) PlayPauseShortcut(togglePlay)
         AfCard(tr(UiText.TIMELINE_CARD)) {
             AfText(tr(if (studio) UiText.V3_TIMELINE_SCOPE else UiText.TIMELINE_HINT), muted = true, size = 12.sp)
@@ -57,19 +84,48 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                     contentDescription = previewLabel
                     stateDescription = captions.joinToString("\n") { it.text }.ifBlank { "—" }
                 }) {
-                    MoviePlayback(source.path, command, Modifier.fillMaxSize(), source.vlcDir,
-                        frameSize = IntSize(movie.width, movie.height), onFrame = { frame = it }) { snapshot ->
+                    val decoderCommand = if (editFramePrime?.warming == true) command.copy(playing = true) else command
+                    MoviePlayback(source.path, decoderCommand, Modifier.fillMaxSize(), source.vlcDir,
+                        frameSize = IntSize(movie.width, movie.height), onFrame = {
+                            frame = it
+                            val prime = editFramePrime?.delivered(command)
+                            editFramePrime = prime
+                            if (prime?.acceptsFrame(command) == true) {
+                                if (prime.warming) {
+                                    frame = null
+                                    editFramePrime = prime.pausing()
+                                } else editFramePrime = null
+                            }
+                        }) { snapshot ->
                         val now = kotlin.time.TimeSource.Monotonic.markNow()
                         val elapsed = lastPoll?.elapsedNow()?.inWholeMilliseconds ?: 0
                         lastPoll = now
                         clock.observe(snapshot, elapsed)
+                        val prime = editFramePrime
+                        editFramePrime = when {
+                            prime == null -> null
+                            prime.acceptsEndedFrame(snapshot, frame != null) -> null
+                            prime.isPaused(snapshot) -> {
+                                // Seek only AFTER the native PAUSED event, not concurrently with first Play.
+                                clock.seek(clock.positionMs)
+                                frame = null
+                                prime.seeking(clock.request)
+                            }
+                            else -> prime.observe(snapshot, command).let { observed ->
+                                if (observed.stage == LayerEditFramePrime.Stage.SEEKING && observed.acceptsFrame(command)) null else observed
+                            }
+                        }
                         refresh++
                     }
                     // Opaque cover prevents a transient raw/pre-Looks frame from masquerading as output.
                     Box(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
                         val raw = frame
                         val assets = images
-                        if (raw != null && assets != null) NativeOutputPicture(raw, recap, output, outputMs, captions, assets, Modifier.fillMaxSize())
+                        if (editFramePrime == null && raw != null && assets != null) {
+                            if (editLayers) NativeLayerPreview(raw, recap, output, outputMs, captions, assets, model.layerEditor,
+                                !playing && !state.busy && state.recording == null, Modifier.fillMaxSize())
+                            else NativeOutputPicture(raw, recap, output, outputMs, captions, assets, Modifier.fillMaxSize())
+                        }
                         else AfText(tr(UiText.PREPARING_FRAME), muted = true)
                     }
                 }
@@ -95,7 +151,7 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                 AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), togglePlay, Modifier.testTag("timeline-play"))
                 AfButton(tr(UiText.BACK_FIVE_SECONDS), { clock.seek(clock.positionMs - 5_000); refresh++ }, Modifier.testTag("timeline-back"))
                 AfButton(tr(UiText.FORWARD_FIVE_SECONDS), { clock.seek(clock.positionMs + 5_000); refresh++ }, Modifier.testTag("timeline-forward"))
-                AfButton(tr(UiText.CLOSE_PLAYER), { enabled = false; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"), enabled = enabled)
+                AfButton(tr(UiText.CLOSE_PLAYER), { enabled = false; editFramePrime = null; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"), enabled = enabled)
             }
             if (studio) SectionCard(tr(UiText.V3_DIAGNOSTICS), Modifier.testTag("timeline-diagnostics"), initiallyExpanded = false) {
                 AfText(tr(UiText.TIMELINE_HINT), muted = true, size = 12.sp)

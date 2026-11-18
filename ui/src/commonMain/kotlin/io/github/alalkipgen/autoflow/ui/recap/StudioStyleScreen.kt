@@ -42,8 +42,8 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
         } }
     }
     val preview: @Composable () -> Unit = {
-        RecapTimelinePreview(model, studio = true)
-        ExactFrameCard(model)
+        RecapTimelinePreview(model, studio = true, editLayers = true)
+        ExactFrameCard(model, enabled = !draft)
     }
     key(state.projectDir) {
         Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
