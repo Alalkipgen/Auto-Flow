@@ -109,7 +109,7 @@ class DashboardModelTest {
         val restarted = DashboardModel(fs, store, reloaded, settings, picker, CurrentProject(), projectsHome = home)
         restarted.refresh()
         assertEquals(listOf(b), restarted.state.value.rows.map { it.entry.path })
-        assertEquals(listOf(a to "Grace"), restarted.removedManagedProjects())
+        assertEquals(listOf(RemovedProject(a, before.id, "Grace")), restarted.state.value.removed)
         kotlin.test.assertContentEquals(savedBytes, fs.read(manifest))
         assertTrue(restarted.open(a))
         assertEquals(setOf(a, b), ProjectIndex(fs, indexPath).entries.value.map { it.path }.toSet())
