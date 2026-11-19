@@ -93,7 +93,7 @@ internal val JobRow.identity get() = "${source.name}:${projectDir.orEmpty()}:${j
 fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai: List<AiJob>, language: UiLanguage = UiLanguage.ENGLISH,
     projectNames: Map<String, String> = emptyMap(),
 ): List<JobRow> = buildList {
-    recap?.job?.let { label ->
+    recap?.takeIf { it.runnerJobId == null }?.job?.let { label ->
         add(JobRow(JobSource.RECAP, "Movie Recap — $label", projectName(recap.projectDir), recap.progress,
             canCancel = recap.job == RecapModel.WRITING, projectDir = recap.projectDir, jobId = label))
     }

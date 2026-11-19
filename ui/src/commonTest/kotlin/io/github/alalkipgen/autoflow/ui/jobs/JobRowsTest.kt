@@ -16,6 +16,20 @@ import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 class JobRowsTest {
+    @Test fun runnerProjectionDoesNotInventARunningRowBeforeTheQueueStarts() {
+        val run = AiJob("tx-id", AiJobKind.TRANSCRIBE, "/p/B.autoflow", listOf("request"))
+        val source = RecapUiState(projectDir = run.project, job = RecapModel.TRANSCRIBING, runnerJobId = run.id)
+        assertTrue(jobRows(source, null, null, emptyList()).isEmpty())
+        for (state in listOf(AiJobState.QUEUED, AiJobState.RUNNING)) {
+            val rows = jobRows(source, null, null, listOf(run.copy(state = state)))
+            val row = rows.single()
+            assertEquals(run.id, row.jobId)
+            assertEquals(state.name, row.status.name)
+            assertTrue(row.canCancel)
+            assertEquals(1, jobsBadgeValue(rows))
+        }
+    }
+
     @Test fun needsYouCountsPausedAndFailedBeforeRunningWithoutInventingApprovalRows() {
         val jobs = AiJobState.entries.map { AiJob(it.name, AiJobKind.TTS_ALL, "/p/A.autoflow", listOf("stable-block"), it) }
         val rows = jobRows(null, null, null, jobs)

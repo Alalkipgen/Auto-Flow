@@ -59,6 +59,34 @@ class AiJobStore(
         }
     }
 
+    /** Claim equivalent active inputs atomically, without resubmitting the same request sequence. */
+    fun prepareEnqueue(request: AiJob): Enqueue {
+        fs.createDirectories(jobsDir)
+        return fs.withFolderLock(jobsDir) {
+            val existing = request.inputKey?.let { key ->
+                loadAll().firstOrNull {
+                    it.id != request.id && it.inputKey == key && it.project == request.project && it.kind == request.kind &&
+                        it.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING)
+                }
+            }
+            if (existing != null) return@withFolderLock Enqueue(existing.id, false)
+            val queued = when (val found = read(request.id)) {
+                Read.Missing -> request.copy(state = AiJobState.QUEUED, error = null, initialItemCount = request.initialItemCount ?: request.items.size)
+                is Read.Damaged -> request.copy(id = "${request.id}-r", state = AiJobState.QUEUED, error = null, initialItemCount = request.items.size)
+                is Read.Ok -> when (found.job.state) {
+                    AiJobState.DONE, AiJobState.CANCELLED -> return@withFolderLock Enqueue(request.id, false)
+                    AiJobState.QUEUED, AiJobState.RUNNING -> return@withFolderLock Enqueue(request.id, true)
+                    AiJobState.PAUSED, AiJobState.FAILED -> found.job.copy(state = AiJobState.QUEUED, error = null)
+                }
+            }
+            AiRunTiming.queued(queued.id)
+            write(queued)
+            Enqueue(queued.id, true)
+        }
+    }
+
+    data class Enqueue(val id: String, val shouldLaunch: Boolean)
+
     fun loadAll(): List<AiJob> = ids().mapNotNull { load(it) }.sortedBy { it.id }
 
     /** Ids of job files that cannot be read: left untouched, for the Jobs screen and a bug report. */

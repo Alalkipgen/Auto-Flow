@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.core.recap
 
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.withContext
 
 /**
  * Runs one persisted [AiJob] to its end (audit F11, spec §5) — the one loop behind both the desktop runner and the
@@ -44,8 +45,10 @@ class AiJobExecutor(
             AiJobState.DONE -> return Outcome.Done
             else -> Unit
         }
-        if (processor == null) return end(id, AiJobState.FAILED, NO_PROCESSOR)
-        var job = save(id) { it.copy(state = AiJobState.RUNNING, error = null) } ?: return Outcome.Missing
+        val trace = AiRunTiming(start.timings)
+        AiRunTiming.dequeueMs(id)?.let { trace.add(AiTimingSample(AiTimingStage.QUEUE, it)) }
+        if (processor == null) return end(id, AiJobState.FAILED, NO_PROCESSOR, trace)
+        var job = save(id, trace) { it.copy(state = AiJobState.RUNNING, error = null) } ?: return Outcome.Missing
         if (job.state == AiJobState.CANCELLED) return Outcome.Cancelled
 
         for (item in job.items.toList()) {
@@ -55,27 +58,28 @@ class AiJobExecutor(
             var measured: Long? = null
             try {
                 if (!processor.alreadyDone(job, item)) {
-                    pacer(job).pace()
+                    withContext(trace) { timedAiStage(AiTimingStage.PACER) { pacer(job).pace() } }
                     val t0 = now()
-                    processor.process(job, item)
-                    measured = now() - t0
+                    withContext(trace) { processor.process(job, item) }
+                    measured = (now() - t0).coerceAtLeast(0)
                 }
             } catch (e: CancellationException) {
+                save(id, trace) { it }
                 throw e
             } catch (e: AiItemPaused) {
-                return end(id, AiJobState.PAUSED, e.message)
+                return end(id, AiJobState.PAUSED, e.message, trace)
             } catch (e: Throwable) {
-                return end(id, AiJobState.FAILED, e.message ?: e::class.simpleName)
+                return end(id, AiJobState.FAILED, e.message ?: e::class.simpleName, trace)
             }
-            job = save(id) { it.copy(items = it.items - item, msPerItem = measured ?: it.msPerItem) } ?: return Outcome.Missing
+            job = save(id, trace) { it.copy(items = it.items - item, msPerItem = measured ?: it.msPerItem) } ?: return Outcome.Missing
             if (job.state == AiJobState.CANCELLED) return Outcome.Cancelled
         }
-        return end(id, AiJobState.DONE, null)
+        return end(id, AiJobState.DONE, null, trace)
     }
 
     /** Ends the job in [state] unless it was cancelled meanwhile; DONE also clears the items. */
-    private fun end(id: String, state: AiJobState, error: String?): Outcome {
-        val saved = save(id) {
+    private fun end(id: String, state: AiJobState, error: String?, trace: AiRunTiming): Outcome {
+        val saved = save(id, trace) {
             when (state) {
                 AiJobState.DONE -> it.copy(state = state, items = emptyList(), error = null)
                 else -> it.copy(state = state, error = error)
@@ -90,9 +94,12 @@ class AiJobExecutor(
     }
 
     /** [change] unless the job on disk is CANCELLED (then it is kept, with the items it still lists). */
-    private fun save(id: String, change: (AiJob) -> AiJob): AiJob? =
-        store.update(id) { if (it.state == AiJobState.CANCELLED) it.copy(items = change(it).items) else change(it) }
-            ?.also(onChange)
+    private fun save(id: String, trace: AiRunTiming, change: (AiJob) -> AiJob): AiJob? =
+        store.update(id) {
+            val next = if (it.state == AiJobState.CANCELLED) it.copy(items = change(it).items) else change(it)
+            val samples = trace.samples
+            if (samples == it.timings) next else next.copy(timings = samples, timingsUpdatedAt = now())
+        }?.also(onChange)
 
     companion object {
         const val NO_PROCESSOR = "this app has nothing that can run this job"
