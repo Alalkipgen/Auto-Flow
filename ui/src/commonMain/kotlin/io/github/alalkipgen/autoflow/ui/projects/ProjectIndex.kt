@@ -47,7 +47,7 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
             path = dir,
             name = project.name,
             mode = project.mode,
-            ratio = project.settings.ratio,
+            ratio = project.recap?.visual?.outputRatio ?: project.settings.ratio,
             acceptedShots = project.shots.count { it.acceptedVideo != null },
             totalShots = project.shots.size,
             lastOpenedAt = if (opened || old == null) clock.now() else old.lastOpenedAt,

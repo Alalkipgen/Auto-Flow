@@ -16,3 +16,5 @@ Source audit: Draft #202, `566dd0d93c57d627a51a925122a48b06672adec6`. This is so
 - Use temp projects and unchanged-byte assertions for browse-only/destructive tests. Pending phone steps are in [PHONE-QA](../PHONE-QA.md).
 - Live Gemini is local, opt-in and synthetic only. Check the models list first; on invalid credentials stop and document a redacted reason. No key, prompt or response content in source, logs, CI, public artifacts or this spec. Fakes remain the regular test path.
 - Record fresh remote SHA, test results and artifact identity. Neither this audit nor the attached baseline evidence establishes a pass on the new stack.
+
+F1 synthetic reproduction: the production 540p renderer and `ffprobe` agreed at 16:9 = 960x540, 9:16 = 540x960, 1:1 = 540x540. These are test projects, not the owner’s clip. No renderer settings changed.

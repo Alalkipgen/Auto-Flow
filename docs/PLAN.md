@@ -210,7 +210,7 @@ Baseline: owner-tested `c2cd1e08f3f2ea4717ec05a7b928faaacace9c47`, open Draft #1
 
 Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause audit and acceptance rules](specs/ui-v3-feedback-1.md).
 
-- [ ] F1 Export: persistent, aspect-correct in-app Preview with poster, Replay and fullscreen.
+- [ ] F1 Export: persistent asset, measured layout, poster, Replay and fullscreen implemented; owner-device QA pending.
 - [ ] F2 Watermark: Small/Medium/Large/Custom, legacy default and Brand Kit round trip.
 - [ ] F3 Gemini: runner identity/deduplication and numeric timing instrumentation implemented first; progress, live validation and speed evidence remain open.
 - [ ] F4 Projects: persist Remove first; then guard explicit project-folder deletion.

@@ -84,7 +84,7 @@ val uiModule = module {
     single { ShellModel(get()) }
     // Movie Recap (D-33): a single, so copying / finding scenes keeps going off-screen.
     // Exact frames (D-42): one recap job + still renderer shared by the Recap Style preview and Export.
-    single { io.github.alalkipgen.autoflow.ui.export.RecapFrames(get(), get(), get(), media = getOrNull(), builtInFonts = getOrNull(), lexicon = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon) }
+    single { io.github.alalkipgen.autoflow.ui.export.RecapFrames(get(), get(), get(), media = getOrNull(), builtInFonts = getOrNull(), lexicon = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, previewCacheDir = joinPath(get<AppDirs>().root, "cache/export-preview")) }
     single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull(), frames = getOrNull(), jobs = getOrNull(), lexicons = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, modelConfig = get(), transcriber = getOrNull(), usage = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }, thumbnailCacheDir = joinPath(get<AppDirs>().root, "cache/scene-thumbnails-v1")) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull(), frames = getOrNull()) }
     // Library (5A-7)

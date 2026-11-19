@@ -3,7 +3,7 @@ package io.github.alalkipgen.autoflow.media.playback
 import io.github.alalkipgen.autoflow.media.render.RecapTimeline
 
 /** A seek command changes revision; the decoder must not re-seek on each rendered/polled frame. */
-data class MovieRequest(val sourceMs: Long, val seekRevision: Long, val rate: Float = 1f, val playing: Boolean = false)
+data class MovieRequest(val sourceMs: Long, val seekRevision: Long, val rate: Float = 1f, val playing: Boolean = false, val muted: Boolean = true)
 
 /** One explicit OUTPUT clock; source times are interpreted only inside the active stable block/clip interval. */
 class RecapPlaybackClock(val timeline: RecapTimeline) {
