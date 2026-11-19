@@ -87,11 +87,13 @@ class StudioProjectsLayoutTest(val width: Int, val font: Float, val language: Ui
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png",
                 File(images, "projects-$width-${language.code}-$font-$bundled.png"))
             row.performTouchInput { longClick() }
+            onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             onNodeWithText(UiText.REMOVE_PROJECT_QUESTION.text(language, "name" to f.project.name)).assertIsDisplayed()
             onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             clickText(f.project.name)
             assertEquals(1, opened); assertEquals(f.dir.path, current.state.value!!.dir)
             onNodeWithText(f.project.name).performScrollTo().assertIsDisplayed().performTouchInput { longClick() }
+            onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             onNodeWithText(UiText.REMOVE.text(language)).assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             onNodeWithText(f.project.name).assertDoesNotExist()
             assertTrue(index.entries.value.isEmpty(), "Remove changes only the rebuildable index")
