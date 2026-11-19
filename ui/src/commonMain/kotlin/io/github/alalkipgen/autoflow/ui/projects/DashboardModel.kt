@@ -172,6 +172,16 @@ class DashboardModel(
         }
     }
 
+    /** Android has no arbitrary folder picker. Offer only explicitly hidden, existing managed folders. */
+    fun removedManagedProjects(): List<Pair<String, String>> {
+        val home = projectsHome ?: return emptyList()
+        val managed = index.canonical(home).trimEnd('/')
+        return index.removedPaths().sorted().mapNotNull { dir ->
+            if (dir.substringBeforeLast('/') != managed) return@mapNotNull null
+            (store.open(dir) as? CoreResult.Ok)?.value?.let { dir to it.name }
+        }
+    }
+
     fun remove(dir: String) {
         val r = index.remove(dir)
         done((r as? PlatformResult.Failed)?.reason)
@@ -191,7 +201,7 @@ class DashboardModel(
         }
         for (name in names) {
             val dir = joinPath(home, name)
-            if (!name.endsWith(".autoflow")) continue
+            if (!name.endsWith(".autoflow") || index.isRemoved(dir)) continue
             // Refresh an already-listed recap's shape if older index versions copied only the fallback ratio.
             val existing = index.entries.value.firstOrNull { dir in known && it.path == dir }
             val project = (store.open(dir) as? CoreResult.Ok)?.value ?: continue

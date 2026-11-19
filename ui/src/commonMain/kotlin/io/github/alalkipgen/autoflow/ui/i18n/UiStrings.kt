@@ -1129,6 +1129,7 @@ enum class UiText(val en: String, val my: String?) {
     JOB_REQUEST_UNIT("Request {n} of {total}", "တောင်းဆိုမှု {total} ခုအနက် {n} ခုမြောက်"),
     JOB_WAITING_GEMINI("Waiting for Gemini", "Gemini အဖြေကို စောင့်နေသည်"),
     JOB_RATE_WAIT("Gemini limit reached · retrying in {seconds} s", "Gemini သုံးစွဲမှု ကန့်သတ်ချက် ပြည့်သွားသည် · {seconds} စက္ကန့်အကြာ ထပ်စမ်းမည်"),
+    OPEN_REMOVED_PROJECT("Open removed project…", "စာရင်းမှ ဖယ်ထားသော ပရောဂျက် ဖွင့်မယ်…"),
     WATERMARK_WIDTH("Watermark width", "ရေစာ အကျယ်"),
     WATERMARK_CUSTOM("Custom", "စိတ်ကြိုက်"),
     WATERMARK_WIDTH_VALUE("{n}% of frame width", "ဗီဒီယို ဘောင်အကျယ်၏ {n}%"),

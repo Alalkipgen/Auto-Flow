@@ -21,3 +21,6 @@ F1 synthetic reproduction: the production 540p renderer and `ffprobe` agreed at 
 
 
 F2 final map: **Small 13%**, **Medium 22% (legacy)**, **Large 35%**, **Custom 5–55%** of output width. The 55% ceiling is 2.5× Medium. Standard FFmpeg IMAGE scaling already supports this range; only the watermark's own width is clamped. Brand Kit saves an optional width; old projects and kits still use the exact legacy geometry. See D-75 for inherited anchor/clipping limits.
+
+
+F4 Remove persists a canonical folder exclusion in the recents index. A same-name project in another folder is independent. Passive scans and saves cannot clear an exclusion; explicit Open (including the managed-folder list on Android) or a published restore can. Restore registers the actual restored destination, never the original folder it left untouched.
