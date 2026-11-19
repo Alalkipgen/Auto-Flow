@@ -37,7 +37,7 @@ class AiJobExecutor(
 
     suspend fun run(id: String): Outcome {
         val start = when (val r = store.read(id)) {
-            AiJobStore.Read.Missing -> return Outcome.Missing
+            AiJobStore.Read.Missing, AiJobStore.Read.Removed -> return Outcome.Missing
             is AiJobStore.Read.Damaged -> return Outcome.Damaged(r.reason)
             is AiJobStore.Read.Ok -> r.job
         }

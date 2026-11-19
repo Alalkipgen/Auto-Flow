@@ -48,6 +48,9 @@ class DesktopAiJobRunner internal constructor(
 
     private val _jobs = MutableStateFlow<List<AiJob>>(emptyList())
     override val jobs: StateFlow<List<AiJob>> = _jobs.asStateFlow()
+    private val _history = MutableStateFlow<List<AiJob>>(emptyList())
+    override val history = _history.asStateFlow()
+    override val supportsHistoryRemoval = true
 
     /** Guards [running]. */
     private val mutex = Mutex()
@@ -65,8 +68,18 @@ class DesktopAiJobRunner internal constructor(
         }
     }
 
-    override suspend fun refresh() {
-        _jobs.value = store.loadAll().filter { it.state != AiJobState.CANCELLED }
+    override suspend fun refresh() = publish()
+
+    @Synchronized private fun publish() {
+        val all = store.loadAll()
+        _jobs.value = all.filter { it.state != AiJobState.CANCELLED }
+        _history.value = all
+    }
+
+    override suspend fun removeFinished(id: String, project: String): Boolean {
+        val removed = store.removeFinished(id, project)
+        publish()
+        return removed
     }
 
     /** Starts every job a previous run of the app left QUEUED or RUNNING (not already running here). */
@@ -107,7 +120,7 @@ class DesktopAiJobRunner internal constructor(
         val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 serial.withLock {
-                    AiJobExecutor(store, processor, pacer, onChange = { _jobs.value = store.loadAll().filter { j -> j.state != AiJobState.CANCELLED } }).run(id)
+                    AiJobExecutor(store, processor, pacer, onChange = { publish() }).run(id)
                 }
             } finally {
                 val me = coroutineContext[Job]

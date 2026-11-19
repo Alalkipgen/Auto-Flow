@@ -27,12 +27,13 @@ class JobsActions(
     private val runner: AiJobRunner? = null,
     private val fs: FileSystem? = null,
     private val share: FileShare? = null,
+    private val renderHistory: RenderHistory? = null,
 ) {
     var notice by mutableStateOf<UiNotice?>(null); private set
     var noticeTarget by mutableStateOf<String?>(null); private set
     var saving by mutableStateOf(false); private set
     private var pending by mutableStateOf(setOf<String>())
-    private fun ai(row: JobRow) = runner?.jobs?.value?.firstOrNull { it.id == row.aiJobId && it.project == row.projectDir }
+    private fun ai(row: JobRow) = runner?.history?.value?.firstOrNull { it.id == row.aiJobId && it.project == row.projectDir }
     private fun run(row: JobRow) = render?.state?.value?.run?.takeIf { it.id == row.jobId && it.projectDir == row.projectDir }
     fun canResume(row: JobRow) = !row.projectDeleted && row.aiJobId !in pending && ai(row)?.canResume() == true
     fun canCancel(row: JobRow): Boolean = when (row.source) {
@@ -57,6 +58,26 @@ class JobsActions(
         dispatch(row) {
             try { ai(row)?.takeIf { it.canResume() }?.let { runner?.enqueue(it) } }
             finally { pending = pending - id }
+        }
+    }
+    fun canRemoveFinished(row: JobRow): Boolean = row.finished && row.aiJobId !in pending && when (row.source) {
+        JobSource.AI -> runner?.supportsHistoryRemoval == true && ai(row)?.state?.finished == true
+        JobSource.RENDER -> run(row)?.state?.finished == true && renderHistory != null && row.identity !in renderHistory.removedIds.value
+        else -> false
+    }
+
+    fun removeFinished(row: JobRow) {
+        if (!canRemoveFinished(row)) return
+        dispatch(row) {
+            val removed = when (row.source) {
+                JobSource.AI -> runner?.removeFinished(requireNotNull(row.aiJobId), requireNotNull(row.projectDir)) == true
+                JobSource.RENDER -> if (run(row)?.state?.finished == true) {
+                    withContext(Dispatchers.IO) { requireNotNull(renderHistory).remove(row.identity) }
+                    true
+                } else false
+                else -> false
+            }
+            if (!removed) notice = UiNotice(UiText.JOB_HISTORY_CHANGED)
         }
     }
     fun hasOutput(row: JobRow): Boolean = share != null && row.output != null &&

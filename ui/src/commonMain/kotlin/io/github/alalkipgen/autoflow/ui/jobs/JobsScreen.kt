@@ -13,9 +13,11 @@ import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import io.github.alalkipgen.autoflow.ui.components.JobCard
+import io.github.alalkipgen.autoflow.ui.components.CardRemoval
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import androidx.compose.ui.Modifier
@@ -88,6 +90,9 @@ internal fun AiJob.canResume() = kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRA
     state in listOf(AiJobState.PAUSED, AiJobState.FAILED) && items.isNotEmpty()
 
 internal val JobRow.identity get() = "${source.name}:${projectDir.orEmpty()}:${jobId.orEmpty()}"
+internal val JobRow.finished get() = status == StudioStatus.DONE || status == StudioStatus.FAILED || status == StudioStatus.CANCELLED
+internal fun List<JobRow>.withoutRemovedRenders(removed: Set<String>) =
+    filterNot { it.source == JobSource.RENDER && it.finished && it.identity in removed }
 
 /**
  * Every job the app runs, in one list: Movie Recap steps (scenes, script, voice), the render on the Export screen,
@@ -198,14 +203,16 @@ fun rememberJobRows(): List<JobRow> {
     val runner = remember(koin) { koin.getOrNull<AiJobRunner>() }
     val current = remember(koin) { koin.getOrNull<CurrentProject>() }
     val index = remember(koin) { koin.getOrNull<ProjectIndex>() }
+    val renderHistory = remember(koin) { koin.getOrNull<RenderHistory>() }
     val recap by (recapModel?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val export by (exportModel?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val storyboard by (storyboardJobs?.state?.collectAsState() ?: remember { mutableStateOf(null) })
-    val ai by (runner?.jobs?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
+    val ai by (runner?.history?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
+    val hidden by (renderHistory?.removedIds?.collectAsState() ?: remember { mutableStateOf(emptySet()) })
     val open by (current?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val entries by (index?.entries?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
     val names = entries.associate { it.path to it.name } + listOfNotNull(open?.let { it.dir to it.project.name }).toMap()
-    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names).map { row ->
+    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names).withoutRemovedRenders(hidden).map { row ->
         if (row.projectDir?.let { index?.isDeleted(it, row.projectIdentity) } == true) row.copy(projectDeleted = true) else row
     }
 }
@@ -214,7 +221,7 @@ fun rememberJobRows(): List<JobRow> {
 internal fun rememberJobsActions(scope: CoroutineScope): JobsActions {
     val koin = getKoin()
     return remember(koin, scope) {
-        JobsActions(scope, koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull())
+        JobsActions(scope, koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull())
     }
 }
 
@@ -252,11 +259,12 @@ fun JobsScreen(
             val members = rows.filter { it.group == group }
             if (members.isNotEmpty()) {
                 AfText(tr(group.label), Modifier.testTag("jobs-group-${group.name}"), size = 18.sp, bold = true)
-                members.forEach { row ->
+                members.forEach { row -> key(row.identity) {
                     val key = row.aiJobId ?: row.source.name.lowercase()
                     val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
-                    Column(Modifier.testTag("job-${row.source.name.lowercase()}")) {
-                        JobRunCard(row, Modifier.testTag("job-card-$key")) {
+                    val card: @Composable (Modifier) -> Unit = { context ->
+                        Column(Modifier.testTag("job-${row.source.name.lowercase()}")) {
+                        JobRunCard(row, Modifier.testTag("job-card-$key").then(context)) {
                             if (row.failed) row.detail?.let { AfText(it, color = AutoFlowColors.Failed) }
                             if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %") }
                             WrapRow {
@@ -278,8 +286,13 @@ fun JobsScreen(
                             feedback?.let { AfText(it, Modifier.testTag("job-notice-$key"),
                                 color = if (!external && live.notice?.key == UiText.EXPORT_GALLERY_SAVED) AutoFlowColors.Green else AutoFlowColors.Failed) }
                         }
+                        }
                     }
-                }
+                    if (live.canRemoveFinished(row)) CardRemoval("job-card-$key", UiText.JOB_DELETE_HISTORY,
+                        tr(UiText.JOB_DELETE_HISTORY_CONFIRM), UiText.JOB_DELETE_HISTORY_KEEPS_FILES,
+                        { live.removeFinished(row) }, card = card)
+                    else card(Modifier)
+                } }
             }
         }
     }

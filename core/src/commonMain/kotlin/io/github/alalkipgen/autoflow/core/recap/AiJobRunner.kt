@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.StateFlow
 interface AiJobRunner {
     /** All known jobs, refreshed on every state change. */
     val jobs: StateFlow<List<AiJob>>
+    /** Jobs history includes cancelled records; existing project observers need not see them. */
+    val history: StateFlow<List<AiJob>> get() = jobs
+    val supportsHistoryRemoval: Boolean get() = false
+    suspend fun removeFinished(id: String, project: String): Boolean = false
 
     /**
      * Enqueue a new job (or resume an existing PAUSED / FAILED one with the same [id]).

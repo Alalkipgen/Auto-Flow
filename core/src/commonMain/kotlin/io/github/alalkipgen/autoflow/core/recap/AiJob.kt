@@ -49,7 +49,9 @@ enum class AiJobState {
     @SerialName("PAUSED") PAUSED,
     @SerialName("DONE") DONE,
     @SerialName("FAILED") FAILED,
-    @SerialName("CANCELLED") CANCELLED,
+    @SerialName("CANCELLED") CANCELLED;
+
+    val finished: Boolean get() = this == DONE || this == FAILED || this == CANCELLED
 }
 
 /** ETA in seconds for [job], given remaining items. */

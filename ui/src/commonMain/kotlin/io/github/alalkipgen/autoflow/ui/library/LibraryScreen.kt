@@ -1,7 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.library
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -9,20 +8,14 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.onLongClick
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.library.*
 import io.github.alalkipgen.autoflow.core.recap.LexiconEntry
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
-import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
 
 /** Six existing Library sections. Category chips jump, never filter out or discard another section. */
@@ -69,7 +62,6 @@ fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier, focusLexic
 private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel, newName: String?,
     onName: (String?) -> Unit, modifier: Modifier) {
     val defaultName = tr(UiText.V3_LIBRARY_DEFAULT_KIT)
-    val deleteLabel = tr(UiText.DELETE)
     SectionCard(tr(UiText.LIBRARY_KITS, "size" to items.size), modifier) {
         AfText(My.breakSyllables(tr(UiText.V3_LIBRARY_KIT_SCOPE)), muted = true)
         AfButton(tr(UiText.LIBRARY_SAVE_KIT), { onName(defaultName) })
@@ -83,31 +75,17 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel, newName
         }
         if (items.isEmpty()) AfText(tr(UiText.LIBRARY_KITS_EMPTY), muted = true)
         items.forEach { kit -> key(kit.id) {
-            var confirmDelete by remember { mutableStateOf(false) }
-            if (confirmDelete) Dialog(onDismissRequest = { confirmDelete = false }) {
-                Column(Modifier.fillMaxWidth(0.85f).clip(AutoFlowShapes.Card)
-                    .background(AutoFlowColors.Panel).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    AfText(tr(UiText.LIBRARY_DELETE_KIT, "name" to kit.name), bold = true)
-                    AfText(tr(UiText.LIBRARY_DELETE_HINT), muted = true)
-                    WrapRow {
-                        AfButton(deleteLabel, { model.deleteBrandKit(kit.id); confirmDelete = false },
-                            Modifier.testTag("library-confirm-delete-kit"), kind = ButtonKind.Danger)
-                        AfButton(tr(UiText.CANCEL), { confirmDelete = false })
-                    }
-                }
-            }
-            AfCard(kit.name, Modifier.fillMaxWidth().testTag("library-kit-${kit.id}")
-                .pointerInput(kit.id) { detectTapGestures(onLongPress = { confirmDelete = true }) }
-                .semantics { onLongClick(deleteLabel) { confirmDelete = true; true } }) {
-                if (kit.colours.isNotEmpty()) AfText(tr(UiText.LIBRARY_COLOURS, "joinToString" to kit.colours.joinToString()), muted = true)
-                if (kit.captionStyle != null) AfText(tr(UiText.LIBRARY_CAPTION_SAVED), muted = true)
-                kit.watermark?.let { AfText(tr(UiText.LIBRARY_WATERMARK, "name" to it.substringAfterLast('/')), muted = true) }
-                WrapRow {
-                    AfButton(tr(UiText.LIBRARY_APPLY_CURRENT, "APPLY" to tr(UiText.APPLY)), { model.applyBrandKit(kit.id) },
+            val tag = "library-kit-${kit.id}"
+            val apply = { model.applyBrandKit(kit.id); Unit }
+            CardRemoval(tag, UiText.CARD_DELETE, tr(UiText.LIBRARY_DELETE_KIT, "name" to kit.name),
+                UiText.LIBRARY_DELETE_KEEPS_STYLE, { model.deleteBrandKit(kit.id) }, apply) { context ->
+                AfCard(kit.name, Modifier.testTag(tag).then(context)) {
+                    if (kit.colours.isNotEmpty()) AfText(tr(UiText.LIBRARY_COLOURS, "joinToString" to kit.colours.joinToString()), muted = true)
+                    if (kit.captionStyle != null) AfText(tr(UiText.LIBRARY_CAPTION_SAVED), muted = true)
+                    kit.watermark?.let { AfText(tr(UiText.LIBRARY_WATERMARK, "name" to it.substringAfterLast('/')), muted = true) }
+                    AfButton(tr(UiText.LIBRARY_APPLY_CURRENT, "APPLY" to tr(UiText.APPLY)), apply,
                         Modifier.testTag("library-apply-kit-${kit.id}"))
-                    AfButton(deleteLabel, { confirmDelete = true }, Modifier.testTag("library-delete-kit-${kit.id}"), kind = ButtonKind.Danger)
                 }
-                AfText(tr(UiText.LIBRARY_DELETE_HOLD), muted = true)
             }
         } }
     }
@@ -172,15 +150,21 @@ private fun PresetsSection(items: List<Preset>, model: LibraryModel, name: Strin
             }
         }
         if (items.isEmpty()) AfText(tr(UiText.LIBRARY_PRESETS_EMPTY), muted = true)
-        items.forEach { preset -> AfCard(preset.name) {
-            AfText(preset.kind.name, muted = true)
+        items.forEach { preset -> key(preset.id) {
+            val tag = "library-preset-${preset.id}"
             val supported = preset.kind == PresetKind.CAPTION
-            if (!supported) {
-                StatusChip(StudioStatus.PLANNED)
-                AfText(My.breakSyllables(tr(UiText.V3_LIBRARY_PRESET_UNSUPPORTED)), muted = true)
+            val apply = { model.applyPreset(preset.id) }
+            CardRemoval(tag, UiText.CARD_DELETE, tr(UiText.LIBRARY_DELETE_KIT, "name" to preset.name),
+                UiText.LIBRARY_DELETE_KEEPS_STYLE, { model.deletePreset(preset.id) }, apply.takeIf { supported }) { context ->
+                AfCard(preset.name, Modifier.testTag(tag).then(context)) {
+                    AfText(preset.kind.name, muted = true)
+                    if (!supported) {
+                        StatusChip(StudioStatus.PLANNED)
+                        AfText(My.breakSyllables(tr(UiText.V3_LIBRARY_PRESET_UNSUPPORTED)), muted = true)
+                    }
+                    AfButton(tr(UiText.APPLY), apply, Modifier.testTag("library-apply-preset-${preset.id}"), enabled = supported)
+                }
             }
-            AfButton(tr(UiText.APPLY), { model.applyPreset(preset.id) },
-                Modifier.testTag("library-apply-preset-${preset.id}"), enabled = supported)
         } }
     }
 }

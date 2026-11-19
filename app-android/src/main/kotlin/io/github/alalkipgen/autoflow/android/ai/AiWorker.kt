@@ -43,7 +43,7 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         val jobsDir = File(applicationContext.filesDir, "autoflow/ai-jobs").absolutePath
         val store = AiJobStore(JvmFs(), jobsDir)
         val job = when (val r = store.read(jobId)) {
-            AiJobStore.Read.Missing -> return Result.success()
+            AiJobStore.Read.Missing, AiJobStore.Read.Removed -> return Result.success()
             is AiJobStore.Read.Damaged -> {
                 // Kept on disk for the Jobs screen / a bug report; the chain goes on with the other jobs.
                 android.util.Log.w("AiWorker", r.reason)

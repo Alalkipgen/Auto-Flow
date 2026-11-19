@@ -21,6 +21,7 @@ import io.github.alalkipgen.autoflow.platform.*
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.export.ExportHarness
+import io.github.alalkipgen.autoflow.ui.export.ExportRun
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.projects.*
 import io.github.alalkipgen.autoflow.ui.recap.*
@@ -38,6 +39,7 @@ import kotlin.test.*
 
 private class JobsTestRunner(initial: List<AiJob>) : AiJobRunner {
     override val jobs = MutableStateFlow(initial)
+    override val supportsHistoryRemoval = true
     val resumed = mutableListOf<AiJob>(); val cancelled = mutableListOf<String>()
     override suspend fun enqueue(job: AiJob): String {
         resumed += job
@@ -140,6 +142,10 @@ class StudioJobsLayoutTest(val width: Int, val font: Float, val language: UiLang
                 }
                 onNodeWithTag("job-resume-failed").performScrollTo().assertIsDisplayed()
                 capture("needs-you")
+                onNodeWithTag("job-card-failed").performScrollTo().performTouchInput { longClick(topCenter + androidx.compose.ui.geometry.Offset(0f, 20f)) }
+                onNodeWithTag("job-card-failed-remove-menu").assertIsDisplayed().performMouseInput { click() }
+                onNodeWithTag("job-card-failed-remove-confirm").assertIsDisplayed().assertIsEnabled()
+                onNodeWithTag("job-card-failed-remove-cancel").assertIsDisplayed().performMouseInput { click() }
                 click("job-open-paused")
                 assertEquals(project, h.current.state.value?.dir); assertEquals(RecapStep.VOICE, opened?.recapStep)
                 click("job-resume-paused"); click("job-resume-failed")
@@ -170,6 +176,63 @@ class StudioJobsLayoutTest(val width: Int, val font: Float, val language: UiLang
 
 @OptIn(ExperimentalTestApi::class)
 class StudioJobsWorkflowTest {
+    @Test fun removingFinishedHistoryChangesBadgeAndLeavesProjectAndFilesUntouched() =
+        runDesktopComposeUiTest(width = 412, height = 760) {
+            ExportHarness().use { h ->
+                val path = File(h.root, "history-jobs").path
+                val store = AiJobStore(h.fs, path)
+                val project = h.fixture.dir.path
+                val output = File(h.fixture.dir, "exports/history-preview.mp4").apply {
+                    parentFile.mkdirs()
+                    writeText("disposable previous result")
+                }
+                val before = h.bytes()
+                val failed = AiJob("failed", AiJobKind.TRANSCRIBE, project, listOf("one"), AiJobState.FAILED)
+                val cancelled = failed.copy(id = "cancelled", state = AiJobState.CANCELLED)
+                val paused = failed.copy(id = "paused", state = AiJobState.PAUSED)
+                listOf(failed, cancelled, paused).forEach(store::save)
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val runner = DesktopAiJobRunner(store, scope)
+                val actions = JobsActions(scope, runner = runner)
+                try {
+                    setContent {
+                        val jobs by runner.history.collectAsState()
+                        val rows = jobRows(null, null, null, jobs)
+                        StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), 412f) {
+                            JobsScreen(rows, scope, {}, actions = actions)
+                        }
+                    }
+                    fun hold(id: String) = onNodeWithTag("job-card-$id").performScrollTo().assertIsDisplayed()
+                        .performTouchInput { longClick(topCenter + androidx.compose.ui.geometry.Offset(0f, 20f)) }
+                    fun click(tag: String) = onNodeWithTag(tag).assertIsDisplayed().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { runner.history.value.size == 3 }
+                    assertEquals(-2, jobsBadgeValue(runner.history.value))
+                    hold("paused")
+                    onNodeWithTag("job-card-paused-remove-menu").assertDoesNotExist()
+                    hold("failed")
+                    click("job-card-failed-remove-menu")
+                    click("job-card-failed-remove-confirm")
+                    waitUntil(timeoutMillis = 5_000) { runner.history.value.none { it.id == "failed" } }
+                    assertEquals(-1, jobsBadgeValue(runner.history.value))
+                    onNodeWithTag("job-card-failed").assertDoesNotExist()
+                    hold("cancelled")
+                    click("job-card-cancelled-remove-menu")
+                    click("job-card-cancelled-remove-confirm")
+                    waitUntil(timeoutMillis = 5_000) { runner.history.value.size == 1 }
+                    assertEquals(listOf(paused), AiJobStore(h.fs, path).loadAll())
+                    val history = RenderHistory(h.fs, h.root.path)
+                    val render = ExportRun(project, Quality.PREVIEW, "render-id", output.path, RenderState.Done(output.path, 1, 2, null))
+                    val row = jobRows(null, render, null, emptyList()).single()
+                    history.remove(row.identity)
+                    assertTrue(listOf(row).withoutRemovedRenders(RenderHistory(h.fs, h.root.path).removedIds.value).isEmpty())
+                    assertEquals(listOf(row.copy(status = StudioStatus.RUNNING)),
+                        listOf(row.copy(status = StudioStatus.RUNNING)).withoutRemovedRenders(history.removedIds.value))
+                    assertEquals("disposable previous result", output.readText())
+                    assertEquals(before, h.bytes())
+                } finally { scope.cancel() }
+            }
+        }
+
     @Test fun pointerResumeRetryAndCancelUseTheRealPersistentRunnerWithoutRedoingCompletedItems() =
         runDesktopComposeUiTest(width = 412, height = 760) {
             ExportHarness().use { h ->

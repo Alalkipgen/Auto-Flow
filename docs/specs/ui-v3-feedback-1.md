@@ -27,3 +27,7 @@ F4 Remove persists a canonical folder exclusion in the recents index. A same-nam
 
 
 F4 permanent deletion is offered only for an immediate canonical child of the configured app-managed root, with no symlinks and no immutable artifact or ZIP. Confirmation captures the manifest ID and measured bytes; it is revalidated under the project lock, then the folder is parked atomically before unlinking. Persisted queue checks plus worker leases protect active writes; delayed workers re-check the captured project identity. SAF and desktop folders picked outside a managed root remain Remove-only. Old jobs for a deleted project cannot open or resume it. Deletion tests use disposable folders only.
+
+F5 long-press, secondary click, or the accessibility action opens a context choice and then confirmation. Tap / Apply still copies style. Saved entries have no saved-date field; built-in workflow options are not Library records. Deletion re-reads the selected ID and removes only that saved entry, not shared bytes or anything already copied into a project.
+
+F6 the Jobs-only action is available on Done, Failed and Cancelled AI/render rows. AI history loses its persisted payload and retains only an ID tombstone, preventing a delayed observer or worker from recreating the record. Completed render rows use a separate app-owned dismissal index; the queue, output and Export metadata stay untouched. Existing renders are not newly promoted into a permanent all-renders log. No bulk clear.
