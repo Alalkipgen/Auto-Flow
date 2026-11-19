@@ -30,6 +30,8 @@ class JvmFs internal constructor(
 
     override fun exists(path: String): Boolean = Files.exists(p(path))
 
+    override fun canonicalPath(path: String): String = p(path).toFile().canonicalPath.replace(java.io.File.separatorChar, '/')
+
     override fun createDirectories(path: String) {
         Files.createDirectories(p(path))
     }

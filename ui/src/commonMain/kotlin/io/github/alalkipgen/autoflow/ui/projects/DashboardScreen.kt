@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -62,6 +64,20 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     val creating = if (onCreateModeChange == null) localCreating else createMode
     val setCreating: (Mode?) -> Unit = onCreateModeChange ?: { localCreating = it }
     val compact = LocalCompact.current
+    val removed = remember(state) { model.removedManagedProjects() }
+    var showRemoved by remember { mutableStateOf(false) }
+    if (showRemoved) Dialog(onDismissRequest = { showRemoved = false }) {
+        AfCard(tr(UiText.OPEN_REMOVED_PROJECT)) {
+            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((dir, name) in removed) {
+                    AfButton(My.breakSyllables(name + " · " + dir.substringAfterLast('/')), {
+                        if (model.open(dir)) { showRemoved = false; onOpened() }
+                    })
+                }
+            }
+            AfButton(tr(UiText.CANCEL), { showRemoved = false })
+        }
+    }
     LaunchedEffect(model) { model.refresh() }
     Column(
         modifier.fillMaxSize().background(AutoFlowColors.Background).verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
@@ -88,6 +104,7 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
         creating?.let { mode ->
             NewProjectCard(model, mode, onCancel = { setCreating(null) }, onCreated = { setCreating(null); onOpened() })
         }
+        if (removed.isNotEmpty()) AfButton(My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT)), { showRemoved = true }, Modifier.testTag("projects-open-removed"))
         SectionCard(tr(UiText.HOME_RECENT), Modifier.testTag("projects-recent")) {
             if (state.rows.isEmpty()) {
                 AfText(
