@@ -116,6 +116,7 @@ class DashboardScreenTest {
         var opened = 0
         setContent { DashboardScreen(phone, onOpened = { opened++ }) }
         onNodeWithText("Grace").performScrollTo().performTouchInput { longClick() }
+        onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { click() }
         onNodeWithText("Remove").assertIsDisplayed().performMouseInput { click() }
         onNodeWithText("Grace").assertDoesNotExist()
         runOnIdle { phone.refresh(); assertTrue(phone.state.value.rows.isEmpty()) }

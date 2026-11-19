@@ -2,6 +2,8 @@ package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.media.audio.LoudnessMeasurement
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -24,6 +26,9 @@ data class RenderJob(
     val placeholderFont: String? = null,
     /** Subtitles written as `<outputName>.srt` after a successful render (Movie Recap captions). */
     val srt: String? = null,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val projectIdentity: String? = null,
 ) {
     companion object {
         const val SCHEMA_VERSION = 1
@@ -63,6 +68,8 @@ interface RenderQueue {
     fun observe(id: String): Flow<RenderState>
 
     fun cancel(id: String)
+
+    suspend fun hasPendingProject(key: String, canonical: (String) -> String): Boolean = false
 }
 
 /** PLAN 1F thermal/battery guard: warn (do not block) below 20 % when not charging. */

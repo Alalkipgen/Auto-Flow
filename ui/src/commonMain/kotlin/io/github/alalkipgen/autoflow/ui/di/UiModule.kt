@@ -52,7 +52,17 @@ val uiModule = module {
     single { ProjectStore(get()) }
     single { ProjectIndex(get(), get<AppDirs>().projectsIndex) }
     single { CurrentProject() }
-    factory { DashboardModel(get(), get(), get(), get(), get(), get(), get<AppDirs>().projectsHome, modelConfig = getOrNull()) }
+    factory {
+        val index = get<ProjectIndex>()
+        val recap = { getOrNull<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()?.state?.value }
+        val current = get<CurrentProject>()
+        val storyboard = { getOrNull<StoryboardJobs>()?.state?.value }
+        DashboardModel(get(), get(), index, get(), get(), current, get<AppDirs>().projectsHome, modelConfig = getOrNull(),
+            deletion = getOrNull(), ai = getOrNull(), renders = getOrNull(), foregroundBusy = { key ->
+                recap()?.let { it.projectDir != null && index.canonical(it.projectDir) == key && (it.busy || it.recording != null) } == true ||
+                    (storyboard()?.running != null && current.state.value?.dir?.let(index::canonical) == key)
+            })
+    }
     single { BackupModel(getOrNull(), get(), get(), MainScope(), filePicker = getOrNull(), appDirs = getOrNull(),
         language = { io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     single { ProjectSession(get(), get(), get(), get()) }

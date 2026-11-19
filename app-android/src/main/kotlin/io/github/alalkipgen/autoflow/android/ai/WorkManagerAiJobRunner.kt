@@ -57,6 +57,10 @@ class WorkManagerAiJobRunner internal constructor(
 
     override suspend fun refresh() = publish()
 
+    override fun hasPendingProject(key: String, canonical: (String) -> String) = store.loadAll().any {
+        it.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING) && canonical(it.project) == key
+    }
+
     @Synchronized private fun publish() {
         _jobs.value = store.loadAll().filter { it.state != AiJobState.CANCELLED }
     }

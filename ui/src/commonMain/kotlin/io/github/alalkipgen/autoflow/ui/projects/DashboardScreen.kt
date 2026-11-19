@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
@@ -117,7 +118,8 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             state.rows.forEach { row ->
                 key(row.entry.path) {
                     ProjectRow(row, now, onOpen = { if (model.open(row.entry.path)) onOpened() },
-                        onRemove = { model.remove(row.entry.path) })
+                        onRemove = { model.remove(row.entry.path) }, inspect = { model.inspectDeletion(row.entry.path) },
+                        delete = model::deleteProject)
                 }
             }
         }
@@ -160,10 +162,46 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
 }
 
 @Composable
-private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit) {
-    var confirmDelete by remember(row.entry.path) { mutableStateOf(false) }
-    if (confirmDelete) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { confirmDelete = false }) {
+private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit,
+    inspect: () -> ProjectFolderDeletion.Result, delete: suspend (ProjectFolderDeletion.Target) -> UiText?) {
+    val scope = rememberCoroutineScope()
+    var options by remember { mutableStateOf<ProjectFolderDeletion.Result?>(null) }
+    var target by remember { mutableStateOf<ProjectFolderDeletion.Target?>(null) }
+    var error by remember { mutableStateOf<UiText?>(null) }
+    var deleting by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    options?.let { checked -> Dialog(onDismissRequest = { options = null }) {
+        AfCard(tr(UiText.PROJECT_ACTIONS)) {
+            if (checked is ProjectFolderDeletion.Result.Refused) AfText(My.breakSyllables(tr(checked.reason.label())), muted = true)
+            WrapRow {
+                AfButton(tr(UiText.REMOVE_FROM_LIST), { options = null; confirmRemove = true }, Modifier.testTag("project-remove-action"))
+                if (checked is ProjectFolderDeletion.Result.Ready) AfButton(tr(UiText.PROJECT_DELETE_MENU), {
+                    target = checked.target; options = null; error = null
+                }, Modifier.testTag("project-delete-action"), kind = ButtonKind.Danger)
+                AfButton(tr(UiText.CANCEL), { options = null })
+            }
+        }
+    } }
+    target?.let { selected -> Dialog(onDismissRequest = { if (!deleting) target = null }) {
+        AfCard(My.breakSyllables(tr(UiText.PROJECT_DELETE_TITLE, "name" to selected.name))) {
+            AfText(selected.folder, mono = true)
+            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_BYTES, "n" to selected.bytes)))
+            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_PERMANENT)), color = AutoFlowColors.Failed)
+            error?.let { AfText(My.breakSyllables(tr(it)), color = AutoFlowColors.Failed) }
+            WrapRow {
+                AfButton(tr(UiText.DELETE), {
+                    deleting = true
+                    scope.launch {
+                        try { error = delete(selected); if (error == null) target = null }
+                        finally { deleting = false }
+                    }
+                }, Modifier.testTag("project-delete-confirm"), kind = ButtonKind.Danger, enabled = !deleting)
+                AfButton(tr(UiText.CANCEL), { target = null }, enabled = !deleting)
+            }
+        }
+    } }
+    if (confirmRemove) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { confirmRemove = false }) {
             androidx.compose.foundation.layout.Column(
                 androidx.compose.ui.Modifier
                     .fillMaxWidth(0.85f)
@@ -175,8 +213,8 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
                 AfText(tr(UiText.REMOVE_PROJECT_QUESTION, "name" to (row.entry.name)), bold = true)
                 AfText(tr(UiText.REMOVE_PROJECT_HINT), muted = true)
                 WrapRow {
-                    AfButton(tr(UiText.REMOVE), { onRemove(); confirmDelete = false }, kind = ButtonKind.Danger)
-                    AfButton(tr(UiText.CANCEL), { confirmDelete = false })
+                    AfButton(tr(UiText.REMOVE), { onRemove(); confirmRemove = false }, kind = ButtonKind.Danger)
+                    AfButton(tr(UiText.CANCEL), { confirmRemove = false })
                 }
             }
         }
@@ -188,7 +226,7 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             enabled = !row.missing,
             role = Role.Button,
             onClick = onOpen,
-            onLongClick = { confirmDelete = true },
+            onLongClick = { options = inspect() },
         )
     val mode = if (e.mode == Mode.MUSIC_VIDEO) tr(UiText.MUSIC_VIDEO) else tr(UiText.MOVIE_RECAP)
     val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
