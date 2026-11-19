@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.export
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.io.ProjectWrites
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
@@ -187,17 +188,21 @@ class RecapFrames(
         val runner = tools.runner ?: return Result.Failed(NO_FFMPEG)
         val ffmpeg = tools.ffmpeg() ?: return Result.Failed(NO_FFMPEG)
         val font = font()
-        installFont(open, font)?.let { return Result.Failed(it) }
         val job = job(open, quality, font?.family, "exports/frame", "Exact frame")?.let(extra)
             ?: return Result.Failed("Import the movie and write the script first.")
         return lock.withLock {
-            val ffprobe = tools.ffprobe() ?: ffmpeg
-            when (val r = RenderJobRunner(fs, FfmpegRunner(runner, ffmpeg), MediaProbe(runner, ffprobe)).frame(job, atMs, image)) {
-                is RenderState.Done -> runCatching { fs.read(r.output) }.getOrNull()?.let { Result.Ok(Frame(atMs, r.output, it)) }
-                    ?: Result.Failed("The frame was made but cannot be read.")
-                is RenderState.Failed -> Result.Failed(listOf(r.reason, r.tail.lastOrNull { it.isNotBlank() }.orEmpty()).filter { it.isNotBlank() }.joinToString(": "))
-                else -> Result.Failed("The frame was not made.")
-            }
+            val release = ProjectWrites.awaitWriter(fs.canonicalPath(open.dir))
+            try {
+                if (session.projectAt(open.dir)?.id != open.project.id) return@withLock Result.Failed("Project unavailable")
+                installFont(open, font)?.let { return@withLock Result.Failed(it) }
+                val ffprobe = tools.ffprobe() ?: ffmpeg
+                when (val r = RenderJobRunner(fs, FfmpegRunner(runner, ffmpeg), MediaProbe(runner, ffprobe)).frame(job, atMs, image)) {
+                    is RenderState.Done -> runCatching { fs.read(r.output) }.getOrNull()?.let { Result.Ok(Frame(atMs, r.output, it)) }
+                        ?: Result.Failed("The frame was made but cannot be read.")
+                    is RenderState.Failed -> Result.Failed(listOf(r.reason, r.tail.lastOrNull { it.isNotBlank() }.orEmpty()).filter { it.isNotBlank() }.joinToString(": "))
+                    else -> Result.Failed("The frame was not made.")
+                }
+            } finally { release() }
         }
     }
 

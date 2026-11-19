@@ -30,6 +30,7 @@ private data class ProjectIndexFile(
     val schemaVersion: Int = 1,
     val projects: List<ProjectEntry> = emptyList(),
     val removedPaths: Set<String> = emptySet(),
+    val deletedProjects: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -47,6 +48,16 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
     fun canonical(dir: String): String = runCatching { fs.canonicalPath(dir) }.getOrDefault(dir.trimEnd('/'))
     fun isRemoved(dir: String): Boolean = canonical(dir) in disk.removedPaths
     fun removedPaths(): Set<String> = disk.removedPaths
+    fun isDeleted(dir: String, projectId: String? = null): Boolean {
+        val key = canonical(dir)
+        val deleted = disk.deletedProjects[key] ?: return false
+        return projectId?.let { it == deleted } ?: (key in disk.removedPaths)
+    }
+    fun markDeleted(dir: String, id: String): PlatformResult<Unit> = change { data ->
+        val key = canonical(dir)
+        data.copy(projects = data.projects.filterNot { canonical(it.path) == key }, removedPaths = data.removedPaths + key,
+            deletedProjects = data.deletedProjects + (key to id))
+    }
     val entries: StateFlow<List<ProjectEntry>> = _entries.asStateFlow()
 
     /** Adds or refreshes the row for [dir]; [opened] also moves it to the top. */
@@ -64,7 +75,8 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
             totalShots = project.shots.size,
             lastOpenedAt = if (opened || old == null) clock.now() else old.lastOpenedAt,
         )
-        data.copy(projects = listOf(entry) + data.projects.filterNot { it in prior }, removedPaths = data.removedPaths - identity)
+        data.copy(projects = listOf(entry) + data.projects.filterNot { it in prior }, removedPaths = data.removedPaths - identity,
+            deletedProjects = if (opened && data.deletedProjects[identity] == project.id) data.deletedProjects - identity else data.deletedProjects)
     }
 
     fun remove(dir: String): PlatformResult<Unit> = change { data ->

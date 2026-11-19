@@ -70,6 +70,8 @@ data class JobRow(
     val aiKind: AiJobKind? = null,
     val timedRun: Boolean = false,
     val indeterminate: Boolean = false,
+    val projectDeleted: Boolean = false,
+    val projectIdentity: String? = null,
 )
 
 enum class JobGroup(val label: UiText) {
@@ -137,7 +139,7 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
             JobRow(
                 JobSource.AI, "${aiKindLabel(job.kind, language)} — ${aiStateLabel(job.state, language)}", detail,
                 progress = progress, running = active, failed = job.state == AiJobState.FAILED, canCancel = active, aiJobId = job.id,
-                timedRun = timed, indeterminate = timed && progress == null && job.state == AiJobState.RUNNING,
+                timedRun = timed, indeterminate = timed && progress == null && job.state == AiJobState.RUNNING, projectIdentity = job.projectIdentity,
                 projectDir = job.project, jobId = job.id, resumeCount = job.items.size.takeIf { job.canResume() }, aiKind = job.kind,
                 status = when (job.state) {
                     AiJobState.QUEUED -> StudioStatus.QUEUED; AiJobState.RUNNING -> StudioStatus.RUNNING
@@ -203,7 +205,9 @@ fun rememberJobRows(): List<JobRow> {
     val open by (current?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val entries by (index?.entries?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
     val names = entries.associate { it.path to it.name } + listOfNotNull(open?.let { it.dir to it.project.name }).toMap()
-    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names)
+    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names).map { row ->
+        if (row.projectDir?.let { index?.isDeleted(it, row.projectIdentity) } == true) row.copy(projectDeleted = true) else row
+    }
 }
 
 @Composable
@@ -256,7 +260,8 @@ fun JobsScreen(
                             if (row.failed) row.detail?.let { AfText(it, color = AutoFlowColors.Failed) }
                             if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %") }
                             WrapRow {
-                                AfButton(tr(UiText.OPEN), { onOpen(row) }, Modifier.testTag("job-open-$key"))
+                                if (row.projectDeleted) AfText(My.breakSyllables(tr(UiText.JOB_PROJECT_DELETED)), muted = true)
+                                else AfButton(tr(UiText.OPEN), { onOpen(row) }, Modifier.testTag("job-open-$key"))
                                 row.resumeCount?.takeIf { live.canResume(row) }?.let { n -> AfButton(
                                     if (row.failed) tr(UiText.RETRY) else tr(UiText.V3_RESUME_REMAINING, "n" to n),
                                     { live.resume(row) }, Modifier.testTag("job-resume-$key"), kind = ButtonKind.Primary)

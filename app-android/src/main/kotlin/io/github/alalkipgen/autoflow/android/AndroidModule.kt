@@ -55,6 +55,7 @@ fun androidModule(app: Application) = module {
     single<ToolRunner> { ProcessToolRunner() }
     // PLAN 1F / D-26: renders run one at a time in a WorkManager foreground worker.
     single<RenderQueue> { WorkManagerRenderQueue(app) }
+    single<io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion> { io.github.alalkipgen.autoflow.platform.JvmProjectFolderDeletion() }
     // 5A-5 / D-51: AI jobs (TTS, transcribe, Publish Kit) run on a second unique WorkManager chain "ai".
     single<AiJobRunner> {
         WorkManagerAiJobRunner.of(app).also { runner ->

@@ -34,7 +34,7 @@ class JobsActions(
     private var pending by mutableStateOf(setOf<String>())
     private fun ai(row: JobRow) = runner?.jobs?.value?.firstOrNull { it.id == row.aiJobId && it.project == row.projectDir }
     private fun run(row: JobRow) = render?.state?.value?.run?.takeIf { it.id == row.jobId && it.projectDir == row.projectDir }
-    fun canResume(row: JobRow) = row.aiJobId !in pending && ai(row)?.canResume() == true
+    fun canResume(row: JobRow) = !row.projectDeleted && row.aiJobId !in pending && ai(row)?.canResume() == true
     fun canCancel(row: JobRow): Boolean = when (row.source) {
         JobSource.AI -> ai(row)?.state in listOf(AiJobState.QUEUED, AiJobState.RUNNING)
         JobSource.RECAP -> recap?.state?.value?.let { it.projectDir == row.projectDir && (it.scriptRunId ?: it.job) == row.jobId && it.job == RecapModel.WRITING } == true
@@ -100,6 +100,7 @@ class JobsActions(
 
 /** A row without a project identity opens the chooser, never the unrelated currently open project. */
 fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProject): V2Nav? {
+    if (row.projectDeleted) return null
     val dir = row.projectDir ?: return V2Nav(StudioV2Dest.PROJECTS)
     if (current.state.value?.dir != dir && !dashboard.open(dir)) return null
     val screen = when (row.source) {

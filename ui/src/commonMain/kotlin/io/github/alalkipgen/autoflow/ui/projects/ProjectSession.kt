@@ -5,6 +5,7 @@ import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.io.ProjectWrites
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
@@ -52,10 +53,9 @@ class ProjectSession(
         }
     } ?: ""
 
-    fun writeLyrics(text: String): CoreResult<Unit> {
-        val dir = open?.dir ?: return noProject()
+    fun writeLyrics(text: String): CoreResult<Unit> = withSourceWriter { dir ->
         val path = lyricsPath(dir)
-        return try {
+        try {
             fs.createDirectories(joinPath(dir, SOURCE_DIR))
             fs.writeDurably("$path.tmp", text.encodeToByteArray())
             fs.atomicMove("$path.tmp", path)
@@ -80,17 +80,16 @@ class ProjectSession(
      * with another extension is moved to `.cache/replaced/` so exactly one song stays in `source/` (the app never
      * deletes files).
      */
-    fun importSong(from: String): CoreResult<String> {
-        val dir = open?.dir ?: return noProject()
+    fun importSong(from: String): CoreResult<String> = withSourceWriter { dir ->
         val ext = from.substringAfterLast('.', "").lowercase()
         if (ext !in SONG_EXTENSIONS) {
-            return CoreResult.Err(CoreError.InvalidInput("Not a song file (use ${SONG_EXTENSIONS.joinToString(", ")})"))
+            return@withSourceWriter CoreResult.Err(CoreError.InvalidInput("Not a song file (use ${SONG_EXTENSIONS.joinToString(", ")})"))
         }
         val src = joinPath(dir, SOURCE_DIR)
         val path = joinPath(src, "$SONG_NAME.$ext")
-        return try {
+        try {
             val bytes = fs.read(from)
-            if (bytes.isEmpty()) return CoreResult.Err(CoreError.InvalidInput("The song file is empty"))
+            if (bytes.isEmpty()) return@withSourceWriter CoreResult.Err(CoreError.InvalidInput("The song file is empty"))
             fs.createDirectories(src)
             fs.writeDurably("$path.tmp", bytes)
             val others = fs.list(src).filter { isSongName(it) && it != "$SONG_NAME.$ext" }
@@ -120,16 +119,15 @@ class ProjectSession(
      * Streams the movie at [from] into `source/movie.<ext>` (temp file + atomic rename; D-33: never in memory). Like
      * [importSong], a movie with another extension moves to `.cache/replaced/`. Answers the new path.
      */
-    fun importMovie(from: String): CoreResult<String> {
-        val dir = open?.dir ?: return noProject()
+    fun importMovie(from: String): CoreResult<String> = withSourceWriter { dir ->
         val ext = from.substringAfterLast('.', "").lowercase()
         if (ext !in MOVIE_EXTENSIONS) {
-            return CoreResult.Err(CoreError.InvalidInput("Not a movie file (use ${MOVIE_EXTENSIONS.joinToString(", ")})"))
+            return@withSourceWriter CoreResult.Err(CoreError.InvalidInput("Not a movie file (use ${MOVIE_EXTENSIONS.joinToString(", ")})"))
         }
         val src = joinPath(dir, SOURCE_DIR)
         val path = joinPath(src, "$MOVIE_NAME.$ext")
-        return try {
-            if (fs.size(from) == 0L) return CoreResult.Err(CoreError.InvalidInput("The movie file is empty"))
+        try {
+            if (fs.size(from) == 0L) return@withSourceWriter CoreResult.Err(CoreError.InvalidInput("The movie file is empty"))
             fs.createDirectories(src)
             fs.copyDurably(from, "$path.tmp")
             val others = fs.list(src).filter { isMovieName(it) && it != "$MOVIE_NAME.$ext" }
@@ -156,10 +154,9 @@ class ProjectSession(
     } ?: ""
 
     /** Writes `source/<name>` (temp file + atomic rename). */
-    fun writeSource(name: String, text: String): CoreResult<Unit> {
-        val dir = open?.dir ?: return noProject()
+    fun writeSource(name: String, text: String): CoreResult<Unit> = withSourceWriter { dir ->
         val path = joinPath(joinPath(dir, SOURCE_DIR), name)
-        return try {
+        try {
             fs.createDirectories(joinPath(dir, SOURCE_DIR))
             fs.writeDurably("$path.tmp", text.encodeToByteArray())
             fs.atomicMove("$path.tmp", path)
@@ -167,6 +164,15 @@ class ProjectSession(
         } catch (e: Exception) {
             CoreResult.Err(CoreError.Io(path, e.message ?: e.toString()))
         }
+    }
+
+    private inline fun <T> withSourceWriter(write: (String) -> CoreResult<T>): CoreResult<T> {
+        val target = open ?: return noProject()
+        val release = ProjectWrites.writer(fs.canonicalPath(target.dir)) ?: return noProject()
+        try {
+            if (store.open(target.dir).getOrNull()?.id != target.project.id) return noProject()
+            return write(target.dir)
+        } finally { release() }
     }
 
     /**

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.android.render
 
+import io.github.alalkipgen.autoflow.core.getOrNull
 import android.content.Context
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -65,7 +66,8 @@ class WorkManagerRenderQueue(
         val uuid = UUID.randomUUID()
         val id = uuid.toString()
         try {
-            jobs.write(id, job)
+            val store = io.github.alalkipgen.autoflow.core.store.ProjectStore(io.github.alalkipgen.autoflow.platform.JvmFs())
+            jobs.write(id, job.copy(projectIdentity = store.open(job.workDir).getOrNull()?.id))
         } catch (e: Exception) {
             fail(id, "cannot save the render job: ${e.message}")
             return id
@@ -73,6 +75,7 @@ class WorkManagerRenderQueue(
         pending += id
         work.append(uuid, openActivity) { error ->
             if (error == null) {
+                pending -= id
                 prune()
             } else {
                 jobs.remove(id)
@@ -86,6 +89,12 @@ class WorkManagerRenderQueue(
         val uuid = runCatching { UUID.fromString(id) }.getOrNull() ?: return flowOf(RenderState.Failed(RenderData.UNKNOWN))
         return combine(work.observe(uuid), changes) { state, _ -> merge(id, state) }.distinctUntilChanged().flowOn(Dispatchers.IO)
     }
+
+    override suspend fun hasPendingProject(key: String, canonical: (String) -> String): Boolean =
+        (work.unfinished() + pending).any { id ->
+            if (jobs.isCancelled(id) && !jobs.isRunning(id)) false
+            else runCatching { canonical(jobs.read(id).workDir) == key }.getOrDefault(true)
+        }
 
     override fun cancel(id: String) {
         jobs.cancel(id)

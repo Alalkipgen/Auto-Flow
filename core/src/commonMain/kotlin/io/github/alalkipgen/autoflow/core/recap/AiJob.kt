@@ -26,6 +26,7 @@ data class AiJob(
     val inputKey: String? = null,
     val initialItemCount: Int? = null,
     val savedClips: Int? = null,
+    val projectIdentity: String? = null,
     val timings: List<AiTimingSample> = emptyList(),
     val timingsUpdatedAt: Long? = null,
 )

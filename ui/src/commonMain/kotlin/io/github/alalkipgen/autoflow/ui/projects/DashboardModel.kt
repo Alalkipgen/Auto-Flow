@@ -16,6 +16,11 @@ import io.github.alalkipgen.autoflow.core.recap.RecapMigration
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion.Refusal
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion.Result
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.media.render.RenderQueue
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
@@ -55,6 +60,10 @@ class DashboardModel(
     private val current: CurrentProject,
     val projectsHome: String? = null,
     private val modelConfig: ModelConfig? = null,
+    private val deletion: ProjectFolderDeletion? = null,
+    private val ai: AiJobRunner? = null,
+    private val renders: RenderQueue? = null,
+    private val foregroundBusy: (String) -> Boolean = { false },
 ) {
     private val _state = MutableStateFlow(snapshot(index.problem))
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
@@ -187,6 +196,32 @@ class DashboardModel(
         done((r as? PlatformResult.Failed)?.reason)
     }
 
+    internal fun inspectDeletion(dir: String): Result {
+        val root = projectsHome ?: return Result.Refused(Refusal.UNSUPPORTED)
+        return deletion?.inspect(root, dir) ?: Result.Refused(Refusal.UNSUPPORTED)
+    }
+
+    internal suspend fun deleteProject(target: ProjectFolderDeletion.Target): UiText? {
+        val root = projectsHome ?: return UiText.PROJECT_DELETE_UNSUPPORTED
+        val guard = deletion ?: return UiText.PROJECT_DELETE_UNSUPPORTED
+        val key = index.canonical(target.folder)
+        fun busy() = ai?.hasPendingProject(key, index::canonical) == true || foregroundBusy(key)
+        val renderPending = try { renders?.hasPendingProject(key, index::canonical) == true }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { return UiText.PROJECT_DELETE_BUSY }
+        if (renderPending || busy()) return UiText.PROJECT_DELETE_BUSY
+        return when (val result = guard.delete(root, target, ::busy)) {
+            Result.Deleted -> {
+                if (current.state.value?.let { it.project.id == target.projectId && index.canonical(it.dir) == key } == true) current.set(null)
+                val written = index.markDeleted(target.folder, target.projectId)
+                done((written as? PlatformResult.Failed)?.reason)
+                if (written is PlatformResult.Failed) UiText.PROJECT_DELETE_INDEX_ERROR else null
+            }
+            is Result.Refused -> result.reason.label()
+            is Result.Ready -> UiText.PROJECT_DELETE_FAILED
+        }
+    }
+
     /** Re-checks which folders still exist (e.g. after a USB drive comes back) and lists new ones in [projectsHome]. */
     fun refresh() = done(adoptHomeProjects())
 
@@ -254,4 +289,13 @@ class DashboardModel(
         is CoreError.Corrupt -> message + if (backupAvailable) ". A backup (project.json.bak) exists." else ""
         else -> message
     }
+}
+
+
+internal fun Refusal.label(): UiText = when (this) {
+    Refusal.UNSUPPORTED -> UiText.PROJECT_DELETE_UNSUPPORTED
+    Refusal.PROTECTED_FILES -> UiText.PROJECT_DELETE_PROTECTED
+    Refusal.CHANGED -> UiText.PROJECT_DELETE_CHANGED
+    Refusal.BUSY -> UiText.PROJECT_DELETE_BUSY
+    Refusal.IO -> UiText.PROJECT_DELETE_FAILED
 }

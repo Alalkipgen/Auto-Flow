@@ -24,3 +24,6 @@ F2 final map: **Small 13%**, **Medium 22% (legacy)**, **Large 35%**, **Custom 5â
 
 
 F4 Remove persists a canonical folder exclusion in the recents index. A same-name project in another folder is independent. Passive scans and saves cannot clear an exclusion; explicit Open (including the managed-folder list on Android) or a published restore can. Restore registers the actual restored destination, never the original folder it left untouched.
+
+
+F4 permanent deletion is offered only for an immediate canonical child of the configured app-managed root, with no symlinks and no immutable artifact or ZIP. Confirmation captures the manifest ID and measured bytes; it is revalidated under the project lock, then the folder is parked atomically before unlinking. Persisted queue checks plus worker leases protect active writes; delayed workers re-check the captured project identity. SAF and desktop folders picked outside a managed root remain Remove-only. Old jobs for a deleted project cannot open or resume it. Deletion tests use disposable folders only.

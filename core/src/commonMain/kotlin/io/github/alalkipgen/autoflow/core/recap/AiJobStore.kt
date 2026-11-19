@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.core.recap
 
+import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.CoreJson
@@ -60,7 +61,8 @@ class AiJobStore(
     }
 
     /** Claim equivalent active inputs atomically, without resubmitting the same request sequence. */
-    fun prepareEnqueue(request: AiJob): Enqueue {
+    fun prepareEnqueue(job: AiJob): Enqueue {
+        val request = if (job.projectIdentity == null) job.copy(projectIdentity = projectIdentity(job.project)) else job
         fs.createDirectories(jobsDir)
         return fs.withFolderLock(jobsDir) {
             val existing = request.inputKey?.let { key ->
@@ -86,6 +88,10 @@ class AiJobStore(
             Enqueue(queued.id, true)
         }
     }
+
+    internal fun projectKey(dir: String) = fs.canonicalPath(dir)
+    internal fun projectStillMatches(job: AiJob): Boolean = job.projectIdentity == null || projectIdentity(job.project) == job.projectIdentity
+    private fun projectIdentity(dir: String): String? = io.github.alalkipgen.autoflow.core.store.ProjectStore(fs).open(dir).getOrNull()?.id
 
     data class Enqueue(val id: String, val shouldLaunch: Boolean)
 

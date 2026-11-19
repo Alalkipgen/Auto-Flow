@@ -24,6 +24,10 @@ interface AiJobRunner {
     /** Terminal history from a foreground Script invocation, which is never scheduled as worker work. */
     suspend fun recordForeground(job: AiJob) {}
 
+    fun hasPendingProject(key: String, canonical: (String) -> String): Boolean = jobs.value.any {
+        it.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING) && canonical(it.project) == key
+    }
+
     /** Force a one-shot refresh of [jobs] from disk. */
     suspend fun refresh()
 }

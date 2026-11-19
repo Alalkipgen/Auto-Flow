@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.core.recap
 
+import io.github.alalkipgen.autoflow.core.io.ProjectWrites
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.withContext
 
@@ -45,10 +46,13 @@ class AiJobExecutor(
             AiJobState.DONE -> return Outcome.Done
             else -> Unit
         }
+        val release = ProjectWrites.awaitWriter(store.projectKey(start.project))
         val trace = AiRunTiming(start.timings, id)
         AiRunTiming.dequeueMs(id)?.let { trace.add(AiTimingSample(AiTimingStage.QUEUE, it)) }
         trace.stage(null)
-        return try { execute(id, trace) } finally { trace.clear() }
+        return try {
+            if (store.projectStillMatches(start)) execute(id, trace) else end(id, AiJobState.CANCELLED, null, trace)
+        } finally { trace.clear(); release() }
     }
 
     private suspend fun execute(id: String, trace: AiRunTiming): Outcome {

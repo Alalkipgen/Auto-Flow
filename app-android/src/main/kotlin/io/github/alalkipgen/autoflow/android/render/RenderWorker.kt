@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.android.render
 
+import io.github.alalkipgen.autoflow.core.getOrNull
 import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -61,6 +62,18 @@ class RenderWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     }
 
     private suspend fun render(job: RenderJob, onProgress: (FfmpegProgress.Progress) -> Unit): RenderState {
+        val fs = JvmFs()
+        val release = io.github.alalkipgen.autoflow.core.io.ProjectWrites.awaitWriter(fs.canonicalPath(job.workDir))
+        try {
+            if (job.projectIdentity != null || !fs.exists(job.workDir)) {
+                val current = io.github.alalkipgen.autoflow.core.store.ProjectStore(fs).open(job.workDir).getOrNull()
+                if (current == null || job.projectIdentity?.let { current.id != it } == true) return RenderState.Cancelled
+            }
+            return renderInProject(job, onProgress)
+        } finally { release() }
+    }
+
+    private suspend fun renderInProject(job: RenderJob, onProgress: (FfmpegProgress.Progress) -> Unit): RenderState {
         val tools = AndroidToolLocator(applicationContext.applicationInfo.nativeLibraryDir)
         val ffmpeg = tools.findFfmpeg()
         val ffprobe = tools.findFfprobe()
