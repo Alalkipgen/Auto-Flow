@@ -67,6 +67,7 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         AiJobKind.TRANSCRIBE -> "Transcribing"
         AiJobKind.QUICK_RECAP -> "Quick Recap"
         AiJobKind.PUBLISH_KIT -> "Publish Kit"
+        AiJobKind.SCRIPT -> "Script"
     }
 
     private fun buildForeground(title: String, text: String): ForegroundInfo {

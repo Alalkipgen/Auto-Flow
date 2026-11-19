@@ -88,6 +88,13 @@ class DesktopAiJobRunner internal constructor(
         return id
     }
 
+    override suspend fun recordForeground(job: AiJob) {
+        require(job.kind == io.github.alalkipgen.autoflow.core.recap.AiJobKind.SCRIPT &&
+            job.state !in setOf(AiJobState.QUEUED, AiJobState.RUNNING))
+        store.save(job)
+        refresh()
+    }
+
     override suspend fun cancel(id: String) {
         AiRunTiming.forgetQueue(id)
         store.update(id) { if (it.state == AiJobState.DONE) it else it.copy(state = AiJobState.CANCELLED) }

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
+import io.github.alalkipgen.autoflow.ui.jobs.jobRows
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -67,8 +69,14 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                 val scroll = key(state.projectDir, detail?.block?.id) { rememberScrollState() }
                 Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(14.dp).testTag("story-content"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (state.busy) StatusChip(StudioStatus.RUNNING)
-                    state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
+                    if (state.scriptRunId != null) {
+                        jobRows(state, null, null, emptyList(), LocalUiLanguage.current).firstOrNull()?.let { row ->
+                            JobRunCard(row) { AfButton(tr(UiText.CANCEL), model::cancelScript, kind = ButtonKind.Danger) }
+                        }
+                    } else if (state.busy) {
+                        StatusChip(StudioStatus.RUNNING)
+                        state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
+                    }
                     state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
                         color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
                     gate.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), muted = true) }

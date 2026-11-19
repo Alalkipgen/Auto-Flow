@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.recap
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
+import io.github.alalkipgen.autoflow.ui.jobs.ProjectAiJobCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -223,14 +224,11 @@ internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Re
                 Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
             )
             WrapRow {
-                AfButton(tr(UiText.RETRY), { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
+                AfButton(if (job.state == AiJobState.PAUSED) tr(UiText.V3_RESUME_REMAINING, "n" to job.items.size) else tr(UiText.RETRY), { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
                 AfButton(tr(UiText.CANCEL_JOB), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
             }
         }
-        job != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText(tr(if (job.state == AiJobState.QUEUED) UiText.JOB_QUEUED else UiText.TRANSCRIBING_NEW_RUN), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
-            AfButton(tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
-        }
+        job != null -> ProjectAiJobCard(job, model::cancelTranscribe, Modifier.testTag("transcribe-progress"), Modifier.testTag("transcribe-cancel"))
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(tr(UiText.TRANSCRIBE_OFFER, "todoScenes" to (t.todoScenes)), muted = true, size = 12.sp)
             AfButton(tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)

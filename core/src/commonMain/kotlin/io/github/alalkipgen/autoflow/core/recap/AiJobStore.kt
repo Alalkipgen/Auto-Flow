@@ -71,8 +71,10 @@ class AiJobStore(
             }
             if (existing != null) return@withFolderLock Enqueue(existing.id, false)
             val queued = when (val found = read(request.id)) {
-                Read.Missing -> request.copy(state = AiJobState.QUEUED, error = null, initialItemCount = request.initialItemCount ?: request.items.size)
-                is Read.Damaged -> request.copy(id = "${request.id}-r", state = AiJobState.QUEUED, error = null, initialItemCount = request.items.size)
+                Read.Missing -> request.copy(state = AiJobState.QUEUED, error = null, initialItemCount = request.initialItemCount ?: request.items.size,
+                    savedClips = if (request.kind == AiJobKind.TTS_ALL) 0 else null)
+                is Read.Damaged -> request.copy(id = "${request.id}-r", state = AiJobState.QUEUED, error = null, initialItemCount = request.items.size,
+                    savedClips = if (request.kind == AiJobKind.TTS_ALL) 0 else null)
                 is Read.Ok -> when (found.job.state) {
                     AiJobState.DONE, AiJobState.CANCELLED -> return@withFolderLock Enqueue(request.id, false)
                     AiJobState.QUEUED, AiJobState.RUNNING -> return@withFolderLock Enqueue(request.id, true)

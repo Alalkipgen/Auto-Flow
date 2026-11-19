@@ -212,7 +212,7 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 
 - [ ] F1 Export: persistent asset, measured layout, poster, Replay and fullscreen implemented; owner-device QA pending.
 - [ ] F2 Watermark: Small/Medium/Large/Custom, legacy default and Brand Kit round trip.
-- [ ] F3 Gemini: runner identity/deduplication and numeric timing instrumentation implemented first; progress, live validation and speed evidence remain open.
+- [ ] F3 Gemini: runner identity/deduplication and numeric timing instrumentation and real-unit/elapsed progress implemented; secure live validation and speed evidence remain open.
 - [ ] F4 Projects: persist Remove first; then guard explicit project-folder deletion.
 - [ ] F5 Library: context-only delete saved kits and presets by ID.
 - [ ] F6 Jobs: context-only delete finished records, not their outputs.

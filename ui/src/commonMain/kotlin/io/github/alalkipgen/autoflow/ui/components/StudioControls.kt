@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.components
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -123,11 +124,20 @@ fun BlockCard(number: Int, time: String, script: String, status: StudioStatus, o
 
 @Composable
 fun JobCard(title: String, status: StudioStatus, detail: String, modifier: Modifier = Modifier,
-    progress: Float? = null, actions: @Composable ColumnScope.() -> Unit = {},
+    progress: Float? = null, indeterminate: Boolean = false, actions: @Composable ColumnScope.() -> Unit = {},
 ) {
     AfCard(title, modifier) {
         StatusChip(status)
         AfText(detail, muted = true)
+        if (indeterminate && progress == null) {
+            val position by rememberInfiniteTransition().animateFloat(-.28f, 1f, infiniteRepeatable(tween(1100, easing = LinearEasing)))
+            Canvas(Modifier.fillMaxWidth().height(4.dp).semantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate }) {
+                drawRect(AutoFlowColors.Line)
+                val start = position.coerceIn(0f, 1f) * size.width
+                val end = (position + .28f).coerceIn(0f, 1f) * size.width
+                drawRect(AutoFlowColors.Cyan, Offset(start, 0f), androidx.compose.ui.geometry.Size(end - start, size.height))
+            }
+        }
         progress?.let { p ->
             require(p.isFinite() && p in 0f..1f)
             Box(Modifier.fillMaxWidth().height(4.dp).background(AutoFlowColors.Line).semantics {

@@ -30,6 +30,20 @@ class JobRowsTest {
         }
     }
 
+    @Test fun geminiShowsOnlyCommittedUnitsOrAnIndeterminateWait() {
+        val single = AiJob("single", AiJobKind.TRANSCRIBE, "/p/B.autoflow", listOf("request"), AiJobState.RUNNING, initialItemCount = 1)
+        fun row(job: AiJob) = jobRows(null, null, null, listOf(job)).single()
+        assertTrue(row(single).indeterminate)
+        assertNull(row(single).progress)
+        val multi = row(single.copy(initialItemCount = 3, items = listOf("request", "request-3")))
+        assertEquals(1 / 3.0, multi.progress)
+        assertTrue(multi.detail!!.contains("Request 2 of 3"))
+        val clips = row(single.copy(kind = AiJobKind.TTS_ALL, initialItemCount = 10, savedClips = 3, items = listOf("b8", "b9", "b10")))
+        assertEquals(.3, clips.progress)
+        assertTrue(clips.detail!!.contains("3/10 voice clips saved"))
+        assertFalse(clips.indeterminate)
+    }
+
     @Test fun needsYouCountsPausedAndFailedBeforeRunningWithoutInventingApprovalRows() {
         val jobs = AiJobState.entries.map { AiJob(it.name, AiJobKind.TTS_ALL, "/p/A.autoflow", listOf("stable-block"), it) }
         val rows = jobRows(null, null, null, jobs)
