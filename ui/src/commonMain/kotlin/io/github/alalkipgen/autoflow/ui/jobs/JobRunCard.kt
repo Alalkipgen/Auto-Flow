@@ -60,11 +60,10 @@ internal fun MusicGeminiJobCard(jobs: StoryboardJobs, project: OpenProject?, mod
 internal fun ProjectAiJobCard(job: AiJob, onCancel: () -> Unit, modifier: Modifier = Modifier,
     cancelModifier: Modifier = Modifier, onResume: (() -> Unit)? = null) {
     val row = jobRows(null, null, null, listOf(job), LocalUiLanguage.current).single()
-    JobRunCard(row, modifier) {
+    JobRunCard(row.copy(projectTitle = null), modifier, headerAction = if (row.canCancel) ({
+        AfButton(tr(UiText.CANCEL), onCancel, cancelModifier, kind = ButtonKind.Danger)
+    }) else null) {
         if (row.failed && job.error != null) AfText(job.error.orEmpty(), color = io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors.Failed)
-        WrapRow {
-            if (row.canCancel) AfButton(tr(UiText.CANCEL), onCancel, cancelModifier, kind = ButtonKind.Danger)
-            row.resumeCount?.let { n -> onResume?.let { AfButton(tr(UiText.V3_RESUME_REMAINING, "n" to n), it) } }
-        }
+        row.resumeCount?.let { n -> onResume?.let { AfButton(tr(UiText.V3_RESUME_REMAINING, "n" to n), it) } }
     }
 }

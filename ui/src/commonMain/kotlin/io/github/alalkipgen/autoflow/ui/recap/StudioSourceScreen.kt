@@ -36,6 +36,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 1, tr(UiText.SOURCE), back,
             options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+        state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("source-picks"),
@@ -44,9 +45,11 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                 key(state.projectDir) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp).testTag("source-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (state.busy) StatusChip(StudioStatus.RUNNING)
-                        state.job?.let { AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: it}" +
-                            (state.progress?.let { p -> " ${(p * 100).toInt()} %" } ?: ""), color = AutoFlowColors.Cyan) }
+                        if (state.runnerJobId == null) state.job?.let {
+                            StatusChip(StudioStatus.RUNNING)
+                            AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: it}" +
+                                (state.progress?.let { p -> " ${(p * 100).toInt()} %" } ?: ""), color = AutoFlowColors.Cyan)
+                        }
                         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
                             color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
                         SectionCard(tr(UiText.V3_MOVIE)) {
@@ -86,7 +89,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                             SectionCard(tr(UiText.SUMMARY)) { SourceSummary(model, state) }
                             if (state.transcribe.available) SectionCard(tr(UiText.TRANSCRIBE_SCENES)) {
                                 if (recap.movie?.hasAudio != true) AfText(tr(UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE), muted = true)
-                                else TranscribeSection(model, state, recap)
+                                else TranscribeSection(model, state, recap, pinnedRun = true)
                             }
                             if (!wide) SourcePicks(model, state, recap)
                         }

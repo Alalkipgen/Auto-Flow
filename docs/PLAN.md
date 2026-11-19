@@ -213,7 +213,7 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 - [ ] F1 Export: persistent asset, measured layout, poster, Replay and fullscreen implemented; owner-device QA pending.
 - [ ] F2 Watermark: shared Small/Medium/Large/Custom sizing and Brand Kit round trip implemented; owner-device QA pending.
 - [ ] F3 Gemini: runner identity/deduplication and numeric timing instrumentation and real-unit/elapsed progress implemented; secure live validation and speed evidence remain open.
-- [ ] F3 owner follow-up: show the live Gemini run on the screen that started it (Music Video Storyboard first), with its real stage/elapsed time, Cancel, and matching Home/Jobs state. See the F3 follow-up in the feedback spec.
+- [ ] F3 owner follow-up: inline Gemini run cards implemented for Music Video (Storyboard/regen/lyric timings), Movie Recap (transcribe/script/voice), and Settings tests. Project runs use real stages/elapsed time and the same Home/Jobs identity; owner-device QA pending. See the F3 follow-up in the feedback spec.
 - [ ] F4 owner follow-up: Option B (Remove → Removed projects → Restore or Delete permanently) for new and existing managed projects. See the follow-up in the feedback spec. Exact-head CI and phone QA pending.
 - [ ] F5 Library: context-only deletion of saved kits and presets by ID implemented; phone and TalkBack QA pending.
 - [ ] F6 Jobs: context-only removal of finished history implemented; phone QA pending.

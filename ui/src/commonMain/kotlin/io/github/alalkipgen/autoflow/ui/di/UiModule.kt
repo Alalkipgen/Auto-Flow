@@ -54,12 +54,13 @@ val uiModule = module {
     single { CurrentProject() }
     factory {
         val index = get<ProjectIndex>()
-        val recap = { getOrNull<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()?.state?.value }
+        val recap = { getOrNull<io.github.alalkipgen.autoflow.ui.recap.RecapModel>() }
         val current = get<CurrentProject>()
         val storyboard = { getOrNull<StoryboardJobs>()?.state?.value }
         DashboardModel(get(), get(), index, get(), get(), current, get<AppDirs>().projectsHome, modelConfig = getOrNull(),
             deletion = getOrNull(), ai = getOrNull(), renders = getOrNull(), foregroundBusy = { key ->
-                recap()?.let { it.projectDir != null && index.canonical(it.projectDir) == key && (it.busy || it.recording != null) } == true ||
+                recap()?.foregroundVoiceRuns?.value?.any { index.canonical(it.dir) == key } == true ||
+                    recap()?.state?.value?.let { it.projectDir != null && index.canonical(it.projectDir) == key && (it.busy || it.recording != null) } == true ||
                     (storyboard()?.takeIf { it.running != null }?.let { job ->
                         (job.gemini?.dir ?: current.state.value?.dir)?.let(index::canonical) == key
                     } == true)

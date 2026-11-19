@@ -1,7 +1,5 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
-import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
-import io.github.alalkipgen.autoflow.ui.jobs.jobRows
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -61,6 +59,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 2, tr(UiText.STORY), back,
             options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+        RecapForegroundCards(model, state)
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("story-list"),
@@ -69,22 +68,18 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                 val scroll = key(state.projectDir, detail?.block?.id) { rememberScrollState() }
                 Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(14.dp).testTag("story-content"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (state.scriptRunId != null) {
-                        jobRows(state, null, null, emptyList(), LocalUiLanguage.current).firstOrNull()?.let { row ->
-                            JobRunCard(row) { AfButton(tr(UiText.CANCEL), model::cancelScript, kind = ButtonKind.Danger) }
-                        }
-                    } else if (state.busy) {
+                    if (state.job != null && state.scriptRunId == null) {
                         StatusChip(StudioStatus.RUNNING)
                         state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
                     }
                     state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
                         color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
                     gate.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), muted = true) }
-                    if (wide || (detail == null && rows.isEmpty())) ScriptCard(model, state, recap, studioOptions = true)
+                    if (wide || (detail == null && rows.isEmpty())) ScriptCard(model, state, recap, studioOptions = true, pinnedRun = true)
                     if (detail == null) {
                         if (wide) AfText(tr(UiText.V3_SELECT_BLOCK), muted = true) else {
                             blocks()
-                            if (rows.isNotEmpty()) ScriptCard(model, state, recap, studioOptions = true)
+                            if (rows.isNotEmpty()) ScriptCard(model, state, recap, studioOptions = true, pinnedRun = true)
                         }
                     } else key(detail.block.id) {
                         if (navigation == null) AfButton(tr(UiText.BACK), back)

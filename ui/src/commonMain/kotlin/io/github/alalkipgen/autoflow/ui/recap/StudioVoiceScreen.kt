@@ -1,8 +1,5 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
-import io.github.alalkipgen.autoflow.core.recap.AiJobKind
-import io.github.alalkipgen.autoflow.core.recap.AiJobState
-import io.github.alalkipgen.autoflow.ui.jobs.ProjectAiJobCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -60,10 +57,8 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
     var filter by remember(state.projectDir) { mutableIntStateOf(0) }
     var playing by remember(state.projectDir) { mutableStateOf<String?>(null) }
     val detail = rows.firstOrNull { it.block.id == selected?.id }
-    val jobs by model.runnerJobs.collectAsState()
-    val job = jobs.firstOrNull { it.project == state.projectDir && it.kind == AiJobKind.TTS_ALL &&
-        it.state in setOf(AiJobState.RUNNING, AiJobState.QUEUED, AiJobState.PAUSED, AiJobState.FAILED) }
-    val idle = !state.busy && state.recording == null && job?.state !in setOf(AiJobState.RUNNING, AiJobState.QUEUED)
+    val job = recapSpeakAllJob(model, state)
+    val idle = !state.busy && state.recording == null && job?.active != true
     val gate = RecapRulesV2.canVoice(recap, state.story)
     val remaining = rows.count { !it.voiced && SpokenText.of(it.block, state.lexicon).isNotBlank() }
     val scroll = key(state.projectDir, selected?.id) { rememberScrollState() }
@@ -78,8 +73,8 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
             ?.let { n -> { selected = VoiceSelection(n.block.id) } },
     )
     val status: @Composable () -> Unit = {
-        if (job != null) ProjectAiJobCard(job, { model.cancelVoiceRun(job.id) }, onResume = { model.resumeVoiceRun(job.id) })
-        else if (state.busy) {
+        if (job != null && !job.active) RecapSpeakAllCard(model, job, pin = false)
+        else if (job == null && state.job != null && state.scriptRunId == null) {
             StatusChip(StudioStatus.RUNNING)
             state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
         }
@@ -125,6 +120,8 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
             ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, options = listOf(
                 StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap")))
         }
+        RecapForegroundCards(model, state)
+        job?.takeIf { it.active }?.let { RecapSpeakAllCard(model, it, pin = true) }
         if (wide) Box(Modifier.weight(1f).fillMaxWidth()) {
             // Concept 11: blocks · real preview · inspector (selected block, else the voice lock).
             ProjectPanes(windowWidthDp, list = {
