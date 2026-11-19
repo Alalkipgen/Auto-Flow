@@ -97,6 +97,7 @@ val uiModule = module {
     single { io.github.alalkipgen.autoflow.ui.export.RecapFrames(get(), get(), get(), media = getOrNull(), builtInFonts = getOrNull(), lexicon = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, previewCacheDir = joinPath(get<AppDirs>().root, "cache/export-preview")) }
     single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull(), frames = getOrNull(), jobs = getOrNull(), lexicons = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, modelConfig = get(), transcriber = getOrNull(), usage = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }, thumbnailCacheDir = joinPath(get<AppDirs>().root, "cache/scene-thumbnails-v1")) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull(), frames = getOrNull()) }
+    single { io.github.alalkipgen.autoflow.ui.jobs.RenderHistory(get(), get<AppDirs>().root) }
     // Library (5A-7)
     single { io.github.alalkipgen.autoflow.core.library.LibraryStore(get(), get<AppDirs>().library) }
     single { io.github.alalkipgen.autoflow.ui.library.LibraryModel(get(), get(), MainScope(), fs = get()) }

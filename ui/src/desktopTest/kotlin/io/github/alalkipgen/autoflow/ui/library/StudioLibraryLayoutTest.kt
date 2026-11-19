@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.library
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.text.font.FontFamily
@@ -68,14 +69,17 @@ class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiL
                 collapseKits(); collapseKits()
                 onNodeWithContentDescription(name).performScrollTo().assertTextContains("QA retained draft")
                 clickText(UiText.CANCEL)
-                fun cancelDialog() = onNodeWithText(UiText.CANCEL.text(locale)).assertIsDisplayed()
-                    .performMouseInput { moveTo(center); click(); exit() }
-                click("library-delete-kit-kit")
-                onNodeWithText(UiText.LIBRARY_DELETE_KIT.text(locale, "name" to f.kit.name)).assertIsDisplayed()
-                cancelDialog()
+                val card = onNodeWithTag("library-kit-kit")
+                onNodeWithText(UiText.LIBRARY_DELETE_HOLD.text(locale)).assertDoesNotExist()
+                onNodeWithTag("library-delete-kit-kit").assertDoesNotExist()
+                card.performScrollTo().assertIsDisplayed().performMouseInput { rightClick() }
+                click("library-kit-kit-remove-menu")
+                onNodeWithText(My.breakSyllables(UiText.LIBRARY_DELETE_KIT.text(locale, "name" to f.kit.name))).assertIsDisplayed()
+                click("library-kit-kit-remove-cancel")
                 onNodeWithText(f.kit.name).performScrollTo().assertIsDisplayed().performTouchInput { longClick() }
-                onNodeWithTag("library-confirm-delete-kit").assertIsDisplayed().assertIsEnabled()
-                cancelDialog()
+                click("library-kit-kit-remove-menu")
+                onNodeWithTag("library-kit-kit-remove-confirm").assertIsDisplayed().assertIsEnabled()
+                click("library-kit-kit-remove-cancel")
                 clickText(UiText.LIBRARY_SAVE_PRESET)
                 onNodeWithContentDescription(UiText.LIBRARY_PRESET_NAME.text(locale)).performScrollTo().assertIsDisplayed()
                     .performTextReplacement("QA caption draft")
@@ -118,10 +122,36 @@ class LibraryActionsPointerTest {
             text(UiText.LIBRARY_SAVE_PRESET)
             onNodeWithContentDescription(UiText.LIBRARY_PRESET_NAME.en).performScrollTo().performTextReplacement("QA pointer caption")
             text(UiText.SAVE); assertTrue(f.libraryStore.load().presets.any { it.name == "QA pointer caption" })
-            click("library-delete-kit-kit")
-            onNodeWithTag("library-confirm-delete-kit").assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+            onNodeWithText(f.kit.name).performScrollTo().performTouchInput { longClick() }
+            click("library-kit-kit-remove-menu")
+            click("library-kit-kit-remove-confirm")
             assertFalse(f.libraryStore.load().brandKits.any { it.id == "kit" })
             assertEquals(other, LibraryTestFixture.bytes(File(f.b.dir)))
+        }
+    }
+
+    @Test fun duplicateNamesDeleteByIdAndReopenKeepsAppliedStyle() = runDesktopComposeUiTest(width = 412, height = 760) {
+        LibraryTestFixture().use { f ->
+            val first = f.library.presets.first()
+            f.libraryStore.save(f.library.copy(presets = listOf(first, first.copy(id = "same-name"))))
+            f.model.refresh()
+            setContent { LibraryScreen(f.model) }
+            val card = onNodeWithTag("library-preset-caption").performScrollTo()
+            onAllNodesWithText(first.name).onFirst().performScrollTo().performTouchInput { click() }
+            assertEquals(io.github.alalkipgen.autoflow.core.recap.CaptionSize.S, f.saved(f.a).recap!!.captionStyle.size)
+            val before = LibraryTestFixture.bytes(File(f.a.dir))
+            val bBefore = LibraryTestFixture.bytes(File(f.b.dir))
+            val action = card.fetchSemanticsNode().config[SemanticsActions.CustomActions].single()
+            runOnIdle { assertTrue(action.action()) }
+            fun click(tag: String) = onNodeWithTag(tag).assertIsDisplayed().performMouseInput { click() }
+            click("library-preset-caption-remove-menu")
+            click("library-preset-caption-remove-confirm")
+            onNodeWithTag("library-preset-caption").assertDoesNotExist()
+            onNodeWithTag("library-preset-same-name").assertExists()
+            val reopened = io.github.alalkipgen.autoflow.core.library.LibraryStore(f.fs, f.libraryDir.path)
+            assertEquals(listOf("same-name"), reopened.load().presets.map { it.id })
+            assertEquals(before, LibraryTestFixture.bytes(File(f.a.dir)))
+            assertEquals(bBefore, LibraryTestFixture.bytes(File(f.b.dir)))
         }
     }
 }

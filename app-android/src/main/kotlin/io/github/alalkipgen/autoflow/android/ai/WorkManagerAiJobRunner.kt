@@ -50,6 +50,9 @@ class WorkManagerAiJobRunner internal constructor(
 
     private val _jobs = MutableStateFlow<List<AiJob>>(emptyList())
     override val jobs: StateFlow<List<AiJob>> = _jobs.asStateFlow()
+    private val _history = MutableStateFlow<List<AiJob>>(emptyList())
+    override val history = _history.asStateFlow()
+    override val supportsHistoryRemoval = true
 
     init {
         scope.launch { refresh() }
@@ -62,7 +65,13 @@ class WorkManagerAiJobRunner internal constructor(
     }
 
     @Synchronized private fun publish() {
-        _jobs.value = store.loadAll().filter { it.state != AiJobState.CANCELLED }
+        val all = store.loadAll()
+        _jobs.value = all.filter { it.state != AiJobState.CANCELLED }
+        _history.value = all
+    }
+
+    override suspend fun removeFinished(id: String, project: String): Boolean = withContext(Dispatchers.IO) {
+        store.removeFinished(id, project).also { publish() }
     }
 
     /** Returns the id the job runs under: [job]'s, or `<id>-r` when a damaged file of that id is kept aside. */

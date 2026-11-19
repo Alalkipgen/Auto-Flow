@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 data class LibraryUiState(
     val library: Library = Library(),
@@ -59,7 +61,7 @@ class LibraryModel(
         if (name.isBlank()) return say(UiText.V3_LIBRARY_NAME_REQUIRED)
         val open = session.open ?: return say(UiText.NO_PROJECT_IS_OPEN)
         val recap = open.project.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
-        val id = "bk_${System.currentTimeMillis()}"
+        val id = savedId("bk")
         // Copy logo / watermark files from the project's library folder into the Library's files dir.
         fun copyIfExists(relative: String): String? {
             val src = joinPath(open.dir, relative)
@@ -99,6 +101,7 @@ class LibraryModel(
     /** Delete a Brand Kit by id (D-58). */
     fun deleteBrandKit(id: String) {
         val lib = store.load()
+        if (lib.brandKits.count { it.id == id } != 1) return say(UiText.V3_LIBRARY_NOT_FOUND)
         saveLibrary(lib.copy(brandKits = lib.brandKits.filter { it.id != id }), UiNotice(UiText.V3_LIBRARY_DELETED))
     }
 
@@ -195,7 +198,7 @@ class LibraryModel(
     fun saveCaptionPreset(name: String) {
         if (name.isBlank()) return say(UiText.V3_LIBRARY_NAME_REQUIRED)
         val recap = session.open?.project?.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
-        val id = "cp_${System.currentTimeMillis()}"
+        val id = savedId("cp")
         val value = buildJsonObject {
             put("size", recap.captionStyle.size.name)
             put("colour", recap.captionStyle.colour)
@@ -204,6 +207,13 @@ class LibraryModel(
         val preset = Preset(id = id, name = name, kind = PresetKind.CAPTION, value = value)
         val lib = store.load()
         saveLibrary(lib.copy(presets = lib.presets + preset), UiNotice(UiText.V3_LIBRARY_SAVED, "name" to name))
+    }
+
+    /** Only the saved Library entry goes away, not style already copied into any project. */
+    fun deletePreset(id: String) {
+        val lib = store.load()
+        if (lib.presets.count { it.id == id } != 1) return say(UiText.V3_LIBRARY_NOT_FOUND)
+        saveLibrary(lib.copy(presets = lib.presets.filter { it.id != id }), UiNotice(UiText.LIBRARY_PRESET_DELETED))
     }
 
     /**
@@ -230,6 +240,9 @@ class LibraryModel(
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────────────
+
+    @OptIn(ExperimentalUuidApi::class)
+    private fun savedId(prefix: String) = "${prefix}_${Uuid.random()}"
 
     private fun saveLibrary(library: Library, success: UiNotice) {
         runCatching { store.save(library); refresh() }

@@ -213,9 +213,9 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 - [ ] F1 Export: persistent asset, measured layout, poster, Replay and fullscreen implemented; owner-device QA pending.
 - [ ] F2 Watermark: shared Small/Medium/Large/Custom sizing and Brand Kit round trip implemented; owner-device QA pending.
 - [ ] F3 Gemini: runner identity/deduplication and numeric timing instrumentation and real-unit/elapsed progress implemented; secure live validation and speed evidence remain open.
-- [ ] F4 Projects: durable Remove shipped first in the stack; verify guarded deletion for managed folders without protected files; phone QA pending.
-- [ ] F5 Library: context-only delete saved kits and presets by ID.
-- [ ] F6 Jobs: context-only delete finished records, not their outputs.
+- [ ] F4 Projects: durable Remove and guarded deletion for managed folders without protected files implemented; phone QA pending.
+- [ ] F5 Library: context-only deletion of saved kits and presets by ID implemented; phone and TalkBack QA pending.
+- [ ] F6 Jobs: context-only removal of finished history implemented; phone QA pending.
 
 ## Open Questions
 - Feedback R1: the owner's actual `preview.mp4` was not supplied. Compare a synthetic preview with its project ratio; do not retune the renderer based on a screenshot. Preview results do not currently record the input revision; omit a stale badge for unprovable revisions.
