@@ -200,5 +200,5 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 
 ### Inbox follow-up — delete a shared copy (PHONE_PENDING)
 
-- In a disposable Music Video project, share an MP4 and a JPG from Gallery. In Inbox, use **Delete…** on the MP4; Cancel once, then confirm. Delete the photo as well. At 360/412 dp and English/Burmese large font, check that long filenames and both confirmation buttons are reachable.
-- Share the same file twice and delete just one Inbox copy. If shares are waiting, delete one there without using **Move here**. Leave Inbox, reopen it, then force-stop/relaunch and check that deleted copies stay gone, the other copy still attaches, and the Gallery originals and any already-attached shot media still play.
+- In a disposable Music Video project, share an MP4 and a JPG from Gallery. Inbox must not show inline **Delete…**, and a short tap or **Attach to Shot…** must not open Delete. Long-press the MP4 card → **Delete…** → Cancel once, then repeat and confirm. Repeat on the photo. At 360/412 dp and English/Burmese large font, check the long filename and both confirmation buttons. Check the per-file TalkBack action; desktop equivalent is right-click.
+- Share the same file twice and delete just one Inbox copy. If shares are waiting, long-press one there to delete it without using **Move here**. Leave Inbox, reopen it, then force-stop/relaunch and check that deleted copies stay gone, the other copy still attaches, and the Gallery originals and any already-attached shot media still play.

@@ -21,6 +21,8 @@ After a successful attach, the Inbox copy is moved to `.cache/inbox-done/`; the 
 
 Scope: `InboxModel`, `InboxScreen`, `SharedInbox`, their localized strings, a narrowly scoped deletion capability in `:platform`, desktop regression tests, `PLAN.md` and `PHONE-QA.md`. Follow UI v3 wrapping, touch-target and English/Burmese rules.
 
+**Owner follow-up — context-only action.** PR #215 placed Delete beside Attach (and beside each waiting filename), unlike the Projects, Library and Jobs removal flows. Remove those inline buttons. Holding the file card, right-clicking it on desktop or using its accessibility action opens the shared `CardRemoval` menu; **Delete…** then opens the filename-specific confirmation. A normal tap does not open Delete, and **Attach to Shot…** and **Move here** keep their own actions. Capture the guarded copy at menu entry; don't retarget a changed file while the menu is open. This follow-up only touches `InboxScreen`, the shared `CardRemoval` and its Library/Jobs call sites, Inbox UI regression tests and the plan/spec/phone QA. Storage and deletion rules above stay unchanged.
+
 ## Credit log
 Manual. On IMPORTED, prompt the user: "Credits used? [20] (Fast) / [100] (Quality) / custom / skip". Values default from `config/models.json.flow.creditsHint` and are editable.
 

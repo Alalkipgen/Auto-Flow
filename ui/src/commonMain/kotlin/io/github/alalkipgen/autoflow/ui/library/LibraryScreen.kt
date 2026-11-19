@@ -78,7 +78,7 @@ private fun BrandKitsSection(items: List<BrandKit>, model: LibraryModel, newName
             val tag = "library-kit-${kit.id}"
             val apply = { model.applyBrandKit(kit.id); Unit }
             CardRemoval(tag, UiText.CARD_DELETE, tr(UiText.LIBRARY_DELETE_KIT, "name" to kit.name),
-                UiText.LIBRARY_DELETE_KEEPS_STYLE, { model.deleteBrandKit(kit.id) }, apply) { context ->
+                UiText.LIBRARY_DELETE_KEEPS_STYLE, { { model.deleteBrandKit(kit.id) } }, apply) { context ->
                 AfCard(kit.name, Modifier.testTag(tag).then(context)) {
                     if (kit.colours.isNotEmpty()) AfText(tr(UiText.LIBRARY_COLOURS, "joinToString" to kit.colours.joinToString()), muted = true)
                     if (kit.captionStyle != null) AfText(tr(UiText.LIBRARY_CAPTION_SAVED), muted = true)
@@ -155,7 +155,7 @@ private fun PresetsSection(items: List<Preset>, model: LibraryModel, name: Strin
             val supported = preset.kind == PresetKind.CAPTION
             val apply = { model.applyPreset(preset.id) }
             CardRemoval(tag, UiText.CARD_DELETE, tr(UiText.LIBRARY_DELETE_KIT, "name" to preset.name),
-                UiText.LIBRARY_DELETE_KEEPS_STYLE, { model.deletePreset(preset.id) }, apply.takeIf { supported }) { context ->
+                UiText.LIBRARY_DELETE_KEEPS_STYLE, { { model.deletePreset(preset.id) } }, apply.takeIf { supported }) { context ->
                 AfCard(preset.name, Modifier.testTag(tag).then(context)) {
                     AfText(preset.kind.name, muted = true)
                     if (!supported) {
