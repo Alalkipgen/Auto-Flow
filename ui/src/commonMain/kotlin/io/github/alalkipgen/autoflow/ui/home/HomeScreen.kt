@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.home
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -7,6 +8,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,9 +56,14 @@ fun HomeScreen(
             if (recent.isEmpty()) AfText(My.breakSyllables(tr(UiText.HOME_EMPTY)), muted = true)
             recent.maxByOrNull { it.lastOpenedAt }?.let { entry ->
                 AfCard(tr(UiText.V3_CONTINUE), Modifier.testTag("home-continue")) {
-                    AfText(tr(if (entry.mode == Mode.MOVIE_RECAP) UiText.MOVIE_RECAP else UiText.MUSIC_VIDEO), muted = true)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HomeModeIcon(entry.mode)
+                        AfText(tr(if (entry.mode == Mode.MOVIE_RECAP) UiText.MOVIE_RECAP else UiText.MUSIC_VIDEO), muted = true)
+                    }
                     AfButton(entry.name, { onOpenProject(entry.path) }, Modifier.fillMaxWidth().testTag("recent-${entry.name}"))
-                    if (entry.path == continueProjectPath) continueStep?.let { AfText(My.breakSyllables(it), muted = true) }
+                    if (entry.path == continueProjectPath) continueStep?.let {
+                        AfText(My.breakSyllables(it), Modifier.testTag("home-continue-step"), muted = true)
+                    }
                 }
             }
             AfCard(tr(UiText.HOME_CREATE)) {
@@ -74,6 +83,24 @@ fun HomeScreen(
                 }
                 AfButton(tr(UiText.V3_VIEW_JOBS), onViewJobs, Modifier.testTag("home-view-jobs"))
             }
+        }
+    }
+}
+
+/** A decorative fallback next to the full localized mode label; never depends on the system emoji font. */
+@Composable
+private fun HomeModeIcon(mode: Mode) {
+    Canvas(Modifier.size(20.dp).testTag("home-mode-${mode.name}")) {
+        val u = size.width / 20f
+        if (mode == Mode.MOVIE_RECAP) {
+            drawRoundRect(AutoFlowColors.Purple, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
+            for (x in listOf(5f, 15f)) for (y in listOf(7f, 13f)) {
+                drawCircle(AutoFlowColors.Panel, u, Offset(x * u, y * u))
+            }
+        } else {
+            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 13 * u), Offset(10 * u, 4 * u), 2 * u)
+            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 4 * u), Offset(16 * u, 6 * u), 2 * u)
+            drawOval(AutoFlowColors.Cyan, Offset(4 * u, 11 * u), Size(7 * u, 5 * u))
         }
     }
 }
