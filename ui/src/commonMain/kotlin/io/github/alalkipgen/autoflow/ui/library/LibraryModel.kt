@@ -83,6 +83,7 @@ class LibraryModel(
             },
             font = null, // font is a Settings-level choice; not per-project
             captionStyle = captionJson,
+            watermarkWidthPercent = recap.visual.watermarkWidthPercent,
         )
         val lib = store.load()
         saveLibrary(lib.copy(brandKits = lib.brandKits + kit), UiNotice(UiText.V3_LIBRARY_SAVED, "name" to name))
@@ -128,7 +129,8 @@ class LibraryModel(
                 // The file was just copied into <project>/library/; store a relative path.
                 destPath
             }
-            updatedRecap = updatedRecap.copy(visual = updatedRecap.visual.copy(watermarkFile = wmDestRel))
+            updatedRecap = updatedRecap.copy(visual = updatedRecap.visual.copy(
+                watermarkFile = wmDestRel, watermarkWidthPercent = kit.watermarkWidthPercent))
             if (updatedRecap != recap) {
                 val result = session.save(open.project.copy(recap = updatedRecap))
                 if (result is CoreResult.Err) { say(UiNotice(UiText.SAVE_FAILED, "detail" to result.error.message)); return captionStyle }

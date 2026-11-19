@@ -62,6 +62,10 @@ import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
 import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
+import io.github.alalkipgen.autoflow.core.recap.WatermarkSize
+import io.github.alalkipgen.autoflow.ui.components.AfScrubber
+import io.github.alalkipgen.autoflow.ui.components.OptionChips
+import kotlin.math.roundToInt
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.MoviePlayback
 import io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported
@@ -186,6 +190,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
             }
         }
         if (v.watermarkFile != null) {
+            WatermarkWidth(v.watermarkPercent, idle, model::setWatermarkWidth)
             AfH3(tr(UiText.POSITION))
             WrapRow {
                 WatermarkAnchor.entries.forEach { anchor ->
@@ -516,5 +521,29 @@ private fun ExactFrameContent(model: RecapModel, enabled: Boolean) {
             is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Failed -> AfText(r.reason, color = AutoFlowColors.Amber, size = 12.sp)
             null -> {}
         }
+    }
+}
+
+@Composable
+internal fun WatermarkWidth(value: Int, enabled: Boolean, onSize: (Int) -> Unit) {
+    var editingCustom by remember { mutableStateOf(false) }
+    val sizes = listOf(WatermarkSize.SMALL, WatermarkSize.MEDIUM, WatermarkSize.LARGE)
+    val width = My.breakSyllables(tr(UiText.WATERMARK_WIDTH))
+    val labels = listOf(tr(UiText.SMALL), tr(UiText.MEDIUM), tr(UiText.LARGE), tr(UiText.WATERMARK_CUSTOM)).map(My::breakSyllables)
+    val selection = sizes.indexOf(value).takeIf { it >= 0 && !editingCustom } ?: labels.lastIndex
+    AfH3(width)
+    OptionChips(labels, labels[selection], { label ->
+        if (enabled) {
+            val preset = sizes.getOrNull(labels.indexOf(label))
+            editingCustom = preset == null
+            preset?.let(onSize)
+        }
+    }, Modifier.testTag("watermark-size"))
+    val percent = My.breakSyllables(tr(UiText.WATERMARK_WIDTH_VALUE, "n" to value))
+    AfText(percent, Modifier.testTag("watermark-width-value"), muted = true)
+    if (selection == labels.lastIndex) {
+        val span = WatermarkSize.MAX - WatermarkSize.MIN
+        AfScrubber((value - WatermarkSize.MIN).toFloat() / span, "$width · $percent",
+            { onSize((it * span).roundToInt() + WatermarkSize.MIN) }, Modifier.testTag("watermark-width-slider"), enabled)
     }
 }

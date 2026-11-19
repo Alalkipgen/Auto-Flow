@@ -104,7 +104,7 @@ internal class NativeFramePainter(private val measurer: TextMeasurer, private va
             CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(copy), Size(w.toFloat(), h.toFloat())) { drawImage(result) }
             draw { drawImage(copy, colorFilter = ColorFilter.colorMatrix(ColorMatrix(matrix))) }
         }
-        val watermark = recap.visual.watermarkFile?.let { Layer("watermark", LayerType.IMAGE, recap.visual.watermarkAnchor.rect(), params = LayerParams(image = it, opacity = .75f)) }
+        val watermark = recap.visual.watermarkFile?.let { Layer("watermark", LayerType.IMAGE, recap.visual.watermarkRect(), params = LayerParams(image = it, opacity = .75f)) }
         (recap.layers + listOfNotNull(watermark)).filter { active(it, timeMs) }.forEach { layer ->
             val p = layer.params
             val r = rect(layer.rect, w, h)

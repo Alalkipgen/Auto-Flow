@@ -86,6 +86,18 @@ internal class LibraryTestFixture : AutoCloseable {
 }
 
 class LibraryApplyIsolationTest {
+    @Test fun brandKitPersistsAndAppliesTheCustomWatermarkWidth() = LibraryTestFixture().use { f ->
+        f.model.applyBrandKit("kit")
+        val recap = f.session.open!!.project.recap!!
+        assertIs<CoreResult.Ok<*>>(f.session.save(f.session.open!!.project.copy(recap = recap.copy(visual = recap.visual.copy(watermarkWidthPercent = 47)))))
+        f.model.saveBrandKit("Sized logo")
+        val kit = LibraryStore(f.fs, f.libraryDir.path).load().brandKits.single { it.name == "Sized logo" }
+        assertEquals(47, kit.watermarkWidthPercent)
+        assertIs<CoreResult.Ok<*>>(f.session.save(f.session.open!!.project.copy(recap = recap)))
+        f.model.applyBrandKit(kit.id)
+        assertEquals(47, f.saved(f.a).recap!!.visual.watermarkPercent)
+    }
+
     @Test fun realCopyApplySaveReopenAndDeletingLibraryOriginalsCannotChangeEitherProject() = LibraryTestFixture().use { f ->
         val bBefore = LibraryTestFixture.bytes(File(f.b.dir)); val immutable = LibraryTestFixture.bytes(File(f.a.dir, "artifacts"))
         assertNotEquals(f.a.project.id, f.b.project.id)

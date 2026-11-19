@@ -65,7 +65,7 @@ object RecapRender {
                 Layer(
                     id = "watermark",
                     type = LayerType.IMAGE,
-                    rect = recap.visual.watermarkAnchor.rect(0.22f, 0.14f),
+                    rect = recap.visual.watermarkRect(),
                     fromMs = 0,
                     toMs = null,
                     params = LayerParams(image = wf, opacity = 0.75f),
