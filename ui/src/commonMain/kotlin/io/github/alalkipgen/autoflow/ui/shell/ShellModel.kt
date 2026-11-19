@@ -30,7 +30,12 @@ class ShellModel(private val session: ProjectSession) {
 
     private fun build(open: OpenProject?, language: UiLanguage = UiLanguage.ENGLISH): ShellUiState {
         val p = open?.project ?: return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { UiText.LOCK_NO_PROJECT.text(language) })
-        if (p.mode == Mode.MOVIE_RECAP) return recapShell(p, language)
+        when (p.mode) {
+            Mode.MOVIE_RECAP -> return recapShell(p, language)
+            Mode.MUSIC_VIDEO -> Unit
+            // Not openable in this build (DashboardModel refuses it); lock every screen if it is ever set.
+            Mode.SUBTITLES -> return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { UiText.NEEDS_NEWER_APP.text(language) })
+        }
         val lookup = session.lookup()
         val locks = SCREEN_STEPS.mapNotNull { (screen, step) ->
             Pipeline.gate(p, step, lookup).blockers.firstOrNull()?.let { screen to lockText(it, language) }

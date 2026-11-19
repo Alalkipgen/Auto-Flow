@@ -102,6 +102,13 @@ import org.koin.compose.koinInject
 /** The Movie Recap workspace (docs/specs/recap.md §7): sidebar "Mode → Movie Recap", phone More. */
 const val RECAP_SCREEN = "Movie Recap"
 
+/** First Studio v2 project screen per mode (D-77); null when this build has no screen for it. */
+internal fun v2EntryScreen(mode: io.github.alalkipgen.autoflow.core.model.Mode): String? = when (mode) {
+    io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP -> "Recap"
+    io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO -> "Input"
+    io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> null
+}
+
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
 val SidebarSections: List<Pair<String, List<String>>> = listOf(
     "Project" to listOf(
@@ -159,7 +166,11 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
             when (current) {
                 "Dashboard" -> DashboardScreen(koinInject(), onOpened = {
                     val mode = currentProject.state.value?.project?.mode
-                    screen = if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) RECAP_SCREEN else "Input"
+                    screen = when (mode) {
+                        io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP -> RECAP_SCREEN
+                        io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO, null -> "Input"
+                        io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> "Dashboard" // never opened in this build
+                    }
                 })
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
@@ -341,7 +352,7 @@ private fun StudioV2App(
                             val project = currentProject.state.value
                             val target = resume?.takeIf { project != null && it.belongsTo(project) }
                             if (target != null) nav = target.step.nav()
-                            else openProjectScreen(if (project?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
+                            else project?.project?.mode?.let(::v2EntryScreen)?.let { openProjectScreen(it) }
                         }
                     },
                 )
@@ -351,7 +362,7 @@ private fun StudioV2App(
                 if (screen == null) {
                     DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) }, onOpened = {
                         val mode = currentProject.state.value?.project?.mode
-                        openProjectScreen(if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
+                        mode?.let(::v2EntryScreen)?.let { openProjectScreen(it) }
                     })
                 } else {
                     Column(Modifier.fillMaxSize()) {

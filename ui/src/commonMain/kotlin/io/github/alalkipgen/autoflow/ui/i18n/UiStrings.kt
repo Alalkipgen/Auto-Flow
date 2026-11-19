@@ -1188,6 +1188,7 @@ enum class UiText(val en: String, val my: String?) {
     V3_VOICE_AUDIO("Voice & Audio", "အသံနှင့် Audio"),
     V3_SUBTITLES("Subtitles", "စာတန်းထိုး"),
     V3_TOOLS_IN_PROJECT("Standalone tool planned; existing controls are inside projects.", "သီးသန့် ကိရိယာကို နောက်မှ ထည့်မယ်။ လက်ရှိ ကိရိယာများကို ပရောဂျက်ထဲမှာ သုံးနိုင်တယ်။"),
+    NEEDS_NEWER_APP("Made with a newer Auto Flow. Update to open it.", "Auto Flow ဗားရှင်းအသစ်နဲ့ လုပ်ထားတာပါ။ Update လုပ်ပြီးမှ ဖွင့်ပါ။"),
     V3_VIEW_JOBS("View jobs →", "အလုပ်များ ကြည့်မယ် →"),
     V3_PLAIN_HINT("Straight narration", "ဇာတ်ကြောင်းကို ရိုးရိုး ပြောပြမယ်"),
     V3_EXPANDED("Expanded", "ဖွင့်ထားသည်"),
