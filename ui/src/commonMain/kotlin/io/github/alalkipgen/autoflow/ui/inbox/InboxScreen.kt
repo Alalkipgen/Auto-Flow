@@ -26,16 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.ui.components.AfButton
-import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.CardRemoval
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
@@ -47,7 +45,6 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
     val state by model.state.collectAsState(model.current())
     val project = state.inboxDir to state.projectId
     var scanned by remember(model, project) { mutableStateOf(InboxUiState()) }
-    var pending by remember(model, shared, project) { mutableStateOf<InboxDeleteRequest?>(null) }
     var deletedNotice by remember(model, shared, project) { mutableStateOf<UiNotice?>(null) }
     val sharedState = shared?.state?.collectAsState()?.value
 
@@ -59,18 +56,8 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
         refresh()
         deletedNotice = UiNotice(if (deleted) UiText.INBOX_DELETE_DONE else UiText.INBOX_DELETE_FAILED, "name" to name)
     }
-    fun offerDelete(name: String, request: InboxDeleteRequest?) {
-        if (request == null) deletionResult(name, false) else pending = request
-    }
-
     // Refresh on first composition, when the project changes and when a share arrives (share-sheet import).
     LaunchedEffect(model, shared, project, sharedState?.arrivals) { refresh() }
-    pending?.let { request ->
-        InboxDeleteDialog(request.name, onDismiss = { pending = null }) {
-            pending = null
-            deletionResult(request.name, request.confirm())
-        }
-    }
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
@@ -88,7 +75,9 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
             AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         }
         if (shared != null && sharedState != null) {
-            SharedCard(shared, sharedState, state.projectId != null, ::offerDelete, ::refresh)
+            key(shared, project) {
+                SharedCard(shared, sharedState, state.projectId != null, ::deletionResult, ::refresh)
+            }
         }
 
         when {
@@ -96,12 +85,15 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
             scanned.items.isEmpty() -> AfText(tr(UiText.INBOX_EMPTY), muted = true)
             else -> {
                 scanned.items.forEach { item ->
-                    key(item.path) {
-                        InboxItemRow(item, state.shotNumbers,
-                            onDelete = if (model.canDelete) ({ offerDelete(item.name, model.deleteRequest(item)) }) else null,
-                        ) { shotNumber ->
-                            model.attach(item, shotNumber)
-                            refresh()
+                    key(model, item.projectId, item.path) {
+                        InboxRemoval("inbox-file-${item.name}", item.name,
+                            prepare = if (model.canDelete) ({ model.deleteRequest(item) }) else null,
+                            onResult = ::deletionResult,
+                        ) { modifier ->
+                            InboxItemRow(item, state.shotNumbers, modifier) { shotNumber ->
+                                model.attach(item, shotNumber)
+                                refresh()
+                            }
                         }
                     }
                 }
@@ -111,24 +103,35 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
 }
 
 @Composable
-private fun InboxDeleteDialog(name: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        AfCard(My.breakSyllables(tr(UiText.INBOX_DELETE_TITLE, "name" to name)),
-            Modifier.widthIn(max = 440.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-            AfText(My.breakSyllables(tr(UiText.INBOX_DELETE_BODY)), muted = true)
-            WrapRow {
-                AfButton(My.breakSyllables(tr(UiText.CANCEL)), onDismiss, Modifier.testTag("inbox-delete-cancel"))
-                AfButton(My.breakSyllables(tr(UiText.DELETE)), onConfirm, Modifier.testTag("inbox-delete-confirm"), kind = ButtonKind.Danger)
-            }
-        }
+private fun InboxRemoval(
+    tag: String,
+    name: String,
+    prepare: (() -> InboxDeleteRequest?)?,
+    onResult: (String, Boolean) -> Unit,
+    card: @Composable (Modifier) -> Unit,
+) {
+    val tagged = Modifier.testTag(tag)
+    if (prepare == null) {
+        card(tagged)
+        return
     }
+    val title = tr(UiText.INBOX_DELETE_TITLE, "name" to name)
+    CardRemoval(
+        tag, UiText.CARD_DELETE, title, UiText.INBOX_DELETE_BODY,
+        prepareRemoval = {
+            val request = prepare()
+            if (request == null) { onResult(name, false); null }
+            else ({ onResult(request.name, request.confirm()) })
+        },
+        accessibilityLabel = title,
+    ) { card(tagged.then(it)) }
 }
 
 @Composable
 private fun InboxItemRow(
     item: InboxItem,
     shotNumbers: List<Int>,
-    onDelete: (() -> Unit)?,
+    modifier: Modifier,
     onAttach: (Int) -> Unit,
 ) {
     var expanded by remember(item.path) { mutableStateOf(false) }
@@ -143,7 +146,7 @@ private fun InboxItemRow(
         InboxItemKind.OTHER -> AutoFlowColors.Line
     }
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clip(AutoFlowShapes.Card)
             .border(AutoFlowShapes.Border, borderColor, AutoFlowShapes.Card)
@@ -163,7 +166,6 @@ private fun InboxItemRow(
             } else {
                 AfText(tr(UiText.CANNOT_ATTACH), muted = true, size = 12.sp)
             }
-            if (onDelete != null) DeleteButton(item.name, "inbox-delete", onDelete)
         }
         if (expanded && shotNumbers.isNotEmpty()) {
             AfText(tr(UiText.CHOOSE_SHOT), muted = true, size = 12.sp)
@@ -178,18 +180,11 @@ private fun InboxItemRow(
     }
 }
 
-@Composable
-private fun DeleteButton(name: String, tag: String, onClick: () -> Unit) {
-    val label = tr(UiText.INBOX_DELETE_TITLE, "name" to name)
-    AfButton(My.breakSyllables(tr(UiText.CARD_DELETE)), onClick,
-        Modifier.testTag("$tag-$name").semantics { contentDescription = label })
-}
-
 /** Files shared to Auto Flow from another app: what happened, and "Move here" for files still waiting. */
 @Composable
 private fun SharedCard(
     shared: SharedInbox, st: SharedInboxState, projectOpen: Boolean,
-    onDelete: (String, InboxDeleteRequest?) -> Unit, onMoved: () -> Unit,
+    onDeleteResult: (String, Boolean) -> Unit, onMoved: () -> Unit,
 ) {
     if (st.waiting.isEmpty() && st.message == null) return
     Column(
@@ -202,9 +197,15 @@ private fun SharedCard(
         st.message?.let { AfText(st.notice?.text(LocalUiLanguage.current) ?: it, size = 12.sp) }
         if (st.waiting.isNotEmpty()) {
             st.waiting.forEach { name ->
-                WrapRow {
-                    AfText(My.breakSyllables(name), muted = true, size = 11.sp)
-                    if (shared.canDelete) DeleteButton(name, "shared-delete") { onDelete(name, shared.deleteRequest(name)) }
+                key(name) {
+                    InboxRemoval("shared-file-$name", name,
+                        prepare = if (shared.canDelete) ({ shared.deleteRequest(name) }) else null,
+                        onResult = onDeleteResult,
+                    ) { modifier ->
+                        Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                            AfText(My.breakSyllables(name), muted = true, size = 11.sp)
+                        }
+                    }
                 }
             }
             if (projectOpen) {

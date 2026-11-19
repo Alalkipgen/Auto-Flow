@@ -2,7 +2,9 @@ package io.github.alalkipgen.autoflow.ui.inbox
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -60,31 +62,74 @@ class InboxDeletionTest {
         runDesktopComposeUiTest(width = width, height = 680) {
             val show = mutableStateOf(true)
             fun tap(tag: String) = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            fun row(tag: String) = onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
+            fun hold(tag: String) = row(tag).performTouchInput { longClick(topCenter + Offset(0f, 20f)) }
+            fun noDelete() = onNodeWithText(My.breakSyllables(UiText.CARD_DELETE.text(language))).assertDoesNotExist()
+            fun selectDelete(tag: String) {
+                onNodeWithTag("$tag-remove-confirm").assertDoesNotExist()
+                tap("$tag-remove-menu")
+            }
             setContent {
                 CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language) {
                     if (show.value) InboxScreen(model, shared = shared)
                 }
             }
-            tap("inbox-delete-$clip")
+            val clipTag = "inbox-file-$clip"
+            val photoTag = "inbox-file-photo.jpg"
+            val waitingTag = "shared-file-waiting.jpg"
+            noDelete()
+            row(clipTag).performTouchInput { click(topCenter + Offset(0f, 20f)) }
+            noDelete()
+            fun clipAction(action: UiText) = onNode(hasAnyAncestor(hasTestTag(clipTag)) and hasText(action.text(language)))
+                .performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            clipAction(UiText.ATTACH_SHOT)
+            onNodeWithText("Shot 1").performScrollTo().assertIsDisplayed()
+            noDelete()
+            clipAction(UiText.CANCEL)
+
+            hold(clipTag)
+            tap("$clipTag-remove-cancel")
+            noDelete()
+            assertTrue(fs.exists("$dir/inbox/$clip"))
+            hold(clipTag)
+            selectDelete(clipTag)
             val title = My.breakSyllables(UiText.INBOX_DELETE_TITLE.text(language, "name" to clip))
             onNodeWithText(title).assertIsDisplayed()
-            onNodeWithTag("inbox-delete-confirm").performScrollTo().assertIsDisplayed().assertHeightIsAtLeast(48.dp)
-            tap("inbox-delete-cancel")
+            onNodeWithTag("$clipTag-remove-confirm").performScrollTo().assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+            tap("$clipTag-remove-cancel")
             assertTrue(fs.exists("$dir/inbox/$clip"))
-            tap("inbox-delete-$clip")
-            tap("inbox-delete-confirm")
-            onNodeWithTag("inbox-delete-$clip").assertDoesNotExist()
-            onNodeWithTag("inbox-delete-$survivor").performScrollTo().assertIsDisplayed()
-            tap("inbox-delete-photo.jpg")
-            tap("inbox-delete-confirm")
-            tap("shared-delete-waiting.jpg")
-            tap("inbox-delete-confirm")
-            onNodeWithTag("shared-delete-waiting.jpg").assertDoesNotExist()
+            row(clipTag).performMouseInput { rightClick(topCenter + Offset(0f, 20f)) }
+            selectDelete(clipTag)
+            tap("$clipTag-remove-confirm")
+            onNodeWithTag(clipTag).assertDoesNotExist()
+            row("inbox-file-$survivor")
+
+            val accessibleDelete = row(photoTag).fetchSemanticsNode().config[SemanticsActions.CustomActions].single()
+            assertEquals(UiText.INBOX_DELETE_TITLE.text(language, "name" to "photo.jpg"), accessibleDelete.label)
+            runOnIdle { assertTrue(accessibleDelete.action()) }
+            val replacement = byteArrayOf(8, 9, 10)
+            fs.writeDurably("$dir/inbox/photo.jpg", replacement)
+            selectDelete(photoTag)
+            tap("$photoTag-remove-confirm")
+            val failed = UiText.INBOX_DELETE_FAILED.text(language, "name" to "photo.jpg")
+            onNodeWithText(My.breakSyllables(failed)).performScrollTo().assertIsDisplayed()
+            assertContentEquals(replacement, fs.read("$dir/inbox/photo.jpg"), "an open menu cannot delete a changed file")
+            hold(photoTag)
+            selectDelete(photoTag)
+            tap("$photoTag-remove-confirm")
+
+            row(waitingTag).assertHeightIsAtLeast(48.dp)
+            hold(waitingTag)
+            selectDelete(waitingTag)
+            tap("$waitingTag-remove-confirm")
+            onNodeWithTag(waitingTag).assertDoesNotExist()
+            noDelete()
             runOnIdle { show.value = false }
-            onNodeWithTag("inbox-delete-$survivor").assertDoesNotExist()
+            onNodeWithTag("inbox-file-$survivor").assertDoesNotExist()
             runOnIdle { show.value = true }
-            onNodeWithTag("inbox-delete-$survivor").performScrollTo().assertIsDisplayed()
-            onNodeWithTag("inbox-delete-$clip").assertDoesNotExist()
+            row("inbox-file-$survivor")
+            onNodeWithTag(clipTag).assertDoesNotExist()
+            noDelete()
         }
         val freshStore = ProjectStore(JvmFs())
         val reopened = CurrentProject().apply { set(OpenProject(dir, assertNotNull(freshStore.open(dir).getOrNull()))) }

@@ -15,46 +15,57 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.ui.i18n.*
 
-/** No visible destructive control until the card's context action is invoked. */
+private data class RemovalIntent(val confirm: () -> Unit, val confirming: Boolean = false)
+
+/** No visible destructive control until the card's context action is invoked. Capture the target before showing it. */
 @Composable
 internal fun CardRemoval(
     key: String,
     action: UiText,
     title: String,
     explanation: UiText,
-    remove: () -> Unit,
+    prepareRemoval: () -> (() -> Unit)?,
     onTap: (() -> Unit)? = null,
+    accessibilityLabel: String? = null,
     card: @Composable (Modifier) -> Unit,
 ) {
-    var step by remember(key) { mutableIntStateOf(0) }
+    var pending by remember(key) { mutableStateOf<RemovalIntent?>(null) }
     val delete = tr(action)
     val tap by rememberUpdatedState(onTap)
+    val prepare by rememberUpdatedState(prepareRemoval)
+    fun openMenu(): Boolean {
+        prepare()?.let { pending = RemovalIntent(it) }
+        return true
+    }
     card(Modifier.pointerInput(key) {
         detectTapGestures(onTap = if (onTap == null) null else { { tap?.invoke() } },
-            onLongPress = { step = 1 })
+            onLongPress = { openMenu() })
     }.pointerInput(key) {
         awaitPointerEventScope {
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
                 if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
                     event.changes.forEach { it.consume() }
-                    step = 1
+                    openMenu()
                 }
             }
         }
     }.semantics {
-        customActions = listOf(CustomAccessibilityAction(delete) { step = 1; true })
+        customActions = listOf(CustomAccessibilityAction(accessibilityLabel ?: delete, ::openMenu))
     })
-    if (step != 0) Dialog(onDismissRequest = { step = 0 }) {
-        AfCard(if (step == 1) My.breakSyllables(delete) else My.breakSyllables(title),
-            Modifier.widthIn(max = 440.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-            if (step == 2) AfText(My.breakSyllables(tr(explanation)), muted = true)
-            WrapRow {
-                AfButton(My.breakSyllables(if (step == 1) delete else tr(UiText.DELETE)),
-                    { if (step == 1) step = 2 else { step = 0; remove() } },
-                    Modifier.testTag(if (step == 1) "$key-remove-menu" else "$key-remove-confirm"),
-                    kind = ButtonKind.Danger)
-                AfButton(My.breakSyllables(tr(UiText.CANCEL)), { step = 0 }, Modifier.testTag("$key-remove-cancel"))
+    pending?.let { intent ->
+        Dialog(onDismissRequest = { pending = null }) {
+            AfCard(My.breakSyllables(if (intent.confirming) title else delete),
+                Modifier.widthIn(max = 440.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                if (intent.confirming) AfText(My.breakSyllables(tr(explanation)), muted = true)
+                WrapRow {
+                    AfButton(My.breakSyllables(if (intent.confirming) tr(UiText.DELETE) else delete), {
+                        if (intent.confirming) { pending = null; intent.confirm() }
+                        else pending = intent.copy(confirming = true)
+                    }, Modifier.testTag(if (intent.confirming) "$key-remove-confirm" else "$key-remove-menu"),
+                        kind = ButtonKind.Danger)
+                    AfButton(My.breakSyllables(tr(UiText.CANCEL)), { pending = null }, Modifier.testTag("$key-remove-cancel"))
+                }
             }
         }
     }

@@ -309,7 +309,7 @@ fun JobsScreen(
                     }
                     if (live.canRemoveFinished(row)) CardRemoval("job-card-$key", UiText.JOB_DELETE_HISTORY,
                         tr(UiText.JOB_DELETE_HISTORY_CONFIRM), UiText.JOB_DELETE_HISTORY_KEEPS_FILES,
-                        { live.removeFinished(row) }, card = card)
+                        { { live.removeFinished(row) } }, card = card)
                     else card(Modifier)
                 } }
             }
