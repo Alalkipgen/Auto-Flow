@@ -44,7 +44,10 @@ class CurrentProject {
 /** [missing] = the folder or its `project.json` is gone; the row offers "Remove from list". */
 data class DashboardRow(val entry: ProjectEntry, val missing: Boolean)
 
-data class DashboardUiState(val rows: List<DashboardRow>, val message: String? = null, val notice: UiNotice? = null)
+data class RemovedProject(val dir: String, val id: String, val name: String)
+
+data class DashboardUiState(val rows: List<DashboardRow>, val removed: List<RemovedProject>,
+    val message: String? = null, val notice: UiNotice? = null)
 
 /**
  * Dashboard logic (DESIGN.md §3): project list, New Music Video, Open folder. With a [projectsHome] (Android, D-27)
@@ -182,13 +185,21 @@ class DashboardModel(
     }
 
     /** Android has no arbitrary folder picker. Offer only explicitly hidden, existing managed folders. */
-    fun removedManagedProjects(): List<Pair<String, String>> {
+    private fun removedManagedProjects(): List<RemovedProject> {
         val home = projectsHome ?: return emptyList()
         val managed = index.canonical(home).trimEnd('/')
         return index.removedPaths().sorted().mapNotNull { dir ->
             if (dir.substringBeforeLast('/') != managed) return@mapNotNull null
-            (store.open(dir) as? CoreResult.Ok)?.value?.let { dir to it.name }
+            (store.open(dir) as? CoreResult.Ok)?.value?.let { RemovedProject(dir, it.id, it.name) }
         }
+    }
+
+    internal fun restoreRemoved(removed: RemovedProject): UiText? {
+        val project = (store.open(removed.dir) as? CoreResult.Ok)?.value
+        if (!index.isRemoved(removed.dir) || project == null || removed.id != project.id) return UiText.PROJECT_DELETE_CHANGED
+        val restored = index.record(removed.dir, project)
+        done((restored as? PlatformResult.Failed)?.reason)
+        return if (restored is PlatformResult.Failed) UiText.PROJECT_RESTORE_FAILED else null
     }
 
     fun remove(dir: String) {
@@ -196,9 +207,12 @@ class DashboardModel(
         done((r as? PlatformResult.Failed)?.reason)
     }
 
-    internal fun inspectDeletion(dir: String): Result {
+    internal fun inspectDeletion(removed: RemovedProject): Result {
         val root = projectsHome ?: return Result.Refused(Refusal.UNSUPPORTED)
-        return deletion?.inspect(root, dir) ?: Result.Refused(Refusal.UNSUPPORTED)
+        if (!index.isRemoved(removed.dir)) return Result.Refused(Refusal.CHANGED)
+        val result = deletion?.inspect(root, removed.dir) ?: return Result.Refused(Refusal.UNSUPPORTED)
+        if (result is Result.Ready && result.target.projectId != removed.id) return Result.Refused(Refusal.CHANGED)
+        return result
     }
 
     internal suspend fun deleteProject(target: ProjectFolderDeletion.Target): UiText? {
@@ -209,12 +223,16 @@ class DashboardModel(
         val renderPending = try { renders?.hasPendingProject(key, index::canonical) == true }
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) { return UiText.PROJECT_DELETE_BUSY }
+        if (!index.isRemoved(target.folder)) return UiText.PROJECT_DELETE_CHANGED
         if (renderPending || busy()) return UiText.PROJECT_DELETE_BUSY
         return when (val result = guard.delete(root, target, ::busy)) {
-            Result.Deleted -> {
+            is Result.Deleted -> {
                 if (current.state.value?.let { it.project.id == target.projectId && index.canonical(it.dir) == key } == true) current.set(null)
                 val written = index.markDeleted(target.folder, target.projectId)
-                done((written as? PlatformResult.Failed)?.reason)
+                val kept = result.backupsAt?.let { UiNotice(UiText.PROJECT_DELETE_BACKUPS_KEPT, "folder" to it) }
+                val problem = (written as? PlatformResult.Failed)?.reason
+                if (problem != null || kept == null) done(problem)
+                else _state.value = snapshot(kept.text(UiLanguage.ENGLISH)).copy(notice = kept)
                 if (written is PlatformResult.Failed) UiText.PROJECT_DELETE_INDEX_ERROR else null
             }
             is Result.Refused -> result.reason.label()
@@ -269,6 +287,7 @@ class DashboardModel(
 
     private fun snapshot(message: String?) = DashboardUiState(
         rows = index.entries.value.map { DashboardRow(it, missing = !exists(joinPath(it.path, ProjectStore.PROJECT_FILE))) },
+        removed = removedManagedProjects(),
         message = message,
         notice = message?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to it) },
     )
@@ -294,7 +313,7 @@ class DashboardModel(
 
 internal fun Refusal.label(): UiText = when (this) {
     Refusal.UNSUPPORTED -> UiText.PROJECT_DELETE_UNSUPPORTED
-    Refusal.PROTECTED_FILES -> UiText.PROJECT_DELETE_PROTECTED
+    Refusal.KEEP_BACKUPS_FAILED -> UiText.PROJECT_DELETE_BACKUP_FAILED
     Refusal.CHANGED -> UiText.PROJECT_DELETE_CHANGED
     Refusal.BUSY -> UiText.PROJECT_DELETE_BUSY
     Refusal.IO -> UiText.PROJECT_DELETE_FAILED

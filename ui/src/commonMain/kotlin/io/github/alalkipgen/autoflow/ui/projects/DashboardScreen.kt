@@ -65,20 +65,8 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     val creating = if (onCreateModeChange == null) localCreating else createMode
     val setCreating: (Mode?) -> Unit = onCreateModeChange ?: { localCreating = it }
     val compact = LocalCompact.current
-    val removed = remember(state) { model.removedManagedProjects() }
     var showRemoved by remember { mutableStateOf(false) }
-    if (showRemoved) Dialog(onDismissRequest = { showRemoved = false }) {
-        AfCard(tr(UiText.OPEN_REMOVED_PROJECT)) {
-            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((dir, name) in removed) {
-                    AfButton(My.breakSyllables(name + " · " + dir.substringAfterLast('/')), {
-                        if (model.open(dir)) { showRemoved = false; onOpened() }
-                    })
-                }
-            }
-            AfButton(tr(UiText.CANCEL), { showRemoved = false })
-        }
-    }
+    if (showRemoved && state.removed.isNotEmpty()) RemovedProjectsDialog(state.removed, model) { showRemoved = false }
     LaunchedEffect(model) { model.refresh() }
     Column(
         modifier.fillMaxSize().background(AutoFlowColors.Background).verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
@@ -100,12 +88,12 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
                 else { openFolder(); newMovieRecap(); newMusicVideo() }
             }
         }
-        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
+        state.message?.let { AfText(My.breakSyllables(state.notice?.text(LocalUiLanguage.current) ?: it), color = AutoFlowColors.Amber) }
         // Keep the existing form mounted when its action section is collapsed or translated.
         creating?.let { mode ->
             NewProjectCard(model, mode, onCancel = { setCreating(null) }, onCreated = { setCreating(null); onOpened() })
         }
-        if (removed.isNotEmpty()) AfButton(My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT)), { showRemoved = true }, Modifier.testTag("projects-open-removed"))
+        if (state.removed.isNotEmpty()) AfButton(My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT)), { showRemoved = true }, Modifier.testTag("projects-open-removed"))
         SectionCard(tr(UiText.HOME_RECENT), Modifier.testTag("projects-recent")) {
             if (state.rows.isEmpty()) {
                 AfText(
@@ -118,8 +106,7 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             state.rows.forEach { row ->
                 key(row.entry.path) {
                     ProjectRow(row, now, onOpen = { if (model.open(row.entry.path)) onOpened() },
-                        onRemove = { model.remove(row.entry.path) }, inspect = { model.inspectDeletion(row.entry.path) },
-                        delete = model::deleteProject)
+                        onRemove = { model.remove(row.entry.path) }, managed = model.projectsHome != null)
                 }
             }
         }
@@ -162,44 +149,94 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
 }
 
 @Composable
-private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit,
-    inspect: () -> ProjectFolderDeletion.Result, delete: suspend (ProjectFolderDeletion.Target) -> UiText?) {
+private fun RemovedProjectsDialog(rows: List<RemovedProject>, model: DashboardModel, close: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var options by remember { mutableStateOf<ProjectFolderDeletion.Result?>(null) }
+    var selected by remember { mutableStateOf<RemovedProject?>(null) }
+    var inspection by remember { mutableStateOf<ProjectFolderDeletion.Result?>(null) }
     var target by remember { mutableStateOf<ProjectFolderDeletion.Target?>(null) }
     var error by remember { mutableStateOf<UiText?>(null) }
     var deleting by remember { mutableStateOf(false) }
-    var confirmRemove by remember { mutableStateOf(false) }
-    options?.let { checked -> Dialog(onDismissRequest = { options = null }) {
-        AfCard(tr(UiText.PROJECT_ACTIONS)) {
-            if (checked is ProjectFolderDeletion.Result.Refused) AfText(My.breakSyllables(tr(checked.reason.label())), muted = true)
-            WrapRow {
-                AfButton(tr(UiText.REMOVE_FROM_LIST), { options = null; confirmRemove = true }, Modifier.testTag("project-remove-action"))
-                if (checked is ProjectFolderDeletion.Result.Ready) AfButton(tr(UiText.PROJECT_DELETE_MENU), {
-                    target = checked.target; options = null; error = null
-                }, Modifier.testTag("project-delete-action"), kind = ButtonKind.Danger)
-                AfButton(tr(UiText.CANCEL), { options = null })
-            }
+    val row = selected
+    val confirm = target
+    fun back() {
+        if (deleting) return
+        error = null
+        when {
+            confirm != null -> target = null
+            row != null -> selected = null
+            else -> close()
         }
-    } }
-    target?.let { selected -> Dialog(onDismissRequest = { if (!deleting) target = null }) {
-        AfCard(My.breakSyllables(tr(UiText.PROJECT_DELETE_TITLE, "name" to selected.name))) {
-            AfText(selected.folder, mono = true)
-            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_BYTES, "n" to selected.bytes)))
-            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_PERMANENT)), color = AutoFlowColors.Failed)
-            error?.let { AfText(My.breakSyllables(tr(it)), color = AutoFlowColors.Failed) }
-            WrapRow {
-                AfButton(tr(UiText.DELETE), {
-                    deleting = true
-                    scope.launch {
-                        try { error = delete(selected); if (error == null) target = null }
-                        finally { deleting = false }
+    }
+    Dialog(onDismissRequest = ::back) {
+        val title = when {
+            confirm != null -> tr(UiText.PROJECT_DELETE_TITLE, "name" to confirm.name)
+            row != null -> row.name
+            else -> tr(UiText.OPEN_REMOVED_PROJECT)
+        }
+        AfCard(My.breakSyllables(title)) {
+            key(row, confirm) {
+                Column(Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    when {
+                        confirm != null -> {
+                            AfText(confirm.folder, mono = true)
+                            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_BYTES, "n" to confirm.bytes)))
+                            if (confirm.backups.isNotEmpty()) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_KEEP_BACKUPS)), muted = true)
+                            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_PERMANENT)), color = AutoFlowColors.Failed)
+                            AfButton(My.breakSyllables(tr(UiText.PROJECT_DELETE_CONFIRM)), {
+                                deleting = true
+                                scope.launch {
+                                    try {
+                                        error = model.deleteProject(confirm)
+                                        if (error == null) { target = null; selected = null; close() }
+                                    } finally { deleting = false }
+                                }
+                            }, Modifier.testTag("project-delete-confirm"), kind = ButtonKind.Danger, enabled = !deleting)
+                        }
+                        row != null -> {
+                            AfText(row.dir, mono = true)
+                            val ready = inspection as? ProjectFolderDeletion.Result.Ready
+                            val refused = inspection as? ProjectFolderDeletion.Result.Refused
+                            refused?.let { AfText(My.breakSyllables(tr(it.reason.label())), muted = true) }
+                            AfButton(My.breakSyllables(tr(UiText.PROJECT_RESTORE)), {
+                                error = model.restoreRemoved(row)
+                                if (error == null) close()
+                            }, Modifier.testTag("project-restore"))
+                            if (ready != null) AfButton(My.breakSyllables(tr(UiText.PROJECT_DELETE_MENU)), {
+                                val latest = model.inspectDeletion(row)
+                                inspection = latest
+                                target = (latest as? ProjectFolderDeletion.Result.Ready)?.target
+                                error = null
+                            }, Modifier.testTag("project-delete-action"), kind = ButtonKind.Danger)
+                        }
+                        else -> rows.forEach { removed ->
+                            AfButton(My.breakSyllables(removed.name + " · " + removed.dir.substringAfterLast('/')), {
+                                selected = removed
+                                inspection = model.inspectDeletion(removed)
+                            })
+                        }
                     }
-                }, Modifier.testTag("project-delete-confirm"), kind = ButtonKind.Danger, enabled = !deleting)
-                AfButton(tr(UiText.CANCEL), { target = null }, enabled = !deleting)
+                    error?.let { AfText(My.breakSyllables(tr(it)), color = AutoFlowColors.Failed) }
+                    AfButton(My.breakSyllables(tr(UiText.CANCEL)), ::back, Modifier.testTag("removed-projects-cancel"), enabled = !deleting)
+                }
             }
         }
-    } }
+    }
+}
+
+@Composable
+private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit, managed: Boolean) {
+    var options by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    if (options) Dialog(onDismissRequest = { options = false }) {
+        AfCard(tr(UiText.PROJECT_ACTIONS)) {
+            if (!managed) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_UNSUPPORTED)), muted = true)
+            WrapRow {
+                AfButton(tr(UiText.REMOVE_FROM_LIST), { options = false; confirmRemove = true }, Modifier.testTag("project-remove-action"))
+                AfButton(tr(UiText.CANCEL), { options = false })
+            }
+        }
+    }
     if (confirmRemove) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { confirmRemove = false }) {
             androidx.compose.foundation.layout.Column(
@@ -226,7 +263,7 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             enabled = !row.missing,
             role = Role.Button,
             onClick = onOpen,
-            onLongClick = { options = inspect() },
+            onLongClick = { options = true },
         )
     val mode = if (e.mode == Mode.MUSIC_VIDEO) tr(UiText.MUSIC_VIDEO) else tr(UiText.MOVIE_RECAP)
     val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))

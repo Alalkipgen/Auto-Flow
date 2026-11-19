@@ -11,7 +11,7 @@ Optimize for: correctness, small diffs, testability without API keys, and never 
 5. docs/DECISIONS.md — do not re-litigate settled decisions
 
 ## 1. Hard rules
-- **Never delete or mutate an artifact file** under `artifacts/`. Artifacts are immutable and content-hash named. Only `project.json` pointers change.
+- **Never delete or mutate individual artifact files** under `artifacts/`. Artifacts are immutable and content-hash named. Only `project.json` pointers change during editing. The sole deletion exception is the user's explicit, guarded whole-project **Delete permanently** action (D-76); never run it against real user data during development or QA.
 - **Never automate Google Flow** (no browser automation, no cookie reuse, no reverse-engineered endpoints). Flow is a manual handoff. See docs/specs/flow-handoff.md.
 - **Never hardcode** model names, quotas, credit costs, or prices in logic. They live in `config/models.json` and are treated as data that will change.
 - **API keys** are read from platform secure storage only (Windows DPAPI via `:platform` SecureStorage, D-19 / Android Keystore). Never in code, logs, test fixtures, or `project.json`.
