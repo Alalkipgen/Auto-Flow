@@ -67,8 +67,20 @@ class InputModel(
     /** Tap-to-sync of the lyric lines (PLAN Q-11). */
     val sync = LyricSyncModel(session, transcribe, media)
 
-    /** "✨ Suggest timings": saves the draft, then asks Gemini (D-31). */
-    suspend fun suggestTimings(): Boolean = !jobs.busy && save() && sync.suggest()
+    /** Join the app-scope request without cancelling it when the Input screen closes. */
+    suspend fun suggestTimings(): Boolean {
+        if (jobs.busy || !save()) return false
+        val origin = session.open ?: return false
+        val action = UiNotice(UiText.JOB_LYRIC_TIMINGS)
+        var saved = false
+        val job = jobs.launchGemini(origin, "Input", action.text(UiLanguage.ENGLISH), action) {
+            saved = sync.suggest()
+            if (saved) StoryboardResult.Done
+            else sync.state.value.let { StoryboardResult.Failed(it.message.orEmpty(), it.notice) }
+        } ?: return false
+        job.join()
+        return saved
+    }
 
     /** "Sync lyrics": saves the draft (the timings belong to the saved lyrics), then opens the tap panel. */
     fun startSync(): Boolean = !jobs.busy && save() && sync.start(_state.value.lyrics)

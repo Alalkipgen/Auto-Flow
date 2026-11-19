@@ -22,6 +22,9 @@ import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.AiRunTiming
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.BackupResult
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -33,6 +36,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 
 @OptIn(ExperimentalTestApi::class)
 class SettingsScreenTest {
@@ -49,6 +53,40 @@ class SettingsScreenTest {
 
     private fun ComposeUiTest.openSection(key: UiText) {
         onNodeWithContentDescription(key.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+    }
+
+    @Test
+    fun diagnosticsShowWhichCallIsWaitingAndCanBeCancelledFromTheCard() = runComposeUiTest {
+        var ttsCalls = 0
+        val diag = SettingsModel(settings, secrets, ProviderStatusModel(settings, secrets), UsageCounter(fs, "/a/usage.json"),
+            loadModelConfig(fs, null) { TEST_MODELS_JSON }, tools, FakePicker(), { PlatformResult.Ok(Unit) },
+            testKeyCall = { timedAiStage(AiTimingStage.RETRY_WAIT, 429, 90_000) { awaitCancellation() } },
+            testTtsCall = { ttsCalls++; awaitCancellation() })
+        diag.saveKey("fixture-not-a-real-key")
+        setContent { SettingsScreen(diag) }
+        openSection(UiText.V3_AI_KEYS)
+        val tag = "gemini-diagnostic-run"
+        fun cancel() = onNode(hasText(UiText.CANCEL.en) and hasAnyAncestor(hasTestTag(tag)))
+            .performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText(UiText.TEST.en).performScrollTo().performMouseInput { click() }
+        onNodeWithText(UiText.JOB_TEST_GEMINI_KEY.en).performScrollTo().assertIsDisplayed()
+        onNodeWithText("Gemini limit reached · retrying in", substring = true).performScrollTo().assertIsDisplayed()
+        val keyRun = requireNotNull(diag.state.value.geminiTest)
+        assertEquals(UiText.JOB_TEST_GEMINI_KEY, keyRun.label)
+        cancel()
+        onNodeWithTag(tag).assertDoesNotExist()
+        assertFalse(keyRun.id in AiRunTiming.active.value)
+        onNodeWithText(UiText.TEST_TTS.en).performScrollTo().assertIsDisplayed().assertIsEnabled().performMouseInput { click() }
+        onNodeWithTag(tag).assertExists()
+        val ttsRun = requireNotNull(diag.state.value.geminiTest)
+        assertEquals(UiText.TEST_TTS, ttsRun.label)
+        onNodeWithText(UiText.JOB_WAITING_GEMINI.en, substring = true).performScrollTo().assertIsDisplayed()
+        runOnIdle { diag.cancelGeminiTest(keyRun.id) }
+        assertEquals(ttsRun, diag.state.value.geminiTest)
+        cancel()
+        onNodeWithTag(tag).assertDoesNotExist()
+        assertFalse(ttsRun.id in AiRunTiming.active.value)
+        assertEquals(1, ttsCalls)
     }
 
     @Test
