@@ -28,5 +28,8 @@ class RecapJobProcessor(private val recap: () -> RecapModel?) : AiItemProcessor 
         else -> false
     }
 
+    override fun hasSavedClip(job: AiJob, item: String): Boolean =
+        job.kind == AiJobKind.TTS_ALL && model().hasSavedJobClip(job.project, item)
+
     private fun model(): RecapModel = recap() ?: error("the Movie Recap screen is not available")
 }

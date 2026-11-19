@@ -45,8 +45,13 @@ class AiJobExecutor(
             AiJobState.DONE -> return Outcome.Done
             else -> Unit
         }
-        val trace = AiRunTiming(start.timings)
+        val trace = AiRunTiming(start.timings, id)
         AiRunTiming.dequeueMs(id)?.let { trace.add(AiTimingSample(AiTimingStage.QUEUE, it)) }
+        trace.stage(null)
+        return try { execute(id, trace) } finally { trace.clear() }
+    }
+
+    private suspend fun execute(id: String, trace: AiRunTiming): Outcome {
         if (processor == null) return end(id, AiJobState.FAILED, NO_PROCESSOR, trace)
         var job = save(id, trace) { it.copy(state = AiJobState.RUNNING, error = null) } ?: return Outcome.Missing
         if (job.state == AiJobState.CANCELLED) return Outcome.Cancelled
@@ -71,7 +76,9 @@ class AiJobExecutor(
             } catch (e: Throwable) {
                 return end(id, AiJobState.FAILED, e.message ?: e::class.simpleName, trace)
             }
-            job = save(id, trace) { it.copy(items = it.items - item, msPerItem = measured ?: it.msPerItem) } ?: return Outcome.Missing
+            val saved = job.savedClips != null && job.kind == AiJobKind.TTS_ALL && processor.hasSavedClip(job, item)
+            job = save(id, trace) { it.copy(items = it.items - item, msPerItem = measured ?: it.msPerItem,
+                savedClips = it.savedClips?.let { n -> n + if (saved && item in it.items) 1 else 0 }) } ?: return Outcome.Missing
             if (job.state == AiJobState.CANCELLED) return Outcome.Cancelled
         }
         return end(id, AiJobState.DONE, null, trace)

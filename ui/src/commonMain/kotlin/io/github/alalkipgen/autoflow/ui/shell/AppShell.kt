@@ -324,6 +324,7 @@ private fun StudioV2App(
                     status = status,
                     notice = dashboardState.notice?.text(LocalUiLanguage.current) ?: dashboardState.message,
                     jobs = rows,
+                    jobActions = io.github.alalkipgen.autoflow.ui.jobs.rememberJobsActions(scope),
                     onViewJobs = { nav = v2Select(nav, StudioV2Dest.JOBS) },
                     backHandler = backHandler,
                     continueProjectPath = resume?.path,

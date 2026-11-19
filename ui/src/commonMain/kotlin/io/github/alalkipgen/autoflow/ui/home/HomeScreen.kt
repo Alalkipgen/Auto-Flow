@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.home
 
+import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -42,6 +43,7 @@ fun HomeScreen(
     continueStep: String? = null,
     continueProjectPath: String? = null,
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
+    jobActions: io.github.alalkipgen.autoflow.ui.jobs.JobsActions? = null,
 ) {
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
@@ -79,7 +81,11 @@ fun HomeScreen(
             val running = jobs.filter { it.running }
             if (running.isNotEmpty()) SectionCard(tr(UiText.JOB_RUNNING), Modifier.testTag("home-running")) {
                 running.forEachIndexed { i, row ->
-                    JobCard(row.title, row.status, row.detail.orEmpty(), Modifier.testTag("home-job-$i"), row.progress?.toFloat())
+                    JobRunCard(row, Modifier.testTag("home-job-$i")) {
+                        if (row.canCancel && jobActions?.canCancel(row) == true) {
+                            AfButton(tr(UiText.CANCEL), { jobActions.cancel(row) }, Modifier.testTag("home-job-cancel-$i"), kind = ButtonKind.Danger)
+                        }
+                    }
                 }
                 AfButton(tr(UiText.V3_VIEW_JOBS), onViewJobs, Modifier.testTag("home-view-jobs"))
             }

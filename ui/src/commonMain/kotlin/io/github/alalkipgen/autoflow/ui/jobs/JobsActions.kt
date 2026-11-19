@@ -37,7 +37,7 @@ class JobsActions(
     fun canResume(row: JobRow) = row.aiJobId !in pending && ai(row)?.canResume() == true
     fun canCancel(row: JobRow): Boolean = when (row.source) {
         JobSource.AI -> ai(row)?.state in listOf(AiJobState.QUEUED, AiJobState.RUNNING)
-        JobSource.RECAP -> recap?.state?.value?.let { it.projectDir == row.projectDir && it.job == row.jobId && it.job == RecapModel.WRITING } == true
+        JobSource.RECAP -> recap?.state?.value?.let { it.projectDir == row.projectDir && (it.scriptRunId ?: it.job) == row.jobId && it.job == RecapModel.WRITING } == true
         JobSource.RENDER -> run(row)?.state.let { it == RenderState.Queued || it is RenderState.Running }
         JobSource.STORYBOARD -> row.jobId != null && storyboard?.state?.value?.running == row.jobId
     }
@@ -111,7 +111,7 @@ fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProje
     val step = when {
         screen == "Export" -> RecapStep.STYLE
         row.aiKind == AiJobKind.TTS_ALL -> RecapStep.VOICE
-        row.source == JobSource.RECAP && row.jobId == RecapModel.WRITING -> RecapStep.STORY
+        row.aiKind == AiJobKind.SCRIPT || (row.source == JobSource.RECAP && row.jobId == RecapModel.WRITING) -> RecapStep.STORY
         else -> RecapStep.SOURCE
     }
     return V2Nav(StudioV2Dest.PROJECTS, screen, recapStep = step)

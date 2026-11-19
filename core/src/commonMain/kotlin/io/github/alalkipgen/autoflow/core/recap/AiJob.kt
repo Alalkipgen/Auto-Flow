@@ -25,6 +25,7 @@ data class AiJob(
     /** Digest of immutable enqueue inputs; remaining [items] shrink during execution. */
     val inputKey: String? = null,
     val initialItemCount: Int? = null,
+    val savedClips: Int? = null,
     val timings: List<AiTimingSample> = emptyList(),
     val timingsUpdatedAt: Long? = null,
 )
@@ -36,6 +37,7 @@ enum class AiJobKind {
     @SerialName("TRANSCRIBE") TRANSCRIBE,
     @SerialName("QUICK_RECAP") QUICK_RECAP,
     @SerialName("PUBLISH_KIT") PUBLISH_KIT,
+    @SerialName("SCRIPT") SCRIPT,
 }
 
 @Serializable

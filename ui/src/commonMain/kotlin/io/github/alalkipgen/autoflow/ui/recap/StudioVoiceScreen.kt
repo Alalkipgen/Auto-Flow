@@ -1,5 +1,8 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.core.recap.AiJobKind
+import io.github.alalkipgen.autoflow.core.recap.AiJobState
+import io.github.alalkipgen.autoflow.ui.jobs.ProjectAiJobCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -57,7 +60,10 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
     var filter by remember(state.projectDir) { mutableIntStateOf(0) }
     var playing by remember(state.projectDir) { mutableStateOf<String?>(null) }
     val detail = rows.firstOrNull { it.block.id == selected?.id }
-    val idle = !state.busy && state.recording == null
+    val jobs by model.runnerJobs.collectAsState()
+    val job = jobs.firstOrNull { it.project == state.projectDir && it.kind == AiJobKind.TTS_ALL &&
+        it.state in setOf(AiJobState.RUNNING, AiJobState.QUEUED, AiJobState.PAUSED, AiJobState.FAILED) }
+    val idle = !state.busy && state.recording == null && job?.state !in setOf(AiJobState.RUNNING, AiJobState.QUEUED)
     val gate = RecapRulesV2.canVoice(recap, state.story)
     val remaining = rows.count { !it.voiced && SpokenText.of(it.block, state.lexicon).isNotBlank() }
     val scroll = key(state.projectDir, selected?.id) { rememberScrollState() }
@@ -72,8 +78,11 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
             ?.let { n -> { selected = VoiceSelection(n.block.id) } },
     )
     val status: @Composable () -> Unit = {
-        if (state.busy) StatusChip(StudioStatus.RUNNING)
-        state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
+        if (job != null) ProjectAiJobCard(job, { model.cancelVoiceRun(job.id) }, onResume = { model.resumeVoiceRun(job.id) })
+        else if (state.busy) {
+            StatusChip(StudioStatus.RUNNING)
+            state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
+        }
         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
             color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
     }

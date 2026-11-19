@@ -69,6 +69,13 @@ class WorkManagerAiJobRunner internal constructor(
         return claim.id
     }
 
+    override suspend fun recordForeground(job: AiJob) {
+        require(job.kind == io.github.alalkipgen.autoflow.core.recap.AiJobKind.SCRIPT &&
+            job.state !in setOf(AiJobState.QUEUED, AiJobState.RUNNING))
+        store.save(job)
+        refresh()
+    }
+
     override suspend fun cancel(id: String) {
         AiRunTiming.forgetQueue(id)
         // Read-modify-write under the jobs-folder lock, so a Worker checkpoint cannot interleave with it.

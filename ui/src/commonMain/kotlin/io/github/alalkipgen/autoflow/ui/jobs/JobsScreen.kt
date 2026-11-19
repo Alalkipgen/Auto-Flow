@@ -68,6 +68,8 @@ data class JobRow(
     val output: String? = null,
     val resumeCount: Int? = null,
     val aiKind: AiJobKind? = null,
+    val timedRun: Boolean = false,
+    val indeterminate: Boolean = false,
 )
 
 enum class JobGroup(val label: UiText) {
@@ -94,8 +96,10 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
     projectNames: Map<String, String> = emptyMap(),
 ): List<JobRow> = buildList {
     recap?.takeIf { it.runnerJobId == null }?.job?.let { label ->
-        add(JobRow(JobSource.RECAP, "Movie Recap — $label", projectName(recap.projectDir), recap.progress,
-            canCancel = recap.job == RecapModel.WRITING, projectDir = recap.projectDir, jobId = label))
+        val script = recap.job == RecapModel.WRITING
+        add(JobRow(JobSource.RECAP, if (script) aiKindLabel(AiJobKind.SCRIPT, language) else "Movie Recap — $label",
+            projectName(recap.projectDir), recap.progress, canCancel = script, projectDir = recap.projectDir,
+            jobId = recap.scriptRunId ?: label, aiKind = AiJobKind.SCRIPT.takeIf { script }, timedRun = script, indeterminate = script))
     }
     render?.let { run ->
         val kind = if (run.quality == Quality.PREVIEW) UiText.JOB_PREVIEW.text(language) else UiText.EXPORT.text(language)
@@ -112,15 +116,28 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
     storyboard?.running?.let { add(JobRow(JobSource.STORYBOARD, "Storyboard — $it", canCancel = true, jobId = it)) }
     ai.forEach { job ->
         val active = job.state == AiJobState.RUNNING || job.state == AiJobState.QUEUED
+        val total = job.initialItemCount?.takeIf { it > 0 }
+        val completed = total?.let { (it - job.items.size).coerceIn(0, it) }
+        val clips = job.savedClips
+        val multi = job.kind == AiJobKind.TRANSCRIBE && total != null && total > 1
+        val timed = job.kind == AiJobKind.TRANSCRIBE || job.kind == AiJobKind.TTS_ALL
         val detail = listOfNotNull(
             projectName(job.project),
-            UiText.JOB_ITEMS_LEFT.text(language, "size" to (job.items.size)),
+            when {
+                clips != null && total != null -> UiText.JOB_SAVED_CLIPS.text(language, "done" to clips, "total" to total)
+                multi && completed != null && active -> UiText.JOB_REQUEST_UNIT.text(language, "n" to minOf(completed + 1, total), "total" to total)
+                job.kind != AiJobKind.SCRIPT && !(active && job.kind == AiJobKind.TRANSCRIBE) ->
+                    UiText.JOB_ITEMS_LEFT.text(language, "size" to job.items.size)
+                else -> null
+            },
             job.error,
         ).joinToString(" · ")
+        val progress = total?.let { n -> (clips ?: completed?.takeIf { multi })?.toDouble()?.div(n) }
         add(
             JobRow(
                 JobSource.AI, "${aiKindLabel(job.kind, language)} — ${aiStateLabel(job.state, language)}", detail,
-                running = active, failed = job.state == AiJobState.FAILED, canCancel = active, aiJobId = job.id,
+                progress = progress, running = active, failed = job.state == AiJobState.FAILED, canCancel = active, aiJobId = job.id,
+                timedRun = timed, indeterminate = timed && progress == null && job.state == AiJobState.RUNNING,
                 projectDir = job.project, jobId = job.id, resumeCount = job.items.size.takeIf { job.canResume() }, aiKind = job.kind,
                 status = when (job.state) {
                     AiJobState.QUEUED -> StudioStatus.QUEUED; AiJobState.RUNNING -> StudioStatus.RUNNING
@@ -136,6 +153,7 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
 internal fun aiKindLabel(kind: AiJobKind, language: UiLanguage = UiLanguage.ENGLISH): String = when (kind) {
     AiJobKind.TTS_ALL -> UiText.JOB_TTS_ALL.text(language)
     AiJobKind.TRANSCRIBE -> UiText.JOB_TRANSCRIBE.text(language)
+    AiJobKind.SCRIPT -> UiText.JOB_SCRIPT.text(language)
     AiJobKind.QUICK_RECAP -> UiText.JOB_QUICK_RECAP.text(language)
     AiJobKind.PUBLISH_KIT -> "Publish Kit"
 }
@@ -188,6 +206,14 @@ fun rememberJobRows(): List<JobRow> {
     return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names)
 }
 
+@Composable
+internal fun rememberJobsActions(scope: CoroutineScope): JobsActions {
+    val koin = getKoin()
+    return remember(koin, scope) {
+        JobsActions(scope, koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull())
+    }
+}
+
 /**
  * Studio v2 Jobs screen (5A-5, DESIGN.md §7 "Jobs"): every running job with its project, progress, Cancel, and
  * "Open" to the screen it belongs to ([onOpen]).
@@ -202,9 +228,7 @@ fun JobsScreen(
     notice: String? = null,
     noticeRow: JobRow? = null,
 ) {
-    val live = actions ?: getKoin().let { koin -> remember(koin, scope) {
-        JobsActions(scope, koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull())
-    } }
+    val live = actions ?: rememberJobsActions(scope)
     val language = LocalUiLanguage.current
     Column(
         modifier.fillMaxSize().background(AutoFlowColors.Background).testTag("jobs-content").verticalScroll(rememberScrollState()).padding(screenPadding),
@@ -228,11 +252,9 @@ fun JobsScreen(
                     val key = row.aiJobId ?: row.source.name.lowercase()
                     val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
                     Column(Modifier.testTag("job-${row.source.name.lowercase()}")) {
-                        JobCard(row.projectTitle ?: row.title, row.status,
-                            listOfNotNull(row.title.takeIf { row.projectTitle != null }, row.detail?.takeIf { it != row.projectTitle && !row.failed }).joinToString(" · "),
-                            Modifier.testTag("job-card-$key"), progress = progress?.toFloat()) {
+                        JobRunCard(row, Modifier.testTag("job-card-$key")) {
                             if (row.failed) row.detail?.let { AfText(it, color = AutoFlowColors.Failed) }
-                            progress?.let { AfText("${(it * 100).toInt()} %") }
+                            if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %") }
                             WrapRow {
                                 AfButton(tr(UiText.OPEN), { onOpen(row) }, Modifier.testTag("job-open-$key"))
                                 row.resumeCount?.takeIf { live.canResume(row) }?.let { n -> AfButton(

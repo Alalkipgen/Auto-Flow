@@ -1,5 +1,8 @@
 package io.github.alalkipgen.autoflow.ai.recap
 
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
+
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.JsonSchema
 import io.github.alalkipgen.autoflow.ai.TextProvider
@@ -53,7 +56,7 @@ class RecapScriptGenerator(private val text: TextProvider) {
             when (val r = text.json(p, RecapPrompts.schema(brief.scenes.size), RecapPrompts.SYSTEM)) {
                 is AiResult.Ok -> {
                     val problem = try {
-                        return AiResult.Ok(decode(r.value, brief.scenes.size), r.usage)
+                        return AiResult.Ok(timedAiStage(AiTimingStage.PARSE) { decode(r.value, brief.scenes.size) }, r.usage)
                     } catch (e: Exception) {
                         e.message ?: "invalid output"
                     }

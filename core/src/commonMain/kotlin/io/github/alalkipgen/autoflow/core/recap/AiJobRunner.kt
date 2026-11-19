@@ -21,6 +21,9 @@ interface AiJobRunner {
     /** Cancel a running or queued job. */
     suspend fun cancel(id: String)
 
+    /** Terminal history from a foreground Script invocation, which is never scheduled as worker work. */
+    suspend fun recordForeground(job: AiJob) {}
+
     /** Force a one-shot refresh of [jobs] from disk. */
     suspend fun refresh()
 }
@@ -35,6 +38,9 @@ fun interface AiItemProcessor {
      * items are found from the project, not only from the file"): the runner then checks it off without a request.
      */
     suspend fun alreadyDone(job: AiJob, item: String): Boolean = false
+
+    /** False for skipped/removed blocks; a checkpoint is not by itself proof of a saved voice clip. */
+    fun hasSavedClip(job: AiJob, item: String): Boolean = false
 }
 
 /** Thrown by an [AiItemProcessor] for a job kind it does not run: the job FAILS (never a silent Done, audit F11). */
