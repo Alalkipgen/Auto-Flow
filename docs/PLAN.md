@@ -222,7 +222,35 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 - [ ] CI recheck: run 678 failed in Linux desktop packaging before launch, though run 677 packaged the same app sources. The old public log does not identify the failing command. Keep the real package and launch gates, use the Linux `check` worker/compiler bounds for packaging, and retain the JDK/version, Gradle error, and Compose packaging logs on failure. A local startup pass is not a green GitHub check.
 - [ ] Inbox delivery CI: run [694](https://github.com/Alalkipgen/Auto-Flow/actions/runs/44626191886) failed before startup because Gradle could not find the pinned `uk.co.caprica:vlcj:4.8.3` POM while resolving `:app-desktop:runtimeClasspath` from Maven Central. The public POM returned HTTP 200 on recheck and the dedicated VLC job passed. Treat the resolution failure as potentially transient, not a UI failure: in `tools/ci-desktop-package.sh` retry once with refreshed dependencies only for that class of Maven Central error; keep both attempt logs, the same package/startup gates and all dependency pins. A second failure stays red.
 
+## Phase 7 — Subtitles · Voice & Audio · Dubbing (owner requested 2026-11-20)
+
+Order Subtitles → Voice & Audio → Dubbing. Specs: [quick-tools](specs/quick-tools.md), [dubbing](specs/dubbing.md), DESIGN §8; decisions D-77…D-84; questions Q-36…Q-44. Base: top of the UI v3 Draft stack, PR #216 `work/phase-6-inbox-long-press` @ `8d092a0` (exact source of green CI #695); each Phase 7 PR stacks on the previous one. Not in scope: the UI v3 fix round (#203–#216) and its phone QA, the final visual polish pass, other Labs items. Statuses stay separate: IMPLEMENTED · AUTOMATION_VERIFIED · PHONE_PENDING · OWNER_ACCEPTED (the last two only from the owner).
+
+- [~] P7-0 `work/phase-7-spec` — docs only: this section, the two specs, DESIGN §8, D-77…D-84, Q-36…Q-44. IMPLEMENTED; CI pending.
+- [ ] S-1 `tool-projects` — `Mode.SUBTITLES`; create-on-pick; index (tolerant of unknown modes, D-78), Projects chip, exhaustive Home Continue, Jobs binding, Backup, Remove/Restore/Delete; tile behind `tools.subtitles`.
+- [ ] S-2 `subtitle-doc` — `st` kind + `:core` ops; source chooser (text track, `.srt` with encodings, picture-track message); first `st` version.
+- [ ] S-3 `subtitle-editor` — virtualised list, edit panel, shift, checks, draft Save/Discard/Restore, preview seek.
+- [ ] S-4 `subtitle-export` — `.srt` export; burned video via direct `ass` command; `MediaTaskJob`; pre-flight; Exact frame (split S-4a/S-4b if large). **Milestone S-A.**
+- [ ] S-5 `transcribe-video` — `MEDIA_TRANSCRIBE` job, silence-cut ≤ 10-min chunks, confirm card, resume, retry failed only.
+- [ ] S-6 `subtitle-translate` — `SUB_TRANSLATE` job, validated batches, edited lines protected, Original/Burmese/Both. **Milestone S-B.**
+- [ ] V-1 `voice-text` — `Mode.VOICE_AUDIO`, task chooser, parts, `TEXT_TTS` job, tone, Lexicon, join, m4a/wav; flag `tools.voiceAudio`. Then spike S9.
+- [ ] V-2 `audio-clean` — existing `AudioFilters` as a `MediaTaskJob`, before/after.
+- [ ] V-3 `video-sound` — sound only / replace / add on top, video stream copied. **Milestone V.**
+- [ ] D-0 `dub-spikes` — owner's phone: S8 listening, three 30–60 s clips, 50/150/300-cue renders → `docs/perf/`. Gate: stop for the owner.
+- [ ] D-1 `dub-script` — `Mode.DUBBING`, Video/Translate reuse, Dub script + `:core` approval; flag `dubbing`.
+- [ ] D-2 `dub-voice` — `DUB_TTS` job, fit chips, Shorten with approval.
+- [ ] D-3 `dub-export` — `DubMixer`, Lower/Mute, optional burned Burmese, mp4 + `.srt`. **Milestone D.**
+
 ## Open Questions
+- Q-36 Phase 7 phone QA (amends D-65 for Phase 7 only): check on the phone once per milestone (S-A/S-B, V, D) instead of one final session? Default **yes, per milestone**; blocks only milestone sign-off.
+- Q-37 mp3 export? Default **no — m4a + wav** (D-82). Blocks only mp3, which needs an ffmpeg build change.
+- Q-38 Default subtitle export text: default **Burmese**, Original also offered; two languages later. Blocks only the S-4 default.
+- Q-39 Translation style: default **everyday spoken** (ပြောဆိုသလို), Formal offered. Blocks only the S-6 default.
+- Q-40 Dubbing original sound default: default **Lower to 15 %** (`dubbing.originalVolume`), Mute offered. Blocks only the D-3 default.
+- Q-41 Dubbing v1 maximum length: set from the D-0 measurements. Blocks D-1.
+- Q-42 Dubbing speed limit = spike S8 result: until the owner listens, `dubbing.maxVoiceSpeed` = 1.0 (no speed-up). Blocks only the D-2 speed step. (Recap's fit rows default to 1.5×; Dubbing does not use them.)
+- Q-43 Quick-tool projects in Projects: default **shown with a mode chip**. Blocks S-1 presentation only.
+- Q-44 Zawgyi `.srt` (S-2): no detector exists in the repo. Default: S-2 detects likely Zawgyi with a small in-house check and warns, without converting. "Convert to Unicode" needs a conversion table (a new dependency or ported rules) → a DECISIONS line and the owner's yes first. Q-14 (Azure voices) stays open and is decided after spike S9.
 - F3 inline progress: the storyboard generator sends a whole-shot batch and provides no streamed shot counts. Show two logical stages, not a guessed shot percentage. Foreground requests are not resumed after process death.
 - Feedback R1: the owner's actual `preview.mp4` was not supplied. Compare a synthetic preview with its project ratio; do not retune the renderer based on a screenshot. Preview results do not currently record the input revision; omit a stale badge for unprovable revisions.
 - Q-35 Projects completion audit (brief §4/§6 Projects/§9): AppShell actually mounts DashboardScreen, not the unused ProjectsScreen prototype. Reuse SectionCard for Create/Recent and AfCard for real rows; wrap facts and Create/Cancel at every width. Keep the existing folder/create/rights and long-press index-removal confirmation, with no project deletion, new route or engine/data behavior. The new 27-cell real-shell matrix plus actual App route regression passed in focused87/87; final full/CI and owner acceptance are separate.
@@ -384,6 +412,7 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 - 2026-11-16 Targeted follow-up A/B (D-63): Library pronunciation wired through production DI, and TEXT composed in list order with actual captions last. See `docs/FOLLOWUP-VERIFICATION.md` for test contracts and final-gate commands. Android lifecycle device execution remains a separate unverified gate.
 
 - 2026-11-16 Follow-up C/D (D-64): historical harness contracts mapped to current default-model/native-v2/serialized-save coverage; deterministic blocked-writer and child-JVM committed-byte assertions retained. Copy-only original-v1 recovery command and real-disk V1ProjectCopyTest; current v2 edits, backup and all artifacts unchanged. Procedure: `docs/FOLLOWUP-VERIFICATION.md`. No recovery UI or automatic replacement.
+- 2026-11-20 Phase 7 plan (Subtitles · Voice & Audio · Dubbing) ported as docs only (P7-0): specs/quick-tools.md, specs/dubbing.md, DESIGN §8, D-77…D-84, Q-36…Q-44. Base PR #216 @ `8d092a0`.
 
 
 ### Selected-take waveform — separate task 5 (in progress; stacked after PR196)
