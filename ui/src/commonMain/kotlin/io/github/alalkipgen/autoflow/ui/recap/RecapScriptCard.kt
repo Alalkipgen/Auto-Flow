@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.recap
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
-import io.github.alalkipgen.autoflow.ui.jobs.ProjectAiJobCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -45,7 +44,8 @@ const val APPROVE_SCRIPT = "✓ Approve script"
 
 /** Card 3 · Script (docs/specs/recap.md §4): summary, subtitles, style, Gemini or manual script, edit, approve. */
 @Composable
-internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null, studioOptions: Boolean = false) {
+internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null,
+    studioOptions: Boolean = false, pinnedRun: Boolean = false) {
     val content: @Composable ColumnScope.() -> Unit = content@{
         RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let {
             AfText(it.text(LocalUiLanguage.current), muted = true)
@@ -59,7 +59,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         if (!studioOptions) {
             SourceSummary(model, state)
             SourceSubtitles(model, state, recap)
-            TranscribeSection(model, state, recap)
+            TranscribeSection(model, state, recap, pinnedRun = pinnedRun)
         }
         if (studioOptions) AfText(My.breakSyllables(tr(UiText.V3_STORY_WRITING_HINT)), muted = true)
         AfText(tr(UiText.STYLE), muted = true, size = 12.sp)
@@ -99,7 +99,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         var confirming by remember(state.projectDir) { mutableStateOf<String?>(null) }
         val running = state.job == RecapModel.WRITING
         if (running) {
-            AfButton(tr(UiText.CANCEL), { model.cancelScript() }, kind = ButtonKind.Danger)
+            if (!pinnedRun) AfButton(tr(UiText.CANCEL), { model.cancelScript() }, kind = ButtonKind.Danger)
         } else if (confirming != null) {
             val gemini = confirming == WRITE_SCRIPT
             AfText(
@@ -191,7 +191,7 @@ internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: Reca
  * requests left are sent).
  */
 @Composable
-internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2, pinnedRun: Boolean = false) {
     val t = state.transcribe
     if (!t.available || recap.movie == null) return
     val active = t.job?.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING)
@@ -228,7 +228,7 @@ internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Re
                 AfButton(tr(UiText.CANCEL_JOB), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
             }
         }
-        job != null -> ProjectAiJobCard(job, model::cancelTranscribe, Modifier.testTag("transcribe-progress"), Modifier.testTag("transcribe-cancel"))
+        job != null -> if (!pinnedRun) RecapTranscribeRun(model, job)
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(tr(UiText.TRANSCRIBE_OFFER, "todoScenes" to (t.todoScenes)), muted = true, size = 12.sp)
             AfButton(tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)

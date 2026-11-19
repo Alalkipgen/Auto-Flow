@@ -42,6 +42,7 @@ import io.github.alalkipgen.autoflow.ui.export.ExportModel
 import io.github.alalkipgen.autoflow.ui.export.ExportRun
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.recap.RecapUiState
+import io.github.alalkipgen.autoflow.ui.recap.RecapVoiceRun
 import io.github.alalkipgen.autoflow.ui.storyboard.JobState
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
@@ -50,7 +51,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.getKoin
 
 /** Where a job row came from; also where its "Open" button goes. */
-enum class JobSource { RECAP, RENDER, STORYBOARD, AI }
+enum class JobSource { RECAP, RECAP_VOICE, RENDER, STORYBOARD, AI }
 
 /** One row of the Jobs screen (5A-5). [progress] 0…1 when known; [running] = still working (counts in the badge). */
 data class JobRow(
@@ -102,6 +103,7 @@ internal fun List<JobRow>.withoutRemovedRenders(removed: Set<String>) =
  */
 fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai: List<AiJob>, language: UiLanguage = UiLanguage.ENGLISH,
     projectNames: Map<String, String> = emptyMap(),
+    voice: List<RecapVoiceRun> = listOfNotNull(recap?.voiceRun),
 ): List<JobRow> = buildList {
     recap?.takeIf { it.runnerJobId == null }?.job?.let { label ->
         val script = recap.job == RecapModel.WRITING
@@ -122,6 +124,7 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         add(row.copy(projectDir = run.projectDir, jobId = run.id))
     }
     storyboard?.let { musicGeminiRow(it, language) }?.let(::add)
+    voice.forEach { add(recapVoiceRow(it, language)) }
     ai.forEach { job ->
         val active = job.state == AiJobState.RUNNING || job.state == AiJobState.QUEUED
         val total = job.initialItemCount?.takeIf { it > 0 }
@@ -156,6 +159,11 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         )
     }
 }.map { row -> row.copy(projectTitle = row.projectDir?.let { projectNames[it] ?: row.projectTitle ?: projectName(it) }) }
+
+internal fun recapVoiceRow(run: RecapVoiceRun, language: UiLanguage) = JobRow(
+    JobSource.RECAP_VOICE, run.label.text(language), canCancel = true, jobId = run.id, projectDir = run.dir,
+    projectIdentity = run.projectId, projectTitle = run.name, timedRun = true, indeterminate = true,
+)
 
 internal fun musicGeminiRow(state: JobState, language: UiLanguage): JobRow? {
     val running = state.running ?: return null
@@ -215,6 +223,7 @@ fun rememberJobRows(): List<JobRow> {
     val index = remember(koin) { koin.getOrNull<ProjectIndex>() }
     val renderHistory = remember(koin) { koin.getOrNull<RenderHistory>() }
     val recap by (recapModel?.state?.collectAsState() ?: remember { mutableStateOf(null) })
+    val voice by (recapModel?.foregroundVoiceRuns?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
     val export by (exportModel?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val storyboard by (storyboardJobs?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val ai by (runner?.history?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
@@ -222,7 +231,7 @@ fun rememberJobRows(): List<JobRow> {
     val open by (current?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val entries by (index?.entries?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
     val names = entries.associate { it.path to it.name } + listOfNotNull(open?.let { it.dir to it.project.name }).toMap()
-    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names).withoutRemovedRenders(hidden).map { row ->
+    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names, voice).withoutRemovedRenders(hidden).map { row ->
         if (row.projectDir?.let { index?.isDeleted(it, row.projectIdentity) } == true) row.copy(projectDeleted = true) else row
     }
 }
@@ -270,7 +279,7 @@ fun JobsScreen(
             if (members.isNotEmpty()) {
                 AfText(tr(group.label), Modifier.testTag("jobs-group-${group.name}"), size = 18.sp, bold = true)
                 members.forEach { row -> key(row.identity) {
-                    val key = row.aiJobId ?: row.source.name.lowercase()
+                    val key = row.aiJobId ?: row.jobId?.takeIf { row.source == JobSource.RECAP_VOICE } ?: row.source.name.lowercase()
                     val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
                     val card: @Composable (Modifier) -> Unit = { context ->
                         Column(Modifier.testTag("job-${row.source.name.lowercase()}")) {

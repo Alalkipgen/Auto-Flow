@@ -1,6 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.jobs.foregroundRunId
+import io.github.alalkipgen.autoflow.ui.jobs.withGeminiProgress
+import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.storyboard.notice
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.retry.isBusy
@@ -55,10 +58,14 @@ import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.core.recap.AiRunTiming
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,6 +77,12 @@ import io.github.alalkipgen.autoflow.core.library.LibraryStore
 import io.github.alalkipgen.autoflow.ui.library.LibraryModel
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
+
+/** A single, in-memory TTS request. The queued Speak All job still lives in AiJobRunner. */
+data class RecapVoiceRun(val id: String, val dir: String, val projectId: String, val name: String, val number: Int) {
+    val label get() = UiNotice(UiText.VOICE_SPEAKING_ONE, "n" to number)
+    internal fun belongsTo(open: OpenProject?) = open?.dir == dir && open.project.id == projectId
+}
 
 /** What the Movie Recap screen shows besides the project itself. [job] = a long step is running ([progress] 0…1 when known). */
 data class RecapUiState(
@@ -113,8 +126,9 @@ data class RecapUiState(
     val movieSubtitleTracksRead: Boolean = false,
     /** "Transcribe picked scenes" (5B-1): what is left, the confirm card and the project's last unfinished job. */
     val transcribe: TranscribeUi = TranscribeUi(),
+    val voiceRun: RecapVoiceRun? = null,
 ) {
-    val busy: Boolean get() = job != null
+    val busy: Boolean get() = job != null || voiceRun != null
 }
 
 /**
@@ -214,6 +228,11 @@ class RecapModel(
     private val scenesTx = SceneTranscriber(session, fs, media, transcriber, sceneAudio, clock)
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
+    private val voiceRuns = MutableStateFlow<List<RecapVoiceRun>>(emptyList())
+    internal val foregroundVoiceRuns = voiceRuns.asStateFlow()
+    private val voiceJobs = mutableMapOf<String, Job>()
+    internal fun canCancelForegroundVoice(id: String?) = id?.let { voiceJobs[it]?.isActive } == true
+    internal fun cancelForegroundVoice(id: String?) { if (id != null) voiceJobs[id]?.cancel() }
     internal val runnerJobs: StateFlow<List<AiJob>> = jobs?.jobs ?: MutableStateFlow(emptyList())
     internal fun cancelVoiceRun(id: String) = scope.launch {
         val job = runnerJobs.value.firstOrNull { it.id == id && it.project == session.open?.dir && it.kind == AiJobKind.TTS_ALL }
@@ -287,6 +306,7 @@ class RecapModel(
             jobNotice = keep?.jobNotice,
             runnerJobId = keep?.runnerJobId,
             scriptRunId = keep?.scriptRunId,
+            voiceRun = voiceRuns.value.firstOrNull { it.belongsTo(open) },
         )
     }
 
@@ -585,6 +605,10 @@ class RecapModel(
     /** Closes the Transcribe confirm card; nothing is sent. */
     fun dismissTranscribe() = setTranscribe { it.copy(confirm = null) }
 
+    internal fun cancelTranscribeRun(id: String) {
+        if (_state.value.transcribe.job?.id == id) cancelTranscribe()
+    }
+
     /** Stops Transcribe: the job is cancelled (scenes already saved stay in the project). */
     fun cancelTranscribe() {
         val runner = jobs
@@ -758,6 +782,11 @@ class RecapModel(
     }
 
     /** Stops ✨ Write script; nothing changes. */
+    internal fun cancelScriptRun(id: String?) {
+        val state = _state.value
+        if (state.job == WRITING && (state.scriptRunId ?: state.job) == id) cancelScript()
+    }
+
     fun cancelScript() {
         scriptJob?.cancel()
         scriptJob = null
@@ -1001,17 +1030,44 @@ class RecapModel(
     fun speak(index: Int): Job? {
         if (tts == null) { sayNotice(UiNotice(UiText.TTS_UNAVAILABLE)); return null }
         if (_state.value.busy || _state.value.recording != null) return null
+        val open = session.open ?: return null
+        if (voiceRuns.value.any { it.belongsTo(open) } || runnerJobs.value.any { it.project == open.dir &&
+                it.kind == AiJobKind.TTS_ALL && it.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING) }) return null
         val target = voiceTarget(index) ?: return null
         val lock = recap()?.voiceLock
         val style = currentStory()?.style ?: _style
-        busyNotice(UiNotice(UiText.VOICE_SPEAKING_ONE, "n" to index + 1))
-        return scope.launch {
+        val run = RecapVoiceRun(foregroundRunId(), target.dir, target.projectId, open.project.name, index + 1)
+        val worker = scope.launch(start = CoroutineStart.LAZY) {
+            var outcome: UiNotice? = null
+            var ok = false
             try {
-                val msg = speakInto(target, lock, style)
-                doneNotice(msg?.let(::diagnostic) ?: UiNotice(UiText.VOICE_SPOKEN_ONE, "n" to index + 1), ok = msg == null)
+                val message = withGeminiProgress(run.id) { speakInto(target, lock, style) }
+                ok = message == null
+                outcome = message?.let(::diagnostic) ?: UiNotice(UiText.VOICE_SPOKEN_ONE, "n" to run.number)
+            } catch (e: CancellationException) {
+                outcome = UiNotice(UiText.JOB_CANCELLED)
+                throw e
             } finally {
-                if (_state.value.job != null) done(null)
+                finishForegroundVoice(run, outcome, ok)
             }
+        }
+        voiceJobs[run.id] = worker
+        voiceRuns.value = voiceRuns.value + run
+        _state.value = _state.value.copy(voiceRun = run, message = null, notice = null, messageOk = false)
+        worker.invokeOnCompletion {
+            if (run in voiceRuns.value) finishForegroundVoice(run, UiNotice(UiText.JOB_CANCELLED), false)
+        }
+        worker.start()
+        return worker
+    }
+
+    private fun finishForegroundVoice(run: RecapVoiceRun, notice: UiNotice?, ok: Boolean) {
+        voiceJobs.remove(run.id)
+        voiceRuns.value = voiceRuns.value.filterNot { it.id == run.id }
+        if (run.belongsTo(session.open)) {
+            refresh()
+            if (notice != null) _state.value = _state.value.copy(
+                message = notice.text(UiLanguage.ENGLISH), notice = notice, messageOk = ok)
         }
     }
 
@@ -1123,6 +1179,7 @@ class RecapModel(
         val ttsVoice = lock?.voice ?: "Kore"
         // The speak-as text with the lexicon (SpokenText, audit F10): the same text the take's hash is made of.
         val r = provider.speak(target.spoken, VoiceRef(ttsVoice), "my", style, lockedModel)
+        currentCoroutineContext().ensureActive()
         lastSpeakBusy = r.isBusy()
         return when (r) {
             is AiResult.Ok -> {
@@ -1190,6 +1247,7 @@ class RecapModel(
     /** A new take: long pauses cut first when Sound → "Cut long pauses" is on (5B-4), then saved. null = saved. */
     private suspend fun saveTake(t: VoiceTarget, bytes: ByteArray, ext: String, source: TakeSource, durationMs: Long, made: Provenance): String? {
         val (b, e, ms) = trimPauses(t, bytes, ext, durationMs)
+        currentCoroutineContext().ensureActive()
         return storeTake(t, b, e, source, ms, made)
     }
 

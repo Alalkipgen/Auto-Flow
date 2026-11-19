@@ -39,6 +39,7 @@ class JobsActions(
     fun canCancel(row: JobRow): Boolean = when (row.source) {
         JobSource.AI -> ai(row)?.state in listOf(AiJobState.QUEUED, AiJobState.RUNNING)
         JobSource.RECAP -> recap?.state?.value?.let { it.projectDir == row.projectDir && (it.scriptRunId ?: it.job) == row.jobId && it.job == RecapModel.WRITING } == true
+        JobSource.RECAP_VOICE -> recap?.canCancelForegroundVoice(row.jobId) == true
         JobSource.RENDER -> run(row)?.state.let { it == RenderState.Queued || it is RenderState.Running }
         JobSource.STORYBOARD -> storyboard?.matches(row.jobId) == true
     }
@@ -46,7 +47,8 @@ class JobsActions(
         if (!canCancel(row)) return
         dispatch(row) { when (row.source) {
             JobSource.AI -> runner?.cancel(requireNotNull(row.aiJobId))
-            JobSource.RECAP -> recap?.cancelScript()
+            JobSource.RECAP -> recap?.cancelScriptRun(row.jobId)
+            JobSource.RECAP_VOICE -> recap?.cancelForegroundVoice(row.jobId)
             JobSource.RENDER -> render?.cancel()
             JobSource.STORYBOARD -> storyboard?.cancelRun(row.jobId)
         } }
@@ -129,11 +131,11 @@ fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProje
         JobSource.RENDER -> "Export"
         JobSource.STORYBOARD -> row.projectScreen ?: SHOT_SHEET
         JobSource.AI -> if (row.aiKind == AiJobKind.PUBLISH_KIT) "Export" else "Recap"
-        JobSource.RECAP -> "Recap"
+        JobSource.RECAP, JobSource.RECAP_VOICE -> "Recap"
     }
     val step = when {
         screen == "Export" -> RecapStep.STYLE
-        row.aiKind == AiJobKind.TTS_ALL -> RecapStep.VOICE
+        row.aiKind == AiJobKind.TTS_ALL || row.source == JobSource.RECAP_VOICE -> RecapStep.VOICE
         row.aiKind == AiJobKind.SCRIPT || (row.source == JobSource.RECAP && row.jobId == RecapModel.WRITING) -> RecapStep.STORY
         else -> RecapStep.SOURCE
     }
