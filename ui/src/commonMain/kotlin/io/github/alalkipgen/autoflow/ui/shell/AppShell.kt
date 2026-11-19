@@ -38,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
@@ -65,7 +66,11 @@ import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.input.InputScreen
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
+import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.platform.AppDirs
+import io.github.alalkipgen.autoflow.ui.home.HomeContinueCache
+import io.github.alalkipgen.autoflow.ui.home.HomeResume
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.ui.home.HomeScreen
 import io.github.alalkipgen.autoflow.ui.jobs.JobsScreen
@@ -88,6 +93,8 @@ import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 
@@ -254,6 +261,22 @@ private fun StudioV2App(
     val currentProject = koinInject<io.github.alalkipgen.autoflow.ui.projects.CurrentProject>()
     val open by currentProject.state.collectAsState()
     val isRecap = open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP
+    val fs = koinInject<FileSystem>()
+    val dirs = koinInject<AppDirs>()
+    val continueCache = remember(fs, dirs) { HomeContinueCache(fs, dirs.root) }
+    var lastSeen by remember(continueCache) { mutableStateOf<HomeResume?>(null) }
+    LaunchedEffect(continueCache) {
+        snapshotFlow {
+            if (nav.dest == StudioV2Dest.PROJECTS && !nav.settings && nav.createMode == null) {
+                open?.let { HomeResume.from(it, nav) }
+            } else null
+        }.collect { hint ->
+            if (hint != null && hint != lastSeen) {
+                lastSeen = hint
+                withContext(Dispatchers.Default) { continueCache.write(hint) }
+            }
+        }
+    }
     val scope = rememberCoroutineScope()
     // Bug fix: share-sheet → Inbox navigate (D-52)
     val shared = koinInject<io.github.alalkipgen.autoflow.ui.inbox.SharedInbox>()
@@ -281,6 +304,16 @@ private fun StudioV2App(
             StudioV2Dest.HOME -> {
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
                 val dashboardState by dashboard.state.collectAsState()
+                val recent = dashboardState.rows.filterNot { it.missing }.map { it.entry }
+                val latest = recent.maxByOrNull { it.lastOpenedAt }
+                val cached = remember(continueCache, latest?.path, latest?.mode) {
+                    latest?.let { continueCache.read(it.path, it.mode) }
+                }
+                val active = open?.takeIf { latest != null && it.dir == latest.path && it.project.mode == latest.mode }
+                val visibleRoute = active?.let { HomeResume.from(it, nav) }
+                val resume = visibleRoute ?: listOfNotNull(lastSeen, cached).firstOrNull {
+                    latest != null && it.path == latest.path && it.step.mode == latest.mode && (active == null || it.belongsTo(active))
+                }
                 HomeScreen(
                     onNewRecap = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) },
                     onNewMusicVideo = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO) },
@@ -293,17 +326,19 @@ private fun StudioV2App(
                     jobs = rows,
                     onViewJobs = { nav = v2Select(nav, StudioV2Dest.JOBS) },
                     backHandler = backHandler,
-                    continueProjectPath = open?.dir,
-                    continueStep = if (open != null && isRecap && nav.projectScreen in listOf("Recap", "Export")) {
-                        val step = if (nav.projectScreen == "Export") io.github.alalkipgen.autoflow.ui.recap.RecapStep.EXPORT else nav.recapStep
-                        tr(UiText.V3_STEP, "step" to tr(step.textKey), "n" to step.ordinal + 1)
-                    } else null,
-                    recent = dashboardState.rows.filter { !it.missing }.map { it.entry },
+                    continueProjectPath = resume?.path,
+                    continueStep = resume?.step?.let { target ->
+                        target.recap?.let { tr(UiText.V3_STEP, "step" to tr(it.textKey), "n" to it.ordinal + 1) }
+                            ?: My.screen(target.screen)
+                    },
+                    recent = recent,
                     onOpenProject = { dir ->
-                        if (open?.dir == dir && nav.projectScreen != null) nav = v2Select(nav, StudioV2Dest.PROJECTS)
+                        if (visibleRoute?.path == dir) nav = v2Select(nav, StudioV2Dest.PROJECTS)
                         else if (dashboard.open(dir)) {
-                            val mode = currentProject.state.value?.project?.mode
-                            openProjectScreen(if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
+                            val project = currentProject.state.value
+                            val target = resume?.takeIf { project != null && it.belongsTo(project) }
+                            if (target != null) nav = target.step.nav()
+                            else openProjectScreen(if (project?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
                         }
                     },
                 )

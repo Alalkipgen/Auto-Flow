@@ -60,6 +60,7 @@ class HomeScreenTest(val width: Int, val font: Float, val language: UiLanguage, 
         assertEquals(1, settings)
         onNodeWithTag("recent-${fixture.project.name}").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         assertEquals(fixture.dir.path, opened)
+        onNodeWithTag("home-mode-MOVIE_RECAP").assertIsDisplayed()
         onNodeWithTag("home-step-by-step").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("home-new-recap").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("home-new-mv").performScrollTo().assertIsDisplayed().performMouseInput { click() }
