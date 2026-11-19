@@ -25,6 +25,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.alalkipgen.autoflow.ui.jobs.JobRow
+import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
+import io.github.alalkipgen.autoflow.ui.jobs.JobSource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -214,19 +217,25 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
             actions = {
                 AfButton(tr(UiText.SAVE), { model.saveKey(input); input = "" }, kind = ButtonKind.Primary, enabled = input.isNotBlank())
                 AfButton(
-                    if (state.testing) tr(UiText.TESTING) else tr(UiText.TEST),
+                    tr(UiText.TEST),
                     { scope.launch { model.testKey() } },
                     enabled = hasKey && !state.testing,
                 )
                 AfButton(tr(UiText.REMOVE), model::removeKey, kind = ButtonKind.Danger, enabled = hasKey)
             },
         )
+        state.geminiTest?.takeIf { it.label == UiText.JOB_TEST_GEMINI_KEY }?.let {
+            GeminiDiagnosticCard(it, model)
+        }
         AfText(tr(UiText.KEY_TEST_HINT), muted = true, size = 12.sp)
         if (model.canTestTts) {
             var playing by remember { mutableStateOf(false) }
             WrapRow {
                 AfButton(tr(UiText.TEST_TTS), { scope.launch { model.testTts() } }, enabled = hasKey && !state.testing)
                 state.ttsSample?.let { AudioPlayButton(it, playing, { playing = !playing }) }
+            }
+            state.geminiTest?.takeIf { it.label == UiText.TEST_TTS }?.let {
+                GeminiDiagnosticCard(it, model)
             }
             AfText(tr(UiText.TTS_TEST_HINT), muted = true, size = 12.sp)
         }
@@ -239,6 +248,14 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
             muted = true,
         )
     }
+}
+
+@Composable
+private fun GeminiDiagnosticCard(run: GeminiDiagnosticRun, model: SettingsModel) {
+    JobRunCard(JobRow(JobSource.AI, tr(run.label), canCancel = true, jobId = run.id, timedRun = true, indeterminate = true),
+        Modifier.testTag("gemini-diagnostic-run"), headerAction = {
+            AfButton(tr(UiText.CANCEL), { model.cancelGeminiTest(run.id) }, kind = ButtonKind.Danger)
+        })
 }
 
 @Composable

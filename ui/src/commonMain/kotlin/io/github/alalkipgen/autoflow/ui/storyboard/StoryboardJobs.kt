@@ -19,7 +19,7 @@ data class JobState(val running: String? = null, val last: StoryboardResult? = n
     fun lastFor(open: OpenProject?): StoryboardResult? = last.takeIf { gemini == null || gemini.belongsTo(open) }
 }
 
-data class MusicGeminiRun(val id: String, val dir: String, val projectId: String, val name: String, val screen: String,
+data class MusicGeminiRun(val id: String, val dir: String, val projectId: String, val name: String, val screen: String, val action: UiText,
     val stage: UiNotice? = null) {
     fun belongsTo(open: OpenProject?) = open?.dir == dir && open.project.id == projectId
 }
@@ -38,12 +38,16 @@ class StoryboardJobs(private val service: StoryboardService, private val scope: 
 
     /** Starts [block] unless another job runs (returns false). [onDone] gets the result on the job's thread. */
     fun run(label: String, onDone: (StoryboardResult) -> Unit = {}, notice: UiNotice? = null, block: suspend StoryboardService.() -> StoryboardResult): Boolean {
-        return start(label, onDone, notice, null) { service.block() }
+        return start(label, onDone, notice, null) { service.block() } != null
     }
 
     internal fun runGemini(project: OpenProject, screen: String, label: String, notice: UiNotice,
-        onDone: (StoryboardResult) -> Unit = {}, block: suspend StoryboardService.((UiNotice) -> Unit) -> StoryboardResult): Boolean {
-        val run = MusicGeminiRun(foregroundRunId(), project.dir, project.project.id, project.project.name, screen)
+        onDone: (StoryboardResult) -> Unit = {}, block: suspend StoryboardService.((UiNotice) -> Unit) -> StoryboardResult): Boolean =
+        launchGemini(project, screen, label, notice, onDone, block) != null
+
+    internal fun launchGemini(project: OpenProject, screen: String, label: String, notice: UiNotice,
+        onDone: (StoryboardResult) -> Unit = {}, block: suspend StoryboardService.((UiNotice) -> Unit) -> StoryboardResult): Job? {
+        val run = MusicGeminiRun(foregroundRunId(), project.dir, project.project.id, project.project.name, screen, notice.key)
         return start(label, { if (service.isOpen(run)) onDone(it) }, notice, run) {
             if (!service.isCurrent(project)) return@start StoryboardService.projectChanged
             withGeminiProgress(run.id) {
@@ -58,8 +62,8 @@ class StoryboardJobs(private val service: StoryboardService, private val scope: 
     }
 
     private fun start(label: String, onDone: (StoryboardResult) -> Unit, notice: UiNotice?,
-        run: MusicGeminiRun?, block: suspend () -> StoryboardResult): Boolean {
-        if (busy) return false
+        run: MusicGeminiRun?, block: suspend () -> StoryboardResult): Job? {
+        if (busy) return null
         _state.value = JobState(running = label, notice = notice, gemini = run)
         val launched = scope.launch(start = CoroutineStart.LAZY) {
             val result = try {
@@ -78,7 +82,7 @@ class StoryboardJobs(private val service: StoryboardService, private val scope: 
             if (cause is CancellationException && job === launched && busy) _state.value = JobState(last = CANCELLED, gemini = run)
         }
         launched.start()
-        return true
+        return launched
     }
 
     /** Cancels the running job; the project stays as it was before it started. */

@@ -9,6 +9,10 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import io.github.alalkipgen.autoflow.ai.*
 import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
+import io.github.alalkipgen.autoflow.ai.fake.FakeTranscribeProvider
+import io.github.alalkipgen.autoflow.core.getOrNull
+import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
+import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ai.registry.aiModule
 import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
 import io.github.alalkipgen.autoflow.core.io.*
@@ -104,6 +108,54 @@ class MusicGeminiProgressTest {
             assertEquals(StoryboardJobs.CANCELLED, jobs.state.value.last)
             assertContentEquals(before, fs.read("$dir/project.json"))
             assertEquals(artifacts, fs.list("$dir/artifacts"))
+        } finally { graph.koin.get<StoryboardJobs>().cancel(); graph.close() }
+    }
+
+    @Test fun lyricTimingContinuesAfterLeavingInputAndRefreshesTheReopenedScreen() = runDesktopComposeUiTest(width = 412, height = 760) {
+        val fs = InMemoryFileSystem()
+        val appDirs = AppDirs("/app")
+        val dir = "/app/projects/lyric.autoflow"
+        val store = ProjectStore(fs)
+        val project = checkNotNull(store.create(dir, "Music QA", Mode.MUSIC_VIDEO, ProjectSettings(durationMs = 30_000)).getOrNull())
+        fs.writeDurably("$dir/source/lyrics.txt", "One line\nSecond line".encodeToByteArray())
+        fs.writeDurably("$dir/source/song.mp3", byteArrayOf(1, 2, 3))
+        ProjectIndex(fs, appDirs.projectsIndex).record(dir, project)
+        val waiting = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val fake = FakeTranscribeProvider()
+        val graph = koinApplication { modules(fakePlatformModule(), uiModule, aiModule, module {
+            single<FileSystem> { fs }
+            single { appDirs }
+            single<TranscribeProvider> { object : TranscribeProvider {
+                override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> {
+                    waiting.complete(Unit)
+                    release.await()
+                    return fake.transcribe(audio, lang, mime, lines)
+                }
+            } }
+        }) }
+        try {
+            graph.koin.get<SettingsStore>().update { it.copy(featureOverrides = mapOf("studioV2" to true)) }
+            setContent { KoinIsolatedContext(graph) { App() } }
+            fun tap(text: String) = onNodeWithText(text).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            tap("Music QA")
+            tap(UiText.SUGGEST_TIMINGS.en); tap(UiText.SEND.en)
+            waitUntil(timeoutMillis = 5_000) { waiting.isCompleted }
+            onNodeWithTag("gemini-project-run").assertIsDisplayed()
+            onNodeWithText(UiText.JOB_LYRIC_TIMINGS.en).assertIsDisplayed()
+            onNodeWithContentDescription(UiText.JOBS.en, substring = true).performMouseInput { click() }
+            onNodeWithText(UiText.JOB_LYRIC_TIMINGS.en, substring = true).assertIsDisplayed()
+            onNodeWithTag("job-open-storyboard").performScrollTo().performMouseInput { click() }
+            onNodeWithTag("gemini-project-run").assertIsDisplayed()
+            runOnIdle { release.complete(Unit) }
+            val session = graph.koin.get<ProjectSession>()
+            waitUntil(timeoutMillis = 5_000) { session.open?.project?.lyricTiming != null }
+            onNodeWithTag("gemini-project-run").assertDoesNotExist()
+            onNodeWithText(UiText.TIMINGS_GEMINI.en, substring = true).performScrollTo().assertIsDisplayed()
+            assertEquals(1, fake.calls)
+            val saved = assertNotNull(session.readLyricTimings())
+            assertEquals(LyricTimings.SOURCE_GEMINI, saved.source)
+            assertEquals(2, saved.lines.size)
         } finally { graph.koin.get<StoryboardJobs>().cancel(); graph.close() }
     }
 

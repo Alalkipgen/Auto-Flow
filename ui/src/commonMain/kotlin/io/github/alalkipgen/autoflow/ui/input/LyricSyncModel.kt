@@ -7,10 +7,14 @@ import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.lyrics.LyricSync
 import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
 import io.github.alalkipgen.autoflow.core.lyrics.TapSync
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
 import io.github.alalkipgen.autoflow.media.audio.SongAudio
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -123,19 +127,28 @@ class LyricSyncModel(
     suspend fun suggest(): Boolean {
         val provider = transcribe ?: return say(UiNotice(UiText.SYNC_NO_AI)).let { false }
         if (_state.value.suggesting) return false
+        val origin = session.open ?: return false
         val lyrics = session.readLyrics()
         val lines = LyricSync.lines(lyrics)
         if (lines.isEmpty()) return say(UiNotice(UiText.SYNC_NO_LINES)).let { false }
         val song = session.songPath() ?: return say(UiNotice(UiText.SYNC_NO_SONG)).let { false }
         _state.value = _state.value.copy(suggesting = true, message = null, notice = null, sync = null)
         try {
-            val (audio, mime) = withContext(Dispatchers.Default) { audioFor(song) } ?: return say(UiNotice(UiText.SYNC_NO_AUDIO)).let { false }
+            val wav = session.cacheFile(AI_WAV)
+            val (audio, mime) = timedAiStage(AiTimingStage.MEDIA_PREP) { withContext(Dispatchers.Default) { audioFor(song, wav) } }
+                ?: return say(UiNotice(UiText.SYNC_NO_AUDIO)).let { false }
+            if (session.open != origin) return say(UiNotice(UiText.GEMINI_PROJECT_CHANGED)).let { false }
             return when (val r = provider.transcribe(audio, langOf(lyrics), mime, lines)) {
                 is AiResult.Ok -> {
-                    val songMs = session.open?.project?.settings?.durationMs?.takeIf { it > 0 }
-                    val fixed = LyricSync.suggested(lines, r.value.segments.map { it.startMs to it.endMs }, songMs)
-                        ?: return say(UiNotice(UiText.SYNC_AI_INCOMPLETE)).let { false }
-                    when (val saved = session.saveLyricTimings(LyricTimings(source = LyricTimings.SOURCE_GEMINI, lines = fixed))) {
+                    currentCoroutineContext().ensureActive()
+                    if (session.open != origin) return say(UiNotice(UiText.GEMINI_PROJECT_CHANGED)).let { false }
+                    val songMs = origin.project.settings.durationMs.takeIf { it > 0 }
+                    val fixed = timedAiStage(AiTimingStage.PARSE) {
+                        LyricSync.suggested(lines, r.value.segments.map { it.startMs to it.endMs }, songMs)
+                    } ?: return say(UiNotice(UiText.SYNC_AI_INCOMPLETE)).let { false }
+                    when (val saved = timedAiStage(AiTimingStage.SAVE) {
+                        session.saveLyricTimings(LyricTimings(source = LyricTimings.SOURCE_GEMINI, lines = fixed))
+                    }) {
                         is CoreResult.Ok -> {
                             refresh(session.readLyrics())
                             say(UiNotice(UiText.TIMINGS_SUGGESTED, "lines" to fixed.size), ok = true)
@@ -154,10 +167,9 @@ class LyricSyncModel(
     }
 
     /** Decoded small WAV, else the song file itself when Gemini knows its type; null when nothing can be read. */
-    private suspend fun audioFor(song: String): Pair<ByteArray, String>? {
+    private suspend fun audioFor(song: String, wav: String?): Pair<ByteArray, String>? {
         val runner = media?.runner
         val ffmpeg = media?.ffmpeg()
-        val wav = session.cacheFile(AI_WAV)
         if (runner != null && ffmpeg != null && wav != null) {
             val failed = SongAudio.decodeMonoWav(runner, ffmpeg, song, wav, MediaTools.parentOf(wav), SongAudio.AI_RATE)
             if (failed == null) session.readFile(wav)?.takeIf { it.isNotEmpty() }?.let { return it to "audio/wav" }
