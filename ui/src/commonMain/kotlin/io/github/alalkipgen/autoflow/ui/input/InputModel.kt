@@ -58,8 +58,11 @@ class InputModel(
     transcribe: TranscribeProvider? = null,
     private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
+    private val draftOwner = session.open?.let { it.dir to it.project.id }
     private val _state = MutableStateFlow(load())
     val state: StateFlow<InputUiState> = _state.asStateFlow()
+
+    internal val openProject get() = session.open
 
     /** Tap-to-sync of the lyric lines (PLAN Q-11). */
     val sync = LyricSyncModel(session, transcribe, media)
@@ -145,6 +148,7 @@ class InputModel(
     /** Writes the draft (lyrics file + project.json) if it differs from what is saved. */
     fun save(): Boolean {
         val open = session.open ?: return false
+        if (draftOwner != (open.dir to open.project.id)) return false
         val s = _state.value
         if (s.lyrics != session.readLyrics()) {
             (session.writeLyrics(s.lyrics) as? CoreResult.Err)?.let { return fail(it.error.message) }
@@ -160,14 +164,14 @@ class InputModel(
     /** "Storyboard ထုတ်မယ်": saves, then starts the job; [onDone] runs after a successful generation. */
     fun generate(onDone: () -> Unit): Boolean {
         if (!save() || _state.value.blockers.isNotEmpty()) return false
-        return jobs.run(
-            GENERATE_LABEL,
+        return jobs.runGemini(
+            session.open ?: return false, "Input", GENERATE_LABEL,
             notice = UiNotice(UiText.GENERATING_STORYBOARD),
             onDone = {
                 _state.value = load().copy(message = null, notice = null)
                 if (it == StoryboardResult.Done) onDone()
             },
-        ) { generateAll() }
+        ) { report -> generateAll(report) }
     }
 
     private fun chip(edit: (ProjectSettings) -> ProjectSettings) {

@@ -38,7 +38,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 @Composable
 fun JobBanner(jobs: StoryboardJobs, modifier: Modifier = Modifier) {
     val job by jobs.state.collectAsState()
-    val running = job.running ?: return
+    val running = job.running?.takeIf { job.gemini == null } ?: return
     Row(
         modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = screenPadding, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

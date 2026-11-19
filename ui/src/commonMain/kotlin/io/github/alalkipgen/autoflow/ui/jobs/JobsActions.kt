@@ -40,7 +40,7 @@ class JobsActions(
         JobSource.AI -> ai(row)?.state in listOf(AiJobState.QUEUED, AiJobState.RUNNING)
         JobSource.RECAP -> recap?.state?.value?.let { it.projectDir == row.projectDir && (it.scriptRunId ?: it.job) == row.jobId && it.job == RecapModel.WRITING } == true
         JobSource.RENDER -> run(row)?.state.let { it == RenderState.Queued || it is RenderState.Running }
-        JobSource.STORYBOARD -> row.jobId != null && storyboard?.state?.value?.running == row.jobId
+        JobSource.STORYBOARD -> storyboard?.matches(row.jobId) == true
     }
     fun cancel(row: JobRow) {
         if (!canCancel(row)) return
@@ -48,7 +48,7 @@ class JobsActions(
             JobSource.AI -> runner?.cancel(requireNotNull(row.aiJobId))
             JobSource.RECAP -> recap?.cancelScript()
             JobSource.RENDER -> render?.cancel()
-            JobSource.STORYBOARD -> storyboard?.cancel()
+            JobSource.STORYBOARD -> storyboard?.cancelRun(row.jobId)
         } }
     }
     fun resume(row: JobRow) {
@@ -124,9 +124,10 @@ fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProje
     if (row.projectDeleted) return null
     val dir = row.projectDir ?: return V2Nav(StudioV2Dest.PROJECTS)
     if (current.state.value?.dir != dir && !dashboard.open(dir)) return null
+    if (row.projectIdentity != null && current.state.value?.project?.id != row.projectIdentity) return null
     val screen = when (row.source) {
         JobSource.RENDER -> "Export"
-        JobSource.STORYBOARD -> SHOT_SHEET
+        JobSource.STORYBOARD -> row.projectScreen ?: SHOT_SHEET
         JobSource.AI -> if (row.aiKind == AiJobKind.PUBLISH_KIT) "Export" else "Recap"
         JobSource.RECAP -> "Recap"
     }

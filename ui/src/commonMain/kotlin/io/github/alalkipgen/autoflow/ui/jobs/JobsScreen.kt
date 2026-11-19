@@ -74,6 +74,7 @@ data class JobRow(
     val indeterminate: Boolean = false,
     val projectDeleted: Boolean = false,
     val projectIdentity: String? = null,
+    val projectScreen: String? = null,
 )
 
 enum class JobGroup(val label: UiText) {
@@ -120,7 +121,7 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         }
         add(row.copy(projectDir = run.projectDir, jobId = run.id))
     }
-    storyboard?.running?.let { add(JobRow(JobSource.STORYBOARD, "Storyboard — $it", canCancel = true, jobId = it)) }
+    storyboard?.let { musicGeminiRow(it, language) }?.let(::add)
     ai.forEach { job ->
         val active = job.state == AiJobState.RUNNING || job.state == AiJobState.QUEUED
         val total = job.initialItemCount?.takeIf { it > 0 }
@@ -154,7 +155,16 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
             ),
         )
     }
-}.map { row -> row.copy(projectTitle = row.projectDir?.let { projectNames[it] ?: projectName(it) }) }
+}.map { row -> row.copy(projectTitle = row.projectDir?.let { projectNames[it] ?: row.projectTitle ?: projectName(it) }) }
+
+internal fun musicGeminiRow(state: JobState, language: UiLanguage): JobRow? {
+    val running = state.running ?: return null
+    val run = state.gemini ?: return JobRow(JobSource.STORYBOARD, state.notice?.text(language) ?: "Storyboard — $running",
+        canCancel = true, jobId = running)
+    return JobRow(JobSource.STORYBOARD, state.notice?.text(language) ?: running, run.stage?.text(language),
+        canCancel = true, jobId = run.id, projectDir = run.dir, projectTitle = run.name, projectIdentity = run.projectId,
+        projectScreen = run.screen, timedRun = true, indeterminate = true)
+}
 
 /** Burmese name of an AI job kind (5B-13); the saved kind stays the enum. */
 internal fun aiKindLabel(kind: AiJobKind, language: UiLanguage = UiLanguage.ENGLISH): String = when (kind) {
