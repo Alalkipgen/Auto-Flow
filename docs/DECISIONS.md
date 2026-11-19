@@ -146,3 +146,35 @@ One optional `watermarkWidthPercent` (omitted when unset) is permitted in `Recap
 ### D-76 — Explicit whole-project end of life (UI v3 feedback F4)
 
 Owner selected Option B and requested permanent deletion for both new and existing projects. The artifact immutability rule still applies for every live project and to all individual artifacts: no editing, background pruning, or bulk deletion. The only exception is user-confirmed deletion of a whole excluded project inside the app-managed root, after the guard checks identity, revision, storage and pending writers. Retain existing ZIPs and migration snapshots; `project.json.bak` is an internal rolling save, not an exported backup. Never delete Gallery/Downloads copies, Library, external sources, or other projects. No project/backup schema change.
+
+### D-77 — Phase 7 tool projects (QT-1, 2026-11-20)
+
+Owner's Phase 7 plan: Subtitles, Voice & Audio and Dubbing are ordinary `<Name>.autoflow/` project folders with modes `SUBTITLES`, `VOICE_AUDIO`, `DUBBING`, registered in the project index. Quick tools (Subtitles, Voice & Audio) create the project when the owner picks a file or continues with text, auto-named `<file name> · <date time>`, with no naming dialog or settings form; Dubbing is a five-step project. Projects lists them with a mode chip (Q-43). Jobs, Backup, Remove/Restore and Delete permanently (D-76) must be proven by tests for each new mode. Every `Mode` use gets an explicit branch. Spec: specs/quick-tools.md §3.
+
+### D-78 — Forward compatibility of Phase 7 data (2026-11-20)
+
+`CoreJson` stays strict. New optional `Project` fields (`subtitles`, `voice`, `dubbing`) use `@EncodeDefault(EncodeDefault.Mode.NEVER)` (opt-in `ExperimentalSerializationApi`, no new dependency) so Music Video and Recap `project.json` bytes are unchanged; a test proves it. The project index decodes entries one by one, keeps entries with an unknown mode verbatim and shows "needs a newer Auto Flow" instead of dropping the file; persisted jobs with new `AiJobKind`s and Backup restore get the same treatment. Older builds cannot be fixed retroactively: once a tool project exists, the owner should not install a build without Phase 7.
+
+### D-79 — Subtitle document `st` (QT-2, 2026-11-20)
+
+New `ArtifactKind("st")`: one immutable JSON document per version with stable cue ids, `startMs`/`endMs`, original `text`, optional `textMy` with `myFrom` (hash of the translated `text`) and `myEdited`, Dubbing `spokenMy`, reserved `speaker`. Saves create a new version; only the `project.json` pointer moves. Raw transcription stays a `tx` artifact. Editing ops are pure `:core` functions. Spec: specs/quick-tools.md §4.
+
+### D-80 — Whole-video transcription (QT-3, 2026-11-20; extends D-44)
+
+Sends audio only, in chunks of at most 10 minutes cut at the nearest silence (else a hard cut with 2 s overlap), as a resumable `MEDIA_TRANSCRIBE` job with a confirm card (requests = chunks, sound length, today's usage). Finished chunks are never resent; only failed chunks retry. Result → `tx` → new `st`. It replaces the flag-only `labs.wholeMovieTranscribe` when it ships.
+
+### D-81 — Subtitle translation (QT-4, 2026-11-20)
+
+Translation to Burmese is an explicit action with a confirm card, never automatic. Line-aligned JSON (`{lines:[{id, textMy}]}`) in batches from config with previous lines as context; invalid output gets one retry, then that batch fails alone. Lines with a hand-edited `textMy` are never overwritten without an explicit choice; an "Original changed" chip comes from `myFrom`. Default style everyday spoken (Q-39).
+
+### D-82 — Phase 7 audio formats (QT-5, 2026-11-20)
+
+Audio exports are m4a (AAC) and wav. No mp3 without a separate ffmpeg build change (libmp3lame), DECISIONS entry, licence text and the owner's yes (Q-37). Audio-only edits copy the video stream (`-c:v copy`); single-source subtitle burns use a direct ffmpeg `ass` command at the source size and frame rate with the sound copied, not `RenderCompiler`.
+
+### D-83 — Dubbing v1 (QT-6, 2026-11-20)
+
+One voice, picture fixed (never Recap's picture-side fit), voice-side fit only (trim silence → use the pause → speed up to `dubbing.maxVoiceSpeed`, 1.0 until S8 → otherwise "too long"), original sound Lower or Mute stated plainly, no vocal separation or "remove only the voices". Spoken lines are approved in `WorkflowRules` before TTS. The maximum source length comes from the D-0 phone measurements; no Dubbing UI before the D-0 report is accepted. Spec: specs/dubbing.md.
+
+### D-84 — Phase 7 flags and tunables (QT-7, 2026-11-20)
+
+Flags `tools.subtitles`, `tools.voiceAudio`, `dubbing` in `config/features.json`, default off, toggled from Self-test → Preview features (D-41); a Home tile is enabled only when its flag is on and the route works. Tunables live in a new `config/tools.json`; model names and quotas stay in `config/models.json`. For these three routes only, Phase 7 supersedes UI v3 §5 "No new quick-tool screens". Phase 7 Draft PRs stack on the open UI v3 stack top (D-65), one `work/phase-7-<slug>` branch per task.

@@ -101,3 +101,18 @@ Check every screen at font scale 1.0, 1.3 and 2.0 (the owner uses a large font);
 
 ### UI v3 status vocabulary
 Fits / Done / Accepted = green; duration mismatch / Script changed / Paused = amber; No voice = neutral; Running = cyan; Failed = red; Planned = muted. `StatusChip` owns this mapping. Model and voice labels are resolved data, never the illustrative names above. See UI v3 spec for components, transient visibility and separate thumbnail/overlay/preset/preflight/waveform tasks.
+
+## 8. Phase 7 — Subtitles · Voice & Audio · Dubbing (planned, D-77…D-84)
+Specs: [quick-tools.md](specs/quick-tools.md) and [dubbing.md](specs/dubbing.md). Nothing here is implemented yet.
+
+### Entry points
+Home → Create: Movie Recap · Music Video · **Dubbing** (flag `dubbing`). Home → Quick tools: **Subtitles**, **Voice & Audio** (`tools.subtitles`, `tools.voiceAudio`). With the flag off a tile stays today's `PlannedTile`; testTags `home-dubbing`, `home-subtitles-tool`, `home-voice-tool` are kept, and the `V3_TOOLS_IN_PROJECT` hint shows only while a quick tool is Planned. Projects rows carry a mode chip; Home Continue names every mode explicitly; Jobs rows open the matching tool screen.
+
+### Principles
+One screen, one job: the main action lives in `StickyActionBar` (at most two buttons). Free path first (a track inside the video or `.srt` before Gemini). Confirm before paid calls with the real request count, sound length and today's usage. Edits are a draft until Save; the draft survives an app kill; leaving with edits asks Save / Discard / Keep editing. Real progress only. Shared components, theme tokens and `UiText` only, one composable tree: < 600 dp one column, 600–839 dp wider cards, ≥ 840 dp two panes. Burmese uses `My.breakSyllables`; list rows clamp to two lines, the edit panel shows everything.
+
+### New shared components (`ui/components/`, theme tokens only)
+`ToolTopBar` (title, save state, ⋮), `CueRow`, `TimeField` + `TimeNudge`, `CueEditPanel` (sheet on phone, pane on wide), `ShiftTimesDialog`, `IssueChip`, `AiConfirmCard`, `TaskTile`, `BeforeAfterPlayer`, `FitChip`, and `VoiceLockPicker` lifted out of the `RecapModel`-bound `VoiceCard` / `VoiceLockControls`. Reuse `ProjectTopBar`, `SectionCard`, `OptionCard`, `OptionChips`, `JobCard`, `StatusChip`, `AfScrubber`, `VideoPreview`, `MoviePlayback`. Fit chips follow the UI v3 status vocabulary above.
+
+### Checks for every Phase 7 UI PR
+360 / 412 / 840 / 1440 dp × font 1.0 / 1.3 / 2.0 × EN / MY screenshots; touch targets ≥ 48 dp; no clipped text; TalkBack labels on icon buttons (▶ ↻ ⋯ ✕); time fields read as minutes and seconds. Every new Burmese string is listed in the PR for the owner to check.
