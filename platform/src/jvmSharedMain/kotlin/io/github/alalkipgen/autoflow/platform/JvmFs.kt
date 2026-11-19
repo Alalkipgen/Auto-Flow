@@ -25,7 +25,7 @@ class JvmFs internal constructor(
     private val move: (Path, Path) -> Unit,
     private val sleep: (Long) -> Unit,
     private val moveAttempts: Int,
-) : FileSystem {
+) : FileSystem, InboxFileDeletion by JvmInboxFileDeletion {
     constructor() : this(::nioAtomicMove, Thread::sleep, MOVE_ATTEMPTS)
 
     override fun exists(path: String): Boolean = Files.exists(p(path))

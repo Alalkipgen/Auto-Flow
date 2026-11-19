@@ -217,6 +217,7 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 - [ ] F4 owner follow-up: Option B (Remove → Removed projects → Restore or Delete permanently) for new and existing managed projects. See the follow-up in the feedback spec. Exact-head CI and phone QA pending.
 - [ ] F5 Library: context-only deletion of saved kits and presets by ID implemented; phone and TalkBack QA pending.
 - [ ] F6 Jobs: context-only removal of finished history implemented; phone QA pending.
+- [ ] Inbox owner follow-up: per-file **Delete…** with confirmation for project and waiting shares. Real-click EN/MY desktop tests cover 412 dp at font 1.0/2.0 and 360 dp at font 2.0, reopening, same-name copies and unchanged originals, attached media and manifest. First local run used POSIX (non-UTF-8) path encoding; rerun with UTF-8 passed without changing the fixtures. Exact-head CI and owner phone QA are separate. See [Inbox contract](specs/flow-handoff.md#inbox).
 - [ ] CI recheck: run 678 failed in Linux desktop packaging before launch, though run 677 packaged the same app sources. The old public log does not identify the failing command. Keep the real package and launch gates, use the Linux `check` worker/compiler bounds for packaging, and retain the JDK/version, Gradle error, and Compose packaging logs on failure. A local startup pass is not a green GitHub check.
 
 ## Open Questions
