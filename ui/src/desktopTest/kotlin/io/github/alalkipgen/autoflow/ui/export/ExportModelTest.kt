@@ -102,6 +102,30 @@ class ExportModelTest {
         ExportModel(session, settings, fs, q, share, BatteryReader { battery }, scope)
 
     @Test
+    fun previewWithoutASidecarSurvivesRefreshExternalOpenAndModelRecreation() = runTest {
+        open()
+        val first = model(backgroundScope)
+        assertNull(first.state.value.preview)
+        fs.createDirectories("$dir/exports")
+        val path = "$dir/exports/preview.mp4"
+        val bytes = byteArrayOf(1, 2, 3, 4)
+        fs.writeDurably(path, bytes)
+        first.refresh()
+        val file = assertNotNull(first.state.value.preview)
+        assertNull(first.state.value.run)
+        assertEquals(path, file.path)
+        assertTrue(first.state.value.lastRenders.isEmpty())
+        first.openPreview(file)
+        assertEquals("open $path video/mp4", share.calls.single())
+        first.refresh()
+        assertEquals(file, first.state.value.preview)
+        val reopened = model(backgroundScope)
+        assertEquals(file, reopened.state.value.preview)
+        assertContentEquals(bytes, fs.read(path))
+        assertTrue(queue.jobs.isEmpty())
+    }
+
+    @Test
     fun withoutAProjectNothingRenders() = runTest {
         val m = model(backgroundScope)
         assertNull(m.state.value.projectName)

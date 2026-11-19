@@ -191,8 +191,11 @@ class DashboardModel(
         }
         for (name in names) {
             val dir = joinPath(home, name)
-            if (!name.endsWith(".autoflow") || dir in known) continue
+            if (!name.endsWith(".autoflow")) continue
+            // Refresh an already-listed recap's shape if older index versions copied only the fallback ratio.
+            val existing = index.entries.value.firstOrNull { dir in known && it.path == dir }
             val project = (store.open(dir) as? CoreResult.Ok)?.value ?: continue
+            if (existing != null && existing.ratio == (project.recap?.visual?.outputRatio ?: project.settings.ratio)) continue
             (index.record(dir, project, opened = false) as? PlatformResult.Failed)?.let { return it.reason }
         }
         return null

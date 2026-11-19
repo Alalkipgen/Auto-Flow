@@ -19,7 +19,7 @@ actual val moviePlaybackSupported: Boolean = true
 
 @Composable
 actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier, vlcDir: String?, frameSize: androidx.compose.ui.unit.IntSize?, onFrame: ((androidx.compose.ui.graphics.ImageBitmap) -> Unit)?, onSnapshot: (MovieSnapshot) -> Unit) {
-    val opened = remember(path, vlcDir) { DesktopMoviePlayer.open(path, vlcDir) }
+    val opened = remember(path, vlcDir, request.muted) { DesktopMoviePlayer.open(path, vlcDir, request.muted) }
     val callback by rememberUpdatedState(onSnapshot)
     val frameCallback by rememberUpdatedState(onFrame)
     val player = (opened as? MovieOpen.Ready)?.player

@@ -87,6 +87,9 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Bool
             return@Column
         }
         val recap = state.recap
+        val inlineRun = state.run?.let { it.quality == Quality.PREVIEW && it.state is RenderState.Done } == true
+        val showOpen = !inlineRun && (state.run != null || state.lastRenders.none { it.quality == Quality.PREVIEW })
+        ExportPreviewCard(state.preview, model, showOpen)
         if (recap != null) RecapSummary(recap, state.font, model, studio, state.busy) else AfCard(tr(UiText.VIDEO)) {
             AfText(tr(UiText.EXPORT_SHOT_COUNT, "shots" to (state.shots), "durationMs" to (InputModel.formatDuration(state.durationMs))))
             val pending = state.shots - state.accepted
@@ -221,7 +224,7 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
         }
         is RenderState.Done -> {
             // Inline video preview (D-57 / 5A-8): tap play to watch the render without leaving the app.
-            io.github.alalkipgen.autoflow.ui.components.VideoPreview(s.output)
+            if (run.quality == Quality.EXPORT) io.github.alalkipgen.autoflow.ui.components.VideoPreview(s.output)
             AfText(
                 tr(UiText.RENDER_DONE, "what" to (what), "durationMs" to (InputModel.formatDuration(s.durationMs)), "wallMs1000" to (s.wallMs / 1000)),
                 Modifier.testTag("export-status"),

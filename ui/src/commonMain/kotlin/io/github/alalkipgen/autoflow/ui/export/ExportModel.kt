@@ -110,6 +110,8 @@ data class RecapExport(
 )
 
 /** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
+data class PreviewFile(val path: String, val bytes: Long, val completedRunId: String? = null)
+
 data class ExportUiState(
     val projectName: String? = null,
     val shots: Int = 0,
@@ -135,6 +137,7 @@ data class ExportUiState(
     val recap: RecapExport? = null,
     /** Finished Preview / Export of the open project read back from `exports/<name>.result.json` (5B-4). */
     val lastRenders: List<LastRender> = emptyList(),
+    val preview: PreviewFile? = null,
     /** Exact-frame thumbnails of the open recap (5B-9); null = not made in this session. */
     val thumbs: ExportThumbs? = null,
     /** The Publish Kit thumbnail of the open recap (5B-10); null = none yet. */
@@ -190,6 +193,7 @@ class ExportModel(
         val p = open.project
         val font = frames.font()
         val last = lastRenders(open.dir)
+        val preview = existingPreview(open.dir, run)
         recapExport(open)?.let { r ->
             val fingerprint = runCatching { frames.fingerprint(open) }.getOrNull()
             val before = _state.value
@@ -202,6 +206,7 @@ class ExportModel(
                 run = run,
                 recap = r,
                 lastRenders = last,
+                preview = preview,
                 thumbs = before.thumbs?.takeIf { it.projectDir == open.dir }?.let { it.copy(stale = it.fingerprint != fingerprint) },
                 publishThumb = before.publishThumb?.takeIf { it.projectDir == open.dir && it.working }
                     ?: savedPublishThumb(open, r.publishKit, fingerprint),
@@ -225,7 +230,23 @@ class ExportModel(
             unavailable = if (queue == null) NO_QUEUE else null,
             run = run,
             lastRenders = last,
+            preview = preview,
         )
+    }
+
+    private fun existingPreview(dir: String, run: ExportRun?): PreviewFile? {
+        val path = joinPath(joinPath(dir, EXPORTS_DIR), "$PREVIEW_NAME.mp4")
+        return runCatching { if (fs.exists(path)) fs.size(path) else 0L }.getOrNull()?.takeIf { it > 0L }?.let {
+            PreviewFile(path, it, run?.id?.takeIf { run.quality == Quality.PREVIEW && run.state is RenderState.Done })
+        }
+    }
+
+    internal suspend fun inspectPreview(file: PreviewFile) = frames.inspectPreview(file.path)
+    internal fun previewVlcDir() = frames.previewVlcDir()
+
+    internal fun openPreview(file: PreviewFile) {
+        if (_state.value.preview != file || _state.value.projectDir != session.open?.dir) return
+        result(share?.open(file.path, MP4) ?: PlatformResult.Unsupported(NO_SHARE))
     }
 
     /** The Preview and Export of [dir] that left a matching result record (absent, stale or damaged ones are skipped). */
@@ -428,7 +449,11 @@ class ExportModel(
         watching = scope.launch {
             q.observe(id).transformWhile { emit(it); !it.finished }.collect { st ->
                 val cur = _state.value.run
-                if (cur?.id == id) _state.value = _state.value.copy(run = cur.copy(state = st))
+                if (cur?.id == id) {
+                    val updated = cur.copy(state = st)
+                    _state.value = _state.value.copy(run = updated,
+                        preview = if (quality == Quality.PREVIEW && st.finished) existingPreview(open.dir, updated) else _state.value.preview)
+                }
             }
         }
     }
