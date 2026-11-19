@@ -2,7 +2,7 @@
 
 Status: **planned, not implemented** (P7-0, 2026-11-20). Source: the owner's Phase 7 plan bundle
 (`AutoFlow-Phase7-Subtitles-Voice-Dubbing-Plan.zip`), ported by editing, with code facts re-checked at
-`8d092a0` (top of the UI v3 Draft stack, PR #216; §14). Decisions D-77…D-84; open questions Q-36…Q-44 in PLAN.
+`8d092a0` (top of the UI v3 Draft stack, PR #216; §14). Decisions D-77…D-86 (owner answers: phone checks never block, Edge TTS instead of Azure); Q-36…Q-44 in PLAN.
 Dubbing has its own spec: [dubbing.md](dubbing.md). Order: Subtitles → Voice & Audio → Dubbing.
 
 ## 1. Rules for every Phase 7 PR
@@ -161,7 +161,8 @@ F3 `timings` recorded for every AI item. Each AI kind gets a processor beside `R
   context[{text, textMy}], lines[{id, text}]}`, schema `{lines:[{id, textMy}]}`. Valid = same ids, once, in order,
   non-empty. Invalid → one retry with the reason; invalid again → that batch fails alone. System prompt: natural
   Burmese on-screen subtitles in the chosen style, names from the list, keep numbers, no notes.
-- **TTS:** `speak(text, voice, lang = "my", style, lockedModel)`; models only in `config/models.json`.
+- **TTS:** `speak(text, voice, lang = "my", style, lockedModel)`; models only in `config/models.json`. V-1b adds
+  `EdgeTtsProvider` (D-86: Thiha/Nilar, no key, flag `tts.edge`, unofficial — recoverable errors, Gemini stays available).
 - **Fakes:** per-chunk transcriber; translator `textMy = "MY:" + text`; TTS duration = chars × `msPerChar`.
 
 ## 9. Media commands (golden args; real ffmpeg where timing/loudness is the claim)
@@ -178,7 +179,7 @@ Single-source burns don't use `RenderCompiler` (`Output.fps` is an Int, ratios a
 the exact size and frame rate (e.g. 1920×800, 23.976 fps) and copies the sound.
 
 ## 10. Flags and `config/tools.json` (D-84)
-`config/features.json`: `tools.subtitles`, `tools.voiceAudio`, `dubbing`, default `false`, toggled in Self-test →
+`config/features.json`: `tools.subtitles`, `tools.voiceAudio`, `dubbing`, `tts.edge` (D-86), default `false`, toggled in Self-test →
 Preview features (D-41). `labs.wholeMovieTranscribe` / `labs.dubbing` retire when their replacements ship.
 New `config/tools.json` (starting values; Burmese line length uses `CaptionChunks` width, not raw characters):
 ```json
@@ -212,7 +213,7 @@ Every new `UiText` key has EN and MY with identical placeholders (catalog tests)
 - **S-B:** 10–20 min video without subtitles: real counts on the confirm card; kill resumes without resending finished
   chunks; every line gets Burmese; editing an original marks only its translation; burned Burmese export.
 - **V:** 2,000-character Burmese text with names, numbers, English → parts → redo one → m4a/wav play elsewhere; noisy
-  file cleaned; sound saved, replaced, overlaid; video not re-encoded. Then spike S9 before any new voice provider (Q-14).
+  file cleaned; sound saved, replaced, overlaid; video not re-encoded. Spike S9 (Gemini vs Edge, D-86) whenever the owner listens.
 
 ## 12. Proposed UiText (owner checks the Burmese)
 Reuse: `IMPORT_SUBTITLES`, `SAVE_GALLERY`, `SHARE`, `CANCEL`, `TRANSCRIBE_USED_TODAY`, `MOVIE_NO_SOUND_TO_TRANSCRIBE`,
@@ -263,7 +264,7 @@ Reuse: `IMPORT_SUBTITLES`, `SAVE_GALLERY`, `SHARE`, `CANCEL`, `TRANSCRIBE_USED_T
 - Later: soft subtitles in mp4 (`mov_text`; check with `FfmpegCheck` first), two-language subtitles, `.ass` export,
   speaker labels, word karaoke, auto placement (Labs); recording in Voice & Audio (`VoiceRecorder` + teleprompter),
   mp3 (needs libmp3lame in `tools/ffmpeg-android`, a DECISIONS entry, licence text and the owner's yes), waveform trim.
-- Not doing: OCR of picture subtitles, translating on import, multi-track audio editor, voice clone, Edge voices as default.
+- Not doing: OCR of picture subtitles, translating on import, multi-track audio editor, voice clone, any voice provider as a silent default.
 
 ## 14. Code facts re-checked at `8d092a0`
 All bundle facts used above hold at `8d092a0`. Differences: (1) the stack top is #216 @ `8d092a0` — `836d83f` plus a

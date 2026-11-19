@@ -2,7 +2,7 @@
 
 Status: **planned, not implemented** (P7-0, 2026-11-20). Ported from the owner's Phase 7 plan bundle; code facts
 re-checked at `8d092a0` (PR #216). Builds on [quick-tools.md](quick-tools.md) (tool projects, `st` document, jobs,
-`config/tools.json`). Decision D-83; open questions Q-40…Q-42. **No Dubbing UI before the D-0 report is accepted.**
+`config/tools.json`). Decisions D-83, D-85, D-86; open questions Q-40…Q-42. **No Dubbing UI before the CI part of D-0 is reported** (phone parts don't block, D-85).
 
 ## 1. v1 rules (D-83)
 - Short video, **one voice** for the whole video. Speaker voices, lip sync and vocal separation are not in v1.
@@ -66,7 +66,9 @@ starts with fit speed factors; original at `clipsVolume`. Stem → mux with `-c:
 (a) S8 listening at 1.00–1.25× → chosen limit into `config/tools.json`. (b) Three 30–60 s clips through a debug-only
 path: per-line TTS time, request count, 429/retries, regenerating one line, naturalness — from `AiJob.timings`.
 (c) Renders with 50/150/300 cues on phone and CI. Report in `docs/perf/`; the owner sets the v1 maximum length and
-defaults. The agent stops and waits for the owner here.
+defaults. (c) and the fake-provider counts run on CI before D-1; (a) and (b) on the phone are PHONE_PENDING and
+never block (D-85) — Dubbing uses the defaults (1.0×, 10 min) until the owner reports. Edge TTS (D-86) may be used
+for dub lines, which avoids Gemini free-tier request limits.
 
 ## 8. PRs, tests and acceptance
 | PR | Scope | Must include |

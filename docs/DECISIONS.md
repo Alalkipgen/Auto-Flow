@@ -178,3 +178,11 @@ One voice, picture fixed (never Recap's picture-side fit), voice-side fit only (
 ### D-84 — Phase 7 flags and tunables (QT-7, 2026-11-20)
 
 Flags `tools.subtitles`, `tools.voiceAudio`, `dubbing` in `config/features.json`, default off, toggled from Self-test → Preview features (D-41); a Home tile is enabled only when its flag is on and the route works. Tunables live in a new `config/tools.json`; model names and quotas stay in `config/models.json`. For these three routes only, Phase 7 supersedes UI v3 §5 "No new quick-tool screens". Phase 7 Draft PRs stack on the open UI v3 stack top (D-65), one `work/phase-7-<slug>` branch per task.
+
+### D-85 — Phase 7 phone checks never block (owner, 2026-11-20; amends D-65 for Phase 7)
+
+Q-36 answered: there is no fixed phone-QA schedule. The owner checks on the phone whenever he wants; the agent does not stop or wait for a phone test at milestones or at D-0. Each PR still lists what to check on the phone, keeps those items PHONE_PENDING in PLAN/PHONE-QA, and never claims a phone result. D-0's phone-only parts (S8 listening, naturalness of 30–60 s clips) become PHONE_PENDING; Dubbing proceeds with the configured defaults (`dubbing.maxVoiceSpeed` 1.0, `dubbing.maxSourceMs` 10 min) until the owner reports. CI-measurable D-0 parts (cue-count render scale, request counts and timings with fakes) still run before D-1. Stable signing and a rising versionCode stay required.
+
+### D-86 — Edge TTS instead of Azure (owner, 2026-11-20; resolves Q-14, amends D-45)
+
+No Azure: the owner has no Azure key, so `AzureTtsProvider` is not built. Instead Phase 7 adds `EdgeTtsProvider` in `:ai` (task V-1b): Microsoft Edge "Read aloud" Burmese neural voices (Thiha, Nilar) without an API key, over the existing Ktor client WebSockets plugin (part of `ktor-client-core`, no new dependency). Voice ids and endpoint values live in `config/models.json` (`tts.edge`), never in logic. It is unofficial and may stop working or change at any time, so it sits behind flag `tts.edge`, fails as a normal recoverable provider error, keeps Gemini TTS available, and never becomes the silent default; the owner picks it in the voice lock (D-35), and S9 compares it with Gemini whenever he listens. CI uses a fake plus a recorded-frame contract test; live calls only with `-PliveAi`. Only text is sent, never audio or video.

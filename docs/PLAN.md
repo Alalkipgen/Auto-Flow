@@ -158,7 +158,7 @@ Rules (D-65, owner 2026-11-16): one coherent task/subtask per PR; automated chec
 - [ ] Auto caption placement (find a free area / the movie's own burned-in text)
 - [ ] Word karaoke captions
 - [ ] Whole-movie transcription
-- [ ] Edge "Read aloud" voices (unofficial, D-45)
+- [ ] Edge "Read aloud" voices (unofficial, D-45) — moved to Phase 7 V-1b (D-86)
 
 ### Phase 5 spikes
 - [ ] S8 Smart Fit speed limit — the owner listens on the phone to one Burmese take at 1.00 / 1.05 / 1.10 / 1.15 / 1.20 / 1.25× (`atempo`) and the picture at 0.9 / 0.8× (Self-test page); the chosen limits go into `config/recap.json`.
@@ -224,25 +224,27 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 
 ## Phase 7 — Subtitles · Voice & Audio · Dubbing (owner requested 2026-11-20)
 
-Order Subtitles → Voice & Audio → Dubbing. Specs: [quick-tools](specs/quick-tools.md), [dubbing](specs/dubbing.md), DESIGN §8; decisions D-77…D-84; questions Q-36…Q-44. Base: top of the UI v3 Draft stack, PR #216 `work/phase-6-inbox-long-press` @ `8d092a0` (exact source of green CI #695); each Phase 7 PR stacks on the previous one. Not in scope: the UI v3 fix round (#203–#216) and its phone QA, the final visual polish pass, other Labs items. Statuses stay separate: IMPLEMENTED · AUTOMATION_VERIFIED · PHONE_PENDING · OWNER_ACCEPTED (the last two only from the owner).
+Order Subtitles → Voice & Audio → Dubbing. Specs: [quick-tools](specs/quick-tools.md), [dubbing](specs/dubbing.md), DESIGN §8; decisions D-77…D-86; questions Q-36…Q-44. Base: top of the UI v3 Draft stack, PR #216 `work/phase-6-inbox-long-press` @ `8d092a0` (exact source of green CI #695); each Phase 7 PR stacks on the previous one. Not in scope: the UI v3 fix round (#203–#216) and its phone QA, the final visual polish pass, other Labs items. Statuses stay separate: IMPLEMENTED · AUTOMATION_VERIFIED · PHONE_PENDING · OWNER_ACCEPTED (the last two only from the owner). Phone checks never block the next PR (D-85): the owner tests whenever he wants.
 
-- [~] P7-0 `work/phase-7-spec` — docs only: this section, the two specs, DESIGN §8, D-77…D-84, Q-36…Q-44. IMPLEMENTED; CI pending.
+- [x] P7-0 `work/phase-7-spec` — docs only: this section, the two specs, DESIGN §8, D-77…D-86, Q-36…Q-44. IMPLEMENTED · AUTOMATION_VERIFIED (CI #697 6/6 on `90bd9de`); owner answers recorded (D-85, D-86).
 - [ ] S-1 `tool-projects` — `Mode.SUBTITLES`; create-on-pick; index (tolerant of unknown modes, D-78), Projects chip, exhaustive Home Continue, Jobs binding, Backup, Remove/Restore/Delete; tile behind `tools.subtitles`.
 - [ ] S-2 `subtitle-doc` — `st` kind + `:core` ops; source chooser (text track, `.srt` with encodings, picture-track message); first `st` version.
 - [ ] S-3 `subtitle-editor` — virtualised list, edit panel, shift, checks, draft Save/Discard/Restore, preview seek.
 - [ ] S-4 `subtitle-export` — `.srt` export; burned video via direct `ass` command; `MediaTaskJob`; pre-flight; Exact frame (split S-4a/S-4b if large). **Milestone S-A.**
 - [ ] S-5 `transcribe-video` — `MEDIA_TRANSCRIBE` job, silence-cut ≤ 10-min chunks, confirm card, resume, retry failed only.
 - [ ] S-6 `subtitle-translate` — `SUB_TRANSLATE` job, validated batches, edited lines protected, Original/Burmese/Both. **Milestone S-B.**
-- [ ] V-1 `voice-text` — `Mode.VOICE_AUDIO`, task chooser, parts, `TEXT_TTS` job, tone, Lexicon, join, m4a/wav; flag `tools.voiceAudio`. Then spike S9.
+- [ ] V-1 `voice-text` — `Mode.VOICE_AUDIO`, task chooser, parts, `TEXT_TTS` job, tone, Lexicon, join, m4a/wav; flag `tools.voiceAudio`.
+- [ ] V-1b `edge-tts` — `EdgeTtsProvider` in `:ai` (D-86: no key, Burmese Thiha/Nilar, existing Ktor WebSockets, fake + contract test, live only with `-PliveAi`), selectable in the voice-lock picker behind flag `tts.edge`; then spike S9 (Gemini vs Edge) whenever the owner listens.
 - [ ] V-2 `audio-clean` — existing `AudioFilters` as a `MediaTaskJob`, before/after.
 - [ ] V-3 `video-sound` — sound only / replace / add on top, video stream copied. **Milestone V.**
-- [ ] D-0 `dub-spikes` — owner's phone: S8 listening, three 30–60 s clips, 50/150/300-cue renders → `docs/perf/`. Gate: stop for the owner.
+- [ ] D-0 `dub-spikes` — 50/150/300-cue renders on CI, request counts and timings with fakes (live only with `-PliveAi`) → `docs/perf/`. Phone parts (S8 listening, three 30–60 s clips) are PHONE_PENDING and do not block (D-85); Dubbing uses the defaults (1.0×, 10 min) until the owner reports.
 - [ ] D-1 `dub-script` — `Mode.DUBBING`, Video/Translate reuse, Dub script + `:core` approval; flag `dubbing`.
 - [ ] D-2 `dub-voice` — `DUB_TTS` job, fit chips, Shorten with approval.
 - [ ] D-3 `dub-export` — `DubMixer`, Lower/Mute, optional burned Burmese, mp4 + `.srt`. **Milestone D.**
 
 ## Open Questions
-- Q-36 Phase 7 phone QA (amends D-65 for Phase 7 only): check on the phone once per milestone (S-A/S-B, V, D) instead of one final session? Default **yes, per milestone**; blocks only milestone sign-off.
+- ~~Q-36 Phase 7 phone QA~~ Resolved (owner, 2026-11-20) → D-85: no fixed phone-QA schedule; the owner checks whenever he wants and the agent never waits for a phone test.
+- Phase 7 owner answers (2026-11-20): Q-14 resolved (b) — no Azure (no key), add Edge TTS instead (D-86). Q-37…Q-40, Q-43, Q-44 use the defaults below; Q-41/Q-42 keep their defaults (10 min, 1.0×) until the owner decides later.
 - Q-37 mp3 export? Default **no — m4a + wav** (D-82). Blocks only mp3, which needs an ffmpeg build change.
 - Q-38 Default subtitle export text: default **Burmese**, Original also offered; two languages later. Blocks only the S-4 default.
 - Q-39 Translation style: default **everyday spoken** (ပြောဆိုသလို), Formal offered. Blocks only the S-6 default.
@@ -250,7 +252,7 @@ Order Subtitles → Voice & Audio → Dubbing. Specs: [quick-tools](specs/quick-
 - Q-41 Dubbing v1 maximum length: set from the D-0 measurements. Blocks D-1.
 - Q-42 Dubbing speed limit = spike S8 result: until the owner listens, `dubbing.maxVoiceSpeed` = 1.0 (no speed-up). Blocks only the D-2 speed step. (Recap's fit rows default to 1.5×; Dubbing does not use them.)
 - Q-43 Quick-tool projects in Projects: default **shown with a mode chip**. Blocks S-1 presentation only.
-- Q-44 Zawgyi `.srt` (S-2): no detector exists in the repo. Default: S-2 detects likely Zawgyi with a small in-house check and warns, without converting. "Convert to Unicode" needs a conversion table (a new dependency or ported rules) → a DECISIONS line and the owner's yes first. Q-14 (Azure voices) stays open and is decided after spike S9.
+- Q-44 Zawgyi `.srt` (S-2): no detector exists in the repo. Default: S-2 detects likely Zawgyi with a small in-house check and warns, without converting. "Convert to Unicode" needs a conversion table (a new dependency or ported rules) → a DECISIONS line and the owner's yes first. Q-14 is resolved (D-86).
 - F3 inline progress: the storyboard generator sends a whole-shot batch and provides no streamed shot counts. Show two logical stages, not a guessed shot percentage. Foreground requests are not resumed after process death.
 - Feedback R1: the owner's actual `preview.mp4` was not supplied. Compare a synthetic preview with its project ratio; do not retune the renderer based on a screenshot. Preview results do not currently record the input revision; omit a stale badge for unprovable revisions.
 - Q-35 Projects completion audit (brief §4/§6 Projects/§9): AppShell actually mounts DashboardScreen, not the unused ProjectsScreen prototype. Reuse SectionCard for Create/Recent and AfCard for real rows; wrap facts and Create/Cancel at every width. Keep the existing folder/create/rights and long-press index-removal confirmation, with no project deletion, new route or engine/data behavior. The new 27-cell real-shell matrix plus actual App route regression passed in focused87/87; final full/CI and owner acceptance are separate.
@@ -291,7 +293,7 @@ Order Subtitles → Voice & Audio → Dubbing. Specs: [quick-tools](specs/quick-
 
 - (agents append here)
 - ~~Q-13 Phase 4 Movie Recap~~ Resolved (owner: finish everything up to Phase 4, 2026-11-12) → D-33 / D-34, docs/specs/recap.md. Original question: Q-13 Phase 4 Movie Recap (2026-11-12): Phase 2 is done; Phase 4 has only the five PLAN lines and no spec or prompt file. Not specified: (1) the source — the owner's own / licensed footage only? what the rights disclaimer says and where (Dashboard → New Movie Recap, Export); (2) the script input — Gemini cannot take a whole movie inline (20 MB), so either a subtitle file (.srt), the owner's own summary text, or Gemini Files API upload (new code, quota); (3) the voice — Recorded (phone mic: needs the RECORD_AUDIO permission and a recorder screen) and/or TTS (Gemini TTS for Burmese is unverified: S5 not run), Replicated only if S5 shows it is available; (4) target length, ratio and how scenes map to narration (one scene per script sentence?). Proposal: first a `docs/specs/recap.md` draft for approval, run S5 on the phone (a Settings self-test button, like S6/S7), then build in slices — (a) import video + ffmpeg `scdet` scene detection + scene picker (offline), (b) script from .srt or typed summary + approval, (c) recorded voice, (d) fit check + captions + export. Note: Phase 1 exit criteria still wait for the next phone test. Decide: approve the order, or change the scope.
-- Q-14 Phase 5 Azure voices (2026-11-13): the Thiha / Nilar voices (D-45) need an Azure account with an AI Speech resource (free F0 tier; Azure sign-up asks for phone and card verification). Decide: (a) the owner makes one → 5B-5 adds `AzureTtsProvider`; (b) not now → Gemini TTS + recording only, Edge stays a Labs switch.
+- ~~Q-14~~ Resolved (owner, 2026-11-20): (b) no Azure; Edge TTS instead (D-86). Original question: Q-14 Phase 5 Azure voices (2026-11-13): the Thiha / Nilar voices (D-45) need an Azure account with an AI Speech resource (free F0 tier; Azure sign-up asks for phone and card verification). Decide: (a) the owner makes one → 5B-5 adds `AzureTtsProvider`; (b) not now → Gemini TTS + recording only, Edge stays a Labs switch.
 
 ## Changelog
 - 2026-11-10 plan created
@@ -413,6 +415,7 @@ Order Subtitles → Voice & Audio → Dubbing. Specs: [quick-tools](specs/quick-
 
 - 2026-11-16 Follow-up C/D (D-64): historical harness contracts mapped to current default-model/native-v2/serialized-save coverage; deterministic blocked-writer and child-JVM committed-byte assertions retained. Copy-only original-v1 recovery command and real-disk V1ProjectCopyTest; current v2 edits, backup and all artifacts unchanged. Procedure: `docs/FOLLOWUP-VERIFICATION.md`. No recovery UI or automatic replacement.
 - 2026-11-20 Phase 7 plan (Subtitles · Voice & Audio · Dubbing) ported as docs only (P7-0): specs/quick-tools.md, specs/dubbing.md, DESIGN §8, D-77…D-84, Q-36…Q-44. Base PR #216 @ `8d092a0`.
+- 2026-11-20 Phase 7 owner answers: phone checks never block (D-85); no Azure, Edge TTS added as V-1b (D-86); other questions use the defaults.
 
 
 ### Selected-take waveform — separate task 5 (in progress; stacked after PR196)
