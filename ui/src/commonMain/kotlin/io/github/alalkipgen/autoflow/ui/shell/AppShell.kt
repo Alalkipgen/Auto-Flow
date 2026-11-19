@@ -74,6 +74,7 @@ import io.github.alalkipgen.autoflow.ui.home.HomeResume
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.ui.home.HomeScreen
 import io.github.alalkipgen.autoflow.ui.jobs.JobsScreen
+import io.github.alalkipgen.autoflow.ui.jobs.MusicGeminiJobCard
 import io.github.alalkipgen.autoflow.ui.jobs.jobsBadgeValue
 import io.github.alalkipgen.autoflow.ui.library.LibraryModel
 import io.github.alalkipgen.autoflow.ui.library.LibraryScreen
@@ -150,6 +151,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
         val back = if (compact) backTarget(current) else null
         backHandler(back != null) { back?.let { screen = it } }
         val top: @Composable () -> Unit = {
+            MusicGeminiJobCard(jobs, project, Modifier.fillMaxWidth().padding(screenPadding))
             JobBanner(jobs)
             if (current in ShellModel.SCREEN_STEPS && displayShell.steps.isNotEmpty()) Stepper(displayShell.steps, viewing = ShellModel.SCREEN_STEPS[current])
         }
@@ -395,6 +397,7 @@ private fun StudioV2App(
                             }
                         } else {
                             V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
+                            if (!isRecap) MusicGeminiJobCard(koinInject(), open, Modifier.fillMaxWidth().padding(screenPadding))
                             Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen, windowWidthDp, backHandler, open?.dir) { openProjectScreen(it) } }
                         }
                     }

@@ -60,7 +60,9 @@ val uiModule = module {
         DashboardModel(get(), get(), index, get(), get(), current, get<AppDirs>().projectsHome, modelConfig = getOrNull(),
             deletion = getOrNull(), ai = getOrNull(), renders = getOrNull(), foregroundBusy = { key ->
                 recap()?.let { it.projectDir != null && index.canonical(it.projectDir) == key && (it.busy || it.recording != null) } == true ||
-                    (storyboard()?.running != null && current.state.value?.dir?.let(index::canonical) == key)
+                    (storyboard()?.takeIf { it.running != null }?.let { job ->
+                        (job.gemini?.dir ?: current.state.value?.dir)?.let(index::canonical) == key
+                    } == true)
             })
     }
     single { BackupModel(getOrNull(), get(), get(), MainScope(), filePicker = getOrNull(), appDirs = getOrNull(),

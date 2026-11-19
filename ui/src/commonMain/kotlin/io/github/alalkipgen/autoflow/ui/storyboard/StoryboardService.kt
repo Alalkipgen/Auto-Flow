@@ -22,7 +22,12 @@ import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.core.workflow.Inputs
 import io.github.alalkipgen.autoflow.core.workflow.ShotSplitter
 import io.github.alalkipgen.autoflow.core.workflow.WorkflowRules
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
+import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.ensureActive
 
 /** Outcome of a storyboard action. Nothing in the project changes unless it is [Done]. */
 sealed interface StoryboardResult {
@@ -32,31 +37,43 @@ sealed interface StoryboardResult {
 }
 
 /**
- * Storyboard pipeline for the open project (ARCHITECTURE.md §3): analyse → split → one spec per shot, stored as
+ * Storyboard pipeline for the open project (ARCHITECTURE.md §3): analyse → split → batch shot specs, stored as
  * `an` / `sb` / `sp` artifacts, then one project save. A shot whose spec changes loses only its storyboard approval
  * (D-21); downstream pointers stay and turn stale. Call from one coroutine at a time (the UI disables actions while
  * one runs); cancelling a running call leaves the project unchanged.
  */
 class StoryboardService(private val session: ProjectSession, private val generator: StoryboardGenerator) {
     /** Generates a new storyboard version for the whole song ("Storyboard ထုတ်မယ်", regenerate all). */
-    suspend fun generateAll(): StoryboardResult {
-        val project = session.open?.project ?: return noProject
+    suspend fun generateAll(report: (UiNotice) -> Unit = {}): StoryboardResult {
+        val origin = session.open ?: return noProject
+        val project = origin.project
         val lyrics = session.readLyrics()
         val gate = WorkflowRules.canGenerateStoryboard(project, lyrics)
         if (!gate.allowed) return StoryboardResult.Blocked(gate.blockers)
         val brief = brief(project, lyrics)
+        report(UiNotice(UiText.JOB_STORYBOARD_ANALYZE))
         val analysis = when (val r = generator.analyze(brief)) {
             is AiResult.Ok -> r
             else -> return failed(r)
         }
+        coroutineContext.ensureActive()
+        if (!isCurrent(origin)) return projectChanged
         val shots = when (val r = ShotSplitter.split(project.settings.durationMs, project.settings.clipMs, analysis.value.sections)) {
             is CoreResult.Ok -> r.value
             is CoreResult.Err -> return StoryboardResult.Failed(r.error.message)
         }
+        report(UiNotice(UiText.JOB_STORYBOARD_BATCH, "n" to shots.size))
         val specs = when (val r = generator.storyboard(brief, analysis.value, shots)) {
             is AiResult.Ok -> r
             else -> return failed(r)
         }
+        coroutineContext.ensureActive()
+        if (!isCurrent(origin)) return projectChanged
+        return timedAiStage(AiTimingStage.SAVE) { saveGeneration(project, shots, analysis, specs) }
+    }
+
+    private fun saveGeneration(project: Project, shots: List<Shot>, analysis: AiResult.Ok<SongAnalysis>,
+        specs: AiResult.Ok<List<ShotSpec>>): StoryboardResult {
         val artifacts = session.artifacts() ?: return noProject
         val an = put(artifacts, CoreJson.encodeToString(SongAnalysis.serializer(), analysis.value), ArtifactKind.ANALYSIS, model = analysis.usage?.model)
             ?: return writeFailed
@@ -72,7 +89,8 @@ class StoryboardService(private val session: ProjectSession, private val generat
 
     /** New take for one shot. [keepScene]: keep the user's sceneMy and only rewrite the English fields to match. */
     suspend fun regenerateShot(number: Int, keepScene: Boolean = false): StoryboardResult {
-        val project = session.open?.project ?: return noProject
+        val origin = session.open ?: return noProject
+        val project = origin.project
         val shot = project.shots.firstOrNull { it.number == number } ?: return StoryboardResult.Failed("No shot $number")
         val analysisId = project.analysis ?: return StoryboardResult.Failed("Generate the storyboard first")
         val analysis = when (val r = session.readJson(analysisId, SongAnalysis.serializer())) {
@@ -83,7 +101,9 @@ class StoryboardService(private val session: ProjectSession, private val generat
         return when (val r = generator.storyboard(brief(project, session.readLyrics()), analysis, listOf(shot), notes)) {
             is AiResult.Ok -> {
                 val spec = r.value.single().let { s -> notes[number]?.let { s.copy(sceneMy = it) } ?: s }
-                replaceSpec(project, shot, spec, provider = PROVIDER_AI, model = r.usage?.model)
+                coroutineContext.ensureActive()
+                if (!isCurrent(origin)) return projectChanged
+                timedAiStage(AiTimingStage.SAVE) { replaceSpec(project, shot, spec, provider = PROVIDER_AI, model = r.usage?.model) }
             }
             else -> failed(r)
         }
@@ -204,11 +224,15 @@ class StoryboardService(private val session: ProjectSession, private val generat
         },
     )
 
-    private companion object {
-        const val PROVIDER_AI = "ai"
-        const val PROVIDER_USER = "user"
-        val noProject = StoryboardResult.Failed("No project is open")
-        val writeFailed = StoryboardResult.Failed("Could not write to the project's artifacts folder")
-        const val NO_BEATS = "No beats found for this song yet"
+    internal fun isOpen(run: MusicGeminiRun) = run.belongsTo(session.open)
+    internal fun isCurrent(origin: OpenProject) = session.open == origin
+
+    companion object {
+        internal val projectChanged = StoryboardResult.Failed("Project changed; the result was not saved.", UiNotice(UiText.GEMINI_PROJECT_CHANGED))
+        private const val PROVIDER_AI = "ai"
+        private const val PROVIDER_USER = "user"
+        private val noProject = StoryboardResult.Failed("No project is open")
+        private val writeFailed = StoryboardResult.Failed("Could not write to the project's artifacts folder")
+        private const val NO_BEATS = "No beats found for this song yet"
     }
 }

@@ -124,11 +124,11 @@ fun BlockCard(number: Int, time: String, script: String, status: StudioStatus, o
 
 @Composable
 fun JobCard(title: String, status: StudioStatus, detail: String, modifier: Modifier = Modifier,
-    progress: Float? = null, indeterminate: Boolean = false, actions: @Composable ColumnScope.() -> Unit = {},
+    progress: Float? = null, indeterminate: Boolean = false, headerAction: (@Composable () -> Unit)? = null,
+    actions: @Composable ColumnScope.() -> Unit = {},
 ) {
-    AfCard(title, modifier) {
+    AfCard(title, modifier, headerAction = headerAction) {
         StatusChip(status)
-        AfText(detail, muted = true)
         if (indeterminate && progress == null) {
             val position by rememberInfiniteTransition().animateFloat(-.28f, 1f, infiniteRepeatable(tween(1100, easing = LinearEasing)))
             Canvas(Modifier.fillMaxWidth().height(4.dp).semantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate }) {
@@ -144,6 +144,7 @@ fun JobCard(title: String, status: StudioStatus, detail: String, modifier: Modif
                 progressBarRangeInfo = ProgressBarRangeInfo(p, 0f..1f)
             }) { Box(Modifier.fillMaxWidth(p).fillMaxHeight().background(AutoFlowColors.Cyan)) }
         }
+        AfText(detail, muted = true)
         actions()
     }
 }

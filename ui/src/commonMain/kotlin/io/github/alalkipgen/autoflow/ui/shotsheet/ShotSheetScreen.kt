@@ -246,7 +246,8 @@ fun ShotSheetScreen(
             }
 
             AfCard(tr(UiText.SHEET_STORYBOARD)) {
-                job.last?.takeIf { it != StoryboardResult.Done }?.message()?.let { AfText(it, color = AutoFlowColors.Amber) }
+                job.lastFor(storyboard.openProject)?.takeIf { it != StoryboardResult.Done }
+                    ?.message(uiLanguage)?.let { AfText(it, color = AutoFlowColors.Amber) }
                 sbMessage?.let { AfText(it, color = AutoFlowColors.Amber) }
                 if (card != null) ShotCard(card, storyboard, busy, showHeader = false)
                 else AfText(tr(UiText.SHEET_NO_STORY_CARD), color = AutoFlowColors.Amber)

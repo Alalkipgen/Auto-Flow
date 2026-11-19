@@ -61,6 +61,8 @@ class StoryboardModel(
     /** Result of the last quick action; AI job results are in [StoryboardJobs.state]. */
     val message: StateFlow<String?> = _message.asStateFlow()
 
+    internal val openProject get() = session.open
+
     fun current(): StoryboardUiState = build(session.open)
 
     fun approve(number: Int, approved: Boolean = true) = quick { service.approve(number, approved) }
@@ -102,13 +104,15 @@ class StoryboardModel(
     /** ↻ ပြန်ထုတ်မယ်: one AI request for shot [number]; [keepScene] keeps the Burmese scene. */
     fun regenerate(number: Int, keepScene: Boolean): Boolean {
         _message.value = null
-        return jobs.run(regenerateLabel(number), notice = UiNotice(UiText.REGENERATING_SHOT, "n" to number)) { regenerateShot(number, keepScene) }
+        return jobs.runGemini(session.open ?: return false, io.github.alalkipgen.autoflow.ui.shell.SHOT_SHEET,
+            regenerateLabel(number), UiNotice(UiText.REGENERATING_SHOT, "n" to number)) { regenerateShot(number, keepScene) }
     }
 
     /** Regenerate all: a new storyboard version; the current one stays in the version list. */
     fun regenerateAll(): Boolean {
         _message.value = null
-        return jobs.run(InputModel.GENERATE_LABEL, notice = UiNotice(UiText.GENERATING_STORYBOARD)) { generateAll() }
+        return jobs.runGemini(session.open ?: return false, io.github.alalkipgen.autoflow.ui.shell.SHOT_SHEET,
+            InputModel.GENERATE_LABEL, UiNotice(UiText.GENERATING_STORYBOARD)) { report -> generateAll(report) }
     }
 
     private fun quick(action: () -> StoryboardResult): Boolean {
