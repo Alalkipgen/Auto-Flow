@@ -180,3 +180,14 @@ movie playback proof. Installed-VLC playback and real-project acceptance on the 
 ### UI-v3 final-source delivery discipline
 
 All phone rows above remain PHONE_PENDING and owner-PC acceptance remains OWNER_PC_PENDING; this document does not upgrade desktop/fake/compile/disposable-runner evidence into device acceptance. The final combined APK must update the existing stable595 installation without uninstall/clear-data. If certificate verification is unavailable or mismatched,report BLOCKED-SIGNING and do not offer a runner-debug substitute. Use only the matching final-source APK/UNSIGNED EXE,BUILD/MANIFEST,binary hashes,FEATURES,QA backup and source/license companions in the final report. Q31 project shortcut semantics and newMY wording remain owner decisions. Native/core/media failure repair is outside this UI-only scope; retain every failure record.
+
+## UI v3 feedback round 1 — PHONE_PENDING
+
+Use a disposable synthetic project/restore, not an owner's irreplaceable media. Confirm the APK has the matching application ID, stable signing and a higher versionCode before installing as an update. On Xiaomi 2312DRA50C (Android 16), repeat at normal and large font in English and Burmese.
+
+1. **F1 Export:** Preview 540p for portrait, landscape and square. Check poster, fit, finish → Replay, fullscreen → Back, Open externally → return, then force-stop/relaunch without regenerating. Try a disposable project with no preview.
+2. **F2 Watermark:** Change Small/Medium/Large/Custom and compare Style, Exact Frame and export for all three ratios. Save/apply a Brand Kit; reopen and confirm the saved size. Open a previous project without editing it.
+3. **F3 Gemini:** With synthetic input only, start a flow and look at the same run in the project, Home and Jobs. Verify Cancel, previous result labelling, saved-clip counts, a single request's elapsed time, and Diagnostics. Check resume only if a real limit occurs.
+4. **F4 Projects:** Remove one of two same-name disposable projects; refresh and restart. Explicitly open the removed folder. Then try Delete on a disposable eligible folder; verify the confirmation, active-job guard, sibling project, external files and Home Continue.
+5. **F5 Library:** Tap Apply and verify no visible Delete. Long-press a saved kit and then one of two same-name presets. Confirm only the selected ID disappears after restart and the applied project keeps its style. Repeat with TalkBack action.
+6. **F6 Jobs:** Long-press a finished run, confirm history removal and restart. Check the badge and playback/output remain correct. Long-press active and paused jobs; neither should offer Delete.
