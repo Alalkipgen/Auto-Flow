@@ -206,7 +206,20 @@ Baseline: owner-tested `c2cd1e08f3f2ea4717ec05a7b928faaacace9c47`, open Draft #1
 
 - [x] UI v3 browse-only integrity regression (brief §9): real AppShell pointer/scroll paths at 412×760 and 1440×900 open Home, Settings/Diagnostics, Projects, Recap Source/Story/Voice list+detail/Style sections/Export, all six Library sections, Jobs, and a second Music Video project (Input, list, shots 1/2). At each checkpoint on current-format fixtures both complete directory/path/SHA-256 maps, including media and artifacts, are unchanged. Focused 6/6, zero failures/errors/skips (first attempt 5/6: the new test selected the narrow-only list tag on desktop; retained). No production behavior, migration, Save/Discard, or native checks changed. Exact-remote gates and physical owner acceptance are separate.
 
+### UI v3 — owner feedback round 1
+
+Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause audit and acceptance rules](specs/ui-v3-feedback-1.md).
+
+- [ ] F1 Export: persistent, aspect-correct in-app Preview with poster, Replay and fullscreen.
+- [ ] F2 Watermark: Small/Medium/Large/Custom, legacy default and Brand Kit round trip.
+- [ ] F3 Gemini: one run state, timing, real units, and opt-in synthetic live evidence.
+- [ ] F4 Projects: persist Remove first; then guard explicit project-folder deletion.
+- [ ] F5 Library: context-only delete saved kits and presets by ID.
+- [ ] F6 Jobs: context-only delete finished records, not their outputs.
+
 ## Open Questions
+- Feedback R1: the owner's actual `preview.mp4` was not supplied. Compare a synthetic preview with its project ratio; do not retune the renderer based on a screenshot. Preview results do not currently record the input revision; omit a stale badge for unprovable revisions.
+- Feedback R1: whole-folder deletion must not silently override `AGENTS.md`'s immutable `artifacts/` rule. Conservatively refuse permanent deletion where immutable files or safe local ownership cannot be ruled out; keep Remove available.
 - Q-35 Projects completion audit (brief §4/§6 Projects/§9): AppShell actually mounts DashboardScreen, not the unused ProjectsScreen prototype. Reuse SectionCard for Create/Recent and AfCard for real rows; wrap facts and Create/Cancel at every width. Keep the existing folder/create/rights and long-press index-removal confirmation, with no project deletion, new route or engine/data behavior. The new 27-cell real-shell matrix plus actual App route regression passed in focused87/87; final full/CI and owner acceptance are separate.
 - Q-33 Preflight navigation (brief §6.07): core currently emits aggregate Voice findings,not block IDs; Script is an explicit Item destination contract but is not emitted by current checks. Conservatively map these two exact identifiers to native Voice/Story only; no guessed block,selection mutation,message parsing,new check or approval rule. Keep Q-31 / PHONE_PENDING / OWNER_PC_PENDING / owner MY wording pending.
 - Q-32 Thumbnails presentation/cache policy (brief §7.1): show the midpoint of a scene, or the midpoint of a native block's first source range (never a gap or an invented output frame). Reuse `FrameGrab.thumb`, no movie hashing (D-33), renderer/model/schema change or Home decode. Since persisted movie metadata has no content hash or modification timestamp, include captured project folder/ID/revision, full movie metadata and both range endpoints in the cache key; any save conservatively invalidates that revision, including same-size replacement. Check keys inside 64 replaceable atomic app-cache slots; temporary files are per request and normally recycled (crash orphans remain disposable app cache). Never write a thumbnail under the project. A stable 72 dp slot is reserved from first measurement, including loading/offscreen/unavailable states, so late images cannot move scrolled rows; offscreen bitmaps are released. No new UI strings or fake fallback picture. Physical performance/IME/touch acceptance remains pending; the other four §7 units and Q-31 are outside this task.
