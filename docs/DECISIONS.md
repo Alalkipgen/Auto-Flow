@@ -138,3 +138,7 @@ Desktop tests explicitly expose Compose UI 1.12.2's existing `navigationevent-co
 ### D-74 — Home Continue caches a visited screen, not project progress (UI v3 §6)
 
 Home uses the project index for the latest available entry and a font-independent mode icon; that index has no safe thumbnail pointer and Home never probes or decodes media. A small app-private `cache/home-continue-v1` token (outside the project and settings) records only a visited, allowlisted top-level screen. It is mode- and project-bound on reopen; a missing, corrupt or mismatched hint uses the normal Source/Input entry and never claims a step. It does not store drafts or infer approval/progress, and deleting the cache loses no user work.
+
+### D-75 — Watermark width preserves legacy renders (UI v3 feedback F2)
+
+One optional `watermarkWidthPercent` (omitted when unset) is permitted in `RecapVisual`, mirrored by `BrandKit`. No on-open migration changes project bytes. `null` and Medium retain the original 22%-width × 14%-nominal anchor rectangle and the existing aspect-preserving image filter. For an explicit width, scale only this watermark's nominal rectangle: Small 13%, Large 35%, Custom 5–55% of the output width with proportional nominal anchor height. Native preview, Exact Frame and both render qualities take this same mapping with no changes to IMAGE layers, postprocessing or scaling of the picture. As before, an image taller than its nominal anchor box can extend beyond the frame; avoid changing legacy placement in a sizing-only round.

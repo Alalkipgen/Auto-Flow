@@ -18,3 +18,6 @@ Source audit: Draft #202, `566dd0d93c57d627a51a925122a48b06672adec6`. This is so
 - Record fresh remote SHA, test results and artifact identity. Neither this audit nor the attached baseline evidence establishes a pass on the new stack.
 
 F1 synthetic reproduction: the production 540p renderer and `ffprobe` agreed at 16:9 = 960x540, 9:16 = 540x960, 1:1 = 540x540. These are test projects, not the owner’s clip. No renderer settings changed.
+
+
+F2 final map: **Small 13%**, **Medium 22% (legacy)**, **Large 35%**, **Custom 5–55%** of output width. The 55% ceiling is 2.5× Medium. Standard FFmpeg IMAGE scaling already supports this range; only the watermark's own width is clamped. Brand Kit saves an optional width; old projects and kits still use the exact legacy geometry. See D-75 for inherited anchor/clipping limits.

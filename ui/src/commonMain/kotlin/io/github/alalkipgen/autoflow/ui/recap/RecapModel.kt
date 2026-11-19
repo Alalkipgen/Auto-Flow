@@ -1498,6 +1498,11 @@ class RecapModel(
     }
 
     /** Remove the watermark from this project. */
+    fun setWatermarkWidth(percent: Int) {
+        val width = percent.coerceIn(io.github.alalkipgen.autoflow.core.recap.WatermarkSize.MIN, io.github.alalkipgen.autoflow.core.recap.WatermarkSize.MAX)
+        setVisual { it.copy(watermarkWidthPercent = width.takeUnless { n -> n == io.github.alalkipgen.autoflow.core.recap.WatermarkSize.MEDIUM }) }
+    }
+
     fun removeWatermark() = setVisual { it.copy(watermarkFile = null) }
 
     /** Set watermark anchor position (D-56). */

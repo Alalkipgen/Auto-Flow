@@ -2,6 +2,8 @@ package io.github.alalkipgen.autoflow.core.library
 
 import io.github.alalkipgen.autoflow.core.recap.LexiconEntry
 import io.github.alalkipgen.autoflow.core.recap.VoiceLock
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -44,6 +46,9 @@ data class BrandKit(
     val layers: List<String> = emptyList(),
     val intro: String? = null,
     val outro: String? = null,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val watermarkWidthPercent: Int? = null,
 )
 
 /** Saved voice preset (studio-v2.md §6). */

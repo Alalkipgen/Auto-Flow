@@ -1,6 +1,8 @@
 package io.github.alalkipgen.autoflow.core.recap
 
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -38,10 +40,27 @@ data class RecapVisual(
     val outputRatio: Ratio? = null,
     /** Captions are centred on the lowest mask (when there is one) instead of the usual bottom place. */
     val captionsOnMask: Boolean = true,
+    /** Null leaves prior project JSON and the legacy 22% width unchanged. */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val watermarkWidthPercent: Int? = null,
 ) {
+    val watermarkPercent: Int get() = (watermarkWidthPercent ?: WatermarkSize.MEDIUM).coerceIn(WatermarkSize.MIN, WatermarkSize.MAX)
+
+    /** Both native preview and render scale the image to this width without changing its aspect. */
+    fun watermarkRect(): List<Float> = watermarkAnchor.rect(watermarkPercent / 100f, .14f * (watermarkPercent / 22f))
+
     /** The mask the captions sit on: the one whose centre is lowest, only when it is in the lower half. */
     val captionMask: RecapMask?
         get() = masks.filter { it.centerY >= 0.5f }.maxByOrNull { it.centerY }?.takeIf { captionsOnMask }
+}
+
+object WatermarkSize {
+    const val MIN = 5
+    const val SMALL = 13
+    const val MEDIUM = 22
+    const val LARGE = 35
+    const val MAX = 55
 }
 
 /** A blurred box, [rect] = `[x, y, w, h]` in 0–1 of the movie picture; [preset] names where it came from. */
