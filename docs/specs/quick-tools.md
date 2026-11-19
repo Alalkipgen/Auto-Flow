@@ -59,7 +59,9 @@ Dubbing has its own spec: [dubbing.md](dubbing.md). Order: Subtitles → Voice &
   (`~/.autoflow/projects.json`) ignores unknown keys, but an unknown `Mode` value fails the whole file; an older build
   then starts empty and rewrites it on the next change (dropping `removedPaths` / `deletedProjects`). S-1: decode
   entries one by one, keep unknown ones verbatim, show `NEEDS_NEWER_APP`; same check for persisted jobs with new
-  `AiJobKind`s and for Backup restore. Owner rule: after a tool project exists, don't install a build without Phase 7
+  `AiJobKind`s and for Backup restore. S-1 ships as S-1a (data, index, explicit branches; Subtitles projects
+  listed but not openable) and S-1b (flag, tile, create-on-pick, tool screen); the job check lands with the first
+  new `AiJobKind` (S-5). Owner rule: after a tool project exists, don't install a build without Phase 7
   (CI sets `versionCode` from a Gradle property, so an older branch's later run can install over a newer build).
 
 ## 4. Subtitle document — `st` artifact (D-79)

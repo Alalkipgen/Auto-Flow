@@ -9,6 +9,8 @@ import kotlinx.serialization.Serializable
 enum class Mode {
     @SerialName("MUSIC_VIDEO") MUSIC_VIDEO,
     @SerialName("MOVIE_RECAP") MOVIE_RECAP,
+    /** Phase 7 quick tool (D-77, specs/quick-tools.md §3). */
+    @SerialName("SUBTITLES") SUBTITLES,
 }
 
 /** Output aspect ratio. Serialized as the human form, e.g. `"9:16"`. */

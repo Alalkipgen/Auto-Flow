@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.home
 
+import io.github.alalkipgen.autoflow.ui.projects.label
 import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -60,7 +61,7 @@ fun HomeScreen(
                 AfCard(tr(UiText.V3_CONTINUE), Modifier.testTag("home-continue")) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         HomeModeIcon(entry.mode)
-                        AfText(tr(if (entry.mode == Mode.MOVIE_RECAP) UiText.MOVIE_RECAP else UiText.MUSIC_VIDEO), muted = true)
+                        AfText(tr(entry.mode.label()), muted = true)
                     }
                     AfButton(entry.name, { onOpenProject(entry.path) }, Modifier.fillMaxWidth().testTag("recent-${entry.name}"))
                     if (entry.path == continueProjectPath) continueStep?.let {
@@ -98,15 +99,23 @@ fun HomeScreen(
 private fun HomeModeIcon(mode: Mode) {
     Canvas(Modifier.size(20.dp).testTag("home-mode-${mode.name}")) {
         val u = size.width / 20f
-        if (mode == Mode.MOVIE_RECAP) {
-            drawRoundRect(AutoFlowColors.Purple, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
-            for (x in listOf(5f, 15f)) for (y in listOf(7f, 13f)) {
-                drawCircle(AutoFlowColors.Panel, u, Offset(x * u, y * u))
+        when (mode) {
+            Mode.MOVIE_RECAP -> {
+                drawRoundRect(AutoFlowColors.Purple, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
+                for (x in listOf(5f, 15f)) for (y in listOf(7f, 13f)) {
+                    drawCircle(AutoFlowColors.Panel, u, Offset(x * u, y * u))
+                }
             }
-        } else {
-            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 13 * u), Offset(10 * u, 4 * u), 2 * u)
-            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 4 * u), Offset(16 * u, 6 * u), 2 * u)
-            drawOval(AutoFlowColors.Cyan, Offset(4 * u, 11 * u), Size(7 * u, 5 * u))
+            Mode.MUSIC_VIDEO -> {
+                drawLine(AutoFlowColors.Cyan, Offset(10 * u, 13 * u), Offset(10 * u, 4 * u), 2 * u)
+                drawLine(AutoFlowColors.Cyan, Offset(10 * u, 4 * u), Offset(16 * u, 6 * u), 2 * u)
+                drawOval(AutoFlowColors.Cyan, Offset(4 * u, 11 * u), Size(7 * u, 5 * u))
+            }
+            Mode.SUBTITLES -> {
+                drawRoundRect(AutoFlowColors.Green, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
+                drawLine(AutoFlowColors.Panel, Offset(5 * u, 10 * u), Offset(15 * u, 10 * u), 1.5f * u)
+                drawLine(AutoFlowColors.Panel, Offset(7 * u, 13 * u), Offset(13 * u, 13 * u), 1.5f * u)
+            }
         }
     }
 }

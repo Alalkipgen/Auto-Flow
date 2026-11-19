@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /** One Dashboard row (D-20). Copied from `project.json` whenever the project is opened or saved. */
 @Serializable
@@ -25,10 +28,24 @@ data class ProjectEntry(
     val lastOpenedAt: Instant,
 )
 
+/** A row this build cannot read (e.g. a mode from a newer Auto Flow, D-78): kept verbatim, shown as "needs a newer app". */
+data class NewerProjectEntry(val path: String, val name: String)
+
 @Serializable
 private data class ProjectIndexFile(
     val schemaVersion: Int = 1,
     val projects: List<ProjectEntry> = emptyList(),
+    val removedPaths: Set<String> = emptySet(),
+    val deletedProjects: Map<String, String> = emptyMap(),
+    /** Unreadable rows, written back after [projects] unchanged; never decoded from the file directly. */
+    @kotlinx.serialization.Transient val newer: List<JsonObject> = emptyList(),
+)
+
+/** Same shape as [ProjectIndexFile] on disk, with rows kept as JSON so one unknown row cannot fail the file. */
+@Serializable
+private data class RawIndexFile(
+    val schemaVersion: Int = 1,
+    val projects: List<JsonElement> = emptyList(),
     val removedPaths: Set<String> = emptySet(),
     val deletedProjects: Map<String, String> = emptyMap(),
 )
@@ -55,10 +72,19 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
     }
     fun markDeleted(dir: String, id: String): PlatformResult<Unit> = change { data ->
         val key = canonical(dir)
-        data.copy(projects = data.projects.filterNot { canonical(it.path) == key }, removedPaths = data.removedPaths + key,
+        data.withoutNewer(key).copy(projects = data.projects.filterNot { canonical(it.path) == key }, removedPaths = data.removedPaths + key,
             deletedProjects = data.deletedProjects + (key to id))
     }
     val entries: StateFlow<List<ProjectEntry>> = _entries.asStateFlow()
+
+    /** Rows written by a newer Auto Flow (D-78); this build keeps them and cannot open them. */
+    fun newerEntries(): List<NewerProjectEntry> = disk.newer.mapNotNull { row ->
+        val path = (row["path"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return@mapNotNull null
+        NewerProjectEntry(path, (row["name"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: path)
+    }
+
+    private fun ProjectIndexFile.withoutNewer(key: String) =
+        copy(newer = newer.filterNot { row -> (row["path"] as? JsonPrimitive)?.content?.let(::canonical) == key })
 
     /** Adds or refreshes the row for [dir]; [opened] also moves it to the top. */
     fun record(dir: String, project: Project, opened: Boolean = true): PlatformResult<Unit> = change { data ->
@@ -75,13 +101,13 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
             totalShots = project.shots.size,
             lastOpenedAt = if (opened || old == null) clock.now() else old.lastOpenedAt,
         )
-        data.copy(projects = listOf(entry) + data.projects.filterNot { it in prior }, removedPaths = data.removedPaths - identity,
+        data.withoutNewer(identity).copy(projects = listOf(entry) + data.projects.filterNot { it in prior }, removedPaths = data.removedPaths - identity,
             deletedProjects = if (opened && data.deletedProjects[identity] == project.id) data.deletedProjects - identity else data.deletedProjects)
     }
 
     fun remove(dir: String): PlatformResult<Unit> = change { data ->
         val identity = canonical(dir)
-        data.copy(projects = data.projects.filterNot { canonical(it.path) == identity }, removedPaths = data.removedPaths + identity)
+        data.withoutNewer(identity).copy(projects = data.projects.filterNot { canonical(it.path) == identity }, removedPaths = data.removedPaths + identity)
     }
 
     private fun change(update: (ProjectIndexFile) -> ProjectIndexFile): PlatformResult<Unit> = try {
@@ -91,7 +117,7 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
             val previous = read()
             val next = update(previous).let { it.copy(projects = it.projects.sortedByDescending { e -> e.lastOpenedAt }) }
             if (next != previous) {
-                fs.writeDurably("$path.tmp", json.encodeToString(ProjectIndexFile.serializer(), next).encodeToByteArray())
+                fs.writeDurably("$path.tmp", encode(next).encodeToByteArray())
                 fs.atomicMove("$path.tmp", path)
                 problem = null
             }
@@ -105,7 +131,7 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
 
     private fun read(): ProjectIndexFile = try {
         if (!fs.exists(path)) ProjectIndexFile()
-        else json.decodeFromString(ProjectIndexFile.serializer(), fs.read(path).decodeToString()).let {
+        else decode(fs.read(path).decodeToString()).let {
             it.copy(projects = it.projects.sortedByDescending { e -> e.lastOpenedAt })
         }
     } catch (e: Exception) {
@@ -115,6 +141,29 @@ class ProjectIndex(private val fs: FileSystem, private val path: String, private
 
     private companion object {
         val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
+
+        /** Rows are decoded one by one (D-78): an unreadable row is kept verbatim instead of emptying the list. */
+        fun decode(text: String): ProjectIndexFile {
+            val raw = json.decodeFromString(RawIndexFile.serializer(), text)
+            val known = mutableListOf<ProjectEntry>()
+            val newer = mutableListOf<JsonObject>()
+            for (row in raw.projects) {
+                val entry = runCatching { json.decodeFromJsonElement(ProjectEntry.serializer(), row) }.getOrNull()
+                when {
+                    entry != null -> known += entry
+                    row is JsonObject -> newer += row
+                    else -> throw IllegalArgumentException("a project row is not an object")
+                }
+            }
+            return ProjectIndexFile(raw.schemaVersion, known, raw.removedPaths, raw.deletedProjects, newer)
+        }
+
+        /** Without unreadable rows this is byte-for-byte the former `ProjectIndexFile` encoding. */
+        fun encode(data: ProjectIndexFile): String =
+            if (data.newer.isEmpty()) json.encodeToString(ProjectIndexFile.serializer(), data)
+            else json.encodeToString(RawIndexFile.serializer(), RawIndexFile(data.schemaVersion,
+                data.projects.map { json.encodeToJsonElement(ProjectEntry.serializer(), it) } + data.newer,
+                data.removedPaths, data.deletedProjects))
     }
 }
 

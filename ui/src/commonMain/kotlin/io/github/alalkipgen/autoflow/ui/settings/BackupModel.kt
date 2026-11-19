@@ -4,6 +4,7 @@ import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.model.ProjectCompat
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.AppDirs
 import io.github.alalkipgen.autoflow.platform.BackupProgress
@@ -113,7 +114,12 @@ class BackupModel(
                     for (entry in r.value) {
                         // Only the actual published destination, not the original/same-name project.
                         val dir = joinPath(dest, entry.folder)
-                        val project = (store.open(dir) as? CoreResult.Ok)?.value ?: continue
+                        val project = (store.open(dir) as? CoreResult.Ok)?.value
+                        if (project == null) {
+                            // Kept on disk untouched; say why it is not listed (D-78).
+                            if (newerProject(dir)) listError = UiText.NEEDS_NEWER_APP.text(language()) + " (${entry.folder})"
+                            continue
+                        }
                         (index.record(dir, project) as? PlatformResult.Failed)?.let { listError = it.reason }
                     }
                     val notice = listError?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to "${restored(r.value, language())} · $it") } ?: restoredNotice(r.value)
@@ -123,6 +129,12 @@ class BackupModel(
                 is PlatformResult.Unsupported -> _state.update { it.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }
             }
         }
+    }
+
+    private fun newerProject(dir: String): Boolean = try {
+        ProjectCompat.madeByNewerApp(fs.read(joinPath(dir, ProjectStore.PROJECT_FILE)))
+    } catch (e: Exception) {
+        false
     }
 
     fun share() {
