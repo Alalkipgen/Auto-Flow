@@ -55,7 +55,10 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
 
         setForeground(buildForeground(labelFor(job), "Starting…"))
         // No processor (not registered in this process) → the executor FAILS the job with a reason; never DONE.
-        AiJobExecutor(store, AiWorkerRegistry.processor, onChange = { updateNotification(labelFor(it), "${it.items.size} items left") }).run(jobId)
+        AiJobExecutor(store, AiWorkerRegistry.processor, onChange = {
+            AiWorkerRegistry.onJobsChanged?.invoke()
+            updateNotification(labelFor(it), "${it.items.size} items left")
+        }).run(jobId)
         return Result.success()
     }
 
@@ -118,6 +121,9 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
  * by [AutoFlowApp.onCreate] before any Worker can run.
  */
 object AiWorkerRegistry {
+    @Volatile
+    internal var onJobsChanged: (() -> Unit)? = null
+
     @Volatile
     var processor: AiItemProcessor? = null
 }

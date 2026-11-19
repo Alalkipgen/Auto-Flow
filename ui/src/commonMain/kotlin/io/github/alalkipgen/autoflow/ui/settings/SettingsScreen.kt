@@ -29,6 +29,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.ui.jobs.aiKindLabel
 import io.github.alalkipgen.autoflow.ui.components.SectionCard
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AudioPlayButton
@@ -54,12 +57,13 @@ const val TEST_TTS = "🔊 Test Gemini TTS (S5)"
 @Composable
 fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null, backup: BackupModel? = null,
     onOpenLexicon: (() -> Unit)? = null,
+    runner: AiJobRunner? = null,
 ) {
-    AppLanguage(model.appSettings) { SettingsContent(model, modifier, info, backup, onOpenLexicon) }
+    AppLanguage(model.appSettings) { SettingsContent(model, modifier, info, backup, onOpenLexicon, runner) }
 }
 
 @Composable
-private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppInfo?, backup: BackupModel?, onOpenLexicon: (() -> Unit)?) {
+private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppInfo?, backup: BackupModel?, onOpenLexicon: (() -> Unit)?, runner: AiJobRunner?) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(model) { model.refresh(); model.refreshUsage() }
@@ -84,7 +88,7 @@ private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppI
         ToolsCard(state, model, scope)
         backup?.let { BackupCard(it) }
         PreviewFeaturesCard(model, initiallyExpanded = false)
-        DiagnosticsCard(state, model, info)
+        DiagnosticsCard(state, model, info, runner)
         info?.let { AboutCard(it) }
     }
     }
@@ -133,7 +137,7 @@ private fun BackupCard(model: BackupModel) {
 
 /** Visible entry to real build/tool readouts and the same on-device Self-test as version long-press. */
 @Composable
-private fun DiagnosticsCard(state: SettingsUiState, model: SettingsModel, info: AppInfo?) {
+private fun DiagnosticsCard(state: SettingsUiState, model: SettingsModel, info: AppInfo?, runner: AiJobRunner?) {
     SectionCard(tr(UiText.V3_DIAGNOSTICS), Modifier.testTag("settings-diagnostics"), initiallyExpanded = false) {
         LaunchedEffect(model) { model.checkFfmpeg() }
         AfText(info?.version ?: tr(UiText.V3_BUILD_UNAVAILABLE), Modifier.testTag("diagnostics-build"), mono = true)
@@ -141,10 +145,35 @@ private fun DiagnosticsCard(state: SettingsUiState, model: SettingsModel, info: 
             ?: tr(if (state.ffmpegFound) UiText.V3_TOOL_DETECTED else UiText.FFMPEG_NOT_FOUND), muted = true)
         if (!state.toolsBundled) AfText(state.vlcDir?.let { tr(UiText.VLC_USING, "vlcDir" to it) }
             ?: tr(UiText.VLC_MISSING), muted = true)
+        val runs = runner?.jobs?.collectAsState()?.value.orEmpty()
+        AfText(tr(UiText.LAST_RUN_TIMINGS), Modifier.testTag("diagnostics-run-timings"), bold = true)
+        val recent = runs.filter { it.timings.isNotEmpty() }.maxByOrNull { it.timingsUpdatedAt ?: Long.MIN_VALUE }
+        if (recent == null) AfText(tr(UiText.NO_RUN_TIMINGS), muted = true)
+        else {
+            AfText(aiKindLabel(recent.kind, LocalUiLanguage.current), muted = true)
+            for ((stage, samples) in recent.timings.groupBy { it.stage }) {
+                val values = "${samples.sumOf { it.ms }} ms · ×${samples.size}" +
+                    (samples.mapNotNull { it.bytes }.takeIf { it.isNotEmpty() }?.let { " · ${it.sum()} B" } ?: "")
+                AfText("${tr(stage.timingLabel())} · $values", muted = true)
+            }
+        }
         AfButton(tr(UiText.SELF_TEST), { info?.onVersionLongPress?.invoke() }, Modifier.testTag("settings-self-test"),
             enabled = info?.onVersionLongPress != null)
         if (info?.onVersionLongPress == null) AfText(My.breakSyllables(tr(UiText.V3_SELFTEST_ANDROID)), muted = true)
     }
+}
+
+private fun AiTimingStage.timingLabel() = when (this) {
+    AiTimingStage.QUEUE -> UiText.TIMING_QUEUE
+    AiTimingStage.MEDIA_PREP -> UiText.TIMING_MEDIA
+    AiTimingStage.PACER -> UiText.TIMING_PACER
+    AiTimingStage.UPLOAD -> UiText.TIMING_UPLOAD
+    AiTimingStage.FIRST_BYTE -> UiText.TIMING_FIRST_BYTE
+    AiTimingStage.RESPONSE -> UiText.TIMING_RESPONSE
+    AiTimingStage.RETRY_WAIT -> UiText.TIMING_RETRY
+    AiTimingStage.PARSE -> UiText.TIMING_PARSE
+    AiTimingStage.SAVE -> UiText.SAVE
+    AiTimingStage.UI_UPDATE -> UiText.TIMING_UI
 }
 
 /** Version line; on Android a long press opens the Self-test (PLAN S6), so it stays out of the way of normal use. */

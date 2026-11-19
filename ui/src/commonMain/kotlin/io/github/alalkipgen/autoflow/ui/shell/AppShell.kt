@@ -179,7 +179,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 }
                 "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
                 "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
-                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
+                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>())
                 MORE -> MoreScreen(displayShell.locks, onSelect = { screen = it })
                 else -> ScreenPlaceholder(current)
             }
@@ -297,7 +297,7 @@ private fun StudioV2App(
         if (nav.settings) {
             Column(Modifier.fillMaxSize()) {
                 V2SubBar(tr(UiText.BACK), status) { nav = nav.copy(settings = false) }
-                Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup,
+                Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>(),
                     onOpenLexicon = { nav = nav.copy(settings = false, dest = StudioV2Dest.LIBRARY, libraryLexicon = true) }) }
             }
         } else when (nav.dest) {

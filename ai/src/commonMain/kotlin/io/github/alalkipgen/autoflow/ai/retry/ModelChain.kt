@@ -3,6 +3,8 @@ package io.github.alalkipgen.autoflow.ai.retry
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.Usage
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
 import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
@@ -70,12 +72,12 @@ class ModelChain(
                     }
                     is Attempt.Transient -> {
                         last = outcome
-                        if (tries < policy.maxTries) delay(policy.backoffMs(tries))
+                        if (tries < policy.maxTries) timedAiStage(AiTimingStage.RETRY_WAIT) { delay(policy.backoffMs(tries)) }
                     }
                     is Attempt.Limited -> {
                         val wait = outcome.retryAfterMs
                         if (wait != null && wait <= policy.maxRetryAfterMs && tries < policy.maxTries) {
-                            delay(wait)
+                            timedAiStage(AiTimingStage.RETRY_WAIT, status = 429, retryDelayMs = wait) { delay(wait) }
                         } else {
                             limited = listOfNotNull(limited, outcome).minBy { it.retryAfterMs ?: Long.MAX_VALUE }
                             break

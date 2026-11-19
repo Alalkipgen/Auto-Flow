@@ -21,6 +21,21 @@ class AiJobStoreTest {
     )
 
     @Test
+    fun equivalentInputsShareOneActiveOwnerEvenAfterCheckpointAndReopen() {
+        val fs = InMemoryFileSystem()
+        val first = AiJobStore(fs, "/jobs")
+        val request = job("original").copy(inputKey = "fingerprint")
+        assertEquals(AiJobStore.Enqueue("original", true), first.prepareEnqueue(request))
+        first.update("original") { it.copy(state = AiJobState.RUNNING, items = listOf("2")) }
+        val reopened = AiJobStore(fs, "/jobs")
+        assertEquals(AiJobStore.Enqueue("original", false), reopened.prepareEnqueue(request.copy(id = "duplicate")))
+        assertEquals(3, reopened.loadAll().single().initialItemCount)
+        assertEquals(listOf("2"), reopened.loadAll().single().items)
+        assertTrue(reopened.prepareEnqueue(request.copy(id = "different", inputKey = "edited-inputs")).shouldLaunch)
+        assertTrue(reopened.prepareEnqueue(request.copy(id = "another", project = "projects/p2")).shouldLaunch)
+    }
+
+    @Test
     fun saveAndLoad_roundTrip() {
         val store = makeStore()
         val j = job("j_001")

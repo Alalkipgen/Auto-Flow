@@ -193,10 +193,11 @@ internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: Reca
 internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     val t = state.transcribe
     if (!t.available || recap.movie == null) return
+    val active = t.job?.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING)
     if (t.lines > 0 || t.transcribedScenes > 0) {
-        AfText(transcriptSummary(t.lines, t.transcribedScenes, LocalUiLanguage.current), Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
+        AfText((if (active) tr(UiText.TRANSCRIPT_PREVIOUS) + " · " else "") + transcriptSummary(t.lines, t.transcribedScenes, LocalUiLanguage.current), Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
     }
-    val running = state.job?.startsWith("Transcribing") == true
+    val running = state.runnerJobId == null && state.job?.startsWith("Transcribing") == true
     val confirm = t.confirm
     val job = t.job
     when {
@@ -227,7 +228,7 @@ internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Re
             }
         }
         job != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText(tr(UiText.TRANSCRIBE_JOB_PROGRESS, "size" to (job.items.size)), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfText(tr(if (job.state == AiJobState.QUEUED) UiText.JOB_QUEUED else UiText.TRANSCRIBING_NEW_RUN), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
             AfButton(tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
         }
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

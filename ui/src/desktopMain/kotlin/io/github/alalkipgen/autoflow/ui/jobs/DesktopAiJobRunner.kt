@@ -5,6 +5,7 @@ import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobExecutor
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
+import io.github.alalkipgen.autoflow.core.recap.AiRunTiming
 import io.github.alalkipgen.autoflow.core.recap.AiJobStore
 import io.github.alalkipgen.autoflow.core.recap.RpmPacer
 import io.github.alalkipgen.autoflow.core.recap.RpmPacers
@@ -79,26 +80,16 @@ class DesktopAiJobRunner internal constructor(
     override suspend fun enqueue(job: AiJob): String {
         val id = mutex.withLock {
             if (running[job.id]?.isActive == true) return job.id
-            val toRun = when (val existing = store.read(job.id)) {
-                AiJobStore.Read.Missing -> job.copy(state = AiJobState.QUEUED, error = null)
-                // A damaged file is kept aside, never overwritten in place; the new job starts from its own items
-                // (finished ones are found from the project).
-                is AiJobStore.Read.Damaged -> job.copy(id = "${job.id}-r", state = AiJobState.QUEUED, error = null)
-                is AiJobStore.Read.Ok -> when (existing.job.state) {
-                    AiJobState.PAUSED, AiJobState.FAILED -> existing.job.copy(state = AiJobState.QUEUED, error = null)
-                    AiJobState.QUEUED, AiJobState.RUNNING -> existing.job // left by a closed app: resume it
-                    AiJobState.DONE, AiJobState.CANCELLED -> return job.id
-                }
-            }
-            store.save(toRun)
-            launchLocked(toRun.id)
-            toRun.id
+            val claim = store.prepareEnqueue(job)
+            if (claim.shouldLaunch) launchLocked(claim.id)
+            claim.id
         }
         refresh()
         return id
     }
 
     override suspend fun cancel(id: String) {
+        AiRunTiming.forgetQueue(id)
         store.update(id) { if (it.state == AiJobState.DONE) it else it.copy(state = AiJobState.CANCELLED) }
         mutex.withLock { running.remove(id) }?.cancel()
         refresh()

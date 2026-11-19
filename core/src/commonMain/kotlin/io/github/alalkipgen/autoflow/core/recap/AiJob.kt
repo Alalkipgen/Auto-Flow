@@ -22,6 +22,11 @@ data class AiJob(
     val msPerItem: Long? = null,
     /** RPM limit for this job's model. */
     val rpm: Int = 60,
+    /** Digest of immutable enqueue inputs; remaining [items] shrink during execution. */
+    val inputKey: String? = null,
+    val initialItemCount: Int? = null,
+    val timings: List<AiTimingSample> = emptyList(),
+    val timingsUpdatedAt: Long? = null,
 )
 
 @Serializable

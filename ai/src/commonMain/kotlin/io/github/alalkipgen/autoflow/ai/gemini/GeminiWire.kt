@@ -2,10 +2,16 @@ package io.github.alalkipgen.autoflow.ai.gemini
 
 import io.github.alalkipgen.autoflow.ai.JsonSchema
 import io.github.alalkipgen.autoflow.ai.retry.Attempt
+import io.github.alalkipgen.autoflow.core.recap.AiRunTiming
+import io.github.alalkipgen.autoflow.core.recap.AiTimingSample
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
 import io.ktor.client.HttpClient
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.onDownload
+import io.ktor.client.plugins.onUpload
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -13,6 +19,9 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.coroutines.coroutineContext
+import kotlin.time.TimeSource
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.io.encoding.Base64
 import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonArray
@@ -88,13 +97,36 @@ internal object GeminiWire {
 
     /** One `generateContent` call; network failures are classified like HTTP errors (no exceptions escape). */
     suspend fun post(http: HttpClient, baseUrl: String, model: String, key: String, body: String, audio: Boolean = false): Attempt<JsonElement> {
+        val trace = coroutineContext[AiRunTiming]
+        val start = TimeSource.Monotonic.markNow()
+        val first = MutableStateFlow(false)
+        val uploaded = MutableStateFlow(false)
+        var statusSeen: Int? = null
+        var requestedBytes: Long? = null
+        var retryDelay: Long? = null
         val (status, text) = try {
+            if (trace != null) requestedBytes = body.encodeToByteArray().size.toLong()
             val response = http.post("${baseUrl.trimEnd('/')}/models/$model:generateContent") {
                 header("x-goog-api-key", key)
                 contentType(ContentType.Application.Json)
                 setBody(body)
+                if (trace != null) {
+                    onUpload { sent, total ->
+                        if (sent > 0 && sent == (total ?: requestedBytes) && uploaded.compareAndSet(false, true)) {
+                            trace.add(AiTimingSample(AiTimingStage.UPLOAD, start.elapsedNow().inWholeMilliseconds, bytes = sent))
+                        }
+                    }
+                    onDownload { received, _ ->
+                        if (received > 0 && first.compareAndSet(false, true)) {
+                            trace.add(AiTimingSample(AiTimingStage.FIRST_BYTE, start.elapsedNow().inWholeMilliseconds))
+                        }
+                    }
+                }
             }
-            response.status.value to response.bodyAsText()
+            statusSeen = response.status.value
+            val text = response.bodyAsText()
+            if (statusSeen == 429 && trace != null) retryDelay = retryDelayMs(parse(text)?.obj("error"))
+            response.status.value to text
         } catch (e: CancellationException) {
             throw e
         } catch (e: HttpRequestTimeoutException) {
@@ -105,8 +137,11 @@ internal object GeminiWire {
             return Attempt.Fatal("network", "Cannot reach the Gemini API (connect timeout)")
         } catch (e: Exception) {
             return Attempt.Fatal("network", "Cannot reach the Gemini API: ${e.message ?: e::class.simpleName}")
+        } finally {
+            trace?.add(AiTimingSample(AiTimingStage.RESPONSE, start.elapsedNow().inWholeMilliseconds,
+                bytes = requestedBytes, httpStatus = statusSeen, retryDelayMs = retryDelay))
         }
-        return classify(status, text, audio)
+        return timedAiStage(AiTimingStage.PARSE) { classify(status, text, audio) }
     }
 
     /** [audio]: the answer is the first `inlineData` part (`{mimeType, data}`), not JSON text. */
