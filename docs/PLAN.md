@@ -216,6 +216,7 @@ Baseline: Draft #202 at `566dd0d` (owner APK 0.4.2, versionCode 661). See [cause
 - [ ] F4 Projects: durable Remove and guarded deletion for managed folders without protected files implemented; phone QA pending.
 - [ ] F5 Library: context-only deletion of saved kits and presets by ID implemented; phone and TalkBack QA pending.
 - [ ] F6 Jobs: context-only removal of finished history implemented; phone QA pending.
+- [ ] CI recheck: run 678 failed in Linux desktop packaging before launch, though run 677 packaged the same app sources. The old public log does not identify the failing command. Keep the real package and launch gates, use the Linux `check` worker/compiler bounds for packaging, and retain the JDK/version, Gradle error, and Compose packaging logs on failure. A local startup pass is not a green GitHub check.
 
 ## Open Questions
 - Feedback R1: the owner's actual `preview.mp4` was not supplied. Compare a synthetic preview with its project ratio; do not retune the renderer based on a screenshot. Preview results do not currently record the input revision; omit a stale badge for unprovable revisions.

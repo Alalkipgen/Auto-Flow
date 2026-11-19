@@ -63,13 +63,14 @@ jobs:
         with: { distribution: temurin, java-version: "21" }
       - uses: gradle/actions/setup-gradle@v6
       - name: Package the desktop app (app image)
-        run: chmod +x gradlew && ./gradlew :app-desktop:createDistributable
+        env: { SMOKE_OUT: "${{ runner.temp }}/desktop-smoke" }
+        run: bash tools/ci-desktop-package.sh
       - name: Launch the packaged app headlessly (smoke test)
         env: { SMOKE_OUT: "${{ runner.temp }}/desktop-smoke" }
         run: bash tools/desktop-smoke.sh
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: desktop-smoke, path: "${{ runner.temp }}/desktop-smoke", if-no-files-found: warn }
+        with: { name: desktop-smoke, path: "${{ runner.temp }}/desktop-smoke", if-no-files-found: warn, retention-days: 30 }
 
   windows:
     # D-19: real DPAPI round trip (AUTOFLOW_EXPECT_DPAPI makes the test fail if it is not on Windows), and JvmFs on NTFS.
