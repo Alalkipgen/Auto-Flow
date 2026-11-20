@@ -176,7 +176,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                     }
                 })
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
-                SUBTITLES_SCREEN -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject())
+                SUBTITLES_SCREEN -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir())
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
@@ -379,7 +379,7 @@ private fun StudioV2App(
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES && screen == SUBTITLES_SCREEN) {
-                            io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), onBack = { openProjectScreen(null) })
+                            io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), onBack = { openProjectScreen(null) })
                         } else if (isRecap && screen in listOf("Recap", "Export")) {
                             val nativeBlocks = screen == "Export" || screen == "Recap" && nav.recapStep in listOf(
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE,
@@ -736,4 +736,11 @@ fun AutoFlowLogo(size: Dp, modifier: Modifier = Modifier) {
         }
         drawPath(triangle, Color.White)
     }
+}
+
+/** The desktop movie decoder's VLC folder (settings, else found); Android ignores it. */
+@Composable
+private fun subtitlesVlcDir(): String? {
+    val media = koinInject<io.github.alalkipgen.autoflow.ui.media.MediaTools>()
+    return remember(media) { media.vlcDir() }
 }

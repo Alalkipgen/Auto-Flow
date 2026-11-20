@@ -11,6 +11,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.alalkipgen.autoflow.core.config.ToolsConfig
+import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.CueIssue
 import io.github.alalkipgen.autoflow.core.subtitles.DraftFile
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleCue
@@ -26,10 +28,12 @@ import kotlinx.coroutines.launch
 /**
  * The subtitle editor (specs/quick-tools.md §5): view and issues chips, undo/redo, a list keyed by cue id, the edit
  * panel under the line being edited, and Save · Discard while there are unsaved changes. [header] is the screen's
- * back row and notices. Preview, playhead and Shift times come with S-3d.
+ * back row and notices. The video stays above the list; tap a line = seek + select, and while it plays the list
+ * follows the playhead unless the owner scrolled in the last 3 s. Shift times and the wide layout come with S-3e.
  */
 @Composable
-internal fun SubtitleEditor(editor: SubtitleEditorModel, header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit) {
+internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: SourceVideo, player: SubtitlePlayer,
+    header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit) {
     val s by editor.state.collectAsState()
     val draft = s.draft ?: return
     val cues = draft.doc.cues
@@ -37,7 +41,21 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, header: @Composable Col
     val scope = rememberCoroutineScope()
     var editing by remember(s.dir) { mutableStateOf<String?>(null) }
     val idle = s.offer == null
+    val playhead = remember(s.dir) { Playhead() }
+    val live = cues.indexOfFirst { playhead.positionMs >= it.startMs && playhead.positionMs < it.endMs }
+    var scrolledAt by remember { mutableLongStateOf(0L) }
+    var following by remember { mutableStateOf(false) }
+    LaunchedEffect(list.isScrollInProgress) { if (list.isScrollInProgress && !following) scrolledAt = nowMs() }
+    LaunchedEffect(live, playhead.playing) {
+        if (playhead.playing && live >= 0 && nowMs() - scrolledAt > FOLLOW_PAUSE_MS) {
+            following = true
+            try { list.animateScrollToItem(1 + live) } finally { following = false }
+        }
+    }
     Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
+        Box(Modifier.fillMaxWidth().padding(start = screenPadding, end = screenPadding, top = 8.dp)) {
+            SubtitlePreview(path, video, cues, s.view, playhead, player)
+        }
         // One list: the header scrolls away with the lines, so a phone at font 2.0 still shows them (D-22).
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-cues"), state = list,
             contentPadding = PaddingValues(screenPadding), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -66,9 +84,10 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, header: @Composable Col
             }
             itemsIndexed(cues, key = { _, c -> c.id }) { i, c ->
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CueRow(i + 1, c, s.view, s.issues[c.id], s.selected == c.id, editor, idle,
+                    CueRow(i + 1, c, s.view, s.issues[c.id], s.selected == c.id || i == live, idle, editor.config,
+                        onTap = { editor.select(c.id); playhead.seek(c.startMs) },
                         onEdit = { editing = if (editing == c.id) null else c.id; editor.select(c.id) })
-                    if (editing == c.id && idle) EditPanel(c, editor,
+                    if (editing == c.id && idle) EditPanel(c, editor, playhead,
                         onPrev = cues.getOrNull(i - 1)?.let { p -> { editing = p.id; editor.select(p.id) } },
                         onNext = cues.getOrNull(i + 1)?.let { n -> { editing = n.id; editor.select(n.id) } },
                         onClose = { editing = null })
@@ -95,12 +114,12 @@ private fun RestoreCard(offer: DraftFile, editor: SubtitleEditorModel) {
 }
 
 @Composable
-private fun CueRow(n: Int, c: SubtitleCue, view: TextChoice, issues: Set<CueIssue>?, selected: Boolean, editor: SubtitleEditorModel,
-    idle: Boolean, onEdit: () -> Unit) {
+private fun CueRow(n: Int, c: SubtitleCue, view: TextChoice, issues: Set<CueIssue>?, selected: Boolean, idle: Boolean,
+    config: ToolsConfig, onTap: () -> Unit, onEdit: () -> Unit) {
     val dur = ((c.endMs - c.startMs) / 100) / 10.0
     val title = "#$n · ${TimeText.show(c.startMs)} → ${TimeText.show(c.endMs)} · $dur s"
     val editLabel = tr(UiText.SUB_EDIT_LINE)
-    AfCard(title, Modifier.clickable { editor.select(c.id) }.testTag("subtitles-cue-${c.id}"), selected, headerAction = {
+    AfCard(title, Modifier.clickable(onClick = onTap).testTag("subtitles-cue-${c.id}"), selected, headerAction = {
         AfButton("✎", onEdit, Modifier.semantics { contentDescription = editLabel }.testTag("subtitles-cue-edit-${c.id}"), enabled = idle)
     }) {
         val my = c.textMy?.takeIf { it.isNotBlank() }
@@ -110,13 +129,14 @@ private fun CueRow(n: Int, c: SubtitleCue, view: TextChoice, issues: Set<CueIssu
             TextChoice.BOTH -> { AfText(My.breakSyllables(c.text)); my?.let { AfText(My.breakSyllables(it), color = AutoFlowColors.Cyan) } }
         }
         if (!issues.isNullOrEmpty()) WrapRow {
-            issues.forEach { AfText(My.breakSyllables(issueText(it, editor)), Modifier.testTag("subtitles-issue-${c.id}-${it.name}"), color = AutoFlowColors.Amber) }
+            issues.forEach { AfText(My.breakSyllables(issueText(it, config)), Modifier.testTag("subtitles-issue-${c.id}-${it.name}"), color = AutoFlowColors.Amber) }
         }
     }
 }
 
 @Composable
-private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, onPrev: (() -> Unit)?, onNext: (() -> Unit)?, onClose: () -> Unit) {
+private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, playhead: Playhead, onPrev: (() -> Unit)?, onNext: (() -> Unit)?,
+    onClose: () -> Unit) {
     var text by remember(c.id, c.text) { mutableStateOf(c.text) }
     var my by remember(c.id, c.textMy) { mutableStateOf(c.textMy.orEmpty()) }
     var start by remember(c.id, c.startMs) { mutableStateOf(TimeText.show(c.startMs)) }
@@ -137,10 +157,16 @@ private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, onPrev: (() -
         AfTextField(text, { text = it }, tr(UiText.SUB_VIEW_ORIGINAL), Modifier.fillMaxWidth().testTag("subtitles-edit-text"), lines = 2, mono = false)
         AfText(My.breakSyllables(tr(UiText.SUB_VIEW_BURMESE)), bold = true)
         AfTextField(my, { my = it }, tr(UiText.SUB_VIEW_BURMESE), Modifier.fillMaxWidth().testTag("subtitles-edit-my"), lines = 2, mono = false)
-        TimeRow(UiText.SUB_START, start, { start = it }, "start", nudge) { d -> editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs + d, c.endMs) } }
-        TimeRow(UiText.SUB_END, end, { end = it }, "end", nudge) { d -> editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, c.endMs + d) } }
+        TimeRow(UiText.SUB_START, start, { start = it }, "start", nudge,
+            usePlayhead = { editor.edit { SubtitleOps.setTimes(it, c.id, playhead.positionMs, c.endMs) } }) { d ->
+            editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs + d, c.endMs) }
+        }
+        TimeRow(UiText.SUB_END, end, { end = it }, "end", nudge,
+            usePlayhead = { editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, playhead.positionMs) } }) { d ->
+            editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, c.endMs + d) }
+        }
         WrapRow {
-            AfButton(My.breakSyllables(tr(UiText.SUB_SPLIT)), { commit(); editor.splitAtBreak(c.id) }, Modifier.testTag("subtitles-split"))
+            AfButton(My.breakSyllables(tr(UiText.SUB_SPLIT)), { commit(); editor.splitAt(c.id, playhead.positionMs.takeIf { playhead.inside(c) }) }, Modifier.testTag("subtitles-split"))
             AfButton(My.breakSyllables(tr(UiText.SUB_MERGE_NEXT)), { commit(); editor.edit { SubtitleOps.merge(it, c.id) } }, Modifier.testTag("subtitles-merge"))
             AfButton(My.breakSyllables(tr(UiText.SUB_ADD_AFTER)), { commit(); editor.edit { SubtitleOps.insertAfter(it, c.id) } }, Modifier.testTag("subtitles-add"))
             AfButton(My.breakSyllables(tr(UiText.SUB_DELETE)), { editor.edit { SubtitleOps.delete(it, c.id) }; onClose() },
@@ -148,6 +174,7 @@ private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, onPrev: (() -
         }
         WrapRow {
             onPrev?.let { AfButton(My.breakSyllables(tr(UiText.SUB_PREV_LINE)), { commit(); it() }, Modifier.testTag("subtitles-prev")) }
+            AfButton(My.breakSyllables(tr(UiText.SUB_PLAY_LINE)), { playhead.playLine(c) }, Modifier.testTag("subtitles-play-line"))
             onNext?.let { AfButton(My.breakSyllables(tr(UiText.SUB_NEXT_LINE)), { commit(); it() }, Modifier.testTag("subtitles-next")) }
             AfButton(My.breakSyllables(tr(UiText.SUB_DONE)), { commit(); onClose() }, Modifier.testTag("subtitles-done"), kind = ButtonKind.Primary)
         }
@@ -156,13 +183,16 @@ private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, onPrev: (() -
 
 /** Start or End: typed `m:ss.t`, or ± one nudge at once (`subtitles.nudgeMs` in `config/tools.json`). */
 @Composable
-private fun TimeRow(label: UiText, value: String, onChange: (String) -> Unit, key: String, step: Long, nudge: (Long) -> Unit) {
+private fun TimeRow(label: UiText, value: String, onChange: (String) -> Unit, key: String, step: Long, usePlayhead: () -> Unit,
+    nudge: (Long) -> Unit) {
     val s = step / 1000.0
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         AfText(My.breakSyllables(tr(label)), bold = true)
-        FieldRow({ m -> AfTextField(value, onChange, tr(label), m.widthIn(min = 120.dp).testTag("subtitles-$key-time")) }) {
+        WrapRow {
+            AfTextField(value, onChange, tr(label), Modifier.width(160.dp).testTag("subtitles-$key-time"))
             AfButton("−$s", { nudge(-step) }, Modifier.testTag("subtitles-$key-minus"))
             AfButton("+$s", { nudge(step) }, Modifier.testTag("subtitles-$key-plus"))
+            AfButton(My.breakSyllables(tr(UiText.SUB_USE_PLAYHEAD)), usePlayhead, Modifier.testTag("subtitles-$key-playhead"))
         }
     }
 }
@@ -174,8 +204,8 @@ private fun viewLabel(v: TextChoice) = when (v) {
 }
 
 @Composable
-private fun issueText(i: CueIssue, editor: SubtitleEditorModel): String {
-    val cfg = editor.config.subtitles
+private fun issueText(i: CueIssue, config: ToolsConfig): String {
+    val cfg = config.subtitles
     return when (i) {
         CueIssue.OVERLAP -> tr(UiText.SUB_OVERLAP)
         CueIssue.TOO_SHORT -> tr(UiText.SUB_TOO_SHORT, "s" to cfg.minCueMs / 1000.0)
@@ -186,3 +216,8 @@ private fun issueText(i: CueIssue, editor: SubtitleEditorModel): String {
         CueIssue.ORIGINAL_CHANGED -> tr(UiText.SUB_ORIGINAL_CHANGED)
     }
 }
+
+/** The list follows the playhead unless the owner scrolled within this long (spec §5). */
+private const val FOLLOW_PAUSE_MS = 3_000L
+
+private fun nowMs() = kotlin.time.Clock.System.now().toEpochMilliseconds()

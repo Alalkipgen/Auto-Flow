@@ -224,3 +224,10 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - ✎ on a line opens the edit panel under it: change the text, type a time (`1:02.5`) or use −0.1 / +0.1, Split (at the line break), Merge with next, Add after, Delete; Previous · Next · Done. The keyboard does not hide the field being typed in. "Not saved yet" with Discard · Save appears; Undo / Redo step through the changes; "Choose another source" is off until Save or Discard.
 - Save → "Saved: N lines."; reopen the project: the edited lines show. Edit, then Back → "Save your changes before leaving?" with Save · Discard · Keep editing. Edit, wait 2 seconds, close the app, reopen → "Unsaved changes from <time>" with Restore · Discard.
 - 360/412 dp, English/Burmese, font 1.0/2.0: the list, the edit panel and the Save bar fit without clipping; the header scrolls away with the lines.
+
+### S-3d — Subtitle preview (PHONE_PENDING)
+
+- The video shows above the lines with the time in its corner; Play plays it with sound and the line under the playhead appears over the picture (Original / Burmese / Both follow the view chips). Dragging the bar seeks.
+- Tap a line: the video jumps to its start. While playing, the list follows the line being spoken; scroll the list yourself and it stops following for about 3 s.
+- In the edit panel: "Use playhead" sets Start or End to the video's time; "Play line" plays just that line and pauses at its end; "Split here" while the video is inside the line splits at that time.
+- 360 dp at font 2.0: the video takes about a third of the screen and the lines are still visible below it.

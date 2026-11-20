@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.ui.components.*
@@ -24,7 +25,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
  */
 @Composable
 fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel, modifier: Modifier = Modifier,
-    onBack: (() -> Unit)? = null) {
+    vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir), onBack: (() -> Unit)? = null) {
     val all by model.state.collectAsState()
     val open by session.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -51,7 +52,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         if (video != null && draft != null && !choosing) {
             Box(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
-                SubtitleEditor(editor, header = {
+                SubtitleEditor(editor, joinPath(open!!.dir, video.file), video, player, header = {
                     header()
                     AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),
                         Modifier.testTag("subtitles-doc-facts"), bold = true)

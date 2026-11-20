@@ -38,6 +38,10 @@ import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import java.io.File
 import javax.imageio.ImageIO
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.LaunchedEffect
+import io.github.alalkipgen.autoflow.media.playback.MoviePhase
+import io.github.alalkipgen.autoflow.media.playback.MovieSnapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.test.resetMain
@@ -73,9 +77,25 @@ class SubtitleEditorScreenTest {
         fun saved() = (store.open(dir) as CoreResult.Ok).value.subtitles!!.current!!.value
     }
 
-    private fun ComposeUiTest.show(f: Fixture, width: Int, font: Float, language: UiLanguage, onBack: (() -> Unit)? = null) = setContent {
+    /** No decoder here: the preview says so and editing goes on. */
+    private val noDecoder: SubtitlePlayer = { _, _, m, report ->
+        LaunchedEffect(Unit) { report(MovieSnapshot(phase = MoviePhase.FAILED, problem = "no decoder")) }
+        Box(m)
+    }
+
+    /** A decoder whose clock is 4.5 s past the seek while playing. */
+    private val ahead: SubtitlePlayer = { _, req, m, report ->
+        LaunchedEffect(req) {
+            report(MovieSnapshot(positionMs = req.sourceMs + if (req.playing) 4_500 else 0, durationMs = 60_000,
+                phase = if (req.playing) MoviePhase.PLAYING else MoviePhase.PAUSED))
+        }
+        Box(m)
+    }
+
+    private fun ComposeUiTest.show(f: Fixture, width: Int, font: Float, language: UiLanguage, player: SubtitlePlayer = noDecoder,
+        onBack: (() -> Unit)? = null) = setContent {
         CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
-            LocalUiFontFamily provides BurmeseTestFont.family) { SubtitlesScreen(f.model, f.session, f.editor, onBack = onBack) }
+            LocalUiFontFamily provides BurmeseTestFont.family) { SubtitlesScreen(f.model, f.session, f.editor, player = player, onBack = onBack) }
     }
 
     /** Scrolls the cue list when the node is in it (the header and the Save bar do not scroll). */
@@ -96,6 +116,7 @@ class SubtitleEditorScreenTest {
                 onNodeWithTag("subtitles-issue-c1-OVERLAP", useUnmergedTree = true).assertExists()
                 onNodeWithTag("subtitles-cue-edit-c1").performMouseInput { click() }
                 onNodeWithTag("subtitles-edit-panel").assertExists()
+                onNodeWithTag("subtitles-preview-unavailable").assertIsDisplayed()
                 onNodeWithTag("subtitles-start-plus").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-save").assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("subtitles-cues").performScrollToIndex(0)
@@ -140,7 +161,7 @@ class SubtitleEditorScreenTest {
     @Test fun backWithUnsavedChangesAsksFirst() = runDesktopComposeUiTest(width = 412, height = 900) {
         val f = Fixture()
         var left = 0
-        show(f, 412, 1f, UiLanguage.BURMESE) { left++ }
+        show(f, 412, 1f, UiLanguage.BURMESE, onBack = { left++ })
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
         click("subtitles-back")
         assertEquals(1, left) // nothing unsaved: straight back
@@ -172,12 +193,35 @@ class SubtitleEditorScreenTest {
         // A new editor reads the file, as after a restart.
         val editor = SubtitleEditorModel(f.session, f.fs, MainScope())
         setContent {
-            CompositionLocalProvider(LocalUiLanguage provides UiLanguage.ENGLISH) { SubtitlesScreen(f.model, f.session, editor) }
+            CompositionLocalProvider(LocalUiLanguage provides UiLanguage.ENGLISH) { SubtitlesScreen(f.model, f.session, editor, player = noDecoder) }
         }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-restore").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-undo").assertIsNotEnabled() // answer the offer first
         click("subtitles-restore-yes")
         onNodeWithTag("subtitles-cue-c1").assertTextContains("From the earlier session")
         onNodeWithTag("subtitles-save").assertIsDisplayed()
+    }
+
+    @Test fun thePlayheadSeeksPlaysAndFeedsTheEditPanel() = runDesktopComposeUiTest(width = 412, height = 900) {
+        val f = Fixture()
+        show(f, 412, 1f, UiLanguage.ENGLISH, ahead)
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+        click("subtitles-cue-c3") // tap = seek + select
+        onNodeWithTag("subtitles-playhead").assertTextEquals("0:04.0")
+        onNodeWithTag("subtitles-preview-line").assertTextEquals("Third line")
+        onNodeWithTag("subtitles-scrubber").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(0.5f) }
+        onNodeWithTag("subtitles-playhead").assertTextEquals("0:30.0")
+        onNodeWithTag("subtitles-preview-line").assertDoesNotExist() // no line at 0:30
+        click("subtitles-cue-c1")
+        click("subtitles-play")
+        onNodeWithTag("subtitles-playhead").assertTextEquals("0:05.5") // the decoder's clock moves the playhead
+        onNodeWithTag("subtitles-preview-line").assertTextEquals("Third line")
+        click("subtitles-play") // pause
+        click("subtitles-cue-edit-c3")
+        click("subtitles-end-playhead")
+        assertEquals(5_500, f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.endMs)
+        click("subtitles-play-line") // from 0:04.0; the clock passes the line's end → paused
+        onNodeWithTag("subtitles-playhead").assertTextEquals("0:08.5")
+        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PLAY.en)
     }
 }
