@@ -23,7 +23,9 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
  * muted; the voice takes and the music play beside it on the same clock (F-5, [RecapPreviewSound]).
  */
 @Composable
-internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false, editLayers: Boolean = false) {
+internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false, editLayers: Boolean = false,
+    autoShow: Boolean = io.github.alalkipgen.autoflow.ui.components.moviePreviewAtOnce,
+) {
     val state by model.state.collectAsState()
     val open by model.previewSource.projects.collectAsState()
     val source = remember(state, open) { model.previewSource.resolve(state) } ?: return
@@ -74,6 +76,16 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
             }
             // Save/Discard during preparation must not expose an old priming frame either.
             // The same handshake may finish with no draft; project/movie/timeline changes dispose it.
+        }
+        // F-6: open on the paused first frame (same warm/pause/seek handshake as a layer edit) so the preview is
+        // there without pressing Play.
+        LaunchedEffect(Unit) {
+            if (autoShow && !enabled && !editLayers) {
+                frame = null
+                editFramePrime = LayerEditFramePrime(clock.request)
+                enabled = true
+                refresh++
+            }
         }
         LaunchedEffect(source.key, outputMs) { model.previewSource.position(source, outputMs) }
         // Space (studio project screens only) runs exactly this Play/Pause button action.

@@ -47,7 +47,7 @@ class V2NavTest {
     @Test
     fun musicVideoUsesTheShotSheetAndKeepsTheClassicStepsBehindOneEntry() {
         assertEquals(listOf("Recap", "Export"), v2ProjectScreens(recap = true))
-        assertEquals(listOf("Input", SHOT_SHEET, "Inbox", "Export", MV_CLASSIC), v2ProjectScreens(recap = false))
+        assertEquals(listOf("Input", SHOT_SHEET, "Inbox", MV_PREVIEW, "Export", MV_CLASSIC), v2ProjectScreens(recap = false))
         assertEquals(listOf("Storyboard", "Shots", "References", "Flow Handoff"), MV_CLASSIC_SCREENS)
         // Back: a classic screen → the classic list → the shot sheet → the project list.
         for (s in MV_CLASSIC_SCREENS) assertEquals(V2Nav(StudioV2Dest.PROJECTS, MV_CLASSIC), v2Back(V2Nav(StudioV2Dest.PROJECTS, s), recap = false))

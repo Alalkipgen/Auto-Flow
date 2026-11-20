@@ -16,6 +16,7 @@ import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.ImageInfo
 
 actual val moviePlaybackSupported: Boolean = true
+actual val moviePreviewAtOnce: Boolean = false
 
 @Composable
 actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier, vlcDir: String?, frameSize: androidx.compose.ui.unit.IntSize?, onFrame: ((androidx.compose.ui.graphics.ImageBitmap) -> Unit)?, onSnapshot: (MovieSnapshot) -> Unit) {
@@ -31,6 +32,7 @@ actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier
     if (player == null) { Box(modifier); return }
     LaunchedEffect(player, request.seekRevision) { player.seek(request.sourceMs) }
     LaunchedEffect(player, request.rate, request.playing) { player.setRate(request.rate); player.setPlaying(request.playing) }
+    LaunchedEffect(player, request.volume, request.playing) { player.setVolume(request.volume) } // VLC takes it once playing
     val frame by player.frames.collectAsState()
     val bitmap = remember(frame) {
         frame?.let { f ->

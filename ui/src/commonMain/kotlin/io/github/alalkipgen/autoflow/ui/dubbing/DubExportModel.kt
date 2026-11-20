@@ -26,6 +26,7 @@ import io.github.alalkipgen.autoflow.media.render.FontInfo
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.media.render.SubtitleBurn
+import io.github.alalkipgen.autoflow.media.render.Overlay
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.export.RecapFrames
@@ -97,6 +98,32 @@ class DubExportModel(
     private fun autoFit(open: OpenProject?): BurnFit = open?.project?.subtitles?.video.let { v ->
         BurnFit.auto(v?.width?.takeIf { it > 0 } ?: 1920, v?.height?.takeIf { it > 0 } ?: 1080)
     }
+
+    /**
+     * F-6 (D-95): the dub's voice before Export — every line that has a current take, where the mix puts it
+     * ([DubExport.voiced]: from the line's start, lead skipped, at its speed, cut at its slot), as absolute paths.
+     */
+    fun previewVoice(open: OpenProject?, doc: SubtitleDoc): List<DubCue> {
+        val video = open?.project?.subtitles?.video ?: return emptyList()
+        val store = session.artifacts()?.takeIf { session.open?.dir == open.dir } ?: return emptyList()
+        val dir = joinPath(open.dir, ArtifactStore.ARTIFACTS_DIR)
+        return DubExport.voiced(open.project.dubbing, doc, video.durationMs, config.dubbing.minGapMs, config.dubbing.maxVoiceSpeed, lexicon())
+            .mapNotNull { l -> store.get(l.au).getOrNull()?.let { DubCue(joinPath(dir, it.file), l.atMs, l.leadMs, l.slotMs, l.speed) } }
+            .filter { fs.exists(it.file) }
+    }
+
+    /** F-6: the Burmese subtitles exactly as the burn draws them now (boxed, the chosen size, lines and line length). */
+    fun previewCaptions(open: OpenProject?, doc: SubtitleDoc): List<Overlay> {
+        val video = open?.project?.subtitles?.video ?: return emptyList()
+        val size = _state.value.takeIf { it.dir == open.dir }?.size ?: BurnSize.MEDIUM
+        val fit = fit(open)
+        return SubtitleBurn.overlays(SubtitleOps.toSrt(doc, TextChoice.BURMESE), video.width.takeIf { it > 0 } ?: 1920,
+            video.height.takeIf { it > 0 } ?: 1080, "", BurnLook.BOXED, size, fit.maxChars(config.subtitles), maxLines = fit.lines)
+    }
+
+    /** F-6: the movie's own sound in the mix, 0–1 (0 = muted), as chosen on Voice. */
+    fun previewOriginal(open: OpenProject?): Float = open?.project?.dubbing?.original
+        ?.let { if (it.mode == DubOriginal.MUTE) 0f else it.volume.toFloat() } ?: DubOriginal().volume.toFloat()
 
     /** A choice for the open project (another project's state starts fresh); none while an export runs. */
     private fun edit(f: (DubExportUi) -> DubExportUi) {

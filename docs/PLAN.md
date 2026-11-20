@@ -285,6 +285,7 @@ Five asks from the owner's phone test of the Phase 7 APK (Dubbing export screens
 - [x] F-3 `edge-pace` — Edge voices have no API key and no published limit (unofficial free service): their own pace `tts.edge.rpm` instead of Gemini's 3 rpm, and a 429 waits and retries instead of failing (D-92).
 - [x] F-4 `chatbox-ai` — a Chatbox AI license key (OpenAI-compatible `https://ai.chatboxai.app/v1`) as a second AI service for text and transcription (Transcribe, Translate, Script, Shorten…), chosen in Settings next to the Gemini key; Gemini stays the default (D-93).
 - [x] F-5 `preview-voice` — Movie Recap's live preview plays the voice (and music) with the picture before any render, and the phone's Export step shows that live preview above the render buttons (D-94).
+- [x] F-6 `tool-preview` — every tool can be watched before its render: phone Recap steps open the preview pane as a page (top bar ▶ / ✎), Music Video gets a Preview page (shots + lyrics + song) also shown on Export, Dubbing plays the current takes over the video on Script / Voice / Export, and Subtitles export shows the burned look under the playhead (D-95).
 
 ## Open Questions
 - ~~Q-36 Phase 7 phone QA~~ Resolved (owner, 2026-11-20) → D-85: no fixed phone-QA schedule; the owner checks whenever he wants and the agent never waits for a phone test.

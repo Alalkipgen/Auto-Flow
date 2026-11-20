@@ -31,7 +31,7 @@ private fun sec(ms: Long) = ((ms + 99) / 100) / 10.0
 /** The Voice step (D-2b): voice, tone and original sound, the Speak card, and every line with its take and fit. */
 @Composable
 internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, toExport: () -> Unit,
-    shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}) {
+    shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}, preview: @Composable () -> Unit = {}) {
     val all by model.state.collectAsState()
     val jobs by model.jobs.collectAsState()
     val dir = open?.dir
@@ -44,6 +44,8 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
     Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
         LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("dub-voice-rows"), contentPadding = PaddingValues(screenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // F-6: the preview scrolls with the step, so a phone with a large font keeps room for the controls.
+            item(key = "preview") { preview() }
             item(key = "settings") { Settings(model, open, idle) }
             item(key = "speak") { Speak(model, s, job) }
             if (shorten != null && script != null && dir != null) item(key = "shorten") { Shorten(shorten, script, dir, rows, doc, idle, toScript) }

@@ -32,12 +32,19 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
     val moreLabel = tr(UiText.V3_MORE_OPTIONS)
     val backLabel = tr(UiText.BACK)
     var open by remember(name) { mutableStateOf(false) }
+    val page = LocalProjectPreviewPage.current?.takeIf { it.available }
     Column(modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfButton("←", onBack, Modifier.testTag("project-back").semantics { contentDescription = backLabel })
             Column(Modifier.weight(1f)) {
                 AfText(name, bold = true)
                 AfText(My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step)), muted = true)
+            }
+            if (page != null) {
+                val pageLabel = tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW)
+                AfButton(if (page.shown) "✎" else "▶", { page.shown = !page.shown },
+                    Modifier.testTag(if (page.shown) "project-page-edit" else "project-page-preview")
+                        .semantics { contentDescription = pageLabel }, kind = if (page.shown) ButtonKind.Primary else ButtonKind.Secondary)
             }
             if (options.isNotEmpty()) Box(contentAlignment = Alignment.Center) {
                 AfButton("", { open = !open }, Modifier.testTag("project-overflow").semantics { contentDescription = moreLabel })

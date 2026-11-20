@@ -3,7 +3,9 @@ package io.github.alalkipgen.autoflow.media.playback
 import io.github.alalkipgen.autoflow.media.render.RecapTimeline
 
 /** A seek command changes revision; the decoder must not re-seek on each rendered/polled frame. */
-data class MovieRequest(val sourceMs: Long, val seekRevision: Long, val rate: Float = 1f, val playing: Boolean = false, val muted: Boolean = true)
+/** [volume] 0–1 of the movie's own sound when not [muted] (F-6: a dub preview plays the original at its mix level). */
+data class MovieRequest(val sourceMs: Long, val seekRevision: Long, val rate: Float = 1f, val playing: Boolean = false, val muted: Boolean = true,
+    val volume: Float = 1f)
 
 /** One explicit OUTPUT clock; source times are interpreted only inside the active stable block/clip interval. */
 class RecapPlaybackClock(val timeline: RecapTimeline) {

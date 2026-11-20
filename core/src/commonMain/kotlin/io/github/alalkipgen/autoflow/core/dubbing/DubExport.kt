@@ -36,6 +36,14 @@ object DubExport {
     /** The lines to mix, in order, when [check] passes; else null. */
     fun lines(tool: DubbingTool?, doc: SubtitleDoc, videoMs: Long, minGapMs: Long, maxVoiceSpeed: Double, lexicon: Lexicon): List<DubMixLine>? {
         if (!check(tool, doc, videoMs, minGapMs, maxVoiceSpeed, lexicon).ok) return null
+        return voiced(tool, doc, videoMs, minGapMs, maxVoiceSpeed, lexicon)
+    }
+
+    /**
+     * The preview before Export (F-6, D-95): the same placement as [lines] for every line that has a current take,
+     * whether or not the script is approved or every line is spoken (a line too long is cut at its slot, as the mix would).
+     */
+    fun voiced(tool: DubbingTool?, doc: SubtitleDoc, videoMs: Long, minGapMs: Long, maxVoiceSpeed: Double, lexicon: Lexicon): List<DubMixLine> {
         val slots = DubRules.slots(doc, videoMs, minGapMs)
         return doc.cues.mapIndexedNotNull { i, c ->
             val take = DubRules.currentTake(tool, c, lexicon)?.takeIf { DubRules.sayText(c, lexicon).isNotEmpty() } ?: return@mapIndexedNotNull null

@@ -19,6 +19,8 @@ interface MoviePlayer {
     fun setPlaying(playing: Boolean)
     fun seek(positionMs: Long)
     fun setRate(rate: Float)
+    /** 0–1 of the movie's sound (no effect on a muted player). */
+    fun setVolume(volume: Float) {}
     fun snapshot(): MovieSnapshot
     fun close()
 }

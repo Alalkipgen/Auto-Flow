@@ -53,6 +53,7 @@ fun ProjectPanes(
     list: @Composable () -> Unit,
     editor: @Composable () -> Unit,
     preview: @Composable () -> Unit,
+    previewPage: Boolean = true,
 ) {
     if (windowWidthDp >= 840f) {
         val (listShare, previewShare, inspectorShare) = if (windowWidthDp >= 1200f) Triple(.23f, .45f, .32f) else Triple(.24f, .32f, .44f)
@@ -61,7 +62,14 @@ fun ProjectPanes(
             Box(Modifier.weight(previewShare).fillMaxHeight().testTag("project-preview")) { preview() }
             Box(Modifier.weight(inspectorShare).fillMaxHeight().testTag("project-editor")) { editor() }
         }
-    } else Box(Modifier.fillMaxSize().testTag("project-single-pane")) { editor() }
+    } else {
+        // F-6: phones have no room for the preview pane, so it is a second page; the top bar's ▶ / ✎ toggle switches it.
+        val page = LocalProjectPreviewPage.current?.takeIf { previewPage }
+        if (page != null) DisposableEffect(page) { page.offer(); onDispose { page.withdraw() } }
+        Box(Modifier.fillMaxSize().testTag("project-single-pane")) {
+            if (page?.shown == true) Box(Modifier.fillMaxSize().padding(8.dp).testTag("project-preview-page")) { preview() } else editor()
+        }
+    }
 }
 
 /** Native v2 editor presentation; Classic Recap still uses the original numbered cards. */

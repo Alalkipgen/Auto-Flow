@@ -19,6 +19,7 @@ import io.github.alalkipgen.autoflow.media.render.FontInfo
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.media.render.SubtitleBurn
+import io.github.alalkipgen.autoflow.media.render.Overlay
 import io.github.alalkipgen.autoflow.media.tool.ToolExec
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -70,6 +71,18 @@ class SubtitleBurnModel(
     /** The lines / line length the burn uses now: the owner's choice, else by the open video's frame. */
     fun fit(): BurnFit = _state.value.fit ?: session.open?.project?.subtitles?.video.let { v ->
         BurnFit.auto(v?.width?.takeIf { it > 0 } ?: 1920, v?.height?.takeIf { it > 0 } ?: 1080)
+    }
+
+    /**
+     * F-6 (D-95): the subtitles of [choice] exactly as Make video will burn them now (look, size, lines, line length;
+     * [SubtitleBurn.overlays], the same call as the `.ass`), for the live preview before the render.
+     */
+    fun previewOverlays(doc: SubtitleDoc, choice: TextChoice): List<Overlay> {
+        val video = session.open?.project?.subtitles?.video
+        val s = _state.value
+        val fit = fit()
+        return SubtitleBurn.overlays(SubtitleOps.toSrt(doc, choice), video?.width?.takeIf { it > 0 } ?: 1920,
+            video?.height?.takeIf { it > 0 } ?: 1080, "", s.look, s.size, fit.maxChars(config.subtitles), maxLines = fit.lines)
     }
 
     val runs: StateFlow<List<MediaTaskRun>> get() = tasks.runs

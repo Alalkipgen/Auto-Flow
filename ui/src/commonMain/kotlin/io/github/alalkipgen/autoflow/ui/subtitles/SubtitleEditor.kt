@@ -131,8 +131,10 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             }
         }
     }
+    // The editor's video waits while the export's own preview plays (one sound at a time).
+    LaunchedEffect(exporting) { if (exporting) playhead.playing = false }
     if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base, { exporting = false }, burner,
-        cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 })
+        cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 }, BurnPreviewVideo(path, video, player))
     ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
             if (wide) Row(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-wide")) {

@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 actual val moviePlaybackSupported: Boolean = true
+actual val moviePreviewAtOnce: Boolean = true
 
 private fun Context.activity(): Activity? = when (this) {
     is Activity -> this
@@ -49,5 +50,6 @@ actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier
     }
     LaunchedEffect(player, request.seekRevision) { player?.seek(request.sourceMs) }
     LaunchedEffect(player, request.rate, request.playing) { player?.setRate(request.rate); player?.setPlaying(request.playing) }
+    LaunchedEffect(player, request.volume) { player?.setVolume(request.volume) }
     key(player) { AndroidView(factory = { ctx -> TextureView(ctx).also { texture = it; player?.attach(it) } }, modifier = modifier) }
 }
