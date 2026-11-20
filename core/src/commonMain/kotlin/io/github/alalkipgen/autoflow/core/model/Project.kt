@@ -39,6 +39,10 @@ data class Project(
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val voice: VoiceTool? = null,
+    /** Dubbing state (D-83); never written when null (D-78). */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val dubbing: DubbingTool? = null,
 ) {
     companion object {
         const val SCHEMA_VERSION = 2

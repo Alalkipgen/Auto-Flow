@@ -9,15 +9,17 @@ internal fun Mode.label(): UiText = when (this) {
     Mode.MOVIE_RECAP -> UiText.MOVIE_RECAP
     Mode.SUBTITLES -> UiText.V3_SUBTITLES
     Mode.VOICE_AUDIO -> UiText.V3_VOICE_AUDIO
+    Mode.DUBBING -> UiText.V3_DUBBING
 }
 
 /** Whether this build has screens for the mode (each new mode decides explicitly). */
 internal fun Mode.openableHere(): Boolean = when (this) {
     Mode.MUSIC_VIDEO, Mode.MOVIE_RECAP, Mode.SUBTITLES, Mode.VOICE_AUDIO -> true
+    Mode.DUBBING -> false // screens arrive with D-1b
 }
 
 /** Whether Projects rows show the shot counter; tool projects have no shots. */
 internal fun Mode.hasShots(): Boolean = when (this) {
     Mode.MUSIC_VIDEO, Mode.MOVIE_RECAP -> true
-    Mode.SUBTITLES, Mode.VOICE_AUDIO -> false
+    Mode.SUBTITLES, Mode.VOICE_AUDIO, Mode.DUBBING -> false
 }
