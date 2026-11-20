@@ -19,6 +19,8 @@ enum class ArtifactKind(val code: String) {
     @SerialName("tx") TRANSCRIPT("tx"),
     @SerialName("rg") RENDER_GRAPH("rg"),
     @SerialName("rs") RECAP_SCRIPT("rs"),
+    /** Subtitle document version (D-79, Phase 7). */
+    @SerialName("st") SUBTITLES("st"),
     ;
 
     companion object {

@@ -16,10 +16,12 @@ data class SourceVideo(
     val hasAudio: Boolean = true,
 )
 
-/** `project.subtitles` of a [Mode.SUBTITLES] project (D-77). The subtitle document pointer arrives with S-2. */
+/** `project.subtitles` of a [Mode.SUBTITLES] project (D-77). */
 @Serializable
 @SerialName("SubtitlesTool")
 data class SubtitlesTool(
     val schemaVersion: Int = 1,
     val video: SourceVideo? = null,
+    /** The current `st` version (D-79); null until a source is chosen. Saves move only this pointer. */
+    val current: ArtifactId? = null,
 )
