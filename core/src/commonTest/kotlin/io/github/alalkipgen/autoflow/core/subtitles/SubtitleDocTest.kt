@@ -105,6 +105,17 @@ class SubtitleDocTest {
     }
 
     @Test
+    fun typedTextKeepsStampsHonest() {
+        val my = SubtitleOps.setTextMy(doc, "c2", "ဒုတိယ").doc().cues[1]
+        assertEquals(Triple("ဒုတိယ", myHash("Second"), true), Triple(my.textMy, my.myFrom, my.myEdited))
+        val cleared = SubtitleOps.setTextMy(doc, "c2", "  ").doc().cues[1]
+        assertEquals(Triple(null, null, false), Triple(cleared.textMy, cleared.myFrom, cleared.myEdited))
+        assertEquals(doc, SubtitleOps.setText(doc, "c2", "Second").doc())
+        assertEquals("Second!", SubtitleOps.setText(doc, "c2", "Second!").doc().cues[1].text)
+        assertEquals(EditRefusal.NoSuchLine, SubtitleOps.setText(doc, "c9", "x").refusal())
+    }
+
+    @Test
     fun shiftAllOrFromALineButNeverBeforeZero() {
         assertEquals(listOf(1_500L, 4_500L, 7_500L), SubtitleOps.shift(doc, 500).doc().cues.map { it.startMs })
         assertEquals(listOf(1_000L, 3_000L, 6_000L), SubtitleOps.shift(doc, -1_000, fromId = "c2").doc().cues.map { it.startMs })

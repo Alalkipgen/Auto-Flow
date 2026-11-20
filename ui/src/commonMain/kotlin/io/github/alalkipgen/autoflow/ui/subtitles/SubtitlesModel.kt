@@ -3,13 +3,9 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
-import io.github.alalkipgen.autoflow.core.model.ArtifactId
-import io.github.alalkipgen.autoflow.core.model.ArtifactKind
-import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.model.SubtitlesTool
 import io.github.alalkipgen.autoflow.core.recap.SubtitleTrack
-import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.subtitles.SrtEncoding
 import io.github.alalkipgen.autoflow.core.subtitles.SrtImport
 import io.github.alalkipgen.autoflow.core.subtitles.SrtImportResult
@@ -76,6 +72,7 @@ class SubtitlesModel(
     private val offsetMs: (Long) -> Int = ::localOffsetMs,
     private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
+    private val versions = SubtitleVersions(session, fs, clock)
     private val _state = MutableStateFlow(SubtitlesUiState())
     val state: StateFlow<SubtitlesUiState> = _state.asStateFlow()
     private var job: Job? = null
@@ -142,7 +139,7 @@ class SubtitlesModel(
         if (job?.isActive == true) return null
         val known = _state.value.takeIf { it.dir == open.dir }
         return scope.launch {
-            val doc = tool.current?.let { withContext(Dispatchers.Default) { readDoc(open.dir, it) } }
+            val doc = tool.current?.let { withContext(Dispatchers.Default) { versions.read(open.dir, it) } }
             val tracks = if (known?.tracksRead == true) known.tracks
                 else tool.video?.let { probe(joinPath(open.dir, it.file)) }?.subtitleTracks
             if (session.open?.dir != open.dir) return@launch
@@ -201,24 +198,12 @@ class SubtitlesModel(
 
     /** Saves [doc] as a new immutable `st` (after the current one) and moves only `project.subtitles.current`. */
     private fun save(open: OpenProject, doc: SubtitleDoc, done: UiNotice, zawgyi: Boolean) {
-        val latest = session.open?.takeIf { it.dir == open.dir } ?: return say(open.dir, null)
-        val next = doc.copy(derivedFrom = latest.project.subtitles?.current)
-        val bytes = CoreJson.encodeToString(SubtitleDoc.serializer(), next).encodeToByteArray()
-        val id = when (val r = ArtifactStore(fs, open.dir, clock).put(bytes, ArtifactKind.SUBTITLES, "json")) {
-            is CoreResult.Ok -> r.value.id
-            is CoreResult.Err -> return say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to r.error.message))
-        }
-        when (val r = session.update(open.dir, latest.project.id) { it.copy(subtitles = (it.subtitles ?: SubtitlesTool()).copy(current = id)) }) {
-            is CoreResult.Ok -> _state.value = state(open.dir).copy(busy = null, notice = done, ok = true, doc = next,
+        when (val r = versions.save(open.dir, doc)) {
+            is CoreResult.Ok -> _state.value = state(open.dir).copy(busy = null, notice = done, ok = true, doc = r.value.second,
                 warning = if (zawgyi) UiNotice(UiText.SUB_ZAWGYI) else null)
             is CoreResult.Err -> say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to r.error.message))
         }
     }
-
-    private fun readDoc(dir: String, id: ArtifactId): SubtitleDoc? =
-        (ArtifactStore(fs, dir, clock).readBytes(id) as? CoreResult.Ok)?.value?.let {
-            runCatching { CoreJson.decodeFromString(SubtitleDoc.serializer(), it.decodeToString()) }.getOrNull()
-        }
 
     private fun state(dir: String) = _state.value.takeIf { it.dir == dir } ?: SubtitlesUiState(dir)
     private fun busy(dir: String, notice: UiNotice) { _state.value = state(dir).copy(busy = notice, notice = null, warning = null, ok = false) }
