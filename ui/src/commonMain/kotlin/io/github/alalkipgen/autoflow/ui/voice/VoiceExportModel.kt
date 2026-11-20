@@ -119,7 +119,8 @@ class VoiceExportModel(
         val path = ready() ?: return
         val to = share ?: return result(unsupported(path))
         scope.launch {
-            when (val r = to.saveToMusic(path, mime(path), path.substringAfterLast('/'))) {
+            val name = path.substringAfterLast('/')
+            when (val r = if (isVideo(path)) to.saveToGallery(path, mime(path), name) else to.saveToMusic(path, mime(path), name)) {
                 is PlatformResult.Ok -> keep(UiNotice(UiText.VA_SAVED_MUSIC, "path" to r.value), ok = true)
                 is PlatformResult.Failed -> keep(UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason))
                 is PlatformResult.Unsupported -> keep(UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason))
@@ -131,7 +132,12 @@ class VoiceExportModel(
 
     private fun file(dir: String, id: ArtifactId): String? =
         ArtifactStore(fs, dir).get(id).getOrNull()?.let { joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), it.file) }
-    private fun mime(path: String) = if (path.endsWith(".m4a")) "audio/mp4" else "audio/wav"
+    private fun mime(path: String) = when (path.substringAfterLast('.')) {
+        "m4a" -> "audio/mp4"; "mp4" -> "video/mp4"; "mkv" -> "video/x-matroska"; else -> "audio/wav"
+    }
+
+    /** A Video sound result (Replace / Add): Save to Gallery instead of Music. */
+    fun isVideo(path: String?) = path?.substringAfterLast('.') in setOf("mp4", "mkv")
     private fun unsupported(path: String) = PlatformResult.Unsupported("The file is in $path")
     private fun result(r: PlatformResult<Unit>) = when (r) {
         is PlatformResult.Ok -> keep(null)

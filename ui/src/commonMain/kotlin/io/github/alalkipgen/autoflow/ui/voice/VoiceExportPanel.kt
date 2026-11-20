@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import io.github.alalkipgen.autoflow.media.audio.CleanAudio
+import io.github.alalkipgen.autoflow.media.audio.VideoSound
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -19,11 +20,17 @@ internal fun ExportPanel(export: VoiceExportModel, dir: String, title: String) {
     if (e.dir != dir) return
     val run = runs.lastOrNull { it.output == e.file }
     val state = run?.state
-    val cleaning = run?.kind == CleanAudio.CLEAN_AUDIO
+    val (heading, progress) = when (run?.kind) {
+        CleanAudio.CLEAN_AUDIO -> UiText.VA_CLEAN to UiText.VA_CLEANING
+        VideoSound.SOUND_ONLY -> UiText.VA_SOUND_ONLY to UiText.VA_WORKING
+        VideoSound.REPLACE -> UiText.VA_REPLACE_SOUND to UiText.SUB_BURN_RUNNING
+        VideoSound.ADD -> UiText.VA_ADD_ON_TOP to UiText.SUB_BURN_RUNNING
+        else -> UiText.VA_SAVE_M4A to UiText.VA_SAVING_M4A
+    }
     when (state) {
-        is RenderState.Queued, is RenderState.Running -> JobCard(tr(if (cleaning) UiText.VA_CLEAN else UiText.VA_SAVE_M4A),
+        is RenderState.Queued, is RenderState.Running -> JobCard(tr(heading),
             if (state is RenderState.Running) StudioStatus.RUNNING else StudioStatus.QUEUED,
-            My.breakSyllables(tr(if (cleaning) UiText.VA_CLEANING else UiText.VA_SAVING_M4A, "percent" to ((state as? RenderState.Running)?.fraction ?: 0.0).times(100).toInt())),
+            My.breakSyllables(tr(progress, "percent" to ((state as? RenderState.Running)?.fraction ?: 0.0).times(100).toInt())),
             Modifier.testTag("voice-m4a-job"), progress = (state as? RenderState.Running)?.fraction?.toFloat(), indeterminate = state is RenderState.Queued) {
             AfButton(My.breakSyllables(tr(UiText.CANCEL)), export::cancel, Modifier.testTag("voice-m4a-cancel"))
         }
@@ -39,7 +46,8 @@ internal fun ExportPanel(export: VoiceExportModel, dir: String, title: String) {
         WrapRow {
             if (export.sharesFiles) {
                 AfButton(My.breakSyllables(tr(UiText.SHARE)), { export.share(title) }, Modifier.testTag("voice-share"))
-                AfButton(My.breakSyllables(tr(UiText.VA_SAVE_MUSIC)), export::saveToMusic, Modifier.testTag("voice-music"))
+                AfButton(My.breakSyllables(tr(if (export.isVideo(ready)) UiText.SAVE_GALLERY else UiText.VA_SAVE_MUSIC)), export::saveToMusic,
+                    Modifier.testTag("voice-music"))
             } else AfButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { export.openFolder() }, Modifier.testTag("voice-folder"))
         }
     }

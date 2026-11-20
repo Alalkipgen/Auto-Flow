@@ -333,3 +333,12 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 ### V-3a — Video sound commands (nothing to press yet)
 
 - Nothing new on screen; Video sound stays Planned until V-3b.
+
+### V-3b — Video sound (phone + Windows, PHONE_PENDING)
+
+- Home → Voice & Audio → **Video sound** opens the file picker at once; Cancel creates nothing. Picking an audio file says "This file has no picture…" and creates nothing.
+- Pick a video with sound: "Copying the file into the project…", then the name · length · size and "The picture is not re-encoded."
+- **Save the sound only** (default): bottom bar **Save m4a** / **Save wav** → the file in exports; play it in another app (same length as the video). Phone: Save to Music.
+- **Replace the sound**: **Choose the sound** (e.g. a voice m4a from Text → voice); "Sound: song.…"; **Make video** → "Making the video: n%" (Jobs shows "Replace the sound"); the result plays with the new sound, same length; a shorter sound ends in silence. Phone: **Save to Gallery**.
+- **Add voice or music on top**: Starts at 2, Volume 50 %, Lower the original on → **Make video**; the original is quieter while the added sound plays. A video without sound: the Lower chip is not shown and Save the sound only is off.
+- Check the picture looks exactly like the original (no blur, same size).
