@@ -375,3 +375,10 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Change the tone (or voice): every line shows "Script changed" (old take kept as a file, not used) and Speak asks for all lines again. Edit one spoken line on Dub script and approve again: only that line needs a new voice.
 - When every line has a voice: **Go to Export** (Export is still Planned until D-3). Check the Burmese wording of the new lines.
 
+### D-2c — Dubbing: Shorten (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- Make a line too long on purpose (a long spoken line on a short subtitle), approve, Speak. Its fit chip says **+n s too long** and a **Shorten (Gemini)** card says "n lines are too long for their time." Lines that fit are never sent.
+- **Shorten (Gemini)** → "Asking Gemini for shorter lines…" → for each long line: the current text (grey), Gemini's shorter text (bold) and "n characters (at most m)" (amber if still over). Nothing changes until you choose.
+- Tap **Use** on the lines you want → **Use n lines**: the app opens **Dub script** with "n spoken lines changed. Approve the dub script again, then speak them." The subtitle text is unchanged; Approve is active again.
+- Approve → Voice: only the changed lines say "Script changed"; **Speak n lines** sends only those. **Back** on the Shorten card drops the suggestions. Without a key: "Gemini is not available here". Check the Burmese wording.
+

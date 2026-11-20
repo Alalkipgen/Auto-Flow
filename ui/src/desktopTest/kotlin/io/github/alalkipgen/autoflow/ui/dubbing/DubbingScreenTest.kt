@@ -210,4 +210,63 @@ class DubbingScreenTest {
             }
         }
     }
+
+    @Test fun shortenOffersGeminiLinesForTooLongTakesAndUseClearsTheApprovalAtBothSizesAndLanguages() {
+        for ((width, font) in listOf(360 to 2f, 1440 to 1f)) for (language in UiLanguage.entries) {
+            runDesktopComposeUiTest(width = width, height = 760) {
+                val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
+                val index = ProjectIndex(fs, "/app/projects.json")
+                val dir = "/p/Dub.autoflow"
+                val lock = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", "tts-a", "Kore", "my")
+                val doc = SubtitleDoc(source = "srt", nextId = 3, cues = listOf(
+                    SubtitleCue("c1", 1_000, 2_000, "We have to leave tonight.", textMy = "ဒီည ကျွန်တော်တို့ ထွက်သွားကြရမယ်။"),
+                    SubtitleCue("c2", 2_500, 4_000, "Now.", textMy = "အခု။")))
+                val created = (store.create(dir, "Dub", Mode.DUBBING) as CoreResult.Ok).value
+                val st = (ArtifactStore(fs, dir).put(CoreJson.encodeToString(SubtitleDoc.serializer(), doc).encodeToByteArray(),
+                    ArtifactKind.SUBTITLES, "json") as CoreResult.Ok).value.id
+                val rules = io.github.alalkipgen.autoflow.core.dubbing.DubRules
+                val takes = doc.cues.associate { c -> c.id to io.github.alalkipgen.autoflow.core.model.DubTake(
+                    io.github.alalkipgen.autoflow.core.model.ArtifactId("au_00000000000${c.id.last()}"),
+                    rules.takeKey(c, io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY, lock, null), if (c.id == "c1") 3_000 else 600) }
+                val tool = rules.approve(DubbingTool(lock = lock, takes = takes), 65_000, 600_000, doc, 1)!!
+                val p = (store.save(dir, created.copy(dubbing = tool, subtitles = SubtitlesTool(
+                    video = SourceVideo("source/movie.mp4", 9, 65_000, 1920, 1080, 25.0), current = st))) as CoreResult.Ok).value
+                current.set(OpenProject(dir, p))
+                val session = ProjectSession(fs, store, index, current)
+                val subtitles = SubtitlesModel(session, fs, DashboardModel(fs, store, index, SettingsStore(fs, "/app/s.json"), FakePicker(), current),
+                    null, MainScope(), probe = { null })
+                val gemini = object : io.github.alalkipgen.autoflow.ai.TextProvider {
+                    override suspend fun json(prompt: String, schema: io.github.alalkipgen.autoflow.ai.JsonSchema, system: String?) =
+                        io.github.alalkipgen.autoflow.ai.AiResult.Ok(kotlinx.serialization.json.Json.parseToJsonElement(
+                            """{"lines":[{"id":"c1","spokenMy":"ဒီည ထွက်ရမယ်။"}]}"""), io.github.alalkipgen.autoflow.ai.Usage("t"))
+                }
+                val shorten = DubShortenModel(io.github.alalkipgen.autoflow.ai.dubbing.DubShortener(gemini), MainScope())
+                setContent {
+                    CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
+                        LocalUiFontFamily provides BurmeseTestFont.family) {
+                        DubbingScreen(DubScriptModel(session, fs), subtitles, session, SubtitleEditorModel(session, fs, MainScope()), onBack = {},
+                            player = { _, _, m, _ -> androidx.compose.foundation.layout.Box(m) },
+                            voice = DubVoiceModel(session, null, null, MainScope(), models = listOf("tts-a")), shorten = shorten)
+                    }
+                }
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-voice-rows").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag("dub-voice-rows").performScrollToKey("c1")
+                onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_TOO_LONG.text(language, "seconds" to 1.6)))
+                onNodeWithTag("dub-voice-rows").performScrollToKey("shorten")
+                onNodeWithTag("dub-shorten").performScrollTo().assertIsEnabled().performMouseInput { click() }
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-shorten-row-c1").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag("dub-shorten-new-c1").assertTextEquals(My.breakSyllables("ဒီည ထွက်ရမယ်။"))
+                onNodeWithTag("dub-shorten-row-c2").assertDoesNotExist() // c2 fits: never sent
+                onNodeWithTag("dub-shorten-apply").assertIsNotEnabled()
+                onNodeWithTag("dub-shorten-use-c1").performScrollTo().performMouseInput { click() }
+                assertEquals(emptyList(), textFitProblems(width, font))
+                ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "04-shorten-$width-${language.name.lowercase()}.png"))
+                onNodeWithTag("dub-shorten-apply").performScrollTo().assertIsEnabled().performMouseInput { click() }
+                waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.scriptApproved == null }
+                onNodeWithTag("dub-step-SCRIPT").assert(chosen) // back to Dub script to approve again
+                onNodeWithTag("dub-notice").assertTextEquals(My.breakSyllables(UiText.DUB_SHORTEN_USED.text(language, "n" to 1)))
+                onNodeWithTag("dub-approve").assertIsEnabled()
+            }
+        }
+    }
 }

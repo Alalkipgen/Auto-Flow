@@ -1471,6 +1471,14 @@ enum class UiText(val en: String, val my: String?) {
     DUB_SPEAK_CANCELLED("Speak stopped. Lines already spoken keep their voice.", "အသံထုတ်တာ ရပ်လိုက်ပြီ။ ထုတ်ပြီးသား စာကြောင်းတွေ အသံ မပျောက်ပါ။"),
     DUB_ALL_VOICED("Every line already has its voice.", "စာကြောင်းအားလုံး အသံထုတ်ပြီးသားပါ။"),
     DUB_REDO_LINE("Speak this line again", "ဒီစာကြောင်းကို ပြန်ပြောမယ်"),
+    DUB_SHORTEN("Shorten (Gemini)", "တိုအောင်ပြင်မယ် (Gemini)"),
+    DUB_SHORTEN_N("{n} lines are too long for their time.", "စာကြောင်း {n} ကြောင်းက သူ့အချိန်ထက် ရှည်နေတယ်။"),
+    DUB_SHORTEN_WORKING("Asking Gemini for shorter lines…", "Gemini ဆီက ပိုတိုတဲ့ စာကြောင်းတွေ တောင်းနေတယ်…"),
+    DUB_SHORTEN_TITLE("Shorter lines — choose the ones to use", "ပိုတိုတဲ့ စာကြောင်းများ — သုံးမယ့်ဟာကို ရွေးပါ"),
+    DUB_SHORTEN_NEW("Shorter: {len} characters (at most {max})", "ပိုတို: စာလုံး {len} လုံး ({max} လုံးအထိ)"),
+    DUB_USE("Use", "သုံးမယ်"),
+    DUB_USE_LINES("Use {n} lines", "စာကြောင်း {n} ကြောင်း သုံးမယ်"),
+    DUB_SHORTEN_USED("{n} spoken lines changed. Approve the dub script again, then speak them.", "ပြောမည့်စာ {n} ကြောင်း ပြောင်းပြီးပြီ။ ပြောမည့်စာကို ပြန်အတည်ပြုပြီးမှ အသံထုတ်ပါ။"),
     DUB_VOICE_EDIT_PAUSED("The voice, tone and original sound can be changed when Speak ends.", "အသံထုတ်တာ ပြီးမှ အသံ၊ လေသံ၊ မူရင်းအသံကို ပြောင်းလို့ရမယ်။"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())

@@ -70,13 +70,16 @@ class DubScriptModel(private val session: ProjectSession, fs: FileSystem, privat
     }
 
     /** Sets line [id]'s spoken line (blank or equal to the subtitle text = follow it); unchanged text saves nothing. */
-    fun setSpoken(id: String, text: String): Boolean {
+    fun setSpoken(id: String, text: String): Boolean = setSpoken(mapOf(id to text), UiNotice(UiText.DUB_LINE_SAVED))
+
+    /** Several spoken lines at once (Shorten's chosen lines, D-2c): one new `st` version, then [notice]. */
+    fun setSpoken(changes: Map<String, String>, notice: UiNotice): Boolean {
         val (open, doc) = current() ?: return false
-        val next = DubRules.setSpoken(doc, id, text)
+        val next = changes.entries.fold(doc) { d, (id, text) -> DubRules.setSpoken(d, id, text) }
         if (next == doc) return true
         return when (val r = versions.save(open.dir, next)) {
             is CoreResult.Ok -> true.also {
-                _state.value = DubScriptUi(open.dir, session.open?.project?.subtitles?.current, r.value.second, UiNotice(UiText.DUB_LINE_SAVED), ok = true)
+                _state.value = DubScriptUi(open.dir, session.open?.project?.subtitles?.current, r.value.second, notice, ok = true)
             }
             is CoreResult.Err -> false.also { say(UiNotice(UiText.RESULT_DETAIL, "detail" to r.error.message)) }
         }

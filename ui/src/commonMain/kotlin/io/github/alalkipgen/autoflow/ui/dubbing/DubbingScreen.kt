@@ -43,7 +43,8 @@ enum class DubStep(val text: UiText) {
 @Composable
 fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel,
     onBack: () -> Unit, modifier: Modifier = Modifier, vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir),
-    transcribe: SubtitleTranscribeModel? = null, translate: SubtitleTranslateModel? = null, voice: DubVoiceModel? = null) {
+    transcribe: SubtitleTranscribeModel? = null, translate: SubtitleTranslateModel? = null, voice: DubVoiceModel? = null,
+    shorten: DubShortenModel? = null) {
     val open by session.state.collectAsState()
     val st by script.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -79,7 +80,7 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                 DubStep.VOICE -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
-                    voice != null && doc != null -> VoiceStep(voice, open, doc) { step = DubStep.EXPORT }
+                    voice != null && doc != null -> VoiceStep(voice, open, doc, { step = DubStep.EXPORT }, shorten, script) { step = DubStep.SCRIPT }
                     else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
                         PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-VOICE"))
                     }
