@@ -182,7 +182,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 })
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
                 SUBTITLES_SCREEN -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject())
-                VOICE_SCREEN -> io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), speak = koinInject())
+                VOICE_SCREEN -> io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), speak = koinInject(), export = koinInject())
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
@@ -392,7 +392,7 @@ private fun StudioV2App(
                     Column(Modifier.fillMaxSize()) {
                         if (screen == VOICE_SCREEN) {
                             io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), onBack = { openProjectScreen(null) },
-                                speak = koinInject())
+                                speak = koinInject(), export = koinInject())
                         } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES && screen == SUBTITLES_SCREEN) {
                             io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject(), onBack = { openProjectScreen(null) })
                         } else if (isRecap && screen in listOf("Recap", "Export")) {
