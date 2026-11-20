@@ -148,6 +148,7 @@ enum class UiText(val en: String, val my: String?) {
     JOB_ITEMS_LEFT("{size} left", "{size} ခု ကျန်"),
     JOB_TTS_ALL("Speak all", "အားလုံး အသံထုတ်"),
     JOB_TRANSCRIBE("Transcribe", "စာသားပြောင်း"),
+    JOB_MEDIA_TRANSCRIBE("Transcribe video", "ဗီဒီယို စာသားပြောင်း"),
     JOB_QUICK_RECAP("Quick Recap", "အမြန် Recap"),
     JOB_DONE("Done", "ပြီးပြီ"),
     JOB_CANCELLED("Cancelled", "ပယ်ဖျက်ပြီး"),

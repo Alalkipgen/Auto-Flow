@@ -53,7 +53,7 @@ data class TranscriptRange(val inMs: Long, val outMs: Long)
 @SerialName("Transcript")
 data class Transcript(
     val schemaVersion: Int = SCHEMA_VERSION,
-    /** "subtitle" | "gemini-scenes" */
+    /** "subtitle" | "gemini-scenes" | "gemini-media" */
     val source: String,
     /** BCP-47 language tag, e.g. "my" for Burmese; "und" = the movie's own language, not known. */
     val lang: String = "my",
@@ -64,6 +64,8 @@ data class Transcript(
         const val SCHEMA_VERSION = 2
         const val SOURCE_SUBTITLE = "subtitle"
         const val SOURCE_GEMINI_SCENES = "gemini-scenes"
+        /** Whole-video transcription of a Subtitles project (S-5, D-80). */
+        const val SOURCE_GEMINI_MEDIA = "gemini-media"
         const val LANG_UNKNOWN = "und"
     }
 

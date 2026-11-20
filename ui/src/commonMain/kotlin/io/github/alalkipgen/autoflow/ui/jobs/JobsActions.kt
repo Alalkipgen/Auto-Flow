@@ -138,7 +138,11 @@ fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProje
         JobSource.RENDER -> "Export"
         JobSource.MEDIA -> row.projectScreen ?: "Export"
         JobSource.STORYBOARD -> row.projectScreen ?: SHOT_SHEET
-        JobSource.AI -> if (row.aiKind == AiJobKind.PUBLISH_KIT) "Export" else "Recap"
+        JobSource.AI -> when (row.aiKind) {
+            AiJobKind.PUBLISH_KIT -> "Export"
+            AiJobKind.MEDIA_TRANSCRIBE -> SUBTITLES_SCREEN
+            else -> "Recap"
+        }
         JobSource.RECAP, JobSource.RECAP_VOICE -> "Recap"
     }
     val step = when {

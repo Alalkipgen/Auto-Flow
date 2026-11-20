@@ -267,3 +267,7 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Select a line in the editor, Export: the Video with subtitles card says "Line N · time" for that line; ‹ › move to the previous / next line.
 - **Check one frame**: after a moment a still appears with the line burned in, in the chosen look and size, exactly as Make video will draw it (Burmese joined correctly).
 - Change Burmese ↔ Original, the look or the size: the still disappears until checked again. Nothing appears in Jobs for a check.
+
+### S-5a — Transcribe job (no button yet; checked with S-5b)
+
+- Nothing to press yet: whole-video transcription has no button until S-5b. With S-5b: a Jobs row "Transcribe video" opens the Subtitles screen; after the app is closed during a job, Resume sends only the chunks not yet saved.
