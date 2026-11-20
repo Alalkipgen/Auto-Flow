@@ -210,4 +210,10 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - With `tools.subtitles` off (default): Home → Quick tools shows Subtitles as **Planned**; Home, Projects, Music Video and Movie Recap look and work exactly as before.
 - Self-test → Preview features → turn on `tools.subtitles`. Home → Subtitles opens the system picker at once. Cancel: no project appears anywhere. Pick a short video: a project named `<file name> · <date time>` (phone's local time) opens, shows "Copying…", then the Video card (length · size · fps · sound). Pick an audio-only file: nothing is created and Home says the file has no picture.
 - Projects shows the new row with the Subtitles label and no shot counter; Home Continue shows it with the Subtitles icon and "Subtitles". Long-press → Remove → Restore → Remove → Delete permanently works as for other projects (D-76). Backup → Restore lists it again.
-- 360/412 dp, English/Burmese, font 1.0/2.0: the Video card and the Planned "Subtitle source" card fit without clipping.
+- 360/412 dp, English/Burmese, font 1.0/2.0: the Video card and the "Subtitle source" card fit without clipping.
+
+### S-2 — Subtitle source (PHONE_PENDING)
+
+- A video with a text subtitle track (e.g. an `.mkv` with SubRip): the Source card lists each track (language · codec), the Burmese text track — else the first text track — already chosen; "Use this track" → "Saved N lines from track N" and the Subtitles card shows the line count and the first lines. A picture track (PGS/DVD) is shown greyed with "Picture subtitles … cannot be edited"; it cannot be chosen.
+- A video without tracks says so. "Import subtitles (.srt)": a UTF-8 file, a UTF-16 file (Windows Notepad "Unicode") and an old Windows-1252 English file all import and the message names the encoding; an empty file or one with a broken time line saves nothing and says which subtitle; a Zawgyi file imports with the amber Zawgyi warning.
+- "Choose another source" → pick again: the new lines replace the shown ones (the old version stays in `artifacts/`). Close and reopen the project: the same lines show. "Transcribe the speech" and "Edit lines" are Planned.
