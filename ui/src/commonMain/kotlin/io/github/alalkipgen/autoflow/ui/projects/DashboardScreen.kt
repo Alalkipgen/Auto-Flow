@@ -79,13 +79,18 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
         val newMusicVideo: @Composable () -> Unit = {
             AfButton(tr(UiText.NEW_MUSIC_VIDEO), { setCreating(Mode.MUSIC_VIDEO) }, kind = ButtonKind.Primary, enabled = creating == null)
         }
+        // F-7 (D-96): a render package (or backup zip) from another phone or computer.
+        val openPackage: @Composable () -> Unit = {
+            if (model.opensPackages) AfButton(My.breakSyllables(tr(UiText.PACKAGE_OPEN)), { scope.launch { if (model.openPackage()) onOpened() } },
+                Modifier.testTag("projects-open-package"), enabled = creating == null)
+        }
         val newMovieRecap: @Composable () -> Unit = { AfButton(tr(UiText.NEW_MOVIE_RECAP), { setCreating(Mode.MOVIE_RECAP) }, enabled = creating == null) }
         // Long translations / large fonts need wrapping on desktop too, not just in the phone layout.
         AfText(tr(UiText.PROJECTS), Modifier.testTag("projects-heading"), size = 20.sp, bold = true)
         SectionCard(tr(UiText.V3_PROJECT_CREATE), Modifier.testTag("projects-create")) {
             WrapRow {
-                if (compact) { newMusicVideo(); openFolder(); newMovieRecap() }
-                else { openFolder(); newMovieRecap(); newMusicVideo() }
+                if (compact) { newMusicVideo(); openFolder(); newMovieRecap(); openPackage() }
+                else { openFolder(); newMovieRecap(); newMusicVideo(); openPackage() }
             }
         }
         state.message?.let { AfText(My.breakSyllables(state.notice?.text(LocalUiLanguage.current) ?: it), color = AutoFlowColors.Amber) }

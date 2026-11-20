@@ -8,6 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.model.DubOriginal
+import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.ui.pack.RenderPackageCard
+import io.github.alalkipgen.autoflow.ui.pack.RenderPlan
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.media.audio.DubMixer
 import io.github.alalkipgen.autoflow.media.render.RenderState
@@ -57,6 +60,12 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                 }
             }
             if (run != null) Progress(model, s, run.kind, run.state)
+            // F-7 (D-96): this export's choices and script in a render package, to render it elsewhere.
+            RenderPackageCard({
+                val fit = model.fit(open)
+                RenderPlan(mode = Mode.DUBBING, size = s.size.name, lines = fit.lines, length = fit.length.name, wav = s.wav,
+                    docVersion = open?.project?.subtitles?.current?.value, doc = doc)
+            })
             s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("dub-export-notice"),
                 color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }

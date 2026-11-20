@@ -56,6 +56,8 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     // Export on Windows (PLAN 1C): renders in this process, one at a time; Open plays the result.
     single<RenderQueue> { InProcessRenderQueue(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
     single<FileShare> { DesktopFileShare() }
+    // F-7 (D-96): render packages (Export ▸ Render package; Projects ▸ Open package; `AutoFlow --render`).
+    single<io.github.alalkipgen.autoflow.platform.RenderPackages> { io.github.alalkipgen.autoflow.platform.JvmRenderPackages() }
     // AI job runner (5A-5, audit F11): in-process runner with the project-bound TTS processor; created at start so
     // jobs a closed app left QUEUED / RUNNING resume. The processor finds the RecapModel when an item runs (the
     // model takes the runner for Speak All).
