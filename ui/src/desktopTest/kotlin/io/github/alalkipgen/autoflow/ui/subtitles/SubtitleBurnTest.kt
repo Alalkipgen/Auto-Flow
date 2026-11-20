@@ -38,6 +38,10 @@ import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.media.MediaTasks
+import io.github.alalkipgen.autoflow.ui.media.MediaTools
+import io.github.alalkipgen.autoflow.media.tool.ToolExec
+import io.github.alalkipgen.autoflow.media.tool.ToolRunner
+import io.github.alalkipgen.autoflow.platform.ToolLocator
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardModel
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
@@ -83,6 +87,18 @@ class SubtitleBurnTest {
         override fun openFolder(path: String): PlatformResult<Unit> { calls += "folder $path"; return PlatformResult.Ok(Unit) }
     }
 
+    /** ffmpeg stand-in for Check one frame: writes a 64×27 PNG to the last argument, or fails with [fail]. */
+    private class Frames(val fs: InMemoryFileSystem) : ToolRunner {
+        val commands = mutableListOf<List<String>>(); var fail: String? = null
+        override suspend fun run(command: List<String>, workDir: String, timeoutMs: Long, keepOutput: Boolean, onLine: (String) -> Unit): ToolExec {
+            commands += command
+            fail?.let { return ToolExec.Done(1, "", listOf(it), 1, false) }
+            val png = java.io.ByteArrayOutputStream().also { javax.imageio.ImageIO.write(java.awt.image.BufferedImage(64, 27, 1), "png", it) }
+            fs.writeDurably("$workDir/${command.last()}", png.toByteArray())
+            return ToolExec.Done(0, "", emptyList(), 1, false)
+        }
+    }
+
     private inner class Fixture(shares: Boolean, withFont: Boolean) {
         val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
         val index = ProjectIndex(fs, "/app/projects.json")
@@ -110,7 +126,14 @@ class SubtitleBurnTest {
         val editor = SubtitleEditorModel(session, fs, MainScope())
         val exporter = SubtitleExportModel(session, fs, share, MainScope())
         val tasks = MediaTasks(queue, MainScope())
-        val burner = SubtitleBurnModel(session, fs, tasks, RecapFrames(session, settings, fs), share = share, audioCodec = { _, _ -> "aac" })
+        val runner = Frames(fs)
+        val locator = object : ToolLocator {
+            override fun findFfmpeg() = "ffmpeg"
+            override fun findVlc(): String? = null
+            override fun isVlcDir(dir: String) = false
+        }
+        val burner = SubtitleBurnModel(session, fs, tasks, RecapFrames(session, settings, fs), MediaTools(settings, locator, runner), share = share,
+            audioCodec = { _, _ -> "aac" })
         fun out(choice: TextChoice, look: String) =
             "exports/" + SubtitleExport.fileName("My film", choice, version.value, "mp4").removeSuffix(".mp4") + "-$look.mp4"
         fun task(i: Int = 0): MediaTaskJob = queue.jobs[i].mediaTask!!
@@ -230,6 +253,63 @@ class SubtitleBurnTest {
                 f.queue.states.getValue("job1").value = RenderState.Done("$dir/" + f.task().output, 1, 60_000, null)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-done").fetchSemanticsNodes().isNotEmpty() }
                 assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language done")
+            }
+        }
+    }
+
+    @Test fun checkOneFrameUsesTheBurnAssAtTheLineMiddle() = runBlocking {
+        val f = Fixture(shares = true, withFont = true)
+        f.burner.checkFrame(f.doc, f.version, TextChoice.ORIGINAL, 1)
+        val cmd = f.runner.commands.single()
+        val name = f.out(TextChoice.ORIGINAL, "clean-medium").removePrefix("exports/").removeSuffix(".mp4")
+        assertEquals(listOf("ffmpeg", "-hide_banner", "-y", "-nostdin", "-ss", "5.000", "-copyts", "-i", "source/movie.mp4", "-vf"), cmd.take(10))
+        assertEquals(".cache/burn/$name-5000.png", cmd.last())
+        assertTrue(f.fs.exists("$dir/.cache/burn/$name.ass"))
+        val frame = f.burner.state.value.frame!!
+        assertEquals(1 to 5_000L, frame.line to frame.atMs)
+        assertTrue(f.queue.jobs.isEmpty()) // a check is not a render
+        f.burner.setLook(BurnLook.BOXED)
+        assertNull(f.burner.state.value.frame) // a changed look needs a new check
+
+        f.runner.fail = "No such filter: 'ass'"
+        f.burner.checkFrame(f.doc, f.version, TextChoice.ORIGINAL, 0)
+        assertNull(f.burner.state.value.frame)
+        assertEquals("No such filter: 'ass'", f.burner.state.value.notice?.text(UiLanguage.ENGLISH))
+        assertFalse(f.burner.state.value.checking)
+
+        val g = Fixture(shares = true, withFont = false)
+        g.burner.checkFrame(g.doc, g.version, TextChoice.BURMESE, 0)
+        assertEquals(UiText.SUB_BURN_NO_FONT, g.burner.state.value.notice?.key)
+        assertTrue(g.runner.commands.isEmpty())
+    }
+
+    @Test fun checkOneFrameInTheDialog() = runDesktopComposeUiTest(width = 412, height = 900) {
+        val f = Fixture(shares = true, withFont = true)
+        show(f)
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+        onNodeWithTag("subtitles-check-line").assertTextContains("Line 1", substring = true)
+        onNodeWithTag("subtitles-check-prev").assertIsNotEnabled()
+        onNodeWithTag("subtitles-check-next").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-check-line").assertTextContains("Line 2", substring = true)
+        onNodeWithTag("subtitles-check-next").assertIsNotEnabled()
+        onNodeWithTag("subtitles-check-frame").performScrollTo().performMouseInput { click() }
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-check-image").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals("5.000", f.runner.commands.single()[5])
+        onNodeWithTag("subtitles-export-ORIGINAL").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-check-image").assertDoesNotExist()
+    }
+
+    @Test fun checkFrameFits() {
+        for (width in listOf(360, 1440)) for (font in listOf(1f, 2f)) for (language in UiLanguage.entries) {
+            runDesktopComposeUiTest(width = width, height = 900) {
+                val f = Fixture(shares = width < 840, withFont = true)
+                show(f, font, language)
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+                onNodeWithTag("subtitles-check-frame").performScrollTo().performMouseInput { click() }
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-check-image").fetchSemanticsNodes().isNotEmpty() }
+                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language")
             }
         }
     }

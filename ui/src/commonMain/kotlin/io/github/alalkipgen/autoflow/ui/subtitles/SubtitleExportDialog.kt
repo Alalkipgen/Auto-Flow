@@ -4,7 +4,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -12,6 +16,7 @@ import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleExport
 import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
+import io.github.alalkipgen.autoflow.core.subtitles.TimeText
 import io.github.alalkipgen.autoflow.media.render.BurnLook
 import io.github.alalkipgen.autoflow.media.render.BurnSize
 import io.github.alalkipgen.autoflow.media.render.RenderState
@@ -19,6 +24,7 @@ import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
 /**
  * Export (spec §5, S-4a): the subtitle language (Burmese by default once there is Burmese, Q-38) and the `.srt` file —
@@ -27,7 +33,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
  */
 @Composable
 internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDoc, version: ArtifactId?, onClose: () -> Unit,
-    burner: SubtitleBurnModel? = null) {
+    burner: SubtitleBurnModel? = null, line: Int? = null) {
     val s by exporter.state.collectAsState()
     var choice by remember(version) { mutableStateOf(SubtitleExport.defaultChoice(doc)) }
     val shareTitle = tr(UiText.SUB_EXPORT_SRT)
@@ -38,7 +44,7 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
             AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_TEXT))) {
                 WrapRow {
                     listOf(TextChoice.BURMESE, TextChoice.ORIGINAL).forEach { c ->
-                        AfChip(My.breakSyllables(tr(viewLabel(c))), choice == c, { choice = c; exporter.clear() }, Modifier.testTag("subtitles-export-${c.name}"))
+                        AfChip(My.breakSyllables(tr(viewLabel(c))), choice == c, { choice = c; exporter.clear(); burner?.clearFrame() }, Modifier.testTag("subtitles-export-${c.name}"))
                     }
                 }
             }
@@ -61,7 +67,7 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
                         color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
                 }
             }
-            if (burner != null) BurnCard(burner, doc, version, choice)
+            if (burner != null) BurnCard(burner, doc, version, choice, line)
             else PlannedTile(tr(UiText.SUB_EXPORT_VIDEO), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-export-video-planned"))
             AfButton(My.breakSyllables(tr(UiText.CLOSE)), onClose, Modifier.testTag("subtitles-export-close"))
         }
@@ -70,7 +76,7 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
 
 /** Video with subtitles (S-4c): look, size, Make video → a Jobs task with progress and Cancel, then Play · Share · Save. */
 @Composable
-private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice) {
+private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice, startLine: Int?) {
     val s by burner.state.collectAsState()
     val runs by burner.runs.collectAsState()
     val run = remember(runs, s.output) { burner.run() }
@@ -92,6 +98,7 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
             }
         }
         AfText(My.breakSyllables(tr(UiText.SUB_BURN_KEEPS)), color = AutoFlowColors.Muted)
+        CheckFrame(burner, doc, version, choice, startLine)
         when (state) {
             is RenderState.Queued, is RenderState.Running -> JobCard(tr(UiText.SUB_EXPORT_VIDEO),
                 if (state is RenderState.Running) StudioStatus.RUNNING else StudioStatus.QUEUED,
@@ -122,5 +129,31 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
             AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-burn-notice"),
                 color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
         }
+    }
+}
+
+/** Check one frame (S-4d): a line (the selected one first, ‹ › to move) and its middle frame exactly as it will be burned. */
+@Composable
+private fun CheckFrame(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice, startLine: Int?) {
+    val s by burner.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    val last = doc.cues.size - 1
+    if (last < 0) return
+    val prev = tr(UiText.SUB_PREV_LINE); val next = tr(UiText.SUB_NEXT_LINE)
+    var line by remember(doc) { mutableStateOf((startLine ?: 0).coerceIn(0, last)) }
+    WrapRow {
+        AfButton("‹", { line--; burner.clearFrame() }, Modifier.testTag("subtitles-check-prev").semantics { contentDescription = prev },
+            enabled = line > 0)
+        AfText(My.breakSyllables(tr(UiText.SUB_CHECK_LINE, "n" to line + 1, "time" to TimeText.show(doc.cues[line].startMs))),
+            Modifier.testTag("subtitles-check-line"))
+        AfButton("›", { line++; burner.clearFrame() }, Modifier.testTag("subtitles-check-next").semantics { contentDescription = next },
+            enabled = line < last)
+        AfButton(My.breakSyllables(tr(if (s.checking) UiText.SUB_CHECKING else UiText.SUB_CHECK_FRAME)),
+            { scope.launch { burner.checkFrame(doc, version, choice, line) } }, Modifier.testTag("subtitles-check-frame"), enabled = !s.checking)
+    }
+    s.frame?.let { f ->
+        val bmp = remember(f) { decodeImage(f.bytes) }
+        if (bmp != null) Image(bmp, tr(UiText.EXACT_FRAME_AT, "atMs" to TimeText.show(f.atMs)),
+            Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height).clip(AutoFlowShapes.Card).testTag("subtitles-check-image"))
     }
 }
