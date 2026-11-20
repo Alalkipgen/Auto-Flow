@@ -252,3 +252,12 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Phone: **Share…** opens the share sheet with an `.srt` file (Telegram/Drive receive it); **Save to Downloads** says "Saved to Downloads: Download/AutoFlow/…"; the file opens in a player (VLC/MX) next to the video and the lines match the editor.
 - Windows: **Save .srt** shows the path in the project's `exports` folder; **Open folder…** opens that folder in Explorer.
 - Export twice with the same language: the same file is used (no second copy). Change a line, Save, export again: a new file name.
+
+### S-4c — Video with subtitles (phone + Windows, PHONE_PENDING)
+
+- Export → **Video with subtitles**: look chips Clean / Boxed / Outline, size chips Small / Medium / Large, and "Same size and frame rate as the video; sound copied."
+- Burmese chosen with no Burmese font (none in Settings → Fonts and none built in): Make video says "No Burmese font…" and nothing starts. Original works without one.
+- Make video: a card shows "Making the video: N%" and Jobs shows the same row with Cancel. Cancel → "Cancelled. Nothing was saved." and no file in `exports`.
+- Done: the video plays (▶ Play); on the phone Share… and Save to Gallery work and the video is in Gallery (Movies/AutoFlow); on Windows Open folder… shows `exports`.
+- In a player: the picture is the same size and frame rate as the source (e.g. a 23.976 fps film stays 23.976), the sound is the original; each line appears and disappears at its time; Burmese shows joined letters (no broken stacks), long lines wrap into two.
+- Phone with the app in the background during the render: the notification shows progress and the file is there when it finishes.

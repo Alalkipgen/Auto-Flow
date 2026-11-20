@@ -40,7 +40,8 @@ import kotlinx.coroutines.launch
  */
 @Composable
 internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: SourceVideo, player: SubtitlePlayer,
-    header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit, exporter: SubtitleExportModel? = null) {
+    header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit, exporter: SubtitleExportModel? = null,
+    burner: SubtitleBurnModel? = null) {
     val s by editor.state.collectAsState()
     val draft = s.draft ?: return
     val cues = draft.doc.cues
@@ -129,7 +130,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             }
         }
     }
-    if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base) { exporting = false }
+    if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base, { exporting = false }, burner)
     ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
             if (wide) Row(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-wide")) {

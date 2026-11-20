@@ -12,16 +12,22 @@ import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleExport
 import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
+import io.github.alalkipgen.autoflow.media.render.BurnLook
+import io.github.alalkipgen.autoflow.media.render.BurnSize
+import io.github.alalkipgen.autoflow.media.render.RenderState
+import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /**
  * Export (spec §5, S-4a): the subtitle language (Burmese by default once there is Burmese, Q-38) and the `.srt` file —
- * Share · Save to Downloads on a phone, Save · Open folder on the desktop. The burned video is Planned (S-4b).
+ * Share · Save to Downloads on a phone, Save · Open folder on the desktop — and the video with the subtitles burned
+ * in (S-4c, [BurnCard]; Planned where there is no burner).
  */
 @Composable
-internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDoc, version: ArtifactId?, onClose: () -> Unit) {
+internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDoc, version: ArtifactId?, onClose: () -> Unit,
+    burner: SubtitleBurnModel? = null) {
     val s by exporter.state.collectAsState()
     var choice by remember(version) { mutableStateOf(SubtitleExport.defaultChoice(doc)) }
     val shareTitle = tr(UiText.SUB_EXPORT_SRT)
@@ -55,8 +61,66 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
                         color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
                 }
             }
-            PlannedTile(tr(UiText.SUB_EXPORT_VIDEO), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-export-video-planned"))
+            if (burner != null) BurnCard(burner, doc, version, choice)
+            else PlannedTile(tr(UiText.SUB_EXPORT_VIDEO), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-export-video-planned"))
             AfButton(My.breakSyllables(tr(UiText.CLOSE)), onClose, Modifier.testTag("subtitles-export-close"))
+        }
+    }
+}
+
+/** Video with subtitles (S-4c): look, size, Make video → a Jobs task with progress and Cancel, then Play · Share · Save. */
+@Composable
+private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice) {
+    val s by burner.state.collectAsState()
+    val runs by burner.runs.collectAsState()
+    val run = remember(runs, s.output) { burner.run() }
+    val scope = rememberCoroutineScope()
+    val shareTitle = tr(UiText.SUB_EXPORT_VIDEO)
+    val state = run?.state
+    AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_VIDEO)), Modifier.testTag("subtitles-export-video")) {
+        AfText(My.breakSyllables(tr(UiText.V3_STYLE_LOOK)), color = AutoFlowColors.Muted)
+        WrapRow {
+            listOf(BurnLook.CLEAN to UiText.V3_CAPTION_CLEAN, BurnLook.BOXED to UiText.V3_CAPTION_BOXED, BurnLook.OUTLINE to UiText.V3_CAPTION_OUTLINE)
+                .forEach { (look, label) ->
+                    AfChip(My.breakSyllables(tr(label)), s.look == look, { burner.setLook(look) }, Modifier.testTag("subtitles-burn-${look.name}"))
+                }
+        }
+        AfText(My.breakSyllables(tr(UiText.SIZE)), color = AutoFlowColors.Muted)
+        WrapRow {
+            listOf(BurnSize.SMALL to UiText.SMALL, BurnSize.MEDIUM to UiText.MEDIUM, BurnSize.LARGE to UiText.LARGE).forEach { (size, label) ->
+                AfChip(My.breakSyllables(tr(label)), s.size == size, { burner.setSize(size) }, Modifier.testTag("subtitles-burn-${size.name}"))
+            }
+        }
+        AfText(My.breakSyllables(tr(UiText.SUB_BURN_KEEPS)), color = AutoFlowColors.Muted)
+        when (state) {
+            is RenderState.Queued, is RenderState.Running -> JobCard(tr(UiText.SUB_EXPORT_VIDEO),
+                if (state is RenderState.Running) StudioStatus.RUNNING else StudioStatus.QUEUED,
+                My.breakSyllables(tr(UiText.SUB_BURN_RUNNING, "percent" to ((state as? RenderState.Running)?.fraction ?: 0.0).times(100).toInt())),
+                Modifier.testTag("subtitles-burn-job"), progress = (state as? RenderState.Running)?.fraction?.toFloat(),
+                indeterminate = state is RenderState.Queued) {
+                AfButton(My.breakSyllables(tr(UiText.CANCEL)), burner::cancel, Modifier.testTag("subtitles-burn-cancel"))
+            }
+            else -> AfButton(My.breakSyllables(tr(UiText.SUB_MAKE_VIDEO)), { scope.launch { burner.start(doc, version, choice) } },
+                Modifier.testTag("subtitles-burn-make"), kind = ButtonKind.Primary)
+        }
+        when (state) {
+            is RenderState.Done -> {
+                AfText(My.breakSyllables(tr(UiText.SUB_BURN_DONE, "path" to state.output)), Modifier.testTag("subtitles-burn-done"), color = AutoFlowColors.Green)
+                WrapRow {
+                    AfButton(My.breakSyllables(tr(UiText.PLAY)), { burner.open() }, Modifier.testTag("subtitles-burn-play"))
+                    if (burner.sharesFiles) {
+                        AfButton(My.breakSyllables(tr(UiText.SHARE)), { burner.share(shareTitle) }, Modifier.testTag("subtitles-burn-share"))
+                        AfButton(My.breakSyllables(tr(UiText.SAVE_GALLERY)), { scope.launch { burner.saveToGallery() } }, Modifier.testTag("subtitles-burn-gallery"))
+                    } else AfButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { burner.openFolder() }, Modifier.testTag("subtitles-burn-folder"))
+                }
+            }
+            is RenderState.Cancelled -> AfText(My.breakSyllables(tr(UiText.SUB_BURN_CANCELLED)), Modifier.testTag("subtitles-burn-cancelled"), color = AutoFlowColors.Amber)
+            is RenderState.Failed -> AfText(My.breakSyllables(tr(UiText.RESULT_DETAIL, "detail" to state.reason)), Modifier.testTag("subtitles-burn-failed"), color = AutoFlowColors.Failed)
+            else -> {}
+        }
+        s.notice?.let {
+            AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-burn-notice"),
+                color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
         }
     }
 }
