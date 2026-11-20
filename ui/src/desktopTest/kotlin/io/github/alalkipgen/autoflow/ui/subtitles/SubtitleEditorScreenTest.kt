@@ -121,6 +121,9 @@ class SubtitleEditorScreenTest {
                 onNodeWithTag("subtitles-save").assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("subtitles-cues").performScrollToIndex(0)
                 onNodeWithTag("subtitles-change-source").assertIsNotEnabled() // first Save or Discard
+                onNodeWithTag("subtitles-shift").performScrollTo().performMouseInput { click() }
+                onNodeWithTag("subtitles-shift-p1000").performScrollTo().assertIsDisplayed()
+                assertEquals(emptyList(), textFitProblems(width, font), "shift · $width × $font × $language")
                 onNodeWithTag("subtitles-cues").performScrollToKey("c1")
                 onNodeWithTag("subtitles-start-plus").performScrollTo()
                 assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language")
@@ -223,5 +226,30 @@ class SubtitleEditorScreenTest {
         click("subtitles-play-line") // from 0:04.0; the clock passes the line's end → paused
         onNodeWithTag("subtitles-playhead").assertTextEquals("0:08.5")
         onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PLAY.en)
+    }
+
+    @Test fun shiftTimesMovesAllOrFromTheSelectedLine() = runDesktopComposeUiTest(width = 412, height = 900) {
+        val f = Fixture()
+        show(f, 412, 1f, UiLanguage.ENGLISH)
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+        fun starts() = f.editor.state.value.draft!!.doc.cues.map { it.id to it.startMs }
+        click("subtitles-shift")
+        onNodeWithTag("subtitles-shift-from").assertIsNotEnabled() // no line selected yet
+        click("subtitles-shift-p1000")
+        assertEquals(listOf("c1" to 2_000L, "c2" to 3_500L, "c3" to 5_000L), starts())
+        onNodeWithTag("subtitles-editor-notice").assertTextEquals(UiText.SUB_SHIFTED.text(UiLanguage.ENGLISH, "lines" to 3, "s" to 1.0))
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3")
+        click("subtitles-cue-c3")
+        onNodeWithTag("subtitles-cues").performScrollToIndex(0)
+        onNodeWithTag("subtitles-shift-from").assertTextEquals(UiText.SUB_SHIFT_FROM.text(UiLanguage.ENGLISH, "n" to 3)).performMouseInput { click() }
+        click("subtitles-shift-m100")
+        assertEquals(listOf("c1" to 2_000L, "c2" to 3_500L, "c3" to 4_900L), starts())
+        click("subtitles-shift-all")
+        repeat(2) { click("subtitles-shift-m1000") }
+        assertEquals(listOf("c1" to 0L, "c2" to 1_500L, "c3" to 2_900L), starts())
+        click("subtitles-shift-m100") // before 0:00: refused, nothing moves
+        assertEquals(listOf("c1" to 0L, "c2" to 1_500L, "c3" to 2_900L), starts())
+        onNodeWithTag("subtitles-editor-notice").assertTextEquals(UiText.SUB_SHIFT_LIMIT.text(UiLanguage.ENGLISH, "s" to 0.0))
+        onNodeWithTag("subtitles-save").assertIsDisplayed()
     }
 }

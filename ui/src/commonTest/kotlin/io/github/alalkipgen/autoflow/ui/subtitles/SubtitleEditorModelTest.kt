@@ -126,4 +126,22 @@ class SubtitleEditorModelTest {
     fun shiftLimitIsSaidInSeconds() {
         assertEquals(UiNotice(UiText.SUB_SHIFT_LIMIT, "s" to 1.2), SubtitleEditorModel.explain(EditRefusal.ShiftBeforeStart(-1_234)))
     }
+
+    @Test
+    fun shiftMovesAllOrFromALineAndRefusesBeforeZero() = runTest {
+        val m = model(this)
+        m.shift(100)
+        assertEquals(listOf(100L, 2_600L, 5_100L), m.state.value.draft!!.doc.cues.map { it.startMs })
+        assertEquals(UiNotice(UiText.SUB_SHIFTED, "lines" to 3, "s" to 0.1), m.state.value.notice)
+        m.shift(-1_000, fromId = "c2") // c1 stays
+        assertEquals(listOf(100L, 1_600L, 4_100L), m.state.value.draft!!.doc.cues.map { it.startMs })
+        assertEquals(listOf(2_100L, 3_100L, 6_100L), m.state.value.draft!!.doc.cues.map { it.endMs })
+        assertEquals(UiNotice(UiText.SUB_SHIFTED, "lines" to 2, "s" to -1.0), m.state.value.notice)
+        val before = m.state.value.draft
+        m.shift(-1_000) // c1 would start before 0:00
+        assertEquals(UiNotice(UiText.SUB_SHIFT_LIMIT, "s" to 0.1), m.state.value.notice)
+        assertEquals(before, m.state.value.draft)
+        m.undo(); m.undo()
+        assertFalse(m.state.value.draft!!.dirty)
+    }
 }
