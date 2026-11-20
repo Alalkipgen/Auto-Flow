@@ -53,8 +53,13 @@ class VoiceSpeakJob(
     private val config: ToolsConfig = ToolsConfig(),
     private val lexicon: () -> Lexicon = { Lexicon.EMPTY },
     private val clock: Clock = Clock.System,
+    /** `tts.edge.rpm` (F-3): an Edge lock's pace. */
+    private val edgeRpm: Int = io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig().rpm,
 ) {
     val available: Boolean get() = tts != null
+
+    /** Requests per minute a job with [lock] sends: Edge's own pace, else Gemini's [RPM]. */
+    fun rpm(lock: VoiceLock?): Int = EdgeVoices.rpm(lock, edgeRpm)
 
     /**
      * What Speak would send now: the parts without a current take, or exactly [only] (Speak this part again). The
@@ -81,7 +86,7 @@ class VoiceSpeakJob(
             CoreJson.encodeToString(VoiceSpeakRequest.serializer(), request).encodeToByteArray())
         val key = Sha256.hex((listOf(project.id, request.lock.toString(), request.tone.orEmpty()) + request.parts.map { "${it.id}:${it.hash}" })
             .joinToString("|").encodeToByteArray())
-        return runner.enqueue(AiJob(id, AiJobKind.TEXT_TTS, dir, request.parts.map { it.id }, rpm = RPM, inputKey = key))
+        return runner.enqueue(AiJob(id, AiJobKind.TEXT_TTS, dir, request.parts.map { it.id }, rpm = rpm(request.lock), inputKey = key))
     }
 
     /** One part of job [jobId]: [AiItemPaused] when the model is busy, an exception when the request failed (Resume retries it). */

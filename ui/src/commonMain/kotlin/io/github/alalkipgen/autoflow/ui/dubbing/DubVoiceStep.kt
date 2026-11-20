@@ -136,7 +136,7 @@ private fun Speak(model: DubVoiceModel, s: DubVoiceUi, job: AiJob?) {
         }
         c != null -> AfCard(My.breakSyllables(tr(UiText.DUB_SPEAK_LINES, "n" to c.lines.size)), Modifier.testTag("dub-speak-confirm")) {
             AfText(My.breakSyllables(tr(UiText.VA_SPEAK_CONFIRM, "n" to c.lines.size, "voice" to "${c.lock.voice} · ${c.lock.model}",
-                "minutes" to (c.lines.size + VoiceSpeakJob.RPM - 1) / VoiceSpeakJob.RPM)), Modifier.testTag("dub-speak-facts"), bold = true)
+                "minutes" to model.minutes(c.lines.size, c.lock))), Modifier.testTag("dub-speak-facts"), bold = true)
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("dub-speak-start"), kind = ButtonKind.Primary)
                 AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("dub-speak-back"))
