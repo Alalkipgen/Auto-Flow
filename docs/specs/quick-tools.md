@@ -78,6 +78,7 @@ Dubbing has its own spec: [dubbing.md](dubbing.md). Order: Subtitles → Voice &
   only the `project.json` pointer moves. Raw transcription stays `tx`; the first `st` records it as input.
 - S-2 adds `st` to `ArtifactKind`, [project-format.md](project-format.md) §1, Backup and artifact tests.
   S-2a (done): `core/subtitles/` — `SubtitleDoc`, `SubtitleOps`, `SrtImport` (strict; Recap's lenient `Srt.parse` is unchanged), `Zawgyi.likely`.
+  S-3a (done): `SubtitleChecks` (`check`, `exportBlocks`, `autoFix`), `SubtitleDraft` + `DraftFile`, `TimeText`; `core/config/ToolsConfig` reads `config/tools.json`.
 - Pure `:core` ops with unit tests: `split`, `merge`, `insertAfter`, `delete`, `setTimes`, `shift(deltaMs, fromId?)`,
   `sort`, `checks(config)`, `toSrt(textChoice)` (numbering 1…n), `fromSrt`, `fromTranscript(tx)`,
   `applyTranslation(batch)`, draft `undo/redo` (last 50). Times are integer ms; display 0.1 s; nudge 100 ms.
