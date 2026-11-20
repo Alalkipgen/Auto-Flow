@@ -10,10 +10,9 @@ internal fun Mode.label(): UiText = when (this) {
     Mode.SUBTITLES -> UiText.V3_SUBTITLES
 }
 
-/** Whether this build has screens for the mode. Subtitles is data-only until its route lands (PLAN Phase 7 S-1b). */
+/** Whether this build has screens for the mode (each new mode decides explicitly). */
 internal fun Mode.openableHere(): Boolean = when (this) {
-    Mode.MUSIC_VIDEO, Mode.MOVIE_RECAP -> true
-    Mode.SUBTITLES -> false
+    Mode.MUSIC_VIDEO, Mode.MOVIE_RECAP, Mode.SUBTITLES -> true
 }
 
 /** Whether Projects rows show the shot counter; tool projects have no shots. */

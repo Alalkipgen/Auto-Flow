@@ -112,6 +112,9 @@ class DashboardModel(
         return name
     }
 
+    /** New Subtitles project (D-77, S-1b): automatic free name, no naming dialog or settings form; then opens it. */
+    fun createSubtitles(parent: String, name: String): Boolean = create(parent, freeName(parent, name), Mode.SUBTITLES)
+
     fun createMovieRecap(parent: String, name: String, rightsConfirmed: Boolean): Boolean {
         if (!rightsConfirmed) return fail(UiText.PROJECT_RIGHTS_REQUIRED)
         return create(parent, name, Mode.MOVIE_RECAP) { it.copy(recap = RecapV2(rightsConfirmed = true)) }

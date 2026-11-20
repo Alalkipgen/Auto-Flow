@@ -102,11 +102,14 @@ import org.koin.compose.koinInject
 /** The Movie Recap workspace (docs/specs/recap.md §7): sidebar "Mode → Movie Recap", phone More. */
 const val RECAP_SCREEN = "Movie Recap"
 
+/** The Subtitles tool (D-77, specs/quick-tools.md §5); its only project screen in both shells. */
+const val SUBTITLES_SCREEN = "Subtitles"
+
 /** First Studio v2 project screen per mode (D-77); null when this build has no screen for it. */
 internal fun v2EntryScreen(mode: io.github.alalkipgen.autoflow.core.model.Mode): String? = when (mode) {
     io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP -> "Recap"
     io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO -> "Input"
-    io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> null
+    io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
 }
 
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
@@ -169,10 +172,11 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                     screen = when (mode) {
                         io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP -> RECAP_SCREEN
                         io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO, null -> "Input"
-                        io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> "Dashboard" // never opened in this build
+                        io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
                     }
                 })
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
+                SUBTITLES_SCREEN -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject())
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
@@ -206,6 +210,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                     appInfo = appInfo,
                     backup = backup,
                     backHandler = backHandler,
+                    subtitlesTool = features.tools.subtitles,
                 )
             } else if (compact) {
                 PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
@@ -266,6 +271,7 @@ private fun StudioV2App(
     appInfo: AppInfo?,
     backup: BackupModel?,
     backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit,
+    subtitlesTool: Boolean = false,
 ) {
     val rows = io.github.alalkipgen.autoflow.ui.jobs.rememberJobRows()
     val badge = jobsBadgeValue(rows)
@@ -317,6 +323,8 @@ private fun StudioV2App(
             StudioV2Dest.HOME -> {
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
                 val dashboardState by dashboard.state.collectAsState()
+                val subtitlesModel = koinInject<io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel>()
+                val subtitlesState by subtitlesModel.state.collectAsState()
                 val recent = dashboardState.rows.filterNot { it.missing }.map { it.entry }
                 val latest = recent.maxByOrNull { it.lastOpenedAt }
                 val cached = remember(continueCache, latest?.path, latest?.mode) {
@@ -335,7 +343,8 @@ private fun StudioV2App(
                     },
                     onOpenSettings = { nav = nav.copy(settings = true) },
                     status = status,
-                    notice = dashboardState.notice?.text(LocalUiLanguage.current) ?: dashboardState.message,
+                    notice = subtitlesState.notice?.takeIf { subtitlesState.dir == null }?.text(LocalUiLanguage.current)
+                        ?: dashboardState.notice?.text(LocalUiLanguage.current) ?: dashboardState.message,
                     jobs = rows,
                     jobActions = io.github.alalkipgen.autoflow.ui.jobs.rememberJobsActions(scope),
                     onViewJobs = { nav = v2Select(nav, StudioV2Dest.JOBS) },
@@ -346,6 +355,9 @@ private fun StudioV2App(
                             ?: My.screen(target.screen)
                     },
                     recent = recent,
+                    onNewSubtitles = if (subtitlesTool) {
+                        { subtitlesModel.start { openProjectScreen(SUBTITLES_SCREEN) } }
+                    } else null,
                     onOpenProject = { dir ->
                         if (visibleRoute?.path == dir) nav = v2Select(nav, StudioV2Dest.PROJECTS)
                         else if (dashboard.open(dir)) {
@@ -366,7 +378,9 @@ private fun StudioV2App(
                     })
                 } else {
                     Column(Modifier.fillMaxSize()) {
-                        if (isRecap && screen in listOf("Recap", "Export")) {
+                        if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES && screen == SUBTITLES_SCREEN) {
+                            io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), onBack = { openProjectScreen(null) })
+                        } else if (isRecap && screen in listOf("Recap", "Export")) {
                             val nativeBlocks = screen == "Export" || screen == "Recap" && nav.recapStep in listOf(
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE,
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.STORY, io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE,

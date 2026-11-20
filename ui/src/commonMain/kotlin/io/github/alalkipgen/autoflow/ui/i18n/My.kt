@@ -80,6 +80,7 @@ object My {
         "Timeline" to UiText.TIMELINE,
         "Music Video" to UiText.MUSIC_VIDEO,
         "Movie Recap" to UiText.MOVIE_RECAP,
+        "Subtitles" to UiText.V3_SUBTITLES,
         "Settings" to UiText.SETTINGS_TITLE,
         "Projects" to UiText.PROJECTS,
         "Home" to UiText.HOME,
