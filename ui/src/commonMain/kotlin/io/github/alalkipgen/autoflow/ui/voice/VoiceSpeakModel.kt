@@ -29,6 +29,10 @@ class VoiceSpeakModel(
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow(VoiceSpeakUi())
+
+    /** Whole minutes Speak of [n] parts with [lock] takes at the job's pace (Edge faster than Gemini, F-3). */
+    fun minutes(n: Int, lock: io.github.alalkipgen.autoflow.core.recap.VoiceLock?): Int =
+        EdgeVoices.minutes(n, speak?.rpm(lock) ?: EdgeVoices.rpm(lock, io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig().rpm))
     val state: StateFlow<VoiceSpeakUi> = _state.asStateFlow()
     val jobs: StateFlow<List<AiJob>> = runner?.jobs ?: MutableStateFlow(emptyList())
 

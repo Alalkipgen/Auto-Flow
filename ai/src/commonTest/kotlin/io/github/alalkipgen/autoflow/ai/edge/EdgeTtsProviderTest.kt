@@ -83,9 +83,12 @@ class EdgeTtsProviderTest {
 
     @Test
     fun handshakeErrorsMapToCodes() {
-        assertEquals("http_403", KtorEdgeSocket.failure("Handshake exception, expected status code 101 but was 403").code)
-        assertEquals("http_503", KtorEdgeSocket.failure("expected status code 101 but was 503").code)
-        assertEquals("network", KtorEdgeSocket.failure("Connection refused").code)
+        assertEquals("http_403", (KtorEdgeSocket.failure("Handshake exception, expected status code 101 but was 403") as AiResult.Failed).code)
+        assertEquals("http_503", (KtorEdgeSocket.failure("expected status code 101 but was 503") as AiResult.Failed).code)
+        assertEquals("network", (KtorEdgeSocket.failure("Connection refused") as AiResult.Failed).code)
+        // F-3: Edge busy → the job pauses (Resume goes on), never a failure.
+        val busy = KtorEdgeSocket.failure("expected status code 101 but was 429")
+        assertTrue(busy is AiResult.RateLimited && busy.retryAfterMs == 60_000L, busy.toString())
     }
 
     @Test

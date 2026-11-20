@@ -27,6 +27,12 @@ object EdgeVoices {
     /** [VoiceLock.provider] of an Edge lock; its model is `tts.edge.model`. */
     const val PROVIDER = "edge"
 
+    /** A voice job's pace (F-3): Edge's own `tts.edge.rpm` for an Edge lock, else Gemini's [VoiceSpeakJob.RPM]. */
+    fun rpm(lock: VoiceLock?, edgeRpm: Int): Int = if (lock?.provider == PROVIDER) edgeRpm.coerceAtLeast(1) else VoiceSpeakJob.RPM
+
+    /** Whole minutes [n] requests take at [rpm] (at least 1). */
+    fun minutes(n: Int, rpm: Int): Int = maxOf(1, (n + rpm - 1) / rpm.coerceAtLeast(1))
+
     /** "Edge TTS" for an Edge lock, else "Gemini TTS" — the name a Speak error starts with. */
     fun ttsName(lock: VoiceLock): String = if (lock.provider == PROVIDER) "Edge TTS" else "Gemini TTS"
 

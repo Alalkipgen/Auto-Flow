@@ -118,6 +118,11 @@ data class EdgeTtsConfig(
     /** Longest text (UTF-8 bytes, after XML escaping) one request may carry. */
     val maxTextBytes: Int = 4000,
     val voices: List<EdgeVoice> = emptyList(),
+    /**
+     * Requests per minute a voice job sends to Edge (F-3). The free service has no key and no published limit, so the
+     * app keeps a polite pace of its own instead of Gemini's 3 rpm; a refusal (429) pauses the job (Resume goes on).
+     */
+    val rpm: Int = 20,
 ) {
     val available: Boolean get() = model.isNotBlank() && endpoint.isNotBlank() && trustedClientToken.isNotBlank() && voices.isNotEmpty()
 

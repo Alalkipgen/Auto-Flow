@@ -16,6 +16,7 @@
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
       "outputFormat": "audio-24khz-48kbitrate-mono-mp3",
       "maxTextBytes": 4000,
+      "rpm": 20,
       "voices": [
         { "id": "my-MM-ThihaNeural", "name": "Thiha", "gender": "male",   "lang": "my" },
         { "id": "my-MM-NilarNeural", "name": "Nilar", "gender": "female", "lang": "my" }

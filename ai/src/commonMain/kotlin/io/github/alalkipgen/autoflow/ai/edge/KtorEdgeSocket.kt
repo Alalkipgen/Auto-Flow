@@ -50,10 +50,14 @@ class KtorEdgeSocket(
     }
 
     companion object {
-        /** A handshake error names the HTTP status ("expected status code 101 but was 403"). */
-        fun failure(message: String): AiResult.Failed {
+        /**
+         * A handshake error names the HTTP status ("expected status code 101 but was 403"). 429 = Edge is busy (F-3):
+         * [AiResult.RateLimited], so the voice job pauses and Resume goes on instead of failing.
+         */
+        fun failure(message: String): AiResult<Nothing> {
             val status = Regex("\\b([45]\\d\\d)\\b").find(message)?.groupValues?.get(1)
             return when {
+                status == "429" -> AiResult.RateLimited(60_000, "Edge is busy (429)")
                 status == "403" -> AiResult.Failed("http_403", "Edge refused the request (Microsoft may have changed the free service). Use a Gemini voice.")
                 status != null -> AiResult.Failed("http_$status", "Edge answered $status")
                 else -> AiResult.Failed("network", "Edge cannot be reached: ${message.ifBlank { "no connection" }}")

@@ -54,6 +54,11 @@ class DubVoiceModel(
     val edgeVoices: () -> io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig? = { null },
 ) {
     private val _state = MutableStateFlow(DubVoiceUi())
+
+    /** Whole minutes Speak of [n] lines with [lock] takes at the job's pace (Edge faster than Gemini, F-3). */
+    fun minutes(n: Int, lock: io.github.alalkipgen.autoflow.core.recap.VoiceLock?): Int =
+        io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.minutes(n, speak?.rpm(lock)
+            ?: io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.rpm(lock, io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig().rpm))
     val state: StateFlow<DubVoiceUi> = _state.asStateFlow()
     val jobs: StateFlow<List<AiJob>> = runner?.jobs ?: MutableStateFlow(emptyList())
 

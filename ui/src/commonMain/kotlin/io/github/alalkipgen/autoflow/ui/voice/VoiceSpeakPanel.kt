@@ -36,7 +36,7 @@ internal fun SpeakPanel(model: VoiceSpeakModel, dir: String, job: AiJob?) {
         }
         c != null -> AfCard(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to c.parts.size)), Modifier.testTag("voice-speak-confirm")) {
             AfText(My.breakSyllables(tr(UiText.VA_SPEAK_CONFIRM, "n" to c.parts.size, "voice" to "${c.lock.voice} · ${c.lock.model}",
-                "minutes" to (c.parts.size + VoiceSpeakJob.RPM - 1) / VoiceSpeakJob.RPM)), Modifier.testTag("voice-speak-facts"), bold = true)
+                "minutes" to model.minutes(c.parts.size, c.lock))), Modifier.testTag("voice-speak-facts"), bold = true)
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("voice-speak-start"), kind = ButtonKind.Primary)
                 AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("voice-speak-back"))

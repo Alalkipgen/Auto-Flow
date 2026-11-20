@@ -54,6 +54,19 @@ class EdgeVoicesTest {
         assertEquals("tts-b", EdgeVoices.geminiModel(VoiceLock("gemini", "tts-b", "Kore", "my"), listOf("tts-a", "tts-b")))
     }
 
+    /** F-3: an Edge job keeps Edge's own pace (`tts.edge.rpm`), a Gemini job Gemini's; the wait shown is whole minutes. */
+    @Test fun edgeJobsKeepTheirOwnPace() {
+        assertEquals(20, EdgeTtsConfig().rpm)
+        assertEquals(20, EdgeVoices.rpm(thiha, 20))
+        assertEquals(1, EdgeVoices.rpm(thiha, 0), "never zero")
+        assertEquals(VoiceSpeakJob.RPM, EdgeVoices.rpm(VoiceLock("gemini", "tts-a", "Kore", "my"), 20))
+        assertEquals(VoiceSpeakJob.RPM, EdgeVoices.rpm(null, 20))
+        assertEquals(1, EdgeVoices.minutes(1, 20))
+        assertEquals(1, EdgeVoices.minutes(20, 20))
+        assertEquals(3, EdgeVoices.minutes(41, 20))
+        assertEquals(14, EdgeVoices.minutes(41, 3))
+    }
+
     @Test fun pickingEdgeThenGeminiVoices() = runDesktopComposeUiTest(width = 412, height = 900) {
         val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
         val index = ProjectIndex(fs, "/app/projects.json")
