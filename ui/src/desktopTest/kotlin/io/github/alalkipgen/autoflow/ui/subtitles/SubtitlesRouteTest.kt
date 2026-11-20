@@ -129,7 +129,7 @@ class SubtitlesRouteTest {
                         width = 1920, height = 1080, fps = 25.0, videoCodec = "h264", audioCodec = "aac", subtitleTracks = tracks) })
                 setContent {
                     CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
-                        LocalUiFontFamily provides BurmeseTestFont.family) { SubtitlesScreen(model, session, SubtitleEditorModel(session, fs, kotlinx.coroutines.MainScope())) }
+                        LocalUiFontFamily provides BurmeseTestFont.family) { SubtitlesScreen(model, session, SubtitleEditorModel(session, fs, kotlinx.coroutines.MainScope()), player = { _, _, m, _ -> androidx.compose.foundation.layout.Box(m) }) }
                 }
                 val facts = UiText.SUBTITLES_VIDEO_FACTS.text(language, "duration" to "1:02:05", "width" to 1920, "height" to 1080,
                     "fps" to "29.97", "sound" to UiText.SUBTITLES_SOUND_NO.text(language))
@@ -139,9 +139,9 @@ class SubtitlesRouteTest {
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-doc-facts").fetchSemanticsNodes().isNotEmpty() }
                     onNodeWithTag("subtitles-doc-facts").assertTextEquals(My.breakSyllables(UiText.SUB_DOC_FACTS.text(language,
                         "n" to 2, "from" to UiText.SUB_FROM_TRACK.text(language, "index" to "2"))))
-                    onNodeWithTag("subtitles-cues").assertIsDisplayed()
-                    onNodeWithTag("subtitles-cue-c1").assertIsDisplayed()
                     onNodeWithTag("subtitles-view-ORIGINAL").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "selected"))
+                    onNodeWithTag("subtitles-cues").assertIsDisplayed().performScrollToKey("c1")
+                    onNodeWithTag("subtitles-cue-c1").assertIsDisplayed()
                     onNodeWithTag("subtitles-save").assertDoesNotExist() // nothing to save before an edit
                 } else {
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-track-2").fetchSemanticsNodes().isNotEmpty() }

@@ -85,11 +85,12 @@ class SubtitleEditorModel(
         if (next !== draft) schedulePersist()
     }
 
-    /** Split here without a playhead (S-3d adds it): at the first line break, timed by its place in the text. */
-    fun splitAtBreak(id: String) = edit { doc ->
+    /** Split here: at [atMs] when it is inside the line (the playhead), else in proportion to the line break. */
+    fun splitAt(id: String, atMs: Long? = null) = edit { doc ->
         val c = doc.cues.firstOrNull { it.id == id } ?: return@edit Edit.Refused(EditRefusal.NoSuchLine)
         val cut = c.text.indexOf('\n')
-        val at = if (cut > 0) c.startMs + (c.endMs - c.startMs) * cut / c.text.length else (c.startMs + c.endMs) / 2
+        val at = atMs?.takeIf { it > c.startMs && it < c.endMs }
+            ?: if (cut > 0) c.startMs + (c.endMs - c.startMs) * cut / c.text.length else (c.startMs + c.endMs) / 2
         SubtitleOps.split(doc, id, at.coerceIn(c.startMs + 1, (c.endMs - 1).coerceAtLeast(c.startMs + 1)))
     }
 
