@@ -109,6 +109,9 @@ data class RecapExport(
     val chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter> = emptyList(),
 )
 
+/** F-6: the Music Video preview — the render graph, the accepted videos by artifact (absolute) and the song file. */
+internal data class MusicPreview(val graph: RenderGraph, val files: Map<ArtifactId, String>, val song: String?)
+
 /** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
 data class PreviewFile(val path: String, val bytes: Long, val completedRunId: String? = null)
 
@@ -487,6 +490,20 @@ class ExportModel(
             chapters = if (rows.isEmpty() || story == null) emptyList()
             else PublishKitText.chaptersFromBlocks(rows.map { it.clipMs }, story.blocks.map { it.textMy }),
         )
+    }
+
+    /**
+     * F-6 (D-95): what a Music Video render of the open project will show, for the Preview page — the render's own
+     * [ProjectRender.graph] (clips in shot order, pending cards, lyric overlays, song) with absolute files. Nothing is
+     * rendered or saved. Null in a Movie Recap project or with no project open.
+     */
+    internal fun musicPreview(): MusicPreview? {
+        val open = session.open ?: return null
+        if (isRecap(open.project)) return null
+        val files = mutableMapOf<ArtifactId, String>()
+        val graph = ProjectRender.graph(open.project, Quality.PREVIEW, session.songPath(),
+            { id -> videoFile(open, id)?.let { joinPath(open.dir, it) }?.also { files[id] = it } }, frames.font()?.family, timings())
+        return MusicPreview(graph, files, session.songPath()?.takeIf { fs.exists(it) })
     }
 
     /** The saved line timings when they still match the lyrics, else null (per-shot lyrics). */

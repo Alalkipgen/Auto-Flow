@@ -196,11 +196,14 @@ class SubtitleBurnTest {
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-export-open").performMouseInput { click() }
         onNodeWithTag("subtitles-export-video-planned").assertDoesNotExist()
+        // F-6 (D-95): the burn card previews the video before Make video; without a decoder it says so and the card goes on.
+        onNodeWithTag("burn-preview-hint").assertExists()
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("burn-preview-unavailable").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-CLEAN").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "selected"))
         onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-notice").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-notice").assertTextContains("Burmese font", substring = true)
-        onNodeWithTag("subtitles-export-ORIGINAL").performMouseInput { click() }
+        onNodeWithTag("subtitles-export-ORIGINAL").performScrollTo().performMouseInput { click() }
         onNodeWithTag("subtitles-burn-OUTLINE").performScrollTo().performMouseInput { click() }
         onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-job").fetchSemanticsNodes().isNotEmpty() }

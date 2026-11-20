@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 
 /** Existing Media3 engine, now source-clock controlled and lifecycle bound; no looping first-clip player. */
-class AndroidMoviePlayer(private val activity: Activity, path: String, muted: Boolean = true) : MoviePlayer {
+class AndroidMoviePlayer(private val activity: Activity, path: String, private val muted: Boolean = true) : MoviePlayer {
     private val player = ExoPlayer.Builder(activity).build()
     override val frames = MutableStateFlow<MovieFrame?>(null) // TextureView stays BELOW Compose overlays.
     private var closed = false
@@ -44,6 +44,7 @@ class AndroidMoviePlayer(private val activity: Activity, path: String, muted: Bo
     private fun applyPlaying() { if (!closed) player.playWhenReady = desiredPlaying && foreground }
     override fun seek(positionMs: Long) { if (!closed) player.seekTo(positionMs.coerceAtLeast(0)) }
     override fun setRate(rate: Float) { if (!closed && rate.isFinite() && rate in 0.1f..4f) player.setPlaybackSpeed(rate) }
+    override fun setVolume(volume: Float) { if (!closed && !muted && volume.isFinite()) player.volume = volume.coerceIn(0f, 1f) }
     override fun snapshot() = if (closed) MovieSnapshot(phase = MoviePhase.CLOSED) else MovieSnapshot(
         player.currentPosition.coerceAtLeast(0), player.duration.coerceAtLeast(0), when {
             problem != null -> MoviePhase.FAILED

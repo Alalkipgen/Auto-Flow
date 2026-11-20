@@ -267,11 +267,13 @@ const val SHOT_SHEET = "Shot sheet"
 
 /** The classic Music Video steps, kept for one release behind this entry (like Classic Recap, D-41). */
 const val MV_CLASSIC = "Classic steps"
+/** F-6: the Music Video Preview page (no render). */
+const val MV_PREVIEW = "Preview"
 val MV_CLASSIC_SCREENS = listOf("Storyboard", "Shots", "References", "Flow Handoff")
 
 /** Project screens reachable in Studio v2, per project mode. */
 fun v2ProjectScreens(recap: Boolean): List<String> =
-    if (recap) listOf("Recap", "Export") else listOf("Input", SHOT_SHEET, "Inbox", "Export", MV_CLASSIC)
+    if (recap) listOf("Recap", "Export") else listOf("Input", SHOT_SHEET, "Inbox", MV_PREVIEW, "Export", MV_CLASSIC)
 
 /**
  * Studio v2 root (5A-6): Home · Projects · Library · Jobs with adaptive shell.
@@ -517,7 +519,19 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float,
             io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffScreen(model = koinInject(), readBytes = { path -> runCatching { fs.read(path) }.getOrNull() })
         }
         "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
-        "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
+        // F-6 (D-95): the Music Video before any render, as its own page and on top of Export.
+        MV_PREVIEW -> {
+            val model = koinInject<io.github.alalkipgen.autoflow.ui.export.ExportModel>()
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).testTag("mv-preview-page")) {
+                io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview(model, io.github.alalkipgen.autoflow.ui.subtitles.moviePlayer(model.previewVlcDir()))
+            }
+        }
+        "Export" -> {
+            val model = koinInject<io.github.alalkipgen.autoflow.ui.export.ExportModel>()
+            io.github.alalkipgen.autoflow.ui.export.ExportScreen(model, livePreview = {
+                io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview(model, io.github.alalkipgen.autoflow.ui.subtitles.moviePlayer(model.previewVlcDir()))
+            })
+        }
         else -> ScreenPlaceholder(screen)
     }
 }

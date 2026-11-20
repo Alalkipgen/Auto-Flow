@@ -25,7 +25,8 @@ import kotlinx.coroutines.launch
  * Save to Gallery (phone) or Open folder (desktop).
  */
 @Composable
-internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: SubtitleDoc, go: (DubStep) -> Unit) {
+internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: SubtitleDoc, go: (DubStep) -> Unit,
+    preview: @Composable () -> Unit = {}) {
     val all by model.state.collectAsState()
     val runs by model.runs.collectAsState()
     val s = all.takeIf { it.dir == open?.dir } ?: DubExportUi()
@@ -35,6 +36,7 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
     Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(screenPadding).testTag("dub-export"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            preview() // F-6: scrolls with the step
             if (check != null && !check.ok) AfCard(My.breakSyllables(tr(UiText.DUB_EXPORT_NOT_READY)), Modifier.testTag("dub-export-blocks")) {
                 if (!check.approved) Block(tr(UiText.DUB_LOCK_NOT_APPROVED), "approval", DubStep.SCRIPT, go)
                 if (check.noVoice.isNotEmpty()) Block(tr(UiText.DUB_EXPORT_NO_VOICE, "n" to check.noVoice.size), "voice", DubStep.VOICE, go)

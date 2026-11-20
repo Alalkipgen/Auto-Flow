@@ -308,8 +308,14 @@ class DubbingScreenTest {
                         }
                     }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-go-export").fetchSemanticsNodes().isNotEmpty() }
+                    // F-6 (D-95): Voice and Export show the dubbed video before any render, both spoken lines in it.
+                    onNodeWithTag("dub-preview-hint").assertTextEquals(My.breakSyllables(UiText.DUB_PREVIEW_HINT.text(language, "n" to 2)))
+                    onNodeWithTag("dub-preview").assertIsDisplayed()
                     onNodeWithTag("dub-go-export").performMouseInput { click() }
                     onNodeWithTag("dub-step-EXPORT").assert(chosen)
+                    onNodeWithTag("dub-preview").assertIsDisplayed()
+                    onNodeWithTag("dub-play").performScrollTo().assertIsDisplayed()
+                    onNodeWithTag("dub-export-original").performScrollTo()
                     onNodeWithTag("dub-export-blocks").assertDoesNotExist()
                     onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.DUB_LOWER.text(language)))
                     onNodeWithTag("dub-burn-lines-1").assertDoesNotExist()

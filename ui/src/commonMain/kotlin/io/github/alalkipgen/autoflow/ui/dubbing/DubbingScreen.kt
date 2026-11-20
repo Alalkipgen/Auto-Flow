@@ -58,6 +58,12 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
     // Landing on Dub script or Voice stays put (Approve does not move the owner away); Video → Translate still follows the lines.
     LaunchedEffect(open?.dir, doc != null) { if (step == null && doc != null && shown >= DubStep.SCRIPT) step = shown }
     var leaving by remember { mutableStateOf(false) }
+    // F-6 (D-95): one preview clock for Dub script, Voice and Export; a step change pauses it where it is.
+    val playhead = remember(open?.dir) { Playhead() }
+    LaunchedEffect(shown) { playhead.playing = false; playhead.seek(playhead.positionMs) }
+    val preview: @Composable (Boolean) -> Unit = { captions ->
+        if (export != null && doc != null) DubPreview(export, open, doc, playhead, player, captions)
+    }
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         ProjectTopBar(open?.project?.name.orEmpty(), shown.ordinal + 1, tr(shown.text), { if (dirty) leaving = true else onBack() })
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp).testTag("dub-steps"),
@@ -75,12 +81,13 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                 DubStep.SCRIPT -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.script != null -> Lock(block(gates.script, gates, script), target(gates.script), go)
-                    doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok)
+                    doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok) { preview(true) }
                 }
                 DubStep.VOICE -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
-                    voice != null && doc != null -> VoiceStep(voice, open, doc, { step = DubStep.EXPORT }, shorten, script) { step = DubStep.SCRIPT }
+                    voice != null && doc != null -> VoiceStep(voice, open, doc, { step = DubStep.EXPORT }, shorten, script,
+                        { step = DubStep.SCRIPT }) { preview(true) }
                     else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
                         PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-VOICE"))
                     }
@@ -88,7 +95,7 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                 DubStep.EXPORT -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
-                    export != null && doc != null -> ExportStep(export, open, doc, go)
+                    export != null && doc != null -> ExportStep(export, open, doc, go) { preview(open?.project?.dubbing?.burnSubtitles == true) }
                     else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
                         PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-${shown.name}"))
                     }
@@ -130,13 +137,15 @@ private fun Lock(why: String, to: DubStep? = null, go: (DubStep) -> Unit = {}) {
 
 @Composable
 private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui.projects.OpenProject?,
-    doc: io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc, approved: Boolean, notice: UiNotice?, ok: Boolean) {
+    doc: io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc, approved: Boolean, notice: UiNotice?, ok: Boolean,
+    preview: @Composable () -> Unit = {}) {
     val rows = remember(open?.project?.subtitles?.video, doc) { model.rows(open, doc) }
     Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
         notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.padding(horizontal = 12.dp).testTag("dub-notice"),
             color = if (ok) AutoFlowColors.Green else AutoFlowColors.Failed) }
         LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("dub-rows"), contentPadding = PaddingValues(screenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item(key = "preview") { preview() } // F-6: scrolls with the lines
             items(rows, key = { it.id }) { r -> ScriptRow(r, { model.setSpoken(r.id, it) }, { model.useSubtitle(r.id) }) }
         }
         StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_APPROVE)), { model.approve() }, enabled = !approved, tag = "dub-approve"),

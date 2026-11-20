@@ -26,7 +26,7 @@ internal fun RecapPreviewSound(timeline: RecapTimeline, music: RecapPreviewSourc
 }
 
 @Composable
-private fun PreviewTrack(file: String, wantMs: Long, playing: Boolean, speed: Float, volume: Float, loop: Boolean) {
+internal fun PreviewTrack(file: String, wantMs: Long, playing: Boolean, speed: Float, volume: Float, loop: Boolean) {
     val player = rememberSongPlayer(file) ?: return
     LaunchedEffect(player, speed, volume) { player.setSpeed(speed); player.setVolume(volume) }
     SideEffect { PreviewSync.apply(player, wantMs, playing, loop) }

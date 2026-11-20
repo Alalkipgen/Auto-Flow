@@ -49,6 +49,22 @@ class ProjectShortcuts internal constructor() {
 val LocalProjectShortcuts = staticCompositionLocalOf<ProjectShortcuts?> { null }
 
 /**
+ * F-6: the phone Edit / Preview page of a project screen. A narrow [io.github.alalkipgen.autoflow.ui.recap.ProjectPanes]
+ * offers the page while it is shown; [ProjectTopBar] then draws one toggle in its existing row, so the page adds no
+ * height above the editor (large Burmese text must still fit before any scroll).
+ */
+@Stable
+class ProjectPreviewPage {
+    var shown by mutableStateOf(false)
+    private var offers by mutableIntStateOf(0)
+    val available: Boolean get() = offers > 0
+    internal fun offer() { offers++ }
+    internal fun withdraw() { offers--; if (offers == 0) shown = false }
+}
+
+val LocalProjectPreviewPage = staticCompositionLocalOf<ProjectPreviewPage?> { null }
+
+/**
  * Shortcuts belong to the project surface, never a focused descendant. This protects ALL text inputs (including
  * non-AfTextField inputs), button Space/Enter, scrubber arrows, selection and accessibility key handling without
  * a fragile per-input focus counter. Tab still reaches controls; click passive content to return here.
@@ -61,8 +77,9 @@ fun ProjectShortcutHost(modifier: Modifier = Modifier, onKey: ((KeyEvent) -> Boo
     val focus = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
     var hasFocus by remember { mutableStateOf(false) }
+    val page = remember { ProjectPreviewPage() }
     LaunchedEffect(Unit) { if (!hasFocus) focus.requestFocus() }
-    CompositionLocalProvider(LocalProjectShortcuts provides shortcuts) {
+    CompositionLocalProvider(LocalProjectShortcuts provides shortcuts, LocalProjectPreviewPage provides page) {
         Box(modifier.fillMaxSize()
             .pointerInput(focus) {
                 awaitEachGesture {

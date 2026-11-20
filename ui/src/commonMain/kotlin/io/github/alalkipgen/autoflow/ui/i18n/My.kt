@@ -100,6 +100,7 @@ object My {
         "Input" to UiText.INPUT,
         "Shot sheet" to UiText.SHOT_SHEET,
         "Inbox" to UiText.INBOX,
+        "Preview" to UiText.PROJECT_PAGE_PREVIEW,
         "Classic steps" to UiText.CLASSIC_STEPS,
         "Storyboard" to UiText.STORYBOARD,
         "Shots" to UiText.SHOTS,
