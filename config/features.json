@@ -3,7 +3,8 @@
   "studioV2": true,
   "quickRecap": true,
   "tools": {
-    "subtitles": false
+    "subtitles": false,
+    "voiceAudio": false
   },
   "labs": {
     "voiceClone": false,

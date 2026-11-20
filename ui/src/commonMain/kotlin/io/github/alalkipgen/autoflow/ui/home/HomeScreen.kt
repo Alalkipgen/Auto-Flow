@@ -47,6 +47,8 @@ fun HomeScreen(
     jobActions: io.github.alalkipgen.autoflow.ui.jobs.JobsActions? = null,
     /** Opens the picker for a new Subtitles project; null keeps the tile Planned (flag `tools.subtitles` off, D-84). */
     onNewSubtitles: (() -> Unit)? = null,
+    /** Opens the Voice & Audio chooser; null keeps the tile Planned (flag `tools.voiceAudio` off, D-84). */
+    onNewVoice: (() -> Unit)? = null,
 ) {
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
@@ -78,7 +80,8 @@ fun HomeScreen(
             }
             SectionCard(tr(UiText.V3_QUICK_TOOLS)) {
                 AfText(My.breakSyllables(tr(UiText.V3_TOOLS_IN_PROJECT)), muted = true)
-                PlannedTile(tr(UiText.V3_VOICE_AUDIO), modifier = Modifier.testTag("home-voice-tool"))
+                if (onNewVoice != null) AfButton(tr(UiText.V3_VOICE_AUDIO), onNewVoice, Modifier.fillMaxWidth().testTag("home-voice-tool"))
+                else PlannedTile(tr(UiText.V3_VOICE_AUDIO), modifier = Modifier.testTag("home-voice-tool"))
                 if (onNewSubtitles != null) AfButton(tr(UiText.V3_SUBTITLES), onNewSubtitles, Modifier.fillMaxWidth().testTag("home-subtitles-tool"))
                 else PlannedTile(tr(UiText.V3_SUBTITLES), modifier = Modifier.testTag("home-subtitles-tool"))
             }

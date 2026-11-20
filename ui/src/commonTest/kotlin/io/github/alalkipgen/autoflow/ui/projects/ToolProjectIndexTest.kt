@@ -80,14 +80,14 @@ class ToolProjectIndexTest {
     }
 
     @Test
-    fun voiceAudioProjectIsListedWithItsLabelButNotOpenedYet() {
+    fun voiceAudioProjectIsListedWithItsLabelAndOpens() {
         val store = ProjectStore(fs)
         val current = CurrentProject()
         val model = DashboardModel(fs, store, ProjectIndex(fs, path, StepClock()), SettingsStore(fs, "/home/u/.autoflow/settings.json"), FakePicker(), current)
         store.create("/p/Voice.autoflow", "Voice", Mode.VOICE_AUDIO).getOrNull()!!
         val bytes = fs.read("/p/Voice.autoflow/project.json")
-        assertFalse(model.open("/p/Voice.autoflow")) // its screens come with V-1c
-        assertNull(current.state.value)
+        assertTrue(model.open("/p/Voice.autoflow")) // V-1c: Voice & Audio screen
+        assertEquals(Mode.VOICE_AUDIO, current.state.value?.project?.mode)
         val row = model.state.value.rows.single().entry
         assertEquals(Mode.VOICE_AUDIO to "Voice", row.mode to row.name)
         assertEquals(UiText.V3_VOICE_AUDIO, row.mode.label())

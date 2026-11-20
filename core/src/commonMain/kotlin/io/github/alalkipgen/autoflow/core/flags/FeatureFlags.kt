@@ -23,6 +23,7 @@ data class FeatureFlags(
         STUDIO_V2 to studioV2,
         QUICK_RECAP to quickRecap,
         TOOLS_SUBTITLES to tools.subtitles,
+        TOOLS_VOICE_AUDIO to tools.voiceAudio,
         "labs.voiceClone" to labs.voiceClone,
         "labs.dubbing" to labs.dubbing,
         "labs.vocalSeparation" to labs.vocalSeparation,
@@ -40,7 +41,7 @@ data class FeatureFlags(
         return copy(
             studioV2 = v(STUDIO_V2, studioV2),
             quickRecap = v(QUICK_RECAP, quickRecap),
-            tools = Tools(subtitles = v(TOOLS_SUBTITLES, tools.subtitles)),
+            tools = Tools(subtitles = v(TOOLS_SUBTITLES, tools.subtitles), voiceAudio = v(TOOLS_VOICE_AUDIO, tools.voiceAudio)),
             labs = Labs(
                 voiceClone = v("labs.voiceClone", labs.voiceClone),
                 dubbing = v("labs.dubbing", labs.dubbing),
@@ -59,6 +60,7 @@ data class FeatureFlags(
         const val STUDIO_V2 = "studioV2"
         const val QUICK_RECAP = "quickRecap"
         const val TOOLS_SUBTITLES = "tools.subtitles"
+        const val TOOLS_VOICE_AUDIO = "tools.voiceAudio"
 
         private val json = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
 
@@ -81,6 +83,7 @@ data class FeatureFlags(
 @SerialName("Tools")
 data class Tools(
     val subtitles: Boolean = false,
+    val voiceAudio: Boolean = false,
 )
 
 /** Experimental features, off until their PLAN Labs item ships. */

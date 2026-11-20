@@ -290,3 +290,10 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 ### V-1a — Voice & Audio project data (nothing to press yet)
 
 - Nothing new to see: Home still shows Voice & Audio as Planned. Existing Music Video, Movie Recap and Subtitles projects open and save exactly as before.
+
+### V-1c — Voice & Audio tile, chooser and text (phone + Windows, PHONE_PENDING)
+
+- Self-test → Preview features: turn on `tools.voiceAudio`. Home → Quick tools: **Voice & Audio** is a button (off: Planned).
+- Press it: "What do you want to do?" with **Text → voice**, and Clean up sound / Video sound as Planned. Nothing appears in Projects yet.
+- Text → voice: paste a long Burmese text (with names, numbers like 3.5 and English): the line under it shows characters and parts (about 500 characters per part). Back returns to the chooser and creates nothing.
+- **Continue with this text**: a project "Voice · <date time>" opens with the text; "Speak n parts" is shown as Planned. Change the text, wait a second, go Home and reopen it from Continue: the change is there.
