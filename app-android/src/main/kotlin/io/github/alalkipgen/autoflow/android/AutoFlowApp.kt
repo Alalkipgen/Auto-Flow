@@ -20,7 +20,8 @@ class AutoFlowApp : Application() {
             // job's own project and block ids (not the open project / scene indexes); other kinds fail, never Done.
             val koin = getKoin()
             AiWorkerRegistry.processor = RecapJobProcessor({ koin.getOrNull<RecapModel>() }, { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber>() },
-                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob>() })
+                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob>() },
+                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob>() })
         } catch (e: Exception) {
             CrashLog.record(this, Thread.currentThread(), e)
         }

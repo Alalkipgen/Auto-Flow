@@ -20,14 +20,17 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 /**
  * Voice & Audio (specs/quick-tools.md §6): the task chooser (Text → voice; Clean up sound and Video sound stay Planned
  * until V-2/V-3), then Text → voice with the text, its counter and part count; once the project exists also the voice
- * lock, tone chips and the parts list (V-1d). [onBack] leaves the tool.
+ * lock, tone chips and the parts list (V-1d) with ▶ / ↻ and Speak (V-1e, [speak]). [onBack] leaves the tool.
  */
 @Composable
 fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null,
-    onOpened: () -> Unit = {}) {
+    onOpened: () -> Unit = {}, speak: VoiceSpeakModel? = null) {
     val open by session.state.collectAsState()
     val s by model.state.collectAsState()
+    val jobs by (speak?.jobs ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsState()
+    val job = speak?.jobOf(s.dir, jobs)
     LaunchedEffect(open?.dir) { model.show() }
+    LaunchedEffect(open?.project) { model.sync() }
     DisposableEffect(Unit) { onDispose { model.flush() } }
     val back: (() -> Unit)? = if (s.fresh && s.task != null) model::backToChooser else onBack
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -40,14 +43,18 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
             s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("voice-notice"), color = AutoFlowColors.Failed) }
             when (s.task) {
                 null -> Chooser(model)
-                VoiceTool.TASK_TEXT -> TextStep(model, s)
+                VoiceTool.TASK_TEXT -> TextStep(model, s, speak, job)
                 else -> AfText(My.breakSyllables(tr(UiText.NEEDS_NEWER_APP)), muted = true)
             }
         }
         if (s.fresh && s.task == VoiceTool.TASK_TEXT) StickyActionBar(
             primary = StudioAction(My.breakSyllables(tr(UiText.VA_CONTINUE_TEXT)), { model.createWithText(onOpened) }, enabled = s.text.isNotBlank(),
                 tag = "voice-continue"),
-        )
+        ) else if (s.task == VoiceTool.TASK_TEXT && speak != null && job == null) {
+            val n = s.rows.count { !it.voiced }
+            StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to n)), { speak.ask() }, enabled = n > 0,
+                tag = "voice-speak"))
+        }
     }
 }
 
@@ -61,19 +68,22 @@ private fun Chooser(model: VoiceAudioModel) {
 }
 
 @Composable
-private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi) {
+private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?) {
+    val idle = job == null
     AfH2(My.breakSyllables(tr(UiText.VA_TEXT_TO_VOICE)))
-    AfTextField(s.text, model::setText, tr(UiText.VA_PASTE), Modifier.fillMaxWidth().testTag("voice-text"), lines = 8, mono = false)
+    AfTextField(s.text, model::setText, tr(UiText.VA_PASTE), Modifier.fillMaxWidth().testTag("voice-text"), lines = 8, mono = false, enabled = idle)
     val parts = remember(s.text) { model.parts(s.text) }
     AfText(My.breakSyllables(tr(UiText.VA_COUNT, "chars" to s.text.length, "n" to parts)), Modifier.testTag("voice-count"), muted = true)
     if (s.fresh) return
-    VoicePicker(model, s)
+    VoicePicker(model, s, idle)
     AfText(tr(UiText.VA_TONE), bold = true)
     WrapRow {
-        TONES.forEach { (id, label) -> AfChip(My.breakSyllables(tr(label)), s.tone == id, { model.setTone(id) }, Modifier.testTag("voice-tone-$id")) }
+        TONES.forEach { (id, label) -> AfChip(My.breakSyllables(tr(label)), s.tone == id, { model.setTone(id) }, Modifier.testTag("voice-tone-$id"), enabled = idle) }
     }
     AfText(My.breakSyllables(tr(UiText.VA_TAKE_RULE)), muted = true)
+    s.dir?.let { dir -> speak?.let { SpeakPanel(it, dir, job) } }
     AfText(My.breakSyllables(tr(UiText.VA_PARTS, "n" to s.rows.size)), bold = true)
+    var playing by remember { mutableStateOf<String?>(null) }
     s.rows.forEachIndexed { i, row ->
         Row(Modifier.fillMaxWidth().testTag("voice-part-${row.id}"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("${i + 1}.", muted = true)
@@ -81,11 +91,14 @@ private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi) {
                 AfText(My.breakSyllables(row.text))
                 AfText(My.breakSyllables(tr(if (row.voiced) UiText.VA_VOICED else UiText.VA_NOT_VOICED)), Modifier.testTag("voice-part-${row.id}-status"),
                     muted = !row.voiced, color = if (row.voiced) AutoFlowColors.Green else null)
+                if (row.take != null) WrapRow {
+                    model.takePath(row.take)?.let { AudioPlayButton(it, playing == row.id, { playing = if (playing == row.id) null else row.id }) }
+                    if (speak != null) AfButton(My.breakSyllables("↻ " + tr(UiText.VA_REDO_PART)), { speak.ask(setOf(row.id)) },
+                        Modifier.testTag("voice-redo-${row.id}"), enabled = idle)
+                }
             }
         }
     }
-    PlannedTile(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to s.rows.count { !it.voiced })), My.breakSyllables(tr(UiText.VA_SPEAK_NEXT)),
-        Modifier.fillMaxWidth().testTag("voice-speak-planned"))
 }
 
 private val TONES = listOf("calm" to UiText.VA_TONE_CALM, "lively" to UiText.VA_TONE_LIVELY, "news" to UiText.VA_TONE_NEWS,
@@ -93,25 +106,25 @@ private val TONES = listOf("calm" to UiText.VA_TONE_CALM, "lively" to UiText.VA_
 
 /** Saved voices first (Library), then the Burmese-capable models and voices; a tap saves the new lock. */
 @Composable
-private fun VoicePicker(model: VoiceAudioModel, s: VoiceAudioUi) {
+private fun VoicePicker(model: VoiceAudioModel, s: VoiceAudioUi, idle: Boolean) {
     val lock = s.lock
     AfText(tr(UiText.VA_VOICE), bold = true)
     if (s.savedVoices.isNotEmpty()) {
         AfText(My.breakSyllables(tr(UiText.VA_SAVED_VOICES)), muted = true)
-        WrapRow { s.savedVoices.forEach { v -> AfChip(v.name, lock == v.lock, { model.setLock(v.lock) }, Modifier.testTag("voice-saved-${v.id}")) } }
+        WrapRow { s.savedVoices.forEach { v -> AfChip(v.name, lock == v.lock, { model.setLock(v.lock) }, Modifier.testTag("voice-saved-${v.id}"), enabled = idle) } }
     }
     AfText(My.breakSyllables(tr(UiText.BURMESE_TTS_MODELS)), muted = true)
     if (model.models.isEmpty()) AfText(My.breakSyllables(tr(UiText.BURMESE_MODELS_MISSING)), color = AutoFlowColors.Amber)
     WrapRow {
         model.models.forEach { id ->
-            AfChip(id, lock?.model == id, { model.setLock(VoiceLock("gemini", id, lock?.voice ?: "Charon", "my")) }, Modifier.testTag("voice-model-$id"))
+            AfChip(id, lock?.model == id, { model.setLock(VoiceLock("gemini", id, lock?.voice ?: "Charon", "my")) }, Modifier.testTag("voice-model-$id"), enabled = idle)
         }
     }
     WrapRow {
         RecapModel.TTS_VOICES.forEach { (name, _) ->
             val modelId = lock?.model?.takeIf { it.isNotBlank() } ?: model.models.firstOrNull()
             AfChip(My.breakSyllables("$name · ${ttsVoiceKind(name)}"), lock?.voice == name, { modelId?.let { model.setLock(VoiceLock("gemini", it, name, "my")) } },
-                Modifier.testTag("voice-voice-$name"), enabled = modelId != null)
+                Modifier.testTag("voice-voice-$name"), enabled = idle && modelId != null)
         }
     }
 }

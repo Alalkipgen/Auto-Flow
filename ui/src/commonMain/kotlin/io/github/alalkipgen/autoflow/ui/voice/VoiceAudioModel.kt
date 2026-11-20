@@ -1,6 +1,10 @@
 package io.github.alalkipgen.autoflow.ui.voice
 
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.getOrNull
+import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.config.ToolsConfig
 import io.github.alalkipgen.autoflow.core.library.LibraryStore
 import io.github.alalkipgen.autoflow.core.library.SavedVoice
@@ -34,7 +38,7 @@ data class VoiceAudioUi(val fresh: Boolean = false, val task: String? = null, va
     val savedVoices: List<SavedVoice> = emptyList())
 
 /** One row of the parts list: its text and whether it has a current take. */
-data class VoicePartRow(val id: String, val text: String, val voiced: Boolean)
+data class VoicePartRow(val id: String, val text: String, val voiced: Boolean, val take: ArtifactId? = null)
 
 /**
  * The Voice & Audio tool (specs/quick-tools.md §6, V-1c): task chooser, then the Text → voice text with its counter
@@ -100,6 +104,21 @@ class VoiceAudioModel(
     /** Tone chip; the chosen one again clears it. */
     fun setTone(tone: String?) = change { it.copy(tone = tone?.takeIf { t -> t in VoiceTakes.TONES && t != it.tone }) }
 
+    /** A Speak job changed the project (a take arrived): the rows follow, unless a text save is still pending. */
+    fun sync() {
+        val open = session.open ?: return
+        val s = _state.value
+        val v = open.project.voice ?: return
+        if (s.fresh || s.dir != open.dir || v == saved || saving?.isActive == true) return
+        saved = v
+        _state.value = s.copy(lock = v.lock, tone = v.tone, rows = rows(v.copy(text = s.text)))
+    }
+
+    /** The file of take [take] of the open project, for ▶. */
+    fun takePath(take: ArtifactId): String? = session.artifacts()?.get(take)?.getOrNull()?.let {
+        joinPath(joinPath(session.open?.dir ?: return null, ArtifactStore.ARTIFACTS_DIR), it.file)
+    }
+
     fun defaultLock(): VoiceLock? = models.firstOrNull()?.let { VoiceLock("gemini", it, "Charon", "my") }
 
     private fun change(edit: (VoiceTool) -> VoiceTool) {
@@ -111,7 +130,7 @@ class VoiceAudioModel(
     }
 
     private fun rows(voice: VoiceTool): List<VoicePartRow> =
-        VoiceTakes.texts(voice, maxChars).zip(VoiceTakes.plan(voice, maxChars, lexicon()).parts) { t, p -> VoicePartRow(p.id, t, p.take != null) }
+        VoiceTakes.texts(voice, maxChars).zip(VoiceTakes.plan(voice, maxChars, lexicon()).parts) { t, p -> VoicePartRow(p.id, t, p.take != null, p.take) }
 
     /** Continue with text: makes and opens the project (automatic name, D-77); [onOpened] once it is open. */
     fun createWithText(onOpened: () -> Unit = {}): Job? {

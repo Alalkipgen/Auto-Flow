@@ -85,7 +85,7 @@ class VoiceAudioRouteTest {
                 onNodeWithTag("voice-count").assertTextEquals(My.breakSyllables("23 characters · 1 parts"))
                 assertNull(app.koin.get<CurrentProject>().state.value)
                 onNodeWithTag("voice-continue").performMouseInput { click() }
-                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-speak-planned").fetchSemanticsNodes().isNotEmpty() }
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-part-p1").fetchSemanticsNodes().isNotEmpty() }
                 val open = assertNotNull(app.koin.get<CurrentProject>().state.value)
                 assertEquals(Mode.VOICE_AUDIO, open.project.mode)
                 assertTrue(open.project.name.startsWith("Voice · "), open.project.name)
@@ -130,7 +130,7 @@ class VoiceAudioRouteTest {
                         LocalUiFontFamily provides BurmeseTestFont.family) { VoiceAudioScreen(model, session, onBack = {}) }
                 }
                 if (withProject) {
-                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-speak-planned").fetchSemanticsNodes().isNotEmpty() }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-part-p1").fetchSemanticsNodes().isNotEmpty() }
                     onNodeWithTag("voice-count").assertTextEquals(My.breakSyllables(UiText.VA_COUNT.text(language, "chars" to 1000, "n" to 2)))
                 } else {
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-task-text").fetchSemanticsNodes().isNotEmpty() }

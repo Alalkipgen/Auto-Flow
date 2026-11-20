@@ -64,7 +64,6 @@ class VoicePartsTest {
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-part-p2").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(My.breakSyllables(UiText.VA_VOICED.en), status("p1"))
         assertEquals(My.breakSyllables(UiText.VA_VOICED.en), status("p2"))
-        onNode(hasText(My.breakSyllables(UiText.VA_SPEAK_PARTS.en.replace("{n}", "0"))) and hasAnyAncestor(hasTestTag("voice-speak-planned"))).assertExists()
 
         onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("voice-text"))).performTextReplacement("First one.\nSecond.\nThird.")
         waitUntil(timeoutMillis = 5_000) { saved().parts.size == 3 }
@@ -72,7 +71,6 @@ class VoicePartsTest {
         assertEquals(listOf(true, true, false), saved().parts.map { it.take != null })
         waitUntil(timeoutMillis = 5_000) { status("p3") == My.breakSyllables(UiText.VA_NOT_VOICED.en) }
         assertEquals(My.breakSyllables(UiText.VA_VOICED.en), status("p1"))
-        onNode(hasText(My.breakSyllables(UiText.VA_SPEAK_PARTS.en.replace("{n}", "1"))) and hasAnyAncestor(hasTestTag("voice-speak-planned"))).assertExists()
 
         tap("voice-tone-news")
         assertEquals("news", saved().tone)

@@ -63,7 +63,8 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     single<AiJobRunner>(createdAtStart = true) {
         val koin = getKoin()
         DesktopAiJobRunner(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), RecapJobProcessor({ koin.getOrNull<RecapModel>() }, { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber>() },
-            { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob>() }))
+            { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob>() },
+            { koin.getOrNull<io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob>() }))
     }
     // D-52: exit hook; on desktop the Window's onCloseRequest handles it, so this is a no-op stub.
     single<AppExit> { AppExit { /* desktop exits via Window.onCloseRequest */ } }
