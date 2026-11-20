@@ -12,6 +12,7 @@ import io.github.alalkipgen.autoflow.core.subtitles.EditRefusal
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleChecks
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDraft
+import io.github.alalkipgen.autoflow.core.subtitles.SubtitleOps
 import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
 import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -49,7 +50,7 @@ class SubtitleEditorModel(
     private val session: ProjectSession,
     private val fs: FileSystem,
     private val scope: CoroutineScope,
-    private val config: ToolsConfig = ToolsConfig(),
+    val config: ToolsConfig = ToolsConfig(),
     private val clock: Clock = Clock.System,
     private val persistDelayMs: Long = 1_000,
 ) {
@@ -83,6 +84,17 @@ class SubtitleEditorModel(
         _state.value = s.copy(draft = next, notice = refused?.let(::explain), ok = false).withIssues()
         if (next !== draft) schedulePersist()
     }
+
+    /** Split here without a playhead (S-3d adds it): at the first line break, timed by its place in the text. */
+    fun splitAtBreak(id: String) = edit { doc ->
+        val c = doc.cues.firstOrNull { it.id == id } ?: return@edit Edit.Refused(EditRefusal.NoSuchLine)
+        val cut = c.text.indexOf('\n')
+        val at = if (cut > 0) c.startMs + (c.endMs - c.startMs) * cut / c.text.length else (c.startMs + c.endMs) / 2
+        SubtitleOps.split(doc, id, at.coerceIn(c.startMs + 1, (c.endMs - 1).coerceAtLeast(c.startMs + 1)))
+    }
+
+    /** A line the owner typed that cannot be used (e.g. a time that is not a time); nothing changes. */
+    fun say(notice: UiNotice) = update { it.copy(notice = notice, ok = false) }
 
     fun undo() = step { it.undo() }
     fun redo() = step { it.redo() }

@@ -216,4 +216,11 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 
 - A video with a text subtitle track (e.g. an `.mkv` with SubRip): the Source card lists each track (language · codec), the Burmese text track — else the first text track — already chosen; "Use the subtitles inside the video" → "Saved N lines from track N" and the Subtitles card shows the line count and the first lines. Picture tracks (PGS/DVD) are not options; one line says how many cannot be read as text. A video without sound shows Transcribe with "no sound to transcribe".
 - A video without tracks says so. "Import subtitles (.srt)": a UTF-8 file, a UTF-16 file (Windows Notepad "Unicode") and an old Windows-1252 English file all import and the message names the encoding; an empty file or one with a broken time line saves nothing and says which subtitle; a Zawgyi file imports with the amber Zawgyi warning.
-- "Choose another source" → pick again: the new lines replace the shown ones (the old version stays in `artifacts/`). Close and reopen the project: the same lines show. "Transcribe the speech" and "Edit lines" are Planned.
+- "Choose another source" → pick again: the new lines replace the shown ones (the old version stays in `artifacts/`). Close and reopen the project: the same lines show. "Turn speech into text" is Planned.
+
+### S-3c — Subtitle editor (PHONE_PENDING)
+
+- After a source: the lines list (#n · start → end · length), Original · Burmese · Both chips, and an amber "n to check" chip when lines overlap / are too short / too long; tapping it jumps to the next such line.
+- ✎ on a line opens the edit panel under it: change the text, type a time (`1:02.5`) or use −0.1 / +0.1, Split (at the line break), Merge with next, Add after, Delete; Previous · Next · Done. The keyboard does not hide the field being typed in. "Not saved yet" with Discard · Save appears; Undo / Redo step through the changes; "Choose another source" is off until Save or Discard.
+- Save → "Saved: N lines."; reopen the project: the edited lines show. Edit, then Back → "Save your changes before leaving?" with Save · Discard · Keep editing. Edit, wait 2 seconds, close the app, reopen → "Unsaved changes from <time>" with Restore · Discard.
+- 360/412 dp, English/Burmese, font 1.0/2.0: the list, the edit panel and the Save bar fit without clipping; the header scrolls away with the lines.
