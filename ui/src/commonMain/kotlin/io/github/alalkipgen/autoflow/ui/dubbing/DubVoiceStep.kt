@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.dubbing
 
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiRequestCard
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -116,7 +118,7 @@ private fun Settings(model: DubVoiceModel, open: OpenProject?, idle: Boolean) {
 private fun Speak(model: DubVoiceModel, s: DubVoiceUi, job: AiJob?) {
     val c = s.confirm
     when {
-        job != null -> AfCard(My.breakSyllables(tr(UiText.JOB_DUB_TTS)), Modifier.testTag("dub-speak-job")) {
+        job != null -> ToolAiJobCard(job, Modifier.testTag("dub-speak-job")) {
             val n = maxOf(job.initialItemCount ?: 0, job.items.size)
             val done = n - job.items.size
             val text = when (job.state) {
@@ -154,10 +156,15 @@ private fun Shorten(model: DubShortenModel, script: DubScriptModel, dir: String,
     val all by model.state.collectAsState()
     val s = all.takeIf { it.dir == dir } ?: DubShortenUi()
     val long = remember(rows, doc) { model.lines(rows, doc).size }
-    if (long == 0 && s.rows.isEmpty() && s.notice == null) return
+    if (long == 0 && s.rows.isEmpty() && s.notice == null && !s.busy) return
+    if (s.busy) {
+        ToolAiRequestCard(My.breakSyllables(tr(UiText.DUB_SHORTEN)), Modifier.testTag("dub-shorten-card")) {
+            AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_WORKING)), Modifier.testTag("dub-shorten-working"), muted = true)
+        }
+        return
+    }
     AfCard(My.breakSyllables(tr(UiText.DUB_SHORTEN)), Modifier.testTag("dub-shorten-card")) {
         when {
-            s.busy -> AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_WORKING)), Modifier.testTag("dub-shorten-working"), muted = true)
             s.rows.isNotEmpty() -> {
                 AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_TITLE)), bold = true)
                 s.rows.forEach { r ->

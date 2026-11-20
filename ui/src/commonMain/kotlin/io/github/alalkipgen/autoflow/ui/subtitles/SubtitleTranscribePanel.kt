@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -62,7 +63,7 @@ private fun JobCard(model: SubtitleTranscribeModel, job: AiJob) {
     val n = maxOf(job.initialItemCount ?: 0, job.items.size)
     val done = n - job.items.size
     var pausing by remember(job.id, job.state) { mutableStateOf(false) }
-    AfCard(My.breakSyllables(tr(UiText.JOB_MEDIA_TRANSCRIBE)), Modifier.testTag("subtitles-transcribe-job")) {
+    ToolAiJobCard(job, Modifier.testTag("subtitles-transcribe-job")) {
         val text = when (job.state) {
             AiJobState.PAUSED -> tr(UiText.SUB_TRANSCRIBE_PAUSED, "done" to done, "n" to n) +
                 (job.error?.takeIf { it != VideoTranscriber.PAUSED }?.let { " $it" } ?: "")
