@@ -34,7 +34,7 @@ class ShellModel(private val session: ProjectSession) {
             Mode.MOVIE_RECAP -> return recapShell(p, language)
             Mode.MUSIC_VIDEO -> Unit
             // A tool project has its own screen; the Music Video / Recap screens stay locked.
-            Mode.SUBTITLES -> return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { UiText.LOCK_TOOL_PROJECT.text(language) })
+            Mode.SUBTITLES, Mode.VOICE_AUDIO -> return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { UiText.LOCK_TOOL_PROJECT.text(language) })
         }
         val lookup = session.lookup()
         val locks = SCREEN_STEPS.mapNotNull { (screen, step) ->

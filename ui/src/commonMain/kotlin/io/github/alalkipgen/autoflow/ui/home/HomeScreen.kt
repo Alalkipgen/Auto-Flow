@@ -119,6 +119,11 @@ private fun HomeModeIcon(mode: Mode) {
                 drawLine(AutoFlowColors.Panel, Offset(5 * u, 10 * u), Offset(15 * u, 10 * u), 1.5f * u)
                 drawLine(AutoFlowColors.Panel, Offset(7 * u, 13 * u), Offset(13 * u, 13 * u), 1.5f * u)
             }
+            Mode.VOICE_AUDIO -> { // three sound bars
+                for ((x, h) in listOf(6f to 6f, 10f to 12f, 14f to 8f)) {
+                    drawLine(AutoFlowColors.Amber, Offset(x * u, (10 - h / 2) * u), Offset(x * u, (10 + h / 2) * u), 2.5f * u)
+                }
+            }
         }
     }
 }
