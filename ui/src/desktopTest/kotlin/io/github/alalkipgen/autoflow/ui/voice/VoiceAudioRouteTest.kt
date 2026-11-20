@@ -73,7 +73,7 @@ class VoiceAudioRouteTest {
                 setContent { KoinIsolatedContext(app) { App() } }
                 tap("home-voice-tool")
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-task-text").fetchSemanticsNodes().isNotEmpty() }
-                onNodeWithTag("voice-task-clean").assertIsNotEnabled()
+                onNodeWithTag("voice-task-clean").assertIsEnabled() // V-2b: opens the picker
                 onNodeWithTag("voice-task-video").assertIsNotEnabled()
                 assertTrue(app.koin.get<ProjectIndex>().entries.value.isEmpty(), "nothing is created by the chooser")
                 tap("voice-task-text")

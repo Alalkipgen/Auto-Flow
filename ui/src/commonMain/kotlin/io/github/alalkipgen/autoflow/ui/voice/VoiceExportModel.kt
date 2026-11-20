@@ -47,7 +47,10 @@ class VoiceExportModel(
     val state: StateFlow<VoiceExportUi> = _state.asStateFlow()
     val runs = tasks.runs
 
-    fun run(file: String?): MediaTaskRun? = file?.takeIf { it.endsWith(".m4a") }?.let(tasks::forOutput)
+    fun run(file: String?): MediaTaskRun? = file?.let(tasks::forOutput)
+
+    /** A media task of another step (Clean up sound) whose result this panel shows: progress, then Share / Save to Music. */
+    fun follow(dir: String, output: String) { _state.value = VoiceExportUi(dir, output) }
 
     /** The joined voice of the open project (made now when needed); null with a notice when a part has no take. */
     fun joined(): ArtifactId? {
@@ -105,7 +108,8 @@ class VoiceExportModel(
     /** The finished file of the last Save (the wav at once, the m4a when its task is done). */
     fun ready(): String? {
         val f = _state.value.file ?: return null
-        return if (f.endsWith(".m4a")) (run(f)?.state as? RenderState.Done)?.output else f
+        val task = run(f) ?: return f
+        return (task.state as? RenderState.Done)?.output
     }
 
     fun share(title: String) = ready()?.let { result(share?.share(it, mime(it), title) ?: unsupported(it)) }

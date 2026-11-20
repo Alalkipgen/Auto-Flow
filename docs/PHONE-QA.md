@@ -321,3 +321,11 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 ### V-2a — Clean up sound commands (nothing to press yet)
 
 - Nothing new on screen; Clean up sound stays Planned until V-2b.
+
+### V-2b — Clean up sound (phone + Windows, PHONE_PENDING)
+
+- Home → Voice & Audio → **Clean up sound** opens the file picker at once; Cancel creates nothing. Pick a noisy voice recording (m4a / mp3 / wav) or a video.
+- "Copying the file into the project…", then the file name and length. For a video: "A video gives its sound only…".
+- Three chips (all on): Shorten long pauses · Reduce noise · Even loudness (−14 LUFS). The last one on cannot be turned off.
+- **Before / After (first 30 s)**: "Listening to the sound…", then ▶ Before and ▶ After — After should have shorter pauses, less hiss, and a steady level.
+- **Save m4a** / **Save wav**: "Cleaning the sound: n%" with Cancel (Jobs shows "Clean up sound"); then the file in exports, Share / Save to Music (phone) or Open folder (Windows). Play it in another app.
