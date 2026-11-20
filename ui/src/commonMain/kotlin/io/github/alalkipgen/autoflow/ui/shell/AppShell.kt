@@ -149,6 +149,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     LaunchedEffect(arrivals) { if (arrivals > 0) screen = "Inbox" }
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
+    val renderPackages = remember(koin) { koin.getOrNull<io.github.alalkipgen.autoflow.ui.pack.RenderPackageModel>() }
     val currentProject = koinInject<CurrentProject>()
     val backup = koinInject<BackupModel>().takeIf { it.available }
     val settingsStore = koinInject<SettingsStore>()
@@ -213,7 +214,8 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 else -> ScreenPlaceholder(current)
             }
         }
-        CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(settings.uiLanguage), LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
+        CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(settings.uiLanguage), LocalCompact provides compact, LocalUiFontFamily provides uiFont,
+            io.github.alalkipgen.autoflow.ui.pack.LocalRenderPackages provides renderPackages) {
             if (features.studioV2) {
                 StudioV2App(
                     status = status,

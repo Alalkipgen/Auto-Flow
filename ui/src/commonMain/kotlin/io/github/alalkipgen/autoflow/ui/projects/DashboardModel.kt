@@ -68,6 +68,8 @@ class DashboardModel(
     private val ai: AiJobRunner? = null,
     private val renders: RenderQueue? = null,
     private val foregroundBusy: (String) -> Boolean = { false },
+    private val packages: io.github.alalkipgen.autoflow.platform.RenderPackages? = null,
+    private val library: io.github.alalkipgen.autoflow.core.library.LibraryStore? = null,
 ) {
     private val _state = MutableStateFlow(snapshot(index.problem))
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
@@ -158,6 +160,40 @@ class DashboardModel(
         is PlatformResult.Ok -> r.value?.let(::open) ?: false
         is PlatformResult.Failed -> fail(r.reason)
         is PlatformResult.Unsupported -> fail(r.reason)
+    }
+
+    val opensPackages: Boolean get() = packages != null
+
+    /**
+     * F-7 (D-96) "Open package": a render package (or any backup zip) is unpacked into the projects home — on the
+     * desktop the last projects folder, else a folder the user picks — never over an existing folder; its pronunciation
+     * fixes missing from the Library are added ([io.github.alalkipgen.autoflow.ui.pack.RenderPlan.mergeLexicon]); then
+     * the first project opens and any others are listed.
+     */
+    suspend fun openPackage(): Boolean {
+        val p = packages ?: return false
+        val language = UiLanguage.fromCode(settings.state.value.uiLanguage)
+        val zip = when (val r = picker.pickFiles(UiText.PACKAGE_PICKER.text(language), extensions = setOf("zip"))) {
+            is PlatformResult.Ok -> r.value.firstOrNull() ?: return false
+            is PlatformResult.Failed -> return fail(r.reason)
+            is PlatformResult.Unsupported -> return fail(r.reason)
+        }
+        val dest = lastParent ?: pickParent() ?: return false
+        val restored = when (val r = p.unpack(zip, dest)) {
+            is PlatformResult.Ok -> r.value
+            is PlatformResult.Failed -> return fail(r.reason)
+            is PlatformResult.Unsupported -> return fail(r.reason)
+        }
+        val dirs = restored.map { joinPath(dest, it.folder) }
+        val first = dirs.firstOrNull() ?: return fail(UiText.PACKAGE_NO_PROJECT)
+        for (dir in dirs.drop(1)) (store.open(dir) as? CoreResult.Ok)?.value?.let { index.record(dir, it, opened = false) }
+        io.github.alalkipgen.autoflow.ui.pack.RenderPlan.read(fs, first)?.let { plan ->
+            library?.let { io.github.alalkipgen.autoflow.ui.pack.RenderPlan.mergeLexicon(it, plan.lexicon) }
+        }
+        if (!open(first)) return false
+        val notice = UiNotice(UiText.PACKAGE_OPENED, "name" to restored.joinToString(", ") { it.folder })
+        _state.value = snapshot(notice.text(UiLanguage.ENGLISH)).copy(notice = notice)
+        return true
     }
 
     /**

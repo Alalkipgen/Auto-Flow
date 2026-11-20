@@ -1526,6 +1526,17 @@ enum class UiText(val en: String, val my: String?) {
     DUB_EXPORT_SRT("Subtitles file: {path}", "စာတန်းဖိုင်: {path}"),
     DUB_EXPORT_WAV("Voice track: {path}", "အသံ track: {path}"),
     DUB_BURN_NO_FONT("No Burmese font: turn off Burmese subtitles, or add one in Settings → Fonts.", "မြန်မာဖောင့် မရှိပါ: မြန်မာ စာတန်းကို ပိတ်ပါ (သို့) ဆက်တင်များ → ဖောင့်များ မှာ ထည့်ပါ။"),
+    // F-7 (D-96): render package — only the files a render needs, in one zip, to render on another device or a server.
+    PACKAGE_TITLE("📦 Render package (.zip)", "📦 Render package (.zip)"),
+    PACKAGE_HINT("Only the files this video needs, in one .zip — nothing is rendered here. Open it in Auto Flow on another phone or computer (Projects → Open package), or render it on a Linux server: AutoFlow --render package.zip",
+        "ဒီဗီဒီယိုအတွက် လိုတဲ့ ဖိုင်တွေကိုပဲ .zip တစ်ခုထဲ ထည့်ပေးမယ် — ဒီမှာ render မလုပ်ဘူး။ တခြားဖုန်း/ကွန်ပျူတာက Auto Flow မှာ ဖွင့်ပါ (Projects → Package ဖွင့်မယ်)၊ ဒါမှမဟုတ် Linux server မှာ render လုပ်ပါ: AutoFlow --render package.zip"),
+    PACKAGE_MAKE("Make render package", "Render package လုပ်မယ်"),
+    PACKAGE_MAKING("Packing the project… {percent}%", "Project ကို ထုပ်နေတယ်… {percent}%"),
+    PACKAGE_SAVED("Saved: {location} ({size}, {n} files)", "သိမ်းပြီး: {location} ({size}၊ ဖိုင် {n} ခု)"),
+    PACKAGE_OPEN("📦 Open package…", "📦 Package ဖွင့်မယ်…"),
+    PACKAGE_PICKER("Choose an Auto Flow render package (.zip)", "Auto Flow render package (.zip) ကို ရွေးပါ"),
+    PACKAGE_OPENED("Opened from the package: {name}", "Package ကနေ ဖွင့်ပြီး: {name}"),
+    PACKAGE_NO_PROJECT("This zip has no Auto Flow project.", "ဒီ zip ထဲမှာ Auto Flow project မရှိဘူး။"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }

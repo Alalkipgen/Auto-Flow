@@ -30,6 +30,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import io.github.alalkipgen.autoflow.core.recap.ExportQuality
 import io.github.alalkipgen.autoflow.core.recap.PublishKit
+import io.github.alalkipgen.autoflow.ui.pack.RenderPackageCard
+import io.github.alalkipgen.autoflow.ui.pack.RenderPlan
 import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.ui.components.AfTextField
@@ -144,6 +146,8 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Bool
                 PublishKitCard(recap.publishKit, recap.chapters, state.publishThumb, model, studio)
             }
         }
+        // F-7 (D-96): the files this render needs, to render it on another device or a server.
+        open?.project?.mode?.let { mode -> RenderPackageCard({ RenderPlan(mode = mode, quality = Quality.EXPORT.name) }) }
     }
 }
 

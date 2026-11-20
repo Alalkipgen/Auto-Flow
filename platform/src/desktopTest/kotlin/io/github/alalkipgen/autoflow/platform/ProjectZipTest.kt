@@ -79,7 +79,7 @@ class ProjectZipTest {
         ZipFile(zipFile).use { zip ->
             val names = zip.entries().toList().map { it.name }
             assertEquals(plan.entries.map { it.path } + ProjectZip.MANIFEST, names)
-            for (e in plan.entries) assertTrue(zip.getInputStream(zip.getEntry(e.path)).readBytes().contentEquals(e.file.readBytes()), e.path)
+            for (e in plan.entries) assertTrue(zip.getInputStream(zip.getEntry(e.path)).readBytes().contentEquals(e.file!!.readBytes()), e.path)
             val video = zip.getEntry("Rain.autoflow/artifacts/vd_aaaaaaaaaaaa.mp4")
             assertTrue(video.compressedSize >= video.size, "media is stored, not deflated")
             val lyrics = zip.getEntry("Rain.autoflow/source/lyrics.txt")

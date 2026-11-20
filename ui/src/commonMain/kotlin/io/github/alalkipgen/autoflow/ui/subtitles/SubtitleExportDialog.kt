@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleExport
@@ -24,6 +25,8 @@ import io.github.alalkipgen.autoflow.media.render.RenderState
 import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.pack.RenderPackageCard
+import io.github.alalkipgen.autoflow.ui.pack.RenderPlan
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
@@ -140,6 +143,11 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
             AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-burn-notice"),
                 color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
         }
+        RenderPackageCard({
+            val fit = burner.fit()
+            RenderPlan(mode = Mode.SUBTITLES, look = s.look.name, size = s.size.name, lines = fit.lines, length = fit.length.name,
+                text = choice.name, docVersion = version?.value, doc = doc)
+        })
     }
 }
 
