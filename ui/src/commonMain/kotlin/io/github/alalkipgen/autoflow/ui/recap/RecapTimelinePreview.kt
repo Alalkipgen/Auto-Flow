@@ -18,7 +18,10 @@ import io.github.alalkipgen.autoflow.media.playback.RecapPlaybackClock
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
-/** Real muted native-v2 timeline playback, decoded once underneath the output-frame Compose compositor. */
+/**
+ * Real native-v2 timeline playback, decoded once underneath the output-frame Compose compositor. The movie picture is
+ * muted; the voice takes and the music play beside it on the same clock (F-5, [RecapPreviewSound]).
+ */
 @Composable
 internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false, editLayers: Boolean = false) {
     val state by model.state.collectAsState()
@@ -129,6 +132,10 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                         else AfText(tr(UiText.PREPARING_FRAME), muted = true)
                     }
                 }
+                RecapPreviewSound(source.timeline, source.music, outputMs, playing)
+            }
+            if (source.timeline.voice.isNotEmpty() || source.music != null) {
+                AfText(My.breakSyllables(tr(UiText.PREVIEW_SOUND_HINT)), Modifier.testTag("timeline-sound-hint"), muted = true, size = 12.sp)
             }
             problem?.let { AfText(it, color = AutoFlowColors.Amber) }
             val readouts: @Composable () -> Unit = {

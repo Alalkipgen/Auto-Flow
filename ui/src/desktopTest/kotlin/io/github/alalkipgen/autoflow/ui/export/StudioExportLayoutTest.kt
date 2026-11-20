@@ -118,6 +118,9 @@ class StudioExportLayoutTest(val width: Int, val font: Float, val language: UiLa
                     }
                 } }
                 assertProjectPanesAndStickyActions(width, "export-render", "export-preview")
+                // F-5 (D-94): the live preview (picture + voice + music) is on the Export step before any render, on a phone too.
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("timeline-play").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag("timeline-sound-hint").assertExists()
                 fun click(tag: String) = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() }
                 fun title() = onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("publish-title")))
                 fun capture(state: String) {
