@@ -141,9 +141,11 @@ class SubtitlesRouteTest {
                         "n" to 2, "from" to UiText.SUB_FROM_TRACK.text(language, "index" to "2"))))
                     onNodeWithTag("subtitles-edit-planned").performScrollTo().assertIsNotEnabled()
                 } else {
-                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-track-3").fetchSemanticsNodes().isNotEmpty() }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-track-2").fetchSemanticsNodes().isNotEmpty() }
                     onNodeWithTag("subtitles-track-2").performScrollTo().assertIsEnabled().assertIsSelected() // the only text track
-                    onNodeWithTag("subtitles-track-3").assertIsNotEnabled() // picture track: explained, not selectable
+                    onNodeWithTag("subtitles-track-3").assertDoesNotExist() // picture track: one line, not an option
+                    onNodeWithTag("subtitles-picture-tracks").assertTextEquals(My.breakSyllables(UiText.SUB_PICTURE_TRACK.text(language,
+                        "n" to 1, "codec" to "hdmv_pgs_subtitle")))
                     onNodeWithTag("subtitles-use-track").performScrollTo().assertIsEnabled()
                     onNodeWithTag("subtitles-transcribe-planned").performScrollTo().assertIsNotEnabled()
                 }

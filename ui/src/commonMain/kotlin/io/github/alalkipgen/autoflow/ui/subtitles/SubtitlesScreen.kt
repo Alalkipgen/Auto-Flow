@@ -45,7 +45,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, modifier: Mo
                 VideoCard(video)
                 val doc = state.doc
                 if (tool?.current != null && doc != null && !choosing) DocCard(doc) { choosing = true }
-                else SourceCard(state, model, onCancel = if (tool?.current != null && doc != null) ({ choosing = false }) else null)
+                else SourceCard(state, model, video.hasAudio, onCancel = if (tool?.current != null && doc != null) ({ choosing = false }) else null)
             } else if (state.busy == null) AfText(My.breakSyllables(tr(UiText.SUBTITLES_NO_VIDEO)), Modifier.testTag("subtitles-no-video"), muted = true)
         }
     }
@@ -65,9 +65,9 @@ private fun VideoCard(video: SourceVideo) {
 
 /** Where the lines come from: a text track, an `.srt` file, or (Planned, S-5) the speech. */
 @Composable
-private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, onCancel: (() -> Unit)?) {
+private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, hasSound: Boolean, onCancel: (() -> Unit)?) {
     val idle = state.busy == null
-    AfCard(tr(UiText.SUBTITLES_SOURCE), Modifier.testTag("subtitles-source")) {
+    AfCard(tr(UiText.SUB_START_HOW), Modifier.testTag("subtitles-source")) {
         AfText(My.breakSyllables(tr(UiText.SUB_TRACKS)), bold = true)
         val tracks = state.tracks
         when {
@@ -75,15 +75,19 @@ private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, onCancel:
                 Modifier.testTag("subtitles-tracks-unknown"), muted = true)
             tracks.isEmpty() -> AfText(My.breakSyllables(tr(UiText.SUB_TRACKS_NONE)), Modifier.testTag("subtitles-tracks-none"), muted = true)
             else -> {
+                val text = tracks.filter { it.isText }
                 var pick by remember(tracks) { mutableStateOf(SubtitlesModel.defaultTrack(tracks)) }
-                tracks.forEach { t ->
+                text.forEach { t ->
                     val title = tr(UiText.SUBTITLE_TRACK, "index" to t.index) + " · " + (t.language ?: "?")
-                    val about = if (t.isText) listOfNotNull(t.codecName, t.title).joinToString(" · ") else tr(UiText.SUB_PICTURE_TRACK)
-                    OptionCard(title, My.breakSyllables(about), t.isText && pick == t.index, { pick = t.index },
-                        Modifier.testTag("subtitles-track-${t.index}"), enabled = idle && t.isText)
+                    OptionCard(title, listOfNotNull(t.codecName, t.title).joinToString(" · "), pick == t.index, { pick = t.index },
+                        Modifier.testTag("subtitles-track-${t.index}"), recommended = t.index == SubtitlesModel.defaultTrack(tracks), enabled = idle)
                 }
-                if (tracks.any { it.isText }) AfButton(My.breakSyllables(tr(UiText.SUB_USE_TRACK)),
-                    { tracks.firstOrNull { it.index == pick }?.let { model.useTrack(it) } },
+                if (text.isEmpty()) AfText(My.breakSyllables(tr(UiText.SUB_TRACKS_NONE)), Modifier.testTag("subtitles-tracks-none"), muted = true)
+                val pictures = tracks.filter { !it.isText }
+                if (pictures.isNotEmpty()) AfText(My.breakSyllables(tr(UiText.SUB_PICTURE_TRACK, "n" to pictures.size,
+                    "codec" to pictures.map { it.codecName }.distinct().joinToString(", "))), Modifier.testTag("subtitles-picture-tracks"), muted = true)
+                if (text.isNotEmpty()) AfButton(My.breakSyllables(tr(UiText.SUB_USE_TRACK)),
+                    { text.firstOrNull { it.index == pick }?.let { model.useTrack(it) } },
                     Modifier.fillMaxWidth().testTag("subtitles-use-track"), kind = ButtonKind.Primary, enabled = idle && pick != null)
             }
         }
@@ -91,7 +95,7 @@ private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, onCancel:
             kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle)
         onCancel?.let { AfButton(tr(UiText.CANCEL), it, Modifier.testTag("subtitles-source-cancel")) }
     }
-    PlannedTile(tr(UiText.SUB_TRANSCRIBE), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-transcribe-planned"))
+    PlannedTile(tr(UiText.SUB_TRANSCRIBE), tr(if (hasSound) UiText.SUB_TRANSCRIBE_NEXT else UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE), Modifier.testTag("subtitles-transcribe-planned"))
 }
 
 /** The current `st`: how many lines, where from, the first few lines; editing is Planned until S-3. */

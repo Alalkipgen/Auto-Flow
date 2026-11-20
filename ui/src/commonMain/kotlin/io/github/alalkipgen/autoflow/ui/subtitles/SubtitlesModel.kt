@@ -157,7 +157,7 @@ class SubtitlesModel(
     fun useTrack(track: SubtitleTrack): Job? {
         val open = session.open ?: return null
         val video = open.project.subtitles?.video ?: return null
-        if (!track.isText) { say(open.dir, UiNotice(UiText.SUB_PICTURE_TRACK)); return null }
+        if (!track.isText) { say(open.dir, UiNotice(UiText.SUB_PICTURE_TRACK, "n" to 1, "codec" to track.codecName)); return null }
         if (job?.isActive == true) return null
         return scope.launch {
             busy(open.dir, UiNotice(UiText.SUBTITLE_EXTRACTING, "n" to track.index))
