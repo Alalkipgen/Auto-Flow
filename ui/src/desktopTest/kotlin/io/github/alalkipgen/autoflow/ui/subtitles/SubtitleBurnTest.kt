@@ -163,7 +163,7 @@ class SubtitleBurnTest {
         f.burner.start(f.doc, f.version, TextChoice.ORIGINAL)
         val t = f.task()
         assertEquals(MediaTaskJob.SUBTITLE_BURN, t.kind)
-        assertEquals(f.out(TextChoice.ORIGINAL, "boxed-large"), t.output)
+        assertEquals(f.out(TextChoice.ORIGINAL, "boxed-large-1l-short"), t.output)
         assertEquals(60_000, t.durationMs)
         assertEquals(listOf("-i", "source/movie.mp4"), t.args.subList(2, 4))
         assertTrue(t.args.containsAll(listOf("-c:a", "copy")) && t.args.last() == MediaTaskJob.PART, t.args.toString())
@@ -183,7 +183,7 @@ class SubtitleBurnTest {
         val f = Fixture(shares = true, withFont = true)
         f.burner.start(f.doc, f.version, TextChoice.BURMESE)
         val t = f.task()
-        assertEquals(f.out(TextChoice.BURMESE, "clean-medium"), t.output)
+        assertEquals(f.out(TextChoice.BURMESE, "clean-medium-1l-short"), t.output)
         assertTrue(f.fs.list("$dir/.cache/fonts").any { it.endsWith(".ttf") }, f.fs.list("$dir/.cache/fonts").toString())
         assertTrue(t.args[t.args.indexOf("-vf") + 1].endsWith(":fontsdir=.cache/fonts"))
         val ass = f.ass()
@@ -204,10 +204,10 @@ class SubtitleBurnTest {
         onNodeWithTag("subtitles-burn-OUTLINE").performScrollTo().performMouseInput { click() }
         onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-job").fetchSemanticsNodes().isNotEmpty() }
-        assertEquals(f.out(TextChoice.ORIGINAL, "outline-medium"), f.task().output)
+        assertEquals(f.out(TextChoice.ORIGINAL, "outline-medium-1l-short"), f.task().output)
         f.queue.states.getValue("job1").value = RenderState.Running(0.42, 1.0)
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("Making the video: 42%").fetchSemanticsNodes().isNotEmpty() }
-        val out = "$dir/" + f.out(TextChoice.ORIGINAL, "outline-medium")
+        val out = "$dir/" + f.out(TextChoice.ORIGINAL, "outline-medium-1l-short")
         f.queue.states.getValue("job1").value = RenderState.Done(out, 1, 60_000, null)
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-done").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-job").assertDoesNotExist()
@@ -261,7 +261,7 @@ class SubtitleBurnTest {
         val f = Fixture(shares = true, withFont = true)
         f.burner.checkFrame(f.doc, f.version, TextChoice.ORIGINAL, 1)
         val cmd = f.runner.commands.single()
-        val name = f.out(TextChoice.ORIGINAL, "clean-medium").removePrefix("exports/").removeSuffix(".mp4")
+        val name = f.out(TextChoice.ORIGINAL, "clean-medium-1l-short").removePrefix("exports/").removeSuffix(".mp4")
         assertEquals(listOf("ffmpeg", "-hide_banner", "-y", "-nostdin", "-ss", "5.000", "-copyts", "-i", "source/movie.mp4", "-vf"), cmd.take(10))
         assertEquals(".cache/burn/$name-5000.png", cmd.last())
         assertTrue(f.fs.exists("$dir/.cache/burn/$name.ass"))

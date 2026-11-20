@@ -114,6 +114,9 @@ Flow: `Home → Subtitles → pick video → source → edit with preview → (t
 - **Checks** never block Save: Overlaps next · Shorter than `minCueMs` · Line too long (Burmese width as
   `CaptionChunks`) · More than 2 lines · Empty · Not translated · Original changed. Export blocks only on no lines,
   end ≤ start, or no Burmese font for a Burmese burn; overlaps/empty lines offer "Fix automatically" as a draft edit.
+- **Burn fit** (D-91): Look · Size · Lines on screen (1 / 2) · Line length (Short `shortCharsPerLine` / Long
+  `maxCharsPerLine`); a cue needing more lines is shown in timed parts inside its own time. Default by the frame:
+  landscape 1 short line, portrait / square 2 short lines. The choice is in the output name.
 - **Draft:** edits go to `.cache/st-draft.json` (debounced 1 s, not an artifact). A newer draft on reopen shows
   "Unsaved changes from {time}" → Restore · Discard. Save → new `st`, draft removed. Leaving with edits → Save ·
   Discard · Keep editing.
@@ -191,7 +194,7 @@ New `config/tools.json` (starting values; Burmese line length uses `CaptionChunk
   "transcribe": { "chunkMaxMs": 600000, "silenceWindowMs": 30000, "overlapMs": 2000,
                   "languages": ["auto", "en", "ko", "zh", "th", "ja", "hi", "my"] },
   "translate":  { "batchLines": 40, "contextLines": 5, "style": "spoken" },
-  "subtitles":  { "minCueMs": 700, "maxCharsPerLine": 42, "maxLines": 2, "nudgeMs": 100 },
+  "subtitles":  { "minCueMs": 700, "maxCharsPerLine": 42, "maxLines": 2, "nudgeMs": 100, "shortCharsPerLine": 30 },
   "tts":        { "maxCharsPerPart": 500, "partGapMs": 300, "m4aBitrate": "160k", "tones": { } },
   "burn":       { "x264Preset": "veryfast", "crf": 20 },
   "clean":      { "pauseMs": 700, "keepMs": 350, "previewMs": 30000 },
