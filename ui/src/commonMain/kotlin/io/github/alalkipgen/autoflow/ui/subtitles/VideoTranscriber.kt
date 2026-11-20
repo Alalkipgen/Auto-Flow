@@ -39,6 +39,8 @@ import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.recap.SceneAudioCutter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
@@ -67,6 +69,15 @@ class VideoTranscriber(
     }
 
     val available: Boolean get() = provider != null
+
+    /** Jobs asked to pause: their next unsent chunk pauses the job instead (the one being sent finishes and is kept). */
+    private val pausing = MutableStateFlow(emptySet<String>())
+    fun pause(jobId: String) = pausing.update { it + jobId }
+    fun clearPause(jobId: String) = pausing.update { it - jobId }
+
+    /** Lines of the finished job [jobId], null while it is not finished. */
+    fun resultLines(dir: String, jobId: String): Int? = runCatching { fs.read(joinPath(jobDir(dir, jobId), RESULT)).decodeToString() }.getOrNull()
+        ?.substringAfter("\"lines\":", "")?.substringBefore('}')?.trim()?.toIntOrNull()
 
     /** The chunks of [video] in project [dir]; pauses that cannot be found give hard cuts with overlap (still ≤ max). */
     suspend fun plan(dir: String, video: SourceVideo): Plan {
@@ -100,6 +111,7 @@ class VideoTranscriber(
         val chunk = MediaChunk.parse(item) ?: error("This Transcribe job has an unreadable item: $item")
         val request = request(dir, jobId) ?: error("This Transcribe job's request is missing in $dir")
         if (!isItemDone(dir, jobId, item)) {
+            if (jobId in pausing.value) throw AiItemPaused(PAUSED)
             val p = provider ?: error(NO_GEMINI)
             val video = video(dir, request)
             val audio = timedAiStage(AiTimingStage.MEDIA_PREP) {
@@ -198,6 +210,7 @@ class VideoTranscriber(
         const val AUTO = "auto"
         const val REQUEST = "request.json"
         const val RESULT = "result.json"
+        const val PAUSED = "Paused. Resume sends only the chunks left."
         const val NO_GEMINI = "Gemini is not set up, so the video cannot be transcribed. Add a key in Settings."
         const val NO_SOUND = "This video has no sound to transcribe."
         const val NO_FFMPEG = "ffmpeg is not available, so the video's sound cannot be cut."

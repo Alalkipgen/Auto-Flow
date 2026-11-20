@@ -268,6 +268,12 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - **Check one frame**: after a moment a still appears with the line burned in, in the chosen look and size, exactly as Make video will draw it (Burmese joined correctly).
 - Change Burmese ↔ Original, the look or the size: the still disappears until checked again. Nothing appears in Jobs for a check.
 
-### S-5a — Transcribe job (no button yet; checked with S-5b)
+### S-5a/S-5b — Transcribe the video (phone + Windows, PHONE_PENDING; needs a Gemini key)
 
-- Nothing to press yet: whole-video transcription has no button until S-5b. With S-5b: a Jobs row "Transcribe video" opens the Subtitles screen; after the app is closed during a job, Resume sends only the chunks not yet saved.
+- A Subtitles project with a spoken video: the source card has **Turn speech into text (Gemini)**. A video with no sound: the button is off and says why.
+- Press it: "Finding the pauses…", then a card "N min of sound · K Gemini requests · only the sound is sent", "Today: … requests", language chips (Find out, EN, KO, ZH, TH, JA, HI, MY). Back sends nothing.
+- Start: "Transcribing: chunk 1 of K"; Jobs shows "Transcribe video". Pause: the current chunk finishes, then "Paused: 1 of K chunks saved" and **Resume K−1 remaining**; Resume finishes without sending chunk 1 again.
+- Done: "Done: n lines…", the editor shows the lines at the right times (check a few against the speech; a line cut at a 10-minute boundary appears once).
+- With lines already there (Choose another source → Transcribe): the card says it makes a new version; after Done, Versions still has the old lines.
+- Cancel job: "Transcribe cancelled. Your subtitles did not change."
+- Phone: close the app during a long job, reopen: the job card is there (running or paused) and Resume sends only the rest.
