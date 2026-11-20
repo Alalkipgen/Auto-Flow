@@ -48,6 +48,7 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
         object : BundledConfig {
             override fun modelsJson(): String = readResource("/config/models.json")
             override fun featuresJson(): String? = readResourceOrNull("/config/features.json")
+            override fun toolsJson(): String? = readResourceOrNull("/config/tools.json")
             override fun bundledFont(name: String): ByteArray? =
                 DesktopModule::class.java.getResourceAsStream("/config/fonts/$name")?.use { it.readBytes() }
         }
