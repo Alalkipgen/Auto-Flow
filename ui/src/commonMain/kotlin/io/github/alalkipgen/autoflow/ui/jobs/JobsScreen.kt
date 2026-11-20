@@ -223,6 +223,9 @@ private fun mediaTaskRow(run: MediaTaskRun, language: UiLanguage, name: String?)
         MediaTaskJob.SUBTITLE_BURN -> UiText.SUB_EXPORT_VIDEO
         io.github.alalkipgen.autoflow.media.audio.VoiceJoin.VOICE_M4A -> UiText.VA_SAVE_M4A
         io.github.alalkipgen.autoflow.media.audio.CleanAudio.CLEAN_AUDIO -> UiText.VA_CLEAN
+        io.github.alalkipgen.autoflow.media.audio.VideoSound.SOUND_ONLY -> UiText.VA_SOUND_ONLY
+        io.github.alalkipgen.autoflow.media.audio.VideoSound.REPLACE -> UiText.VA_REPLACE_SOUND
+        io.github.alalkipgen.autoflow.media.audio.VideoSound.ADD -> UiText.VA_ADD_ON_TOP
         else -> UiText.EXPORT
     }.text(language)
     val row = when (val s = run.state) {

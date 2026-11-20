@@ -95,6 +95,11 @@ val uiModule = module {
             ffmpeg = io.github.alalkipgen.autoflow.ui.voice.VoiceCleanModel.ffmpegWith(get()),
             uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) })
     }
+    single {
+        io.github.alalkipgen.autoflow.ui.voice.VideoSoundModel(get(), get(), get(), getOrNull(), get(), get(), get(), MainScope(),
+            probe = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.probeWith(get()),
+            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) })
+    }
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranscribeModel(get(), getOrNull(), getOrNull(), getOrNull(), get(), MainScope()) }
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateModel(get(), get(), getOrNull(), get(), MainScope()) }
     single { io.github.alalkipgen.autoflow.ui.voice.VoiceAudioModel(get(), get(), get(), MainScope(), library = getOrNull(),

@@ -18,15 +18,14 @@ import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /**
- * Voice & Audio (specs/quick-tools.md §6): the task chooser (Text → voice; Clean up sound and Video sound stay Planned
- * until V-2/V-3), then Text → voice with the text, its counter and part count; once the project exists also the voice
+ * Voice & Audio (specs/quick-tools.md §6): the task chooser (Text → voice, Clean up sound, Video sound), then Text → voice with the text, its counter and part count; once the project exists also the voice
  * lock, tone chips and the parts list (V-1d) with ▶ / ↻ and Speak (V-1e, [speak]); once every part is voiced Save m4a /
- * Save wav (V-1f, [export]). Clean up sound (V-2b, [clean]). [onBack] leaves the tool.
+ * Save wav (V-1f, [export]). Clean up sound (V-2b, [clean]). Video sound (V-3b, [video]). [onBack] leaves the tool.
  */
 @Composable
 fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null,
     onOpened: () -> Unit = {}, speak: VoiceSpeakModel? = null, export: VoiceExportModel? = null,
-    clean: VoiceCleanModel? = null) {
+    clean: VoiceCleanModel? = null, video: VideoSoundModel? = null) {
     val open by session.state.collectAsState()
     val s by model.state.collectAsState()
     val jobs by (speak?.jobs ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsState()
@@ -44,8 +43,9 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
             }
             s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("voice-notice"), color = AutoFlowColors.Failed) }
             when (s.task) {
-                null -> Chooser(model, clean, onOpened)
+                null -> Chooser(model, clean, video, onOpened)
                 VoiceTool.TASK_CLEAN -> if (clean != null) CleanStep(clean, open?.project?.voice, s.dir, export, open?.project?.name.orEmpty())
+                VoiceTool.TASK_VIDEO_SOUND -> if (video != null) VideoSoundStep(video, open?.project?.voice, s.dir, export, open?.project?.name.orEmpty())
                 VoiceTool.TASK_TEXT -> TextStep(model, s, speak, job, export, open?.project?.name.orEmpty())
                 else -> AfText(My.breakSyllables(tr(UiText.NEEDS_NEWER_APP)), muted = true)
             }
@@ -58,6 +58,15 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
             val idle = c.busy == null || c.dir != s.dir
             StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { clean.save("m4a") }, enabled = idle, tag = "voice-clean-m4a"),
                 secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { clean.save("wav") }, enabled = idle, tag = "voice-clean-wav"))
+        } else if (s.task == VoiceTool.TASK_VIDEO_SOUND && video != null && open?.project?.voice?.source != null) {
+            val v by video.state.collectAsState()
+            val idle = v.busy == null || v.dir != s.dir
+            val action = v.action.takeIf { v.dir == s.dir } ?: SOUND_ONLY
+            if (action == SOUND_ONLY) StickyActionBar(
+                primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { video.save("m4a") }, enabled = idle, tag = "video-sound-m4a"),
+                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { video.save("wav") }, enabled = idle, tag = "video-sound-wav"))
+            else StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.SUB_MAKE_VIDEO)), { video.save() },
+                enabled = idle && v.dir == s.dir && v.sound != null, tag = "video-sound-make"))
         } else if (s.task == VoiceTool.TASK_TEXT && job == null) {
             val n = s.rows.count { !it.voiced }
             if (n == 0 && s.rows.isNotEmpty() && export != null) StickyActionBar(
@@ -70,7 +79,7 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
 }
 
 @Composable
-private fun Chooser(model: VoiceAudioModel, clean: VoiceCleanModel?, onOpened: () -> Unit) {
+private fun Chooser(model: VoiceAudioModel, clean: VoiceCleanModel?, video: VideoSoundModel?, onOpened: () -> Unit) {
     AfH2(My.breakSyllables(tr(UiText.VA_CHOOSE)))
     OptionCard(My.breakSyllables(tr(UiText.VA_TEXT_TO_VOICE)), My.breakSyllables(tr(UiText.VA_TEXT_TO_VOICE_INFO)), false,
         { model.choose(VoiceTool.TASK_TEXT) }, Modifier.fillMaxWidth().testTag("voice-task-text"))
@@ -81,7 +90,13 @@ private fun Chooser(model: VoiceAudioModel, clean: VoiceCleanModel?, onOpened: (
         val c by clean.state.collectAsState()
         c.notice?.takeIf { c.dir == null }?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("voice-clean-notice"), color = AutoFlowColors.Amber) }
     }
-    PlannedTile(My.breakSyllables(tr(UiText.VA_VIDEO_SOUND)), modifier = Modifier.fillMaxWidth().testTag("voice-task-video"))
+    if (video == null) PlannedTile(My.breakSyllables(tr(UiText.VA_VIDEO_SOUND)), modifier = Modifier.fillMaxWidth().testTag("voice-task-video"))
+    else {
+        OptionCard(My.breakSyllables(tr(UiText.VA_VIDEO_SOUND)), My.breakSyllables(tr(UiText.VA_VIDEO_SOUND_INFO)), false, { video.start(onOpened) },
+            Modifier.fillMaxWidth().testTag("voice-task-video"))
+        val v by video.state.collectAsState()
+        v.notice?.takeIf { v.dir == null }?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("video-sound-notice"), color = AutoFlowColors.Amber) }
+    }
 }
 
 @Composable
