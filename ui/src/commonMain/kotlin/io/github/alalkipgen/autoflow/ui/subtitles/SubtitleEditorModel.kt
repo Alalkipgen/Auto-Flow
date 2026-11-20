@@ -94,6 +94,20 @@ class SubtitleEditorModel(
         SubtitleOps.split(doc, id, at.coerceIn(c.startMs + 1, (c.endMs - 1).coerceAtLeast(c.startMs + 1)))
     }
 
+    /**
+     * Shift times: every line, or [fromId] and the lines after it, by [deltaMs]. A shift before 0:00 is refused with
+     * the largest amount allowed; a done shift says how many lines moved.
+     */
+    fun shift(deltaMs: Long, fromId: String? = null) {
+        val before = _state.value.draft
+        edit { SubtitleOps.shift(it, deltaMs, fromId) }
+        val s = _state.value
+        val doc = s.draft?.doc ?: return
+        if (s.draft === before) return
+        val at = fromId?.let { id -> before!!.doc.cues.indexOfFirst { it.id == id } } ?: 0
+        update { it.copy(notice = UiNotice(UiText.SUB_SHIFTED, "lines" to before!!.doc.cues.size - at, "s" to deltaMs / 1000.0), ok = true) }
+    }
+
     /** A line the owner typed that cannot be used (e.g. a time that is not a time); nothing changes. */
     fun say(notice: UiNotice) = update { it.copy(notice = notice, ok = false) }
 

@@ -231,3 +231,10 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Tap a line: the video jumps to its start. While playing, the list follows the line being spoken; scroll the list yourself and it stops following for about 3 s.
 - In the edit panel: "Use playhead" sets Start or End to the video's time; "Play line" plays just that line and pauses at its end; "Split here" while the video is inside the line splits at that time.
 - 360 dp at font 2.0: the video takes about a third of the screen and the lines are still visible below it.
+
+### S-3e — Shift times (PHONE_PENDING)
+
+- Shift times → All lines → +1 s: every line's times move 1 s later and "Moved n lines by 1.0 s." shows; Undo puts them back.
+- Tap line 5, Shift times → From line 5 to the end → −0.1 s: lines 1–4 stay, the rest move 0.1 s earlier.
+- All lines → −1 s repeatedly until the first line is near 0:00: the next press is refused and says the most you can move back.
+- 360 dp at font 2.0, English and Burmese: the Shift card's chips and buttons wrap without clipping.

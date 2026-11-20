@@ -29,7 +29,8 @@ import kotlinx.coroutines.launch
  * The subtitle editor (specs/quick-tools.md §5): view and issues chips, undo/redo, a list keyed by cue id, the edit
  * panel under the line being edited, and Save · Discard while there are unsaved changes. [header] is the screen's
  * back row and notices. The video stays above the list; tap a line = seek + select, and while it plays the list
- * follows the playhead unless the owner scrolled in the last 3 s. Shift times and the wide layout come with S-3e.
+ * follows the playhead unless the owner scrolled in the last 3 s. Shift times sits under Undo · Redo; the wide layout
+ * and keys come with S-3f.
  */
 @Composable
 internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: SourceVideo, player: SubtitlePlayer,
@@ -40,6 +41,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var editing by remember(s.dir) { mutableStateOf<String?>(null) }
+    var shifting by remember(s.dir) { mutableStateOf(false) }
     val idle = s.offer == null
     val playhead = remember(s.dir) { Playhead() }
     val live = cues.indexOfFirst { playhead.positionMs >= it.startMs && playhead.positionMs < it.endMs }
@@ -79,7 +81,9 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                         AfButton(My.breakSyllables(tr(UiText.SUB_UNDO)), editor::undo, Modifier.testTag("subtitles-undo"), enabled = idle && draft.canUndo)
                         AfButton(My.breakSyllables(tr(UiText.SUB_REDO)), editor::redo, Modifier.testTag("subtitles-redo"), enabled = idle && draft.canRedo)
                         AfButton(My.breakSyllables(tr(UiText.SUB_CHANGE_SOURCE)), onChangeSource, Modifier.testTag("subtitles-change-source"), enabled = !draft.dirty)
+                        AfButton(My.breakSyllables(tr(UiText.SUB_SHIFT)), { shifting = !shifting }, Modifier.testTag("subtitles-shift"), enabled = idle)
                     }
+                    if (shifting && idle) ShiftCard(editor, cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 })
                 }
             }
             itemsIndexed(cues, key = { _, c -> c.id }) { i, c ->
@@ -99,6 +103,30 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard"),
             caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)),
         )
+    }
+}
+
+/**
+ * Shift times (spec §5): All lines, or From the selected line to the end; each amount moves at once (Undo undoes it).
+ * A shift before 0:00 is refused by `SubtitleOps.shift` with the largest allowed amount.
+ */
+@Composable
+private fun ShiftCard(editor: SubtitleEditorModel, selected: Int?) {
+    var fromLine by remember { mutableStateOf(false) }
+    val from = fromLine && selected != null
+    AfCard(My.breakSyllables(tr(UiText.SUB_SHIFT)), Modifier.testTag("subtitles-shift-card")) {
+        WrapRow {
+            AfChip(My.breakSyllables(tr(UiText.SUB_SHIFT_ALL)), !from, { fromLine = false }, Modifier.testTag("subtitles-shift-all"))
+            AfChip(My.breakSyllables(tr(UiText.SUB_SHIFT_FROM, "n" to (selected ?: 0) + 1)), from, { fromLine = true },
+                Modifier.testTag("subtitles-shift-from"), enabled = selected != null)
+        }
+        WrapRow {
+            SHIFT_STEPS_MS.forEach { d ->
+                val label = (if (d < 0) "−" else "+") + kotlin.math.abs(d) / 1000.0 + " s"
+                AfButton(label, { editor.shift(d, if (from) editor.state.value.draft?.doc?.cues?.getOrNull(selected!!)?.id else null) },
+                    Modifier.testTag("subtitles-shift-${if (d < 0) "m" else "p"}${kotlin.math.abs(d)}"))
+            }
+        }
     }
 }
 
@@ -216,6 +244,9 @@ private fun issueText(i: CueIssue, config: ToolsConfig): String {
         CueIssue.ORIGINAL_CHANGED -> tr(UiText.SUB_ORIGINAL_CHANGED)
     }
 }
+
+/** Shift times amounts (spec §5). */
+private val SHIFT_STEPS_MS = listOf(-1_000L, -100L, 100L, 1_000L)
 
 /** The list follows the playhead unless the owner scrolled within this long (spec §5). */
 private const val FOLLOW_PAUSE_MS = 3_000L
