@@ -89,6 +89,8 @@ val uiModule = module {
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob(get(), get(), getOrNull(), config = get()) }
     single { io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob(get(), get(), getOrNull(), config = get(),
         lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
+    single { io.github.alalkipgen.autoflow.ui.dubbing.DubSpeakJob(get(), get(), getOrNull(), config = get(),
+        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
     single { io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakModel(get(), getOrNull(), getOrNull(), MainScope()) }
     single { io.github.alalkipgen.autoflow.ui.voice.VoiceExportModel(get(), get(), get(), get(), getOrNull(), MainScope()) }
     single {

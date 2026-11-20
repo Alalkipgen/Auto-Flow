@@ -2,9 +2,13 @@ package io.github.alalkipgen.autoflow.core.dubbing
 
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.model.DubApproval
+import io.github.alalkipgen.autoflow.core.model.DubTake
 import io.github.alalkipgen.autoflow.core.model.DubbingTool
+import io.github.alalkipgen.autoflow.core.recap.Lexicon
+import io.github.alalkipgen.autoflow.core.recap.VoiceLock
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleCue
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
+import io.github.alalkipgen.autoflow.core.voice.VoiceTakes
 
 /** Why a Dubbing step is closed (specs/dubbing.md §2); the UI says it, never decides it. */
 enum class DubBlock { NO_VIDEO, TOO_LONG, NO_LINES, NOT_TRANSLATED, NOT_APPROVED }
@@ -71,4 +75,18 @@ object DubRules {
 
     /** The spoken lines changed: the approval no longer holds, so it is cleared (spec §2). */
     fun afterEdit(tool: DubbingTool, doc: SubtitleDoc): DubbingTool = if (isApproved(tool, doc)) tool else tool.copy(scriptApproved = null)
+
+    /** The exact text the voice is asked to say for [cue]: its [spoken] line after the Lexicon. */
+    fun sayText(cue: SubtitleCue, lexicon: Lexicon): String = VoiceTakes.spoken(spoken(cue), lexicon)
+
+    /** Take key of [cue] (spec §5): hash of [sayText], the voice lock and the tone — a take is current only while it matches. */
+    fun takeKey(cue: SubtitleCue, lexicon: Lexicon, lock: VoiceLock?, tone: String?): String = VoiceTakes.key(sayText(cue, lexicon), lock, tone)
+
+    /** [cue]'s take when it is still current for [lexicon] and [tool]'s lock and tone; else null (a redo is needed). */
+    fun currentTake(tool: DubbingTool?, cue: SubtitleCue, lexicon: Lexicon): DubTake? =
+        tool?.takes?.get(cue.id)?.takeIf { tool.lock != null && it.key == takeKey(cue, lexicon, tool.lock, tool.tone) }
+
+    /** Ids of the lines with no current take, in order: what Speak sends (lines that did not change are never re-spoken). */
+    fun toSpeak(tool: DubbingTool?, doc: SubtitleDoc, lexicon: Lexicon): List<String> =
+        doc.cues.filter { currentTake(tool, it, lexicon) == null && sayText(it, lexicon).isNotEmpty() }.map { it.id }
 }

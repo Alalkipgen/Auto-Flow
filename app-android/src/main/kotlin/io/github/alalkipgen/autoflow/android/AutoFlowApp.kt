@@ -21,7 +21,8 @@ class AutoFlowApp : Application() {
             val koin = getKoin()
             AiWorkerRegistry.processor = RecapJobProcessor({ koin.getOrNull<RecapModel>() }, { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber>() },
                 { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob>() },
-                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob>() })
+                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob>() },
+                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.dubbing.DubSpeakJob>() })
         } catch (e: Exception) {
             CrashLog.record(this, Thread.currentThread(), e)
         }

@@ -151,6 +151,7 @@ enum class UiText(val en: String, val my: String?) {
     JOB_MEDIA_TRANSCRIBE("Transcribe video", "ဗီဒီယို စာသားပြောင်း"),
     JOB_SUB_TRANSLATE("Translate subtitles", "စာတန်း ဘာသာပြန်"),
     JOB_TEXT_TTS("Text to voice", "စာ → အသံ"),
+    JOB_DUB_TTS("Dub voices", "Dubbing အသံ"),
     JOB_QUICK_RECAP("Quick Recap", "အမြန် Recap"),
     JOB_DONE("Done", "ပြီးပြီ"),
     JOB_CANCELLED("Cancelled", "ပယ်ဖျက်ပြီး"),

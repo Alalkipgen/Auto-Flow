@@ -91,7 +91,7 @@ val JobRow.group: JobGroup get() = when (status) {
     else -> JobGroup.FINISHED
 }
 
-internal fun AiJob.canResume() = kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE, AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE, AiJobKind.TEXT_TTS) &&
+internal fun AiJob.canResume() = kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE, AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE, AiJobKind.TEXT_TTS, AiJobKind.DUB_TTS) &&
     state in listOf(AiJobState.PAUSED, AiJobState.FAILED) && items.isNotEmpty()
 
 internal val JobRow.identity get() = "${source.name}:${projectDir.orEmpty()}:${jobId.orEmpty()}"
@@ -137,7 +137,7 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         val clips = job.savedClips
         val transcribe = job.kind == AiJobKind.TRANSCRIBE || job.kind == AiJobKind.MEDIA_TRANSCRIBE || job.kind == AiJobKind.SUB_TRANSLATE
         val multi = transcribe && total != null && total > 1
-        val timed = transcribe || job.kind == AiJobKind.TTS_ALL || job.kind == AiJobKind.TEXT_TTS
+        val timed = transcribe || job.kind == AiJobKind.TTS_ALL || job.kind == AiJobKind.TEXT_TTS || job.kind == AiJobKind.DUB_TTS
         val detail = listOfNotNull(
             projectName(job.project),
             when {
@@ -188,6 +188,7 @@ internal fun aiKindLabel(kind: AiJobKind, language: UiLanguage = UiLanguage.ENGL
     AiJobKind.MEDIA_TRANSCRIBE -> UiText.JOB_MEDIA_TRANSCRIBE.text(language)
     AiJobKind.SUB_TRANSLATE -> UiText.JOB_SUB_TRANSLATE.text(language)
     AiJobKind.TEXT_TTS -> UiText.JOB_TEXT_TTS.text(language)
+    AiJobKind.DUB_TTS -> UiText.JOB_DUB_TTS.text(language)
     AiJobKind.QUICK_RECAP -> UiText.JOB_QUICK_RECAP.text(language)
     AiJobKind.PUBLISH_KIT -> "Publish Kit"
 }
