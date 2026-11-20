@@ -20,11 +20,12 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 /**
  * Voice & Audio (specs/quick-tools.md §6): the task chooser (Text → voice; Clean up sound and Video sound stay Planned
  * until V-2/V-3), then Text → voice with the text, its counter and part count; once the project exists also the voice
- * lock, tone chips and the parts list (V-1d) with ▶ / ↻ and Speak (V-1e, [speak]). [onBack] leaves the tool.
+ * lock, tone chips and the parts list (V-1d) with ▶ / ↻ and Speak (V-1e, [speak]); once every part is voiced Save m4a /
+ * Save wav (V-1f, [export]). [onBack] leaves the tool.
  */
 @Composable
 fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null,
-    onOpened: () -> Unit = {}, speak: VoiceSpeakModel? = null) {
+    onOpened: () -> Unit = {}, speak: VoiceSpeakModel? = null, export: VoiceExportModel? = null) {
     val open by session.state.collectAsState()
     val s by model.state.collectAsState()
     val jobs by (speak?.jobs ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsState()
@@ -43,16 +44,19 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
             s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("voice-notice"), color = AutoFlowColors.Failed) }
             when (s.task) {
                 null -> Chooser(model)
-                VoiceTool.TASK_TEXT -> TextStep(model, s, speak, job)
+                VoiceTool.TASK_TEXT -> TextStep(model, s, speak, job, export, open?.project?.name.orEmpty())
                 else -> AfText(My.breakSyllables(tr(UiText.NEEDS_NEWER_APP)), muted = true)
             }
         }
         if (s.fresh && s.task == VoiceTool.TASK_TEXT) StickyActionBar(
             primary = StudioAction(My.breakSyllables(tr(UiText.VA_CONTINUE_TEXT)), { model.createWithText(onOpened) }, enabled = s.text.isNotBlank(),
                 tag = "voice-continue"),
-        ) else if (s.task == VoiceTool.TASK_TEXT && speak != null && job == null) {
+        ) else if (s.task == VoiceTool.TASK_TEXT && job == null) {
             val n = s.rows.count { !it.voiced }
-            StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to n)), { speak.ask() }, enabled = n > 0,
+            if (n == 0 && s.rows.isNotEmpty() && export != null) StickyActionBar(
+                primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { export.saveM4a() }, tag = "voice-save-m4a"),
+                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { export.saveWav() }, tag = "voice-save-wav"),
+            ) else if (speak != null) StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to n)), { speak.ask() }, enabled = n > 0,
                 tag = "voice-speak"))
         }
     }
@@ -68,7 +72,8 @@ private fun Chooser(model: VoiceAudioModel) {
 }
 
 @Composable
-private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?) {
+private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?,
+    export: VoiceExportModel?, title: String) {
     val idle = job == null
     AfH2(My.breakSyllables(tr(UiText.VA_TEXT_TO_VOICE)))
     AfTextField(s.text, model::setText, tr(UiText.VA_PASTE), Modifier.fillMaxWidth().testTag("voice-text"), lines = 8, mono = false, enabled = idle)
@@ -82,6 +87,7 @@ private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakM
     }
     AfText(My.breakSyllables(tr(UiText.VA_TAKE_RULE)), muted = true)
     s.dir?.let { dir -> speak?.let { SpeakPanel(it, dir, job) } }
+    s.dir?.let { dir -> export?.let { ExportPanel(it, dir, title) } }
     AfText(My.breakSyllables(tr(UiText.VA_PARTS, "n" to s.rows.size)), bold = true)
     var playing by remember { mutableStateOf<String?>(null) }
     s.rows.forEachIndexed { i, row ->

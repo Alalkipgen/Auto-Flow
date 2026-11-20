@@ -24,6 +24,10 @@ interface FileShare {
     suspend fun saveToDownloads(path: String, mime: String, displayName: String): PlatformResult<String> =
         PlatformResult.Unsupported("Saving to Downloads is not available here; the file is in the project's exports folder.")
 
+    /** Copies an audio file into the shared Music folder (Android: `Music/AutoFlow/[displayName]`); returns where. */
+    suspend fun saveToMusic(path: String, mime: String, displayName: String): PlatformResult<String> =
+        PlatformResult.Unsupported("Saving to Music is not available here; the file is in the project's exports folder.")
+
     /** Shows a folder in the system file manager (desktop). */
     fun openFolder(path: String): PlatformResult<Unit> =
         PlatformResult.Unsupported("Opening folders is not available here: $path")

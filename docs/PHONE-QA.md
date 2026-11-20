@@ -310,3 +310,10 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - **Start**: "Speaking: part k of n"; the text, voice and tone cannot be changed meanwhile. Each part turns "✓ Voiced" with ▶ (listen) and ↻ Speak this part again.
 - Lock the phone or switch apps during a long text: the job goes on (Jobs shows "Text to voice"); if Gemini is busy it pauses, and **Resume** speaks only the parts left.
 - Change one part's text afterwards: only that part says "Not voiced yet" and Speak asks for 1 request.
+
+### V-1f — Save the voice (phone + Windows, PHONE_PENDING)
+
+- With every part voiced the bottom bar shows **Save m4a** and **Save wav** (while a part is not voiced it shows Speak instead).
+- **Save wav**: "Saved: …/exports/<name>-voice-….wav" at once; listen to it — parts in order with a short pause, no clicks, nothing cut.
+- **Save m4a**: "Making the m4a: n%" with Cancel (also in Jobs as "Save m4a"); then the file path. Cancel leaves no m4a.
+- Phone: **Share…** opens the share sheet; **Save to Music** puts it in Music/AutoFlow (check a music app sees it). Windows: **Open folder…** shows the exports folder.

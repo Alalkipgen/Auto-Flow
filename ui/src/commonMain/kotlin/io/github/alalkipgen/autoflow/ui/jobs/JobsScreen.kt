@@ -219,7 +219,11 @@ fun jobsBadgeValue(jobs: List<AiJob>): Int = jobsBadgeValue(jobRows(null, null, 
 
 /** A media task (§7): the same Queued / Done / Failed / Cancelled wording as a render, named by its kind. */
 private fun mediaTaskRow(run: MediaTaskRun, language: UiLanguage, name: String?): JobRow {
-    val kind = (if (run.kind == MediaTaskJob.SUBTITLE_BURN) UiText.SUB_EXPORT_VIDEO else UiText.EXPORT).text(language)
+    val kind = when (run.kind) {
+        MediaTaskJob.SUBTITLE_BURN -> UiText.SUB_EXPORT_VIDEO
+        io.github.alalkipgen.autoflow.media.audio.VoiceJoin.VOICE_M4A -> UiText.VA_SAVE_M4A
+        else -> UiText.EXPORT
+    }.text(language)
     val row = when (val s = run.state) {
         RenderState.Queued -> JobRow(JobSource.MEDIA, UiText.JOB_RENDER_QUEUED.text(language, "kind" to kind), name, canCancel = true, status = StudioStatus.QUEUED)
         is RenderState.Running -> JobRow(JobSource.MEDIA, kind, name, s.fraction, canCancel = true)
