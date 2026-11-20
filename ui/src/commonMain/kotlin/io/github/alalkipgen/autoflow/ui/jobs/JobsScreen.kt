@@ -227,6 +227,8 @@ private fun mediaTaskRow(run: MediaTaskRun, language: UiLanguage, name: String?)
         io.github.alalkipgen.autoflow.media.audio.VideoSound.SOUND_ONLY -> UiText.VA_SOUND_ONLY
         io.github.alalkipgen.autoflow.media.audio.VideoSound.REPLACE -> UiText.VA_REPLACE_SOUND
         io.github.alalkipgen.autoflow.media.audio.VideoSound.ADD -> UiText.VA_ADD_ON_TOP
+        io.github.alalkipgen.autoflow.media.audio.DubMixer.STEM, io.github.alalkipgen.autoflow.media.audio.DubMixer.VOICE -> UiText.DUB_EXPORT_MIXING
+        io.github.alalkipgen.autoflow.media.audio.DubMixer.EXPORT -> UiText.DUB_EXPORT_MAKING
         else -> UiText.EXPORT
     }.text(language)
     val row = when (val s = run.state) {

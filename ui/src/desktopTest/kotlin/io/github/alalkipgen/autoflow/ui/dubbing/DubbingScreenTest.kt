@@ -270,4 +270,67 @@ class DubbingScreenTest {
             }
         }
     }
+
+    @Test fun exportMixesStepByStepAndShowsTheFilesAtBothSizesAndLanguages() {
+        for ((width, font) in listOf(360 to 2f, 1440 to 1f)) for (language in UiLanguage.entries) {
+            runDesktopComposeUiTest(width = width, height = 760) {
+                val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
+                val index = ProjectIndex(fs, "/app/projects.json")
+                val dir = "/p/Dub.autoflow"
+                val lock = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", "tts-a", "Kore", "my")
+                val doc = SubtitleDoc(source = "srt", nextId = 3, cues = listOf(
+                    SubtitleCue("c1", 1_000, 3_000, "We have to leave tonight.", textMy = "ဒီည ထွက်သွားရမယ်။"),
+                    SubtitleCue("c2", 4_000, 6_000, "Before the rain starts.", textMy = "မိုးမရွာခင် သွားရမယ်။")))
+                val created = (store.create(dir, "Dub", Mode.DUBBING) as CoreResult.Ok).value
+                val art = ArtifactStore(fs, dir)
+                val st = (art.put(CoreJson.encodeToString(SubtitleDoc.serializer(), doc).encodeToByteArray(), ArtifactKind.SUBTITLES, "json") as CoreResult.Ok).value.id
+                val rules = io.github.alalkipgen.autoflow.core.dubbing.DubRules
+                val takes = doc.cues.associate { c -> c.id to io.github.alalkipgen.autoflow.core.model.DubTake(
+                    (art.put("RIFF-${c.id}".encodeToByteArray(), ArtifactKind.AUDIO, "wav") as CoreResult.Ok).value.id,
+                    rules.takeKey(c, io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY, lock, null), 1_500) }
+                val tool = rules.approve(DubbingTool(lock = lock, takes = takes), 65_000, 600_000, doc, 1)!!
+                val p = (store.save(dir, created.copy(dubbing = tool, subtitles = SubtitlesTool(
+                    video = SourceVideo("source/movie.mp4", 9, 65_000, 1920, 1080, 25.0), current = st))) as CoreResult.Ok).value
+                current.set(OpenProject(dir, p))
+                val session = ProjectSession(fs, store, index, current)
+                val subtitles = SubtitlesModel(session, fs, DashboardModel(fs, store, index, SettingsStore(fs, "/app/s.json"), FakePicker(), current),
+                    null, MainScope(), probe = { null })
+                val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Default)
+                val queue = DubExportModelTest.Queue()
+                val export = DubExportModel(session, fs, io.github.alalkipgen.autoflow.ui.media.MediaTasks(queue, scope), scope)
+                try {
+                    setContent {
+                        CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
+                            LocalUiFontFamily provides BurmeseTestFont.family) {
+                            DubbingScreen(DubScriptModel(session, fs), subtitles, session, SubtitleEditorModel(session, fs, MainScope()), onBack = {},
+                                player = { _, _, m, _ -> androidx.compose.foundation.layout.Box(m) },
+                                voice = DubVoiceModel(session, null, null, scope, models = listOf("tts-a")), export = export)
+                        }
+                    }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-go-export").fetchSemanticsNodes().isNotEmpty() }
+                    onNodeWithTag("dub-go-export").performMouseInput { click() }
+                    onNodeWithTag("dub-step-EXPORT").assert(chosen)
+                    onNodeWithTag("dub-export-blocks").assertDoesNotExist()
+                    onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.DUB_LOWER.text(language)))
+                    onNodeWithTag("dub-save-wav").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { export.state.value.wav }
+                    onNodeWithTag("dub-export-go").assertIsEnabled().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { queue.jobs.size == 1 }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-export-job").fetchSemanticsNodes().isNotEmpty() }
+                    onNodeWithTag("dub-export-job").performScrollTo()
+                    onNodeWithTag("dub-export-go").assertIsNotEnabled()
+                    assertEquals(emptyList(), textFitProblems(width, font))
+                    ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "05-export-running-$width-${language.name.lowercase()}.png"))
+                    for (i in 0 until 4) { waitUntil(timeoutMillis = 5_000) { queue.jobs.size == i + 1 }; queue.done(i) }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-export-done").fetchSemanticsNodes().isNotEmpty() }
+                    onNodeWithTag("dub-export-done").performScrollTo()
+                    onNodeWithTag("dub-export-srt").assertExists()
+                    onNodeWithTag("dub-export-wav").assertExists()
+                    onNodeWithTag("dub-export-folder").assertExists() // no file sharing here: Open folder
+                    assertEquals(emptyList(), textFitProblems(width, font))
+                    ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "06-export-done-$width-${language.name.lowercase()}.png"))
+                } finally { scope.cancel() }
+            }
+        }
+    }
 }

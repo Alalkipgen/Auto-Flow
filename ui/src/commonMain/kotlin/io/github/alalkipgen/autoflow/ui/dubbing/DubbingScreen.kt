@@ -25,7 +25,7 @@ enum class DubStep(val text: UiText) {
     VOICE(UiText.DUB_STEP_VOICE), EXPORT(UiText.DUB_STEP_EXPORT);
 
     companion object {
-        /** Where an opened project lands: the first step that is not done yet (Export is still Planned). */
+        /** Where an opened project lands: the first step that is not done yet (Voice once approved; Export is chosen from there). */
         fun first(g: DubGates): DubStep = when {
             g.video != null || g.script == DubBlock.NO_LINES -> VIDEO
             g.script != null -> TRANSLATE
@@ -37,14 +37,14 @@ enum class DubStep(val text: UiText) {
 
 /**
  * Dubbing (D-1b). Video and Translate are the Subtitles source chooser and editor (D-88); Dub script shows every line
- * with its spoken line and the sticky Approve; Voice (D-2b) makes and checks each line's take. A locked step says why
- * and where to go; Export stays Planned until D-3.
+ * with its spoken line and the sticky Approve; Voice (D-2b) makes and checks each line's take; Export (D-3b) mixes and
+ * saves the dubbed video. A locked step says why and where to go.
  */
 @Composable
 fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel,
     onBack: () -> Unit, modifier: Modifier = Modifier, vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir),
     transcribe: SubtitleTranscribeModel? = null, translate: SubtitleTranslateModel? = null, voice: DubVoiceModel? = null,
-    shorten: DubShortenModel? = null) {
+    shorten: DubShortenModel? = null, export: DubExportModel? = null) {
     val open by session.state.collectAsState()
     val st by script.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -85,8 +85,13 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                         PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-VOICE"))
                     }
                 }
-                DubStep.EXPORT -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
-                    PlannedTile(tr(shown.text), gates.voice?.let { block(it, gates, script) }, Modifier.testTag("dub-planned-${shown.name}"))
+                DubStep.EXPORT -> when {
+                    dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
+                    gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
+                    export != null && doc != null -> ExportStep(export, open, doc, go)
+                    else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
+                        PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-${shown.name}"))
+                    }
                 }
             }
         }

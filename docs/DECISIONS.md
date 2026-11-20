@@ -194,3 +194,7 @@ D-0 (docs/perf/dubbing-d0.md) mixed 50 / 150 / 300 cues with real ffmpeg. One ru
 ### D-88 — A Dubbing project keeps its video and lines in `project.subtitles` (agent, 2026-11-21; refines specs/dubbing.md §3)
 
 specs/dubbing.md §3 put `video` and the `st` id inside `DubbingTool`. The Video and Translate steps reuse the Subtitles source chooser, editor, transcription and translation (spec §2), and those read and move `project.subtitles` (`video`, `current`). So a Dubbing project stores them there, exactly as a Subtitles project does, and `project.dubbing` holds only what is Dubbing's own (approval, voice lock, tone, takes, original sound, burn choice). No second copy of the pointer can go stale, and no Subtitles code needs a Dubbing branch. Spoken lines stay on the `st` cues (`spokenMy`).
+
+### D-89 — Dubbing Export: one fixed subtitle look and a kept `.wav` (agent, 2026-11-21; D-3b)
+
+The spec (§2) offers "burn Burmese subtitles" and "save the voice track as wav" but no look or size. Export burns with the Subtitles burn's **Boxed / Medium** look (readable over any picture) and offers no look or size chips yet, so the step stays short on a phone; the owner may ask for the Subtitles chips later. The kept `.wav` is the same voice mix written once more into `exports/` (not a moved stem), so the video's file name never depends on the `.wav` choice and turning it on never re-makes the video. Stems and the voice track live in `exports/dub-parts/`, named by their own ffmpeg arguments (Resume reuses them; nothing is overwritten).
