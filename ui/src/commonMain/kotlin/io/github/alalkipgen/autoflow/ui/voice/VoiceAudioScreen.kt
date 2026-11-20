@@ -156,9 +156,12 @@ private fun VoicePicker(model: VoiceAudioModel, s: VoiceAudioUi, idle: Boolean) 
     }
     WrapRow {
         RecapModel.TTS_VOICES.forEach { (name, _) ->
-            val modelId = lock?.model?.takeIf { it.isNotBlank() } ?: model.models.firstOrNull()
+            val modelId = io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.geminiModel(lock, model.models)
             AfChip(My.breakSyllables("$name · ${ttsVoiceKind(name)}"), lock?.voice == name, { modelId?.let { model.setLock(VoiceLock("gemini", it, name, "my")) } },
                 Modifier.testTag("voice-voice-$name"), enabled = idle && modelId != null)
         }
+    }
+    model.edgeVoices()?.let { edge ->
+        io.github.alalkipgen.autoflow.ui.voice.EdgeVoiceChips(edge, lock, idle, "voice") { model.setLock(it) }
     }
 }

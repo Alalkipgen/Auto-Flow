@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Edge voices** (V-1b, D-86, D-90): free Microsoft Edge Burmese voices Thiha and Nilar, no API key, as "Thiha · Edge" / "Nilar · Edge" chips next to the Gemini voices in Voice & Audio and Dubbing (flag `labs.edgeVoices`). Unofficial: if Microsoft refuses, the item fails visibly and Gemini voices stay available.
+
 ## v0.4.2
 
 - **BLUR feather fix** (5A-4): `geq=lum` + a real 0–255 alpha fade; `LayerFfmpegRenderTest` renders with a real ffmpeg (#135).

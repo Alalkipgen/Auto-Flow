@@ -84,6 +84,8 @@ data class TtsModels(
     /** Candidates with per-language declarations; replaces the old bare-string list (voice lock, D-35). */
     val candidates: List<TtsCandidate> = emptyList(),
     val replication: String = "unknown",
+    /** Edge "Read aloud" voices (V-1b, D-86); empty = not offered. */
+    val edge: EdgeTtsConfig = EdgeTtsConfig(),
 ) {
     /** Model ids that can speak [lang]; preserves declaration order. */
     fun chainFor(lang: String): List<String> = candidates.filter { it.speaksLanguage(lang) }.map { it.id }
@@ -98,6 +100,34 @@ data class TtsModels(
             else -> Availability.UNKNOWN
         }
 }
+
+/**
+ * `tts.edge` (D-86): the unofficial Microsoft Edge "Read aloud" service — no API key. Every endpoint value is data:
+ * Microsoft changes them, and then only this file changes. [model] is the voice-lock model id for these voices.
+ */
+@Serializable
+@SerialName("EdgeTtsConfig")
+data class EdgeTtsConfig(
+    val model: String = "",
+    val endpoint: String = "",
+    val trustedClientToken: String = "",
+    val secMsGecVersion: String = "",
+    val origin: String = "",
+    val userAgent: String = "",
+    val outputFormat: String = "",
+    /** Longest text (UTF-8 bytes, after XML escaping) one request may carry. */
+    val maxTextBytes: Int = 4000,
+    val voices: List<EdgeVoice> = emptyList(),
+) {
+    val available: Boolean get() = model.isNotBlank() && endpoint.isNotBlank() && trustedClientToken.isNotBlank() && voices.isNotEmpty()
+
+    fun voicesFor(lang: String): List<EdgeVoice> = voices.filter { it.lang.equals(lang, ignoreCase = true) }
+}
+
+/** One Edge voice: [id] is Microsoft's short name, [name] what the chip shows. */
+@Serializable
+@SerialName("EdgeVoice")
+data class EdgeVoice(val id: String, val name: String, val gender: String = "", val lang: String = "")
 
 /** Flow is manual (D-04); these are display hints only. */
 @Serializable

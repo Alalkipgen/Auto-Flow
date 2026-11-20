@@ -15,6 +15,9 @@ import io.github.alalkipgen.autoflow.ai.VoiceRef
 import io.github.alalkipgen.autoflow.ai.config.ImageMode
 import io.github.alalkipgen.autoflow.ai.config.ModelCapability
 import io.github.alalkipgen.autoflow.ai.config.ModelConfig
+import io.github.alalkipgen.autoflow.ai.edge.EdgeSocket
+import io.github.alalkipgen.autoflow.ai.edge.EdgeTtsProvider
+import io.github.alalkipgen.autoflow.ai.edge.KtorEdgeSocket
 import io.github.alalkipgen.autoflow.ai.fake.FakeImageProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTranscribeProvider
@@ -41,18 +44,23 @@ interface AiHost {
     fun copyToClipboard(text: String)
 
     fun openUrl(url: String)
+
+    /** Edge voices (D-86): an mp3 as 16-bit PCM WAV (ffmpeg); null when it cannot be decoded here. */
+    suspend fun mp3ToWav(mp3: ByteArray): ByteArray? = null
 }
 
 /**
  * Picks fake or real providers per call from [AiHost.useFakeProviders], so switching the setting takes effect
  * without restarting. Real = [GeminiTextProvider] + [ManualImageProvider] (D-14) + [GeminiTranscribeProvider]
- * (audio input on the text models, D-31) + [GeminiTtsProvider] (D-34). The HTTP client is created on first real call.
+ * (audio input on the text models, D-31) + [GeminiTtsProvider] (D-34), or [EdgeTtsProvider] when the voice lock names the
+ * Edge model (D-86). The HTTP client is created on first real call.
  */
 class ProviderRegistry(
     private val host: AiHost,
     val config: ModelConfig,
     usage: UsageCounter? = null,
     private val http: Lazy<HttpClient> = lazy { defaultAiHttpClient() },
+    private val edgeSocket: Lazy<EdgeSocket> = lazy { KtorEdgeSocket() },
     fakeDelayMs: Long = 400,
 ) {
     val usingFakes: Boolean get() = host.useFakeProviders()
@@ -75,6 +83,7 @@ class ProviderRegistry(
             ModelChain(usage = usage),
         )
     }
+    private val edgeTts by lazy { EdgeTtsProvider(config.tts.edge, edgeSocket.value, host::mp3ToWav) }
     private val manualImage = ManualImageProvider(host::copyToClipboard, host::openUrl, config.image.manualUrl)
 
     val text: TextProvider = object : TextProvider {
@@ -92,8 +101,15 @@ class ProviderRegistry(
             get() = if (usingFakes) fakeTts.capabilities else TtsCapabilities(replication = config.tts.replicationAvailability)
 
         override suspend fun speak(text: String, voice: VoiceRef, lang: String, style: String?, lockedModel: String?): AiResult<ByteArray> =
-            (if (usingFakes) fakeTts else geminiTts).speak(text, voice, lang, style, lockedModel)
+            when {
+                usingFakes -> fakeTts
+                isEdge(lockedModel) -> edgeTts
+                else -> geminiTts
+            }.speak(text, voice, lang, style, lockedModel)
     }
+
+    /** True when [lockedModel] is the Edge voices' model id (`tts.edge.model`): no API key, no Gemini fallback. */
+    fun isEdge(lockedModel: String?): Boolean = config.tts.edge.model.isNotBlank() && lockedModel == config.tts.edge.model
 
     val transcribe: TranscribeProvider = object : TranscribeProvider {
         override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> =
@@ -137,6 +153,7 @@ class ProviderRegistry(
 
     fun close() {
         if (http.isInitialized()) http.value.close()
+        if (edgeSocket.isInitialized()) (edgeSocket.value as? KtorEdgeSocket)?.close()
     }
 
     companion object {

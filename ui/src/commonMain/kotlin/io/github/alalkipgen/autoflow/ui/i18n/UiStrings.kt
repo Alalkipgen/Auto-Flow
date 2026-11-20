@@ -355,6 +355,7 @@ enum class UiText(val en: String, val my: String?) {
     CHANGE_VOICE("Change voice…", "အသံ ပြောင်းမယ်…"),
     VOICE_LOCK_POLICY("If the model is busy, pause; never silently switch model/provider. Recorded and imported audio stay unchanged.", "Model အလုပ်များရင် ခဏရပ်မယ်၊ model / provider ကို အလိုအလျောက် မပြောင်းပါ။ အသံသွင်းထားတာနဲ့ ထည့်ထားတဲ့ အသံတွေ မပြောင်းပါ။"),
     BURMESE_TTS_MODELS("Burmese-capable models (config/models.json)", "မြန်မာလို ပြောနိုင်သော model များ (config/models.json)"),
+    EDGE_VOICES("Edge voices — free, no API key (unofficial, may stop working)", "Edge အသံများ — အခမဲ့၊ API key မလို (တရားဝင်မဟုတ်၊ ရပ်သွားနိုင်)"),
     BURMESE_MODELS_MISSING("No Burmese-capable model configured. Check model config.", "မြန်မာလို ပြောနိုင်သော model မသတ်မှတ်ရသေးပါ။ Model ဆက်တင်ကို စစ်ပါ။"),
     VOICE_CHANGE_IMPACT("{size} selected TTS takes will have a different/unknown voice: ", "ရွေးထားသော TTS take {size} ခု အသံ မတူ / အသံ မသိ ဖြစ်မယ်: "),
     VOICE_CHANGE_PRESERVES("Old audio, take history, captions and approvals remain. Regeneration adds a new take; it never deletes the old one.", "အသံဟောင်း၊ take မှတ်တမ်း၊ စာတန်းနဲ့ အတည်ပြုချက်တွေ ကျန်မယ်။ ပြန်ပြောရင် take အသစ် ထပ်ထည့်တယ်၊ အဟောင်းကို မဖျက်ပါ။"),
