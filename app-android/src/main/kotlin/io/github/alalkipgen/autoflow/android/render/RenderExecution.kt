@@ -76,8 +76,9 @@ class RenderExecution(
     }
 
     companion object {
-        /** Where the shared RenderJobRunner writes before the rename (`<outputName>.part.mp4`). */
+        /** Where the shared RenderJobRunner writes before the rename (`<outputName>.part.mp4`, or a media task's part). */
         fun partPath(job: RenderJob): String {
+            job.mediaTask?.let { return it.partPath(job.workDir) }
             val out = if (job.outputName.startsWith("/")) job.outputName else File(job.workDir, job.outputName).path
             return "$out.part.mp4"
         }
