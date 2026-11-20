@@ -57,6 +57,8 @@ class VoiceAudioModel(
     private val library: LibraryStore? = null,
     /** Burmese-capable TTS models (`config/models.json`), first = default. */
     val models: List<String> = emptyList(),
+    /** Edge voices to offer next to the Gemini ones (D-86); null = none (not set up, or flag `labs.edgeVoices` off). */
+    val edgeVoices: () -> io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig? = { null },
 ) {
     private val _state = MutableStateFlow(VoiceAudioUi())
     val state: StateFlow<VoiceAudioUi> = _state.asStateFlow()

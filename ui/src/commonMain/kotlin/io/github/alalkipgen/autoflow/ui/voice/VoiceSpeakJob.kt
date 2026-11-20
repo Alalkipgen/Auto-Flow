@@ -119,9 +119,9 @@ class VoiceSpeakJob(
                     is CoreResult.Err -> error(put.error.message)
                 }
             }
-            is AiResult.RateLimited -> throw AiItemPaused("${model ?: "Gemini TTS"} is busy (${r.message.ifBlank { "rate limited" }}). Resume to go on.")
-            is AiResult.Failed -> if (r.isBusy()) throw AiItemPaused("${model ?: "Gemini TTS"} is busy (${r.msg}). Resume to go on.")
-                else error("Gemini TTS: ${r.msg}")
+            is AiResult.RateLimited -> throw AiItemPaused("${model ?: io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.ttsName(lock)} is busy (${r.message.ifBlank { "rate limited" }}). Resume to go on.")
+            is AiResult.Failed -> if (r.isBusy()) throw AiItemPaused("${model ?: io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.ttsName(lock)} is busy (${r.msg}). Resume to go on.")
+                else error("${io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.ttsName(lock)}: ${r.msg}")
             is AiResult.Deferred -> error(r.instruction)
         }
     }

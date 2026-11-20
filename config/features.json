@@ -14,6 +14,6 @@
     "autoCaptionPlacement": false,
     "wordKaraoke": false,
     "wholeMovieTranscribe": false,
-    "edgeVoices": false
+    "edgeVoices": true
   }
 }

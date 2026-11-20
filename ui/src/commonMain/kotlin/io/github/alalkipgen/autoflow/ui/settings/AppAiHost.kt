@@ -18,6 +18,8 @@ class AppAiHost(
     private val secrets: SecureStorage,
     private val clipboard: Clipboard,
     private val urls: UrlOpener,
+    /** Edge voices (D-86): mp3 → WAV with ffmpeg; null = cannot decode here. */
+    private val mp3Decoder: (suspend (ByteArray) -> ByteArray?)? = null,
 ) : AiHost {
     override fun useFakeProviders(): Boolean = settings.state.value.useFakeProviders
 
@@ -30,6 +32,8 @@ class AppAiHost(
     override fun openUrl(url: String) {
         urls.open(url)
     }
+
+    override suspend fun mp3ToWav(mp3: ByteArray): ByteArray? = mp3Decoder?.invoke(mp3)
 }
 
 enum class KeyState { SET, MISSING, UNREADABLE, UNSUPPORTED }

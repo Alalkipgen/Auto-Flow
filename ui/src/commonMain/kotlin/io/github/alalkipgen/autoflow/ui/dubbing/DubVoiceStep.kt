@@ -91,10 +91,13 @@ private fun Settings(model: DubVoiceModel, open: OpenProject?, idle: Boolean) {
         }
         WrapRow {
             RecapModel.TTS_VOICES.forEach { (name, _) ->
-                val modelId = lock?.model?.takeIf { it.isNotBlank() } ?: model.models.firstOrNull()
+                val modelId = io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.geminiModel(lock, model.models)
                 AfChip(My.breakSyllables("$name · ${ttsVoiceKind(name)}"), lock?.voice == name, { modelId?.let { model.setLock(VoiceLock("gemini", it, name, "my")) } },
                     Modifier.testTag("dub-voice-$name"), enabled = idle && modelId != null)
             }
+        }
+        model.edgeVoices()?.let { edge ->
+            io.github.alalkipgen.autoflow.ui.voice.EdgeVoiceChips(edge, lock, idle, "dub") { model.setLock(it) }
         }
         AfText(tr(UiText.VA_TONE), bold = true)
         WrapRow { TONES.forEach { (id, label) -> AfChip(My.breakSyllables(tr(label)), d?.tone == id, { model.setTone(id) }, Modifier.testTag("dub-tone-$id"), enabled = idle) } }

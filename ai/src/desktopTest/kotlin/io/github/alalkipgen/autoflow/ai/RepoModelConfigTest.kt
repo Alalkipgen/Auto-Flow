@@ -17,5 +17,9 @@ class RepoModelConfigTest {
         assertTrue(config.text.candidates.isNotEmpty())
         assertEquals(ImageMode.MANUAL, ModelCapability.from(config).imageMode) // D-14
         assertEquals(config.image.ratios.size, config.image.supportedRatios.size)
+        // Edge voices (D-86): set up, Burmese Thiha + Nilar, and their model id is never a Gemini candidate.
+        assertTrue(config.tts.edge.available)
+        assertEquals(listOf("Thiha", "Nilar"), config.tts.edge.voicesFor("my").map { it.name })
+        assertTrue(config.tts.candidates.none { it.id == config.tts.edge.model })
     }
 }
