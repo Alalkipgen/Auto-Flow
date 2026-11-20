@@ -162,6 +162,7 @@ val uiModule = module {
         SettingsModel(
             get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey, ffmpegRunner = getOrNull(),
             testTtsCall = { registry.testGeminiTts() },
+            testChatboxCall = registry::testChatboxKey,
             saveTtsSample = { bytes ->
                 dirs?.let { d ->
                     runCatching { joinPath(d.root, "tts-test.wav").also { fs.createDirectories(d.root); fs.writeDurably(it, bytes) } }.getOrNull()

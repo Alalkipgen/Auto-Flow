@@ -111,6 +111,42 @@ class SettingsScreenTest {
         onNodeWithText("Gemini API key: not saved").assertExists()
     }
 
+    /** F-4 (D-93): Chatbox AI's license key under the Gemini key; its chips choose who answers text and Transcribe. */
+    @Test
+    fun chatboxKeyAndServiceChips() = runComposeUiTest {
+        val json = """{"text": {"candidates": ["text-a"]}, "chatbox": {"baseUrl": "https://ai.chatboxai.app/v1", "text": ["gemini-2.5-flash"]}}"""
+        val m = SettingsModel(settings, secrets, ProviderStatusModel(settings, secrets), UsageCounter(fs, "/a/usage.json"),
+            loadModelConfig(fs, null) { json }, tools, FakePicker(), { PlatformResult.Ok(Unit) },
+            { AiResult.Ok(Unit, Usage(model = "gemini-x", latencyMs = 1)) },
+            testChatboxCall = { AiResult.Ok(Unit, Usage(model = "gemini-2.5-flash", latencyMs = 1)) })
+        setContent { SettingsScreen(m) }
+        openSection(UiText.V3_AI_KEYS)
+        onNodeWithText(UiText.CHATBOX_KEY_NOT_SAVED.en).performScrollTo().assertIsDisplayed()
+        onNodeWithTag("text-service-chatbox").assertIsNotEnabled()
+        onNodeWithTag("chatbox-key-test").assertIsNotEnabled()
+        onNodeWithContentDescription(UiText.CHATBOX_KEY_PASTE.en).performScrollTo().performTextInput("LIC-abcd-1234")
+        onNodeWithTag("chatbox-key-save").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        waitForIdle()
+        assertEquals("LIC-abcd-1234", secrets.values[SecretNames.CHATBOX_LICENSE_KEY])
+        assertEquals(null, secrets.values[SecretNames.GEMINI_API_KEY])
+        onNodeWithText("Chatbox AI license key: saved ••••1234").assertExists()
+        onNodeWithTag("chatbox-key-test").performScrollTo().assertIsEnabled().performMouseInput { click() }
+        waitForIdle()
+        onNodeWithText("Key works (gemini-2.5-flash)").assertExists()
+        onNodeWithTag("text-service-chatbox").performScrollTo().assertIsEnabled().performMouseInput { click() }
+        onNodeWithTag("transcribe-service-chatbox").performScrollTo().performMouseInput { click() }
+        waitForIdle()
+        assertEquals("chatbox", settings.state.value.textService)
+        assertEquals("chatbox", settings.state.value.transcribeService)
+        onNodeWithTag("transcribe-service-gemini").performScrollTo().performMouseInput { click() }
+        waitForIdle()
+        assertEquals("gemini", settings.state.value.transcribeService)
+        onNodeWithTag("chatbox-key-remove").performScrollTo().performMouseInput { click() }
+        waitForIdle()
+        onNodeWithText(UiText.CHATBOX_KEY_NOT_SAVED.en).assertExists()
+        assertEquals("gemini", settings.state.value.textService)
+    }
+
     @Test
     fun modeDefaultsAndToolsChangeSettings() = runComposeUiTest {
         setContent { SettingsScreen(model) }

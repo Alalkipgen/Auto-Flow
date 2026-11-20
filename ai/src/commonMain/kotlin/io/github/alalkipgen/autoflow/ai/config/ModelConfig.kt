@@ -18,6 +18,8 @@ data class ModelConfig(
     val image: ImageModels = ImageModels(),
     val tts: TtsModels = TtsModels(),
     val flow: FlowHints = FlowHints(),
+    /** F-4 (D-93): the second AI service for text and transcription, paid with a Chatbox AI license key. */
+    val chatbox: ChatboxConfig = ChatboxConfig(),
 ) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -30,6 +32,7 @@ data class ModelConfig(
                     text = config.text.copy(candidates = clean(config.text.candidates)),
                     image = config.image.copy(candidates = clean(config.image.candidates)),
                     tts = config.tts,  // TtsCandidate ids are validated by the JSON deserializer
+                    chatbox = config.chatbox.copy(text = clean(config.chatbox.text), transcribe = clean(config.chatbox.transcribe)),
                 ),
             )
         } catch (e: IllegalArgumentException) { // includes SerializationException
@@ -38,6 +41,24 @@ data class ModelConfig(
 
         private fun clean(ids: List<String>) = ids.map { it.trim() }.filter { id -> id.any { it.isLetterOrDigit() } }.distinct()
     }
+}
+
+/**
+ * Chatbox AI (F-4, D-93): an OpenAI-compatible API at [baseUrl] whose key is the Chatbox AI license key (a paid plan;
+ * every call uses its points). [text] and [transcribe] are model chains like `text.candidates`; Transcribe sends audio,
+ * so its models must take audio input (empty = [text]).
+ */
+@Serializable
+@SerialName("ChatboxConfig")
+data class ChatboxConfig(
+    val baseUrl: String = "",
+    val text: List<String> = emptyList(),
+    val transcribe: List<String> = emptyList(),
+    /** Where the owner finds the license key. */
+    val keyUrl: String = "",
+) {
+    val available: Boolean get() = baseUrl.isNotBlank() && text.isNotEmpty()
+    val transcribeModels: List<String> get() = transcribe.ifEmpty { text }
 }
 
 /** Stage model chain: tried in order at every stage call (D-15). The first entry is the default. */

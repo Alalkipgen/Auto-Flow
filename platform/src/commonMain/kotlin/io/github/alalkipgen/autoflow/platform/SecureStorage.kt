@@ -20,6 +20,9 @@ interface SecureStorage {
 
 object SecretNames {
     const val GEMINI_API_KEY = "gemini.apiKey"
+
+    /** F-4 (D-93): the Chatbox AI license key, used as its API key. */
+    const val CHATBOX_LICENSE_KEY = "chatbox.licenseKey"
 }
 
 /** Encrypts and decrypts for the current user only. Implementations may throw. */
