@@ -342,3 +342,7 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - **Replace the sound**: **Choose the sound** (e.g. a voice m4a from Text → voice); "Sound: song.…"; **Make video** → "Making the video: n%" (Jobs shows "Replace the sound"); the result plays with the new sound, same length; a shorter sound ends in silence. Phone: **Save to Gallery**.
 - **Add voice or music on top**: Starts at 2, Volume 50 %, Lower the original on → **Make video**; the original is quieter while the added sound plays. A video without sound: the Lower chip is not shown and Save the sound only is off.
 - Check the picture looks exactly like the original (no blur, same size).
+
+### D-0 — Dubbing spikes (PHONE_PENDING, nothing on screen)
+
+- Nothing new on screen. Phone parts of D-0 wait for the owner whenever convenient (D-85): (a) S8 — listen to one Burmese line at 1.00 / 1.10 / 1.25× and say the fastest that still sounds natural (sets `dubbing.maxVoiceSpeed`); (b) three 30–60 s clips through Dubbing once D-2 ships — per-line time, any "busy" pauses, naturalness. Until then Dubbing uses 1.0× and 10 min.
