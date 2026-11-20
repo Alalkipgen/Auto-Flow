@@ -19,6 +19,7 @@ data class ToolsConfig(
     val subtitles: Subtitles = Subtitles(),
     val tts: Tts = Tts(),
     val burn: Burn = Burn(),
+    val clean: Clean = Clean(),
     val dubbing: Dubbing = Dubbing(),
 ) {
     @Serializable
@@ -53,6 +54,10 @@ data class ToolsConfig(
 
     @Serializable
     data class Burn(val x264Preset: String = "veryfast", val crf: Int = 20)
+
+    /** Clean up sound (V-2): a pause longer than [pauseMs] becomes [keepMs] long; Before / After plays the first [previewMs]. */
+    @Serializable
+    data class Clean(val pauseMs: Long = 700, val keepMs: Long = 350, val previewMs: Long = 30_000)
 
     @Serializable
     data class Dubbing(

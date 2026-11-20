@@ -9,4 +9,5 @@
                   "news": "Read clearly and evenly, like a news presenter.",
                   "story": "Read like a storyteller, with warmth and gentle expression." } },
   "burn":       { "x264Preset": "veryfast", "crf": 20 },
+  "clean":      { "pauseMs": 700, "keepMs": 350, "previewMs": 30000 },
   "dubbing":    { "minGapMs": 100, "maxVoiceSpeed": 1.0, "originalVolume": 0.15, "maxSourceMs": 600000, "stemGroup": 50 } }
