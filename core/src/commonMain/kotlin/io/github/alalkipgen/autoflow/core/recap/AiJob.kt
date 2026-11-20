@@ -39,6 +39,8 @@ enum class AiJobKind {
     @SerialName("QUICK_RECAP") QUICK_RECAP,
     @SerialName("PUBLISH_KIT") PUBLISH_KIT,
     @SerialName("SCRIPT") SCRIPT,
+    /** Whole-video transcription of a Subtitles project (S-5, D-80): items `k<start>-<end>`. */
+    @SerialName("MEDIA_TRANSCRIBE") MEDIA_TRANSCRIBE,
 }
 
 @Serializable

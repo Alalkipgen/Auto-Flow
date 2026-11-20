@@ -91,7 +91,7 @@ val JobRow.group: JobGroup get() = when (status) {
     else -> JobGroup.FINISHED
 }
 
-internal fun AiJob.canResume() = kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE) &&
+internal fun AiJob.canResume() = kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE, AiJobKind.MEDIA_TRANSCRIBE) &&
     state in listOf(AiJobState.PAUSED, AiJobState.FAILED) && items.isNotEmpty()
 
 internal val JobRow.identity get() = "${source.name}:${projectDir.orEmpty()}:${jobId.orEmpty()}"
@@ -135,14 +135,15 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         val total = job.initialItemCount?.takeIf { it > 0 }
         val completed = total?.let { (it - job.items.size).coerceIn(0, it) }
         val clips = job.savedClips
-        val multi = job.kind == AiJobKind.TRANSCRIBE && total != null && total > 1
-        val timed = job.kind == AiJobKind.TRANSCRIBE || job.kind == AiJobKind.TTS_ALL
+        val transcribe = job.kind == AiJobKind.TRANSCRIBE || job.kind == AiJobKind.MEDIA_TRANSCRIBE
+        val multi = transcribe && total != null && total > 1
+        val timed = transcribe || job.kind == AiJobKind.TTS_ALL
         val detail = listOfNotNull(
             projectName(job.project),
             when {
                 clips != null && total != null -> UiText.JOB_SAVED_CLIPS.text(language, "done" to clips, "total" to total)
                 multi && completed != null && active -> UiText.JOB_REQUEST_UNIT.text(language, "n" to minOf(completed + 1, total), "total" to total)
-                job.kind != AiJobKind.SCRIPT && !(active && job.kind == AiJobKind.TRANSCRIBE) ->
+                job.kind != AiJobKind.SCRIPT && !(active && transcribe) ->
                     UiText.JOB_ITEMS_LEFT.text(language, "size" to job.items.size)
                 else -> null
             },
@@ -184,6 +185,7 @@ internal fun aiKindLabel(kind: AiJobKind, language: UiLanguage = UiLanguage.ENGL
     AiJobKind.TTS_ALL -> UiText.JOB_TTS_ALL.text(language)
     AiJobKind.TRANSCRIBE -> UiText.JOB_TRANSCRIBE.text(language)
     AiJobKind.SCRIPT -> UiText.JOB_SCRIPT.text(language)
+    AiJobKind.MEDIA_TRANSCRIBE -> UiText.JOB_MEDIA_TRANSCRIBE.text(language)
     AiJobKind.QUICK_RECAP -> UiText.JOB_QUICK_RECAP.text(language)
     AiJobKind.PUBLISH_KIT -> "Publish Kit"
 }
