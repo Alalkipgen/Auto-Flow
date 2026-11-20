@@ -65,6 +65,43 @@ class SettingsModelTest {
         assertEquals("Gemini API ● No key · Flow ● Manual", status.current())
     }
 
+    /** F-4 (D-93): the Chatbox AI license key sits next to the Gemini key and picks who answers text / Transcribe. */
+    @Test
+    fun chatboxKeyIsSavedMaskedTestedAndItsRemovalSendsCallsBackToGemini() = runTest {
+        val json = """{"text": {"candidates": ["text-a"]}, "chatbox": {"baseUrl": "https://ai.chatboxai.app/v1", "text": ["gemini-2.5-flash"]}}"""
+        var tested = 0
+        fun m(test: (suspend () -> AiResult<Unit>)? = { tested++; AiResult.Ok(Unit, Usage(model = "gemini-2.5-flash", latencyMs = 1)) }, models: String = json) =
+            SettingsModel(settings, secrets, status, usage, loadModelConfig(fs, null) { models }, tools, picker,
+                { PlatformResult.Ok(Unit) }, { testResult }, testChatboxCall = test)
+        assertFalse(m(test = null).chatboxOffered, "no test call, no section")
+        assertFalse(m(models = TEST_MODELS_JSON).chatboxOffered, "config/models.json without chatbox")
+        val model = m()
+        assertTrue(model.chatboxOffered)
+        assertEquals(KeyState.MISSING, model.state.value.chatboxKeyState)
+
+        model.saveChatboxKey("  LIC-abcd-1234 ")
+        assertEquals("LIC-abcd-1234", secrets.values[SecretNames.CHATBOX_LICENSE_KEY])
+        assertEquals(KeyState.SET, model.state.value.chatboxKeyState)
+        assertEquals("••••1234", model.state.value.maskedChatboxKey)
+        assertNull(secrets.values[SecretNames.GEMINI_API_KEY], "the Gemini key is separate")
+
+        model.testChatboxKey()
+        assertEquals(1, tested)
+        assertEquals("Key works (gemini-2.5-flash)", model.state.value.message)
+
+        model.setUseFakes(false)
+        model.setTextService("chatbox")
+        model.setTranscribeService("chatbox")
+        assertEquals("chatbox", settings.state.value.textService)
+        assertEquals("Chatbox AI ● License key · Flow ● Manual", status.current())
+
+        model.removeChatboxKey()
+        assertEquals(KeyState.MISSING, model.state.value.chatboxKeyState)
+        assertEquals("gemini", settings.state.value.textService)
+        assertEquals("gemini", settings.state.value.transcribeService)
+        assertEquals("Gemini API ● No key · Flow ● Manual", status.current())
+    }
+
     @Test
     fun keyOnNonWindowsExplainsWhy() {
         val m = model(MemorySecureStorage(unsupported = true))

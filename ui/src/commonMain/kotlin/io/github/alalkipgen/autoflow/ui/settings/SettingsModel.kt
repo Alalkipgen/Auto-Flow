@@ -56,6 +56,9 @@ data class SettingsUiState(
     val ttsSample: String? = null,
     /** Feature flags with user overrides applied. */
     val features: FeatureFlags = FeatureFlags(),
+    /** F-4 (D-93): the Chatbox AI license key's state and `••••abcd`; never the whole key. */
+    val chatboxKeyState: KeyState = KeyState.MISSING,
+    val maskedChatboxKey: String? = null,
 ) {
     val testing: Boolean get() = geminiTest != null
 }
@@ -80,6 +83,8 @@ class SettingsModel(
     /** Keeps the S5 sample for ▶; returns its path or null. */
     private val saveTtsSample: (ByteArray) -> String? = { null },
     private val builtInFonts: BuiltInFonts? = null,
+    /** F-4: one tiny Chatbox AI request with the saved license key; null = no Chatbox AI section. */
+    private val testChatboxCall: (suspend () -> AiResult<Unit>)? = null,
 ) {
     val appSettings: StateFlow<AppSettings> get() = settings.state
 
@@ -107,8 +112,35 @@ class SettingsModel(
 
     fun removeKey() = result(secrets.remove(SecretNames.GEMINI_API_KEY), UiNotice(UiText.KEY_REMOVED))
 
+    /** F-4: Chatbox AI is offered when the app can test it and `config/models.json` sets it up. */
+    val chatboxOffered: Boolean get() = testChatboxCall != null && models.config.chatbox.available
+
+    fun saveChatboxKey(input: String) {
+        if (input.isBlank()) report(UiNotice(UiText.KEY_ENTER_FIRST))
+        else result(secrets.put(SecretNames.CHATBOX_LICENSE_KEY, input.trim()), UiNotice(UiText.KEY_SAVED))
+    }
+
+    /** Removing the key also sends text and Transcribe back to Gemini, so nothing waits for a key that is gone. */
+    fun removeChatboxKey() {
+        settings.update { it.copy(textService = io.github.alalkipgen.autoflow.ai.registry.AiService.GEMINI,
+            transcribeService = io.github.alalkipgen.autoflow.ai.registry.AiService.GEMINI) }
+        result(secrets.remove(SecretNames.CHATBOX_LICENSE_KEY), UiNotice(UiText.KEY_REMOVED))
+    }
+
+    fun setTextService(service: String) = change { it.copy(textService = service) }
+
+    fun setTranscribeService(service: String) = change { it.copy(transcribeService = service) }
+
+    suspend fun testChatboxKey() = runDiagnostic(UiText.JOB_TEST_CHATBOX_KEY) {
+        val call = testChatboxCall ?: return@runDiagnostic
+        keyResult(call())
+    }
+
     suspend fun testKey() = runDiagnostic(UiText.JOB_TEST_GEMINI_KEY) {
-        val result = testKeyCall()
+        keyResult(testKeyCall())
+    }
+
+    private suspend fun keyResult(result: AiResult<Unit>) {
         currentCoroutineContext().ensureActive()
         val text = when (val r = result) {
             is AiResult.Ok -> UiNotice(UiText.KEY_WORKS, "model" to (r.usage?.model?.let { " ($it)" } ?: ""))
@@ -265,7 +297,10 @@ class SettingsModel(
     private fun snapshot(message: String?, notice: UiNotice? = null): SettingsUiState {
         val s = settings.state.value
         val key = secrets.get(SecretNames.GEMINI_API_KEY)
+        val chatbox = secrets.get(SecretNames.CHATBOX_LICENSE_KEY)
         return SettingsUiState(
+            chatboxKeyState = chatbox.toKeyState(),
+            maskedChatboxKey = chatbox.getOrNull()?.takeIf { it.isNotBlank() }?.let { "••••" + it.takeLast(4) },
             settings = s,
             keyState = key.toKeyState(),
             maskedKey = key.getOrNull()?.takeIf { it.isNotBlank() }?.let { "••••" + it.takeLast(4) },

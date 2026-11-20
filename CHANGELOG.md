@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Chatbox AI key** (F-4, D-93): Settings → AI & keys has a Chatbox AI license key under the Gemini key (Save / Test / Remove) and two choices — who answers Script, Translate, Shorten and Storyboard, and who answers Transcribe (Gemini or Chatbox AI; Gemini by default). Chatbox AI needs a paid plan and uses its points; voices stay Gemini / Edge.
 - **Edge voices keep their own pace** (F-3, D-92): an Edge voice job sends 20 lines a minute (`tts.edge.rpm`) instead of Gemini's 3, so the time shown before Speak is shorter; when Microsoft answers "busy" (429) the job waits and Resume retries. Edge has no API key and no published limit.
 - **Same progress card everywhere** (F-2): Subtitles Transcribe / Translate, Dubbing Voice / Shorten and Voice & Audio Speak show their AI job on the project page in the Movie Recap card — state, progress bar, live time and rate-limit wait — not only in Jobs.
 - **Subtitles fit the frame** (F-1, D-91): burned Burmese subtitles in Dubbing and Subtitles export show at most 1 or 2 lines (Short / Long) at a time — a longer line is shown in parts one after another. Landscape videos start at 1 short line, portrait at 2. Dubbing export now also has Size chips.

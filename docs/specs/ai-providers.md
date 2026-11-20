@@ -29,3 +29,18 @@ Values are hints; the app must behave correctly if they are wrong.
   (`speechConfig.voiceConfig.voice` on Gemini 3.8 TTS with `speech_metadata.style`; `prebuiltVoiceConfig.voiceName`
   on older models), `tts.candidates` tried in order (old `tts.default` when there is no list). The answer is always
   a WAV: 3.8 returns one (RIFF, 24 kHz mono 16-bit); headerless `audio/L16` PCM from older models is wrapped.
+- Edge voices (D-86, D-90, D-92): `EdgeTtsProvider` over the free read-aloud WebSocket, no key; voice jobs with an Edge
+  lock keep `tts.edge.rpm` (20 a minute) and an HTTP 429 is a rate limit (the job pauses, Resume retries).
+- Chatbox AI (F-4, D-93): a second service for **text** (`TextProvider`: Script, Translate, Shorten, Storyboard) and
+  **Transcribe** (`TranscribeProvider`), chosen per kind in Settings → AI & keys (`textService` / `transcribeService`,
+  default `gemini`). Same providers and prompts, another `JsonWire`: `ChatCompletionsWire` posts OpenAI-compatible
+  `{chatbox.baseUrl}/chat/completions` with the Chatbox AI license key as `Authorization: Bearer` (SecureStorage
+  `chatbox.licenseKey`), the JSON Schema in the prompt and `response_format: json_object` (sent once more without it
+  when refused), audio as `input_audio` (base64 + `wav` / `mp3` / `m4a` …), no temperature. Models are
+  `chatbox.text` / `chatbox.transcribe` chains in `config/models.json`. 401 = bad key, 402 / out of points = stop,
+  404 or a refused model = next model, 429 = rate limit, 5xx = retry. Chatbox calls are not counted in Gemini's
+  daily usage. TTS stays Gemini / Edge.
+```json
+"chatbox": { "baseUrl": "https://ai.chatboxai.app/v1", "text": ["gemini-2.5-flash", "gpt-5-mini", "deepseek-chat"],
+             "transcribe": ["gemini-2.5-flash"], "keyUrl": "https://chatboxai.app/" }
+```
