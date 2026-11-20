@@ -350,3 +350,14 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 ### D-1a — Dubbing data and rules (nothing to press yet)
 
 - Nothing new on screen; the Dubbing tile on Home stays Planned until D-1b.
+
+### D-1b — Dubbing: Video, Translate and Dub script (phone + Windows, PHONE_PENDING)
+
+- Settings → Self-test → Preview features → turn on `labs.dubbing`. Home → **Dubbing** opens the file picker at once; Cancel creates nothing. A video longer than 10 min says "Dubbing works with videos up to 10 min for now." and creates nothing.
+- Pick a short video: the project opens on **Video · Step 1 of 5** with the chips Video · Translate · Dub script · Voice · Export. Choose the lines as in Subtitles (text track, .srt or from the speech).
+- **Translate**: the same editor with Translate. Tap **Dub script** before every line has Burmese: "Not translated: n lines…" and **Go to Translate**.
+- **Dub script**: each line shows #, times, "Room until the next line: n s", the subtitle text and a Spoken line box. Change one spoken line → **Save** → "Spoken line saved as a new version."; **Use the subtitle text** brings the subtitle text back.
+- **Approve the dub script** → "Dub script approved." and the button greys out. Change any spoken line (or that line's Burmese subtitle in Translate) → the approval is gone and Approve is active again.
+- **Voice** and **Export** show Planned (not built yet). Back with unsaved subtitle edits asks Save / Discard / Keep editing.
+- Check the Burmese wording of the new lines.
+

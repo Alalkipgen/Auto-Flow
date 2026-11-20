@@ -1,6 +1,8 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.config.ToolsConfig
+import io.github.alalkipgen.autoflow.core.dubbing.DubRules
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
@@ -71,30 +73,39 @@ class SubtitlesModel(
     private val clock: Clock = Clock.System,
     private val offsetMs: (Long) -> Int = ::localOffsetMs,
     private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
+    /** `dubbing.maxSourceMs` (Q-41): a longer video is refused for Dubbing with `DUB_LIMIT`. */
+    private val dubMaxMs: Long = ToolsConfig().dubbing.maxSourceMs,
 ) {
     private val versions = SubtitleVersions(session, fs, clock)
     private val _state = MutableStateFlow(SubtitlesUiState())
     val state: StateFlow<SubtitlesUiState> = _state.asStateFlow()
     private var job: Job? = null
 
-    /** Home tile: pick a video and make a Subtitles project from it; [onOpened] runs once the project is open. */
-    fun start(onOpened: () -> Unit): Job? {
+    /**
+     * Home tile: pick a video and make a Subtitles project from it — or a Dubbing project when [dubbing] (D-1b, same
+     * source and editor, D-88); [onOpened] runs once the project is open. A video known to be over the Dubbing limit
+     * creates nothing; one found over it only after the copy keeps its project, says `DUB_LIMIT` and stays locked.
+     */
+    fun start(dubbing: Boolean = false, onOpened: () -> Unit): Job? {
         val p = picker ?: run { _state.value = SubtitlesUiState(notice = UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE)); return null }
         if (job?.isActive == true) return null
         _state.value = SubtitlesUiState()
         return scope.launch {
             var dir: String? = null
             fun fail(notice: UiNotice?) { _state.value = SubtitlesUiState(dir, notice = notice) }
-            val from = when (val r = p.pickFiles(UiText.SUBTITLES_PICK_VIDEO.text(uiLanguage()), ProjectSession.MOVIE_EXTENSIONS)) {
+            val title = if (dubbing) UiText.DUB_PICK_VIDEO else UiText.SUBTITLES_PICK_VIDEO
+            val from = when (val r = p.pickFiles(title.text(uiLanguage()), ProjectSession.MOVIE_EXTENSIONS)) {
                 is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch // Cancel: nothing is created
                 is PlatformResult.Failed -> return@launch fail(UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason))
                 is PlatformResult.Unsupported -> return@launch fail(UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason))
             }
             val before = probe(from)
             if (before != null && !isVideo(before)) return@launch fail(UiNotice(UiText.MOVIE_NO_PICTURE))
+            if (dubbing && before != null && DubRules.tooLong(before.durationMs, dubMaxMs)) return@launch fail(limit())
             val parent = dashboard.lastParent ?: dashboard.pickParent() ?: return@launch
-            val base = from.replace('\\', '/').substringAfterLast('/').substringBeforeLast('.').ifBlank { "Subtitles" }
-            if (!dashboard.createSubtitles(parent, "$base · ${localStamp(clock.now(), offsetMs)}")) {
+            val base = from.replace('\\', '/').substringAfterLast('/').substringBeforeLast('.').ifBlank { if (dubbing) "Dubbing" else "Subtitles" }
+            val name = "$base · ${localStamp(clock.now(), offsetMs)}"
+            if (!(if (dubbing) dashboard.createDubbing(parent, name) else dashboard.createSubtitles(parent, name))) {
                 return@launch fail(dashboard.state.value.notice ?: UiNotice(UiText.RESULT_DETAIL, "detail" to dashboard.state.value.message))
             }
             dir = session.open?.dir
@@ -120,7 +131,7 @@ class SubtitlesModel(
                 it.copy(subtitles = (it.subtitles ?: SubtitlesTool()).copy(video = video))
             }
             when (saved) {
-                is CoreResult.Ok -> _state.value = SubtitlesUiState(dir,
+                is CoreResult.Ok -> if (dubbing && DubRules.tooLong(video.durationMs, dubMaxMs)) fail(limit()) else _state.value = SubtitlesUiState(dir,
                     notice = UiNotice(UiText.SUBTITLES_VIDEO_READY, "duration" to RecapModel.clock(video.durationMs)), ok = true,
                     tracks = info.subtitleTracks, tracksRead = true)
                 is CoreResult.Err -> fail(UiNotice(UiText.RESULT_DETAIL, "detail" to saved.error.message))
@@ -129,6 +140,7 @@ class SubtitlesModel(
     }
 
     private fun isVideo(info: MediaInfo) = info.hasVideo && info.durationMs > 0
+    private fun limit() = UiNotice(UiText.DUB_LIMIT, "minutes" to dubMaxMs / 60_000)
 
     // --- Source (S-2b, specs/quick-tools.md §5): a text track or an .srt file becomes the first `st` version. ----------
 

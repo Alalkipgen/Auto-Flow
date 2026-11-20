@@ -80,4 +80,10 @@ class DubRulesTest {
         assertEquals(0.15, DubbingTool().original.volume)
         assertEquals(DubOriginal.LOWER, DubbingTool().original.mode)
     }
+
+    @Test fun slotRunsToTheNextLineLessTheGapAndTheLastToTheVideoEnd() {
+        assertEquals(listOf(1_900L, 2_400L, 4_000L), DubRules.slots(doc, 8_500, 100))
+        val tight = doc.copy(cues = listOf(doc.cues[0], doc.cues[1].copy(startMs = 1_550)))
+        assertEquals(listOf(1_500L, 2_450L), DubRules.slots(tight, 4_000, 100)) // never shorter than the line; video end below the line end
+    }
 }

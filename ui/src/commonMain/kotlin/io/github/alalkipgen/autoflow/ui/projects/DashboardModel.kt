@@ -115,6 +115,10 @@ class DashboardModel(
     /** New Subtitles project (D-77, S-1b): automatic free name, no naming dialog or settings form; then opens it. */
     fun createSubtitles(parent: String, name: String): Boolean = create(parent, freeName(parent, name), Mode.SUBTITLES)
 
+    /** New Dubbing project (D-1b): a Subtitles-shaped project (D-88) with an empty `project.dubbing`; then opens it. */
+    fun createDubbing(parent: String, name: String): Boolean =
+        create(parent, freeName(parent, name), Mode.DUBBING) { it.copy(dubbing = io.github.alalkipgen.autoflow.core.model.DubbingTool()) }
+
     /** New Voice & Audio project at its first real step (V-1c): automatic free name, the task's state; then opens it. */
     fun createVoice(parent: String, name: String, voice: io.github.alalkipgen.autoflow.core.model.VoiceTool): Boolean =
         create(parent, freeName(parent, name), Mode.VOICE_AUDIO) { it.copy(voice = voice) }

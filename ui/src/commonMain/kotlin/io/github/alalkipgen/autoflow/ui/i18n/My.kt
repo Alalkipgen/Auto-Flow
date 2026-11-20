@@ -82,6 +82,7 @@ object My {
         "Movie Recap" to UiText.MOVIE_RECAP,
         "Subtitles" to UiText.V3_SUBTITLES,
         "Voice & Audio" to UiText.V3_VOICE_AUDIO,
+        "Dubbing" to UiText.V3_DUBBING,
         "Settings" to UiText.SETTINGS_TITLE,
         "Projects" to UiText.PROJECTS,
         "Home" to UiText.HOME,

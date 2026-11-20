@@ -49,6 +49,8 @@ fun HomeScreen(
     onNewSubtitles: (() -> Unit)? = null,
     /** Opens the Voice & Audio chooser; null keeps the tile Planned (flag `tools.voiceAudio` off, D-84). */
     onNewVoice: (() -> Unit)? = null,
+    /** Opens the picker for a new Dubbing project; null keeps the tile Planned (flag `labs.dubbing` off, D-84). */
+    onNewDubbing: (() -> Unit)? = null,
 ) {
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
@@ -76,7 +78,8 @@ fun HomeScreen(
             AfCard(tr(UiText.HOME_CREATE)) {
                 AfButton(tr(UiText.HOME_NEW_RECAP), onNewRecap, Modifier.fillMaxWidth().testTag("home-new-recap"))
                 AfButton(tr(UiText.HOME_NEW_MV), onNewMusicVideo, Modifier.fillMaxWidth().testTag("home-new-mv"))
-                PlannedTile(tr(UiText.V3_DUBBING), modifier = Modifier.testTag("home-dubbing"))
+                if (onNewDubbing != null) AfButton(tr(UiText.V3_DUBBING), onNewDubbing, Modifier.fillMaxWidth().testTag("home-dubbing"))
+                else PlannedTile(tr(UiText.V3_DUBBING), modifier = Modifier.testTag("home-dubbing"))
             }
             SectionCard(tr(UiText.V3_QUICK_TOOLS)) {
                 AfText(My.breakSyllables(tr(UiText.V3_TOOLS_IN_PROJECT)), muted = true)

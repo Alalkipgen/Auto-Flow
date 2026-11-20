@@ -26,6 +26,15 @@ object DubRules {
     fun hash(doc: SubtitleDoc): String = Sha256.hex(doc.cues.joinToString("\n") { "${it.id}\t${it.startMs}\t${it.endMs}\t${spoken(it)}" }
         .encodeToByteArray()).take(16)
 
+    /**
+     * Each line's slot (spec §4): from its start to `next.start − minGapMs`, the last one to [videoMs]; never below the
+     * line itself, so a line whose next one starts too soon still keeps its own time.
+     */
+    fun slots(doc: SubtitleDoc, videoMs: Long, minGapMs: Long): List<Long> = doc.cues.mapIndexed { i, c ->
+        val end = doc.cues.getOrNull(i + 1)?.let { it.startMs - minGapMs } ?: videoMs
+        maxOf(end, c.endMs) - c.startMs
+    }
+
     /** Over the limit (`dubbing.maxSourceMs`, Q-41): refused at Video with `DUB_LIMIT`. */
     fun tooLong(durationMs: Long, maxSourceMs: Long): Boolean = maxSourceMs in 1 until durationMs
 
