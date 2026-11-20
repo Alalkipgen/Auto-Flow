@@ -1456,6 +1456,22 @@ enum class UiText(val en: String, val my: String?) {
     DUB_APPROVE("Approve the dub script", "ပြောမည့်စာကို အတည်ပြုမယ်"),
     DUB_APPROVED("Dub script approved.", "ပြောမည့်စာကို အတည်ပြုပြီးပါပြီ။"),
     DUB_NOT_APPROVED("Not approved yet. Any change to a spoken line needs a new approval.", "မအတည်ပြုရသေးပါ။ ပြောမည့်စာ ပြောင်းတိုင်း ပြန်အတည်ပြုရပါမယ်။"),
+    // Voice step (D-2b, specs/dubbing.md §4 and §9); the owner checks the Burmese.
+    DUB_ORIGINAL("Original sound", "မူရင်းအသံ"),
+    DUB_LOWER("Lower — music and effects stay, original voices still heard quietly", "လျှော့မယ် — တေးဂီတ၊ အသံထူးတွေ ကျန်မယ်၊ မူရင်းစကားသံကို တိုးတိုး ကြားရမယ်"),
+    DUB_MUTE("Mute — music and effects go too", "ပိတ်မယ် — တေးဂီတ၊ အသံထူးတွေပါ ပျောက်မယ်"),
+    DUB_USES_PAUSE("Uses the pause", "အနားယူချိန်ကို သုံးထားတယ်"),
+    DUB_FASTER("Faster ×{x}", "×{x} မြန်ထားတယ်"),
+    DUB_TAKE("Voice: {s} s", "အသံ: {s} စက္ကန့်"),
+    DUB_SPEAK_LINES("Speak {n} lines", "စာကြောင်း {n} ကြောင်း အသံထုတ်မယ်"),
+    DUB_SPEAK_PROGRESS("Speaking: line {k} of {n}", "အသံထုတ်နေတယ်: စာကြောင်း {k} / {n}"),
+    DUB_SPEAK_PAUSED("Paused: {done} of {n} lines spoken.", "ခဏရပ်ထား: စာကြောင်း {n} ကြောင်းမှာ {done} ကြောင်း အသံထုတ်ပြီး။"),
+    DUB_SPEAK_STOPPED("Stopped: {detail} {done} of {n} lines spoken.", "ရပ်သွားတယ်: {detail} စာကြောင်း {n} ကြောင်းမှာ {done} ကြောင်း အသံထုတ်ပြီး။"),
+    DUB_SPEAK_DONE("{n} lines spoken.", "စာကြောင်း {n} ကြောင်း အသံထုတ်ပြီးပြီ။"),
+    DUB_SPEAK_CANCELLED("Speak stopped. Lines already spoken keep their voice.", "အသံထုတ်တာ ရပ်လိုက်ပြီ။ ထုတ်ပြီးသား စာကြောင်းတွေ အသံ မပျောက်ပါ။"),
+    DUB_ALL_VOICED("Every line already has its voice.", "စာကြောင်းအားလုံး အသံထုတ်ပြီးသားပါ။"),
+    DUB_REDO_LINE("Speak this line again", "ဒီစာကြောင်းကို ပြန်ပြောမယ်"),
+    DUB_VOICE_EDIT_PAUSED("The voice, tone and original sound can be changed when Speak ends.", "အသံထုတ်တာ ပြီးမှ အသံ၊ လေသံ၊ မူရင်းအသံကို ပြောင်းလို့ရမယ်။"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }

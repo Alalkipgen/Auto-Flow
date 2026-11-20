@@ -188,7 +188,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
                 SUBTITLES_SCREEN -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject())
                 VOICE_SCREEN -> io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), speak = koinInject(), export = koinInject(), clean = koinInject(), video = koinInject())
-                DUBBING_SCREEN -> io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { screen = "Dashboard" }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject())
+                DUBBING_SCREEN -> io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { screen = "Dashboard" }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject(), voice = koinInject())
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
@@ -405,7 +405,7 @@ private fun StudioV2App(
                             io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), onBack = { openProjectScreen(null) },
                                 speak = koinInject(), export = koinInject(), clean = koinInject(), video = koinInject())
                         } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.DUBBING && screen == DUBBING_SCREEN) {
-                            io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { openProjectScreen(null) }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject())
+                            io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { openProjectScreen(null) }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject(), voice = koinInject())
                         } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES && screen == SUBTITLES_SCREEN) {
                             io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject(), onBack = { openProjectScreen(null) })
                         } else if (isRecap && screen in listOf("Recap", "Export")) {
