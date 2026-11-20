@@ -1480,6 +1480,20 @@ enum class UiText(val en: String, val my: String?) {
     DUB_USE_LINES("Use {n} lines", "စာကြောင်း {n} ကြောင်း သုံးမယ်"),
     DUB_SHORTEN_USED("{n} spoken lines changed. Approve the dub script again, then speak them.", "ပြောမည့်စာ {n} ကြောင်း ပြောင်းပြီးပြီ။ ပြောမည့်စာကို ပြန်အတည်ပြုပြီးမှ အသံထုတ်ပါ။"),
     DUB_VOICE_EDIT_PAUSED("The voice, tone and original sound can be changed when Speak ends.", "အသံထုတ်တာ ပြီးမှ အသံ၊ လေသံ၊ မူရင်းအသံကို ပြောင်းလို့ရမယ်။"),
+    DUB_EXPORT_NOT_READY("Before the export:", "မထုတ်ခင် လုပ်ရန်:"),
+    DUB_EXPORT_NO_VOICE("{n} lines have no voice yet (or an old one).", "စာကြောင်း {n} ကြောင်းမှာ အသံ မရှိသေးပါ (သို့) အသံဟောင်းပါ။"),
+    DUB_BURN("Add Burmese subtitles", "မြန်မာ စာတန်း ထည့်မယ်"),
+    DUB_SAVE_WAV("Also save the voice track (.wav)", "အသံ track ကိုလည်း (.wav) သိမ်းမယ်"),
+    DUB_EXPORT_KEEPS("Without subtitles the picture is copied as it is (no quality loss). With Burmese subtitles a new video is made, which takes longer.", "စာတန်း မပါရင် ပုံရိပ်ကို မူရင်းအတိုင်း ကူးမယ် (အရည်အသွေး မကျ)။ မြန်မာ စာတန်း ပါရင် ဗီဒီယို အသစ် ထုတ်ရလို့ ပိုကြာမယ်။"),
+    DUB_EXPORT_GO("Make the dubbed video", "Dubbing ဗီဒီယို ထုတ်မယ်"),
+    DUB_EXPORT_MIXING("Mixing the voices", "အသံတွေ ပေါင်းနေတယ်"),
+    DUB_EXPORT_MAKING("Making the video", "ဗီဒီယို ထုတ်နေတယ်"),
+    DUB_EXPORT_STEP("Step {k} of {n}: {what} {percent}%", "အဆင့် {n} ခုထဲက {k}: {what} {percent}%"),
+    DUB_EXPORT_STOPPED("Stopped at step {k}: {detail} Export again to go on — finished parts are kept.", "အဆင့် {k} မှာ ရပ်သွားတယ်: {detail} ပြန်ထုတ်ရင် ပြီးပြီးသား အပိုင်းတွေကို ဆက်သုံးမယ်။"),
+    DUB_EXPORT_DONE("Dubbed video ready: {path}", "Dubbing ဗီဒီယို ရပါပြီ: {path}"),
+    DUB_EXPORT_SRT("Subtitles file: {path}", "စာတန်းဖိုင်: {path}"),
+    DUB_EXPORT_WAV("Voice track: {path}", "အသံ track: {path}"),
+    DUB_BURN_NO_FONT("No Burmese font: turn off Burmese subtitles, or add one in Settings → Fonts.", "မြန်မာဖောင့် မရှိပါ: မြန်မာ စာတန်းကို ပိတ်ပါ (သို့) ဆက်တင်များ → ဖောင့်များ မှာ ထည့်ပါ။"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }

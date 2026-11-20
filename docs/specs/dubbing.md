@@ -1,6 +1,6 @@
 # Spec: Dubbing (Phase 7, milestone D)
 
-Status: **in progress** — D-0 CI part, D-1a (data + rules) and D-1b (Video / Translate / Dub script screens) D-2 (fit rule, takes, `DUB_TTS` job, Voice step, Shorten) and D-3a (pre-flight, `DubMixer`) done; data layout refined by D-88 (video and `st` pointer in `project.subtitles`). Ported from the owner's Phase 7 plan bundle; code facts
+Status: **in progress** — D-0 CI part, D-1a (data + rules) and D-1b (Video / Translate / Dub script screens) D-2 (fit rule, takes, `DUB_TTS` job, Voice step, Shorten) and D-3 (pre-flight, `DubMixer`, Export step) done — owner milestone D on the phone pending; data layout refined by D-88 (video and `st` pointer in `project.subtitles`). Ported from the owner's Phase 7 plan bundle; code facts
 re-checked at `8d092a0` (PR #216). Builds on [quick-tools.md](quick-tools.md) (tool projects, `st` document, jobs,
 `config/tools.json`). Decisions D-83, D-85, D-86; open questions Q-40…Q-42. **No Dubbing UI before the CI part of D-0 is reported** (phone parts don't block, D-85).
 

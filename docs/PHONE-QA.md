@@ -382,3 +382,12 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Tap **Use** on the lines you want → **Use n lines**: the app opens **Dub script** with "n spoken lines changed. Approve the dub script again, then speak them." The subtitle text is unchanged; Approve is active again.
 - Approve → Voice: only the changed lines say "Script changed"; **Speak n lines** sends only those. **Back** on the Shorten card drops the suggestions. Without a key: "Gemini is not available here". Check the Burmese wording.
 
+### D-3a/D-3b — Dubbing: Export (phone + Windows, PHONE_PENDING)
+
+- With every line voiced and fitting: Voice → **Go to Export**. The card shows the original sound you chose on Voice; no "Before the export" card.
+- Leave a line without a voice (or change its spoken line and approve again): Export shows "n lines have no voice yet (or an old one)" with **Go to Voice**, and **Make the dubbed video** is off.
+- **Make the dubbed video** (no subtitles): "Step k of n: Mixing the voices … %" then "Making the video". Jobs shows the same rows; Cancel stops it and says Export again keeps the finished parts.
+- Done: play it. Every Burmese line starts on its own line's time, none overlaps the next, the voice is never sped up. **Lower**: music, effects and the original voices quietly under the dub. **Mute**: only the dub. The picture quality is the same as the source.
+- The `.srt` next to the video has the Burmese subtitle text. Share / Save to Gallery (phone) or Open folder (Windows) work.
+- **Add Burmese subtitles** on → make again: the subtitles are burned (boxed, medium) at their times; without a Burmese font it says so. **Also save the voice track (.wav)** → the `.wav` plays the dub alone.
+- One-line redo (↻ on Voice) → Export again: only that part is mixed again; kill the app during Export → open the project → Export again finishes. Check the Burmese wording.
