@@ -278,6 +278,11 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Cancel job: "Transcribe cancelled. Your subtitles did not change."
 - Phone: close the app during a long job, reopen: the job card is there (running or paused) and Resume sends only the rest.
 
-### S-6a — Translate job (no button yet; checked with S-6b)
+### S-6a/S-6b — Translate to Burmese (phone + Windows, PHONE_PENDING; needs a Gemini key)
 
-- Nothing to press yet. With S-6b: Jobs shows "Translate subtitles" and opens the Subtitles screen.
+- A Subtitles project with English (or other non-Burmese) lines, saved: the sticky bar has **Translate to Burmese (Gemini)** next to Export. Burmese lines (a `my` track): no Translate button.
+- Press it: a card "Translate N lines: K Gemini requests.", "Only new or changed lines…", Everyday spoken (selected) / Formal, names (+ Add a name), "Also replace my edits" (off). Tick it with a hand-edited Burmese line: N grows. Back sends nothing.
+- Add a name (e.g. a character → its Burmese), Start: "Translating: batch 1 of K"; Jobs shows "Translate subtitles". The lines cannot be edited and the bar says "Editing pauses while translating" with Cancel job.
+- Done: "Done: n lines have Burmese…", the editor shows the new version; Burmese view shows the lines, the name written as given, the hand-edited line unchanged. Versions still has the old lines.
+- Cancel job: "Translate cancelled. Your subtitles did not change." and editing comes back.
+- If Gemini is busy: the job card says Paused with **Resume n remaining**; Resume sends only the rest. If a batch fails: "n lines not translated. The rest is kept." + Retry asks again for only those lines.
