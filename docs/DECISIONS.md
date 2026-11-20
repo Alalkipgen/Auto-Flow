@@ -190,3 +190,7 @@ No Azure: the owner has no Azure key, so `AzureTtsProvider` is not built. Instea
 ### D-87 — DubMixer always mixes in stems of 50 cues (agent, 2026-11-21; from D-0)
 
 D-0 (docs/perf/dubbing-d0.md) mixed 50 / 150 / 300 cues with real ffmpeg. One run with every cue as an input works and keeps every cue within ±40 ms, but for 300 cues the command is 36 660 characters — above the Windows command-line limit (32 767) — and takes 20.5 s against 11.5 s for stems. So `DubMixer` (D-3) always pre-mixes groups of `dubbing.stemGroup` (50) cues into full-length stems, then mixes the stems with the original; one code path at every length. The v1 maximum length stays 10 min (Q-41 default): the mix is not the bottleneck, TTS time is.
+
+### D-88 — A Dubbing project keeps its video and lines in `project.subtitles` (agent, 2026-11-21; refines specs/dubbing.md §3)
+
+specs/dubbing.md §3 put `video` and the `st` id inside `DubbingTool`. The Video and Translate steps reuse the Subtitles source chooser, editor, transcription and translation (spec §2), and those read and move `project.subtitles` (`video`, `current`). So a Dubbing project stores them there, exactly as a Subtitles project does, and `project.dubbing` holds only what is Dubbing's own (approval, voice lock, tone, takes, original sound, burn choice). No second copy of the pointer can go stale, and no Subtitles code needs a Dubbing branch. Spoken lines stay on the `st` cues (`spokenMy`).

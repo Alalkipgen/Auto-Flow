@@ -114,6 +114,7 @@ internal fun v2EntryScreen(mode: io.github.alalkipgen.autoflow.core.model.Mode):
     io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO -> "Input"
     io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
     io.github.alalkipgen.autoflow.core.model.Mode.VOICE_AUDIO -> VOICE_SCREEN
+    io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> null
 }
 
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
@@ -178,6 +179,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                         io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO, null -> "Input"
                         io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
                         io.github.alalkipgen.autoflow.core.model.Mode.VOICE_AUDIO -> VOICE_SCREEN
+                        io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> "Dashboard" // not openable before D-1b
                     }
                 })
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })

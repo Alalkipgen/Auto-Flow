@@ -346,3 +346,7 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 ### D-0 — Dubbing spikes (PHONE_PENDING, nothing on screen)
 
 - Nothing new on screen. Phone parts of D-0 wait for the owner whenever convenient (D-85): (a) S8 — listen to one Burmese line at 1.00 / 1.10 / 1.25× and say the fastest that still sounds natural (sets `dubbing.maxVoiceSpeed`); (b) three 30–60 s clips through Dubbing once D-2 ships — per-line time, any "busy" pauses, naturalness. Until then Dubbing uses 1.0× and 10 min.
+
+### D-1a — Dubbing data and rules (nothing to press yet)
+
+- Nothing new on screen; the Dubbing tile on Home stays Planned until D-1b.

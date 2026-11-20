@@ -127,6 +127,10 @@ private fun HomeModeIcon(mode: Mode) {
                     drawLine(AutoFlowColors.Amber, Offset(x * u, (10 - h / 2) * u), Offset(x * u, (10 + h / 2) * u), 2.5f * u)
                 }
             }
+            Mode.DUBBING -> { // a speech bubble
+                drawRoundRect(AutoFlowColors.Cyan, Offset(2 * u, 3 * u), Size(16 * u, 11 * u), CornerRadius(3 * u))
+                drawLine(AutoFlowColors.Cyan, Offset(6 * u, 13 * u), Offset(5 * u, 18 * u), 2 * u)
+            }
         }
     }
 }

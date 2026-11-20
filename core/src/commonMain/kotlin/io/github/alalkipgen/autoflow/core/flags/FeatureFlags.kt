@@ -61,6 +61,7 @@ data class FeatureFlags(
         const val QUICK_RECAP = "quickRecap"
         const val TOOLS_SUBTITLES = "tools.subtitles"
         const val TOOLS_VOICE_AUDIO = "tools.voiceAudio"
+        const val LABS_DUBBING = "labs.dubbing"
 
         private val json = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
 
