@@ -42,7 +42,7 @@ object SubtitleBurn {
     fun ass(cues: List<SrtCue>, width: Int, height: Int, font: String, look: BurnLook, size: BurnSize, maxChars: Int, assScale: Double?): String =
         AssWriter.write(overlays(cues, width, height, font, look, size, maxChars), Output(Ratio.R16_9, width, height, 0, Quality.EXPORT, ""), { assScale })
 
-    private fun filter(ass: String, fontsDir: String) = "ass=filename=${RenderCompiler.filterPath(ass)}:fontsdir=${RenderCompiler.filterPath(fontsDir)}"
+    internal fun filter(ass: String, fontsDir: String) = "ass=filename=${RenderCompiler.filterPath(ass)}:fontsdir=${RenderCompiler.filterPath(fontsDir)}"
 
     /** The burn; paths are relative to the project folder (the task's work dir) or absolute. Output = [MediaTaskJob.PART]. */
     fun args(source: String, ass: String, fontsDir: String, audioCodec: String?, x264Preset: String, crf: Int): List<String> =
