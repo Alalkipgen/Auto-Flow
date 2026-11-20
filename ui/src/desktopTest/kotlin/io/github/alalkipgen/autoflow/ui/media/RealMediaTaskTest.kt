@@ -71,7 +71,7 @@ class RealMediaTaskTest {
             withTimeout(5_000) { while (tasks.run(ok.id)?.state !is RenderState.Done) delay(10) }
             val row = jobRows(null, null, null, emptyList(), tasks = tasks.runs.value).single()
             assertEquals(JobSource.MEDIA, row.source)
-            assertEquals(File(dir, "exports/short.mp4").path, row.output)
+            assertEquals(File(dir, "exports/short.mp4").canonicalFile, File(row.output!!).canonicalFile)
             assertEquals("Subtitles", row.projectScreen)
 
             val long = tasks.start(encode(1_200, "exports/long.mp4"), dir.path, "Burn", "Subtitles")!!
