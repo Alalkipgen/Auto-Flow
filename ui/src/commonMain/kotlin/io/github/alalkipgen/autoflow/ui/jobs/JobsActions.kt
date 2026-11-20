@@ -141,6 +141,7 @@ fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProje
         JobSource.AI -> when (row.aiKind) {
             AiJobKind.PUBLISH_KIT -> "Export"
             AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE -> SUBTITLES_SCREEN
+            AiJobKind.TEXT_TTS -> io.github.alalkipgen.autoflow.ui.shell.VOICE_SCREEN
             else -> "Recap"
         }
         JobSource.RECAP, JobSource.RECAP_VOICE -> "Recap"

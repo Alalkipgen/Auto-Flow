@@ -43,6 +43,8 @@ enum class AiJobKind {
     @SerialName("MEDIA_TRANSCRIBE") MEDIA_TRANSCRIBE,
     /** Translation of a Subtitles project's lines to Burmese (S-6, D-81): items `b<first cue id>`. */
     @SerialName("SUB_TRANSLATE") SUB_TRANSLATE,
+    /** Text → voice Speak of a Voice & Audio project (V-1e): items = part ids `p<n>`. */
+    @SerialName("TEXT_TTS") TEXT_TTS,
 }
 
 @Serializable

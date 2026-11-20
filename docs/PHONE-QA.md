@@ -303,3 +303,10 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Open a Text → voice project: under the text are **Voice** (saved voices from Library first, then Burmese models and the six voices), **Tone** (Calm / Lively / News / Storytelling) and the parts list; every part says "Not voiced yet" (Speak comes with V-1e, still Planned).
 - Pick another voice or tone, leave and reopen: the choice is kept. Tap the chosen tone again: no tone.
 - Burmese labels fit at 360 dp with large text; owner: check the Burmese wording of the tone chips.
+
+### V-1e — Speak the parts (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- **Speak n parts**: a card says how many Gemini requests, with which voice and model, and about how long (3 per minute). Back sends nothing.
+- **Start**: "Speaking: part k of n"; the text, voice and tone cannot be changed meanwhile. Each part turns "✓ Voiced" with ▶ (listen) and ↻ Speak this part again.
+- Lock the phone or switch apps during a long text: the job goes on (Jobs shows "Text to voice"); if Gemini is busy it pauses, and **Resume** speaks only the parts left.
+- Change one part's text afterwards: only that part says "Not voiced yet" and Speak asks for 1 request.

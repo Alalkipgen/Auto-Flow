@@ -13,7 +13,8 @@ import io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber
  * project" or a scene index. Items already voiced in that project are reported done without a request. A TRANSCRIBE
  * item (5B-1) is one request's movie ranges of the job's project ([RecapModel.transcribeJobItem]); ranges already in
  * that project's transcript are done without a request. A MEDIA_TRANSCRIBE item (S-5) is one chunk of a Subtitles
- * project's video ([VideoTranscriber.runItem]); a SUB_TRANSLATE item one batch of its lines (S-6). Other job kinds FAIL with [UnsupportedAiJob]. [recap] is
+ * project's video ([VideoTranscriber.runItem]); a SUB_TRANSLATE item one batch of its lines (S-6); a TEXT_TTS item one
+ * part of a Voice & Audio project's text (V-1e). Other job kinds FAIL with [UnsupportedAiJob]. [recap] is
  * looked up when an item runs (the model and the runner need each
  * other in DI); none → the item fails.
  */
@@ -21,6 +22,7 @@ class RecapJobProcessor(
     private val recap: () -> RecapModel?,
     private val video: () -> VideoTranscriber?,
     private val translate: () -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob? = { null },
+    private val speak: () -> io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob? = { null },
 ) : AiItemProcessor {
     constructor(recap: () -> RecapModel?) : this(recap, { null })
 
@@ -29,6 +31,7 @@ class RecapJobProcessor(
         AiJobKind.TRANSCRIBE -> model().transcribeJobItem(job.project, item)
         AiJobKind.MEDIA_TRANSCRIBE -> transcriber().runItem(job.project, job.id, item)
         AiJobKind.SUB_TRANSLATE -> (translate() ?: error("Translation is not available here")).runItem(job.project, job.id, item)
+        AiJobKind.TEXT_TTS -> (speak() ?: error("Text to voice is not available here")).runItem(job.project, job.id, item)
         else -> throw UnsupportedAiJob(job.kind)
     }
 
