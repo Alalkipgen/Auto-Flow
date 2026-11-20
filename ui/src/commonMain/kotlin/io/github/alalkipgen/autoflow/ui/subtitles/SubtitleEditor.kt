@@ -1,12 +1,17 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -26,11 +31,12 @@ import kotlin.time.Instant
 import kotlinx.coroutines.launch
 
 /**
- * The subtitle editor (specs/quick-tools.md §5): view and issues chips, undo/redo, a list keyed by cue id, the edit
- * panel under the line being edited, and Save · Discard while there are unsaved changes. [header] is the screen's
- * back row and notices. The video stays above the list; tap a line = seek + select, and while it plays the list
- * follows the playhead unless the owner scrolled in the last 3 s. Shift times sits under Undo · Redo; the wide layout
- * and keys come with S-3f.
+ * The subtitle editor (specs/quick-tools.md §5): view and issues chips, undo/redo, Shift times, a list keyed by cue
+ * id, and Save · Discard while there are unsaved changes. [header] is the screen's back row and notices. Tap a line =
+ * seek + select; while the video plays the list follows the playhead unless the owner scrolled in the last 3 s.
+ * Below [WIDE_DP] window width: the video above the list and the edit panel under its line. From [WIDE_DP]: the video
+ * and the edit panel on the left, the list on the right (D-22: one tree, two panes). Keys on the editor surface
+ * (never inside a text field): Space play/pause, ↑/↓ previous/next line, Enter edit, Ctrl+S save, Ctrl+Z undo.
  */
 @Composable
 internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: SourceVideo, player: SubtitlePlayer,
@@ -47,6 +53,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     val live = cues.indexOfFirst { playhead.positionMs >= it.startMs && playhead.positionMs < it.endMs }
     var scrolledAt by remember { mutableLongStateOf(0L) }
     var following by remember { mutableStateOf(false) }
+    val wide = windowWidthDp() >= WIDE_DP
     LaunchedEffect(list.isScrollInProgress) { if (list.isScrollInProgress && !following) scrolledAt = nowMs() }
     LaunchedEffect(live, playhead.playing) {
         if (playhead.playing && live >= 0 && nowMs() - scrolledAt > FOLLOW_PAUSE_MS) {
@@ -54,12 +61,37 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             try { list.animateScrollToItem(1 + live) } finally { following = false }
         }
     }
-    Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
-        Box(Modifier.fillMaxWidth().padding(start = screenPadding, end = screenPadding, top = 8.dp)) {
-            SubtitlePreview(path, video, cues, s.view, playhead, player)
+    fun goTo(i: Int) {
+        val c = cues.getOrNull(i) ?: return
+        editor.select(c.id); playhead.seek(c.startMs)
+        scope.launch { list.animateScrollToItem(1 + i) }
+    }
+    val onKey: (KeyEvent) -> Boolean = onKey@{ e ->
+        if (e.type != KeyEventType.KeyDown || !idle) return@onKey false
+        val at = cues.indexOfFirst { it.id == s.selected }
+        val ctrl = e.isCtrlPressed || e.isMetaPressed
+        when {
+            ctrl && !e.isShiftPressed && e.key == Key.S -> { if (draft.dirty) editor.save() }
+            ctrl && !e.isShiftPressed && e.key == Key.Z -> editor.undo()
+            ctrl || e.isAltPressed || e.isShiftPressed -> return@onKey false
+            e.key == Key.Spacebar -> playhead.toggle()
+            editing != null -> return@onKey false // the open panel keeps its typed text until Done / Previous / Next
+            e.key == Key.DirectionDown -> goTo((at + 1).coerceAtMost(cues.lastIndex))
+            e.key == Key.DirectionUp -> goTo((at - 1).coerceAtLeast(0))
+            e.key == Key.Enter || e.key == Key.NumPadEnter -> { if (at >= 0) editing = cues[at].id }
+            else -> return@onKey false
         }
+        true
+    }
+    @Composable
+    fun panel(i: Int, c: SubtitleCue) = EditPanel(c, editor, playhead,
+        onPrev = cues.getOrNull(i - 1)?.let { p -> { editing = p.id; editor.select(p.id) } },
+        onNext = cues.getOrNull(i + 1)?.let { n -> { editing = n.id; editor.select(n.id) } },
+        onClose = { editing = null })
+    val preview: @Composable () -> Unit = { SubtitlePreview(path, video, cues, s.view, playhead, player, if (wide) 0.45f else 0.34f) }
+    val cueList: @Composable (Modifier) -> Unit = { m ->
         // One list: the header scrolls away with the lines, so a phone at font 2.0 still shows them (D-22).
-        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-cues"), state = list,
+        LazyColumn(m.testTag("subtitles-cues"), state = list,
             contentPadding = PaddingValues(screenPadding), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item(key = "header") {
                 Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -91,20 +123,38 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     CueRow(i + 1, c, s.view, s.issues[c.id], s.selected == c.id || i == live, idle, editor.config,
                         onTap = { editor.select(c.id); playhead.seek(c.startMs) },
                         onEdit = { editing = if (editing == c.id) null else c.id; editor.select(c.id) })
-                    if (editing == c.id && idle) EditPanel(c, editor, playhead,
-                        onPrev = cues.getOrNull(i - 1)?.let { p -> { editing = p.id; editor.select(p.id) } },
-                        onNext = cues.getOrNull(i + 1)?.let { n -> { editing = n.id; editor.select(n.id) } },
-                        onClose = { editing = null })
+                    if (!wide && editing == c.id && idle) panel(i, c)
                 }
             }
         }
-        if (draft.dirty) StickyActionBar(
-            primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save"),
-            secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard"),
-            caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)),
-        )
+    }
+    ProjectShortcutHost(onKey = onKey) {
+        Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
+            if (wide) Row(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-wide")) {
+                Column(Modifier.weight(0.46f).fillMaxHeight().verticalScroll(rememberScrollState())
+                    .padding(start = screenPadding, top = screenPadding, bottom = screenPadding).testTag("subtitles-left"),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    preview()
+                    val i = cues.indexOfFirst { it.id == editing }
+                    if (i >= 0 && idle) panel(i, cues[i])
+                }
+                cueList(Modifier.weight(0.54f).fillMaxHeight())
+            } else {
+                Box(Modifier.fillMaxWidth().padding(start = screenPadding, end = screenPadding, top = 8.dp)) { preview() }
+                cueList(Modifier.weight(1f).fillMaxWidth())
+            }
+            if (draft.dirty) StickyActionBar(
+                primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save"),
+                secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard"),
+                caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)),
+            )
+        }
     }
 }
+
+/** The window's width in dp (the 840 dp breakpoint is the window, not the pane left after the rail). */
+@Composable
+private fun windowWidthDp(): Float = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp().value }
 
 /**
  * Shift times (spec §5): All lines, or From the selected line to the end; each amount moves at once (Undo undoes it).
@@ -244,6 +294,9 @@ private fun issueText(i: CueIssue, config: ToolsConfig): String {
         CueIssue.ORIGINAL_CHANGED -> tr(UiText.SUB_ORIGINAL_CHANGED)
     }
 }
+
+/** Two panes from this window width (spec §1.6). */
+private const val WIDE_DP = 840f
 
 /** Shift times amounts (spec §5). */
 private val SHIFT_STEPS_MS = listOf(-1_000L, -100L, 100L, 1_000L)

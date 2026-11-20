@@ -238,3 +238,9 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Tap line 5, Shift times → From line 5 to the end → −0.1 s: lines 1–4 stay, the rest move 0.1 s earlier.
 - All lines → −1 s repeatedly until the first line is near 0:00: the next press is refused and says the most you can move back.
 - 360 dp at font 2.0, English and Burmese: the Shift card's chips and buttons wrap without clipping.
+
+### S-3f — Wide layout and keys (Windows · tablet, PHONE_PENDING)
+
+- Window ≥ 840 dp wide: the video and the edit panel are on the left, the lines on the right; the lines stay visible while a line is edited. Narrower: as before.
+- Click an empty spot, then: ↓ / ↑ select the next / previous line and the video jumps to it; Enter opens its edit panel; Space plays / pauses; Ctrl+Z undoes; Ctrl+S saves ("Saved: N lines.").
+- Typing a space or Enter inside a text box types it; it does not play or open anything.

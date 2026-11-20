@@ -53,9 +53,10 @@ val LocalProjectShortcuts = staticCompositionLocalOf<ProjectShortcuts?> { null }
  * non-AfTextField inputs), button Space/Enter, scrubber arrows, selection and accessibility key handling without
  * a fragile per-input focus counter. Tab still reaches controls; click passive content to return here.
  * Observe only unconsumed final-pass taps. Never consume a down/up or steal a child click, drag or wheel gesture.
+ * [onKey]: a screen's own keys, asked only for keys the shared shortcuts did not take (same focus rule).
  */
 @Composable
-fun ProjectShortcutHost(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun ProjectShortcutHost(modifier: Modifier = Modifier, onKey: ((KeyEvent) -> Boolean)? = null, content: @Composable () -> Unit) {
     val shortcuts = remember { ProjectShortcuts() }
     val focus = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
@@ -72,7 +73,7 @@ fun ProjectShortcutHost(modifier: Modifier = Modifier, content: @Composable () -
             }
             .focusRequester(focus)
             .onFocusChanged { focused = it.isFocused; hasFocus = it.hasFocus }
-            .onKeyEvent { focused && shortcuts.handle(it) }
+            .onKeyEvent { focused && (shortcuts.handle(it) || onKey?.invoke(it) == true) }
             .focusable()
             .testTag("project-shortcuts")) { content() }
     }
