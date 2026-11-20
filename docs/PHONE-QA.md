@@ -244,3 +244,11 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Window ≥ 840 dp wide: the video and the edit panel are on the left, the lines on the right; the lines stay visible while a line is edited. Narrower: as before.
 - Click an empty spot, then: ↓ / ↑ select the next / previous line and the video jumps to it; Enter opens its edit panel; Space plays / pauses; Ctrl+Z undoes; Ctrl+S saves ("Saved: N lines.").
 - Typing a space or Enter inside a text box types it; it does not play or open anything.
+
+### S-4a — Export .srt (phone + Windows, PHONE_PENDING)
+
+- Saved subtitles show **Export** at the bottom; while there are unsaved changes only Save · Discard show.
+- Export → language chips: **Burmese** is chosen when some line has Burmese, else **Original**. "Video with subtitles" shows Planned.
+- Phone: **Share…** opens the share sheet with an `.srt` file (Telegram/Drive receive it); **Save to Downloads** says "Saved to Downloads: Download/AutoFlow/…"; the file opens in a player (VLC/MX) next to the video and the lines match the editor.
+- Windows: **Save .srt** shows the path in the project's `exports` folder; **Open folder…** opens that folder in Explorer.
+- Export twice with the same language: the same file is used (no second copy). Change a line, Save, export again: a new file name.
