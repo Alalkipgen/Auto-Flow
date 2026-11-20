@@ -37,6 +37,13 @@ import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.model.SubtitlesTool
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.core.store.ArtifactStore
+import io.github.alalkipgen.autoflow.core.model.ArtifactKind
+import io.github.alalkipgen.autoflow.core.model.CoreJson
+import io.github.alalkipgen.autoflow.core.recap.SrtCue
+import io.github.alalkipgen.autoflow.core.recap.SubtitleTrack
+import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
+import io.github.alalkipgen.autoflow.core.subtitles.SubtitleOps
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.My
@@ -80,7 +87,7 @@ class SubtitlesRouteTest {
                 // No ffprobe in the test graph: the project stays, says why, and invents no facts.
                 onNodeWithTag("subtitles-notice").assertTextEquals(UiText.MOVIE_UNREADABLE.en)
                 onNodeWithTag("subtitles-no-video").assertIsDisplayed()
-                onNodeWithTag("subtitles-source-planned").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+                onNodeWithTag("subtitles-source").assertDoesNotExist() // no source without a readable video
                 val shots = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "subtitles").apply { mkdirs() }
                 ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots, "01-subtitles-412-unreadable.png"))
                 assertEquals(listOf(Mode.SUBTITLES), app.koin.get<ProjectIndex>().entries.value.map { it.mode })
@@ -94,9 +101,12 @@ class SubtitlesRouteTest {
         } finally { root.deleteRecursively() }
     }
 
-    /** The facts card at the size extremes (D-22 one layout), English and Burmese, with the bundled Burmese font. */
+    /**
+     * The facts card with the source chooser (text + picture track) or with a saved `st`, at the size extremes
+     * (D-22 one layout), English and Burmese, with the bundled Burmese font.
+     */
     @Test fun videoFactsFitAtSmallAndWideSizesInBothLanguages() {
-        for ((width, font) in listOf(360 to 2f, 1440 to 1f)) for (language in UiLanguage.entries) {
+        for ((width, font) in listOf(360 to 2f, 1440 to 1f)) for (language in UiLanguage.entries) for (withDoc in listOf(false, true)) {
             runDesktopComposeUiTest(width = width, height = 760) {
                 val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
                 val index = ProjectIndex(fs, "/app/projects.json")
@@ -104,10 +114,19 @@ class SubtitlesRouteTest {
                 val created = (store.create(dir, "Clip", Mode.SUBTITLES) as CoreResult.Ok).value
                 val project = (store.save(dir, created.copy(subtitles = SubtitlesTool(video =
                     SourceVideo("source/movie.mp4", 9, 3_725_000, 1920, 1080, 29.97, hasAudio = false)))) as CoreResult.Ok).value
-                current.set(OpenProject(dir, project))
+                val tracks = listOf(SubtitleTrack(2, "subrip", "eng", "English SDH"), SubtitleTrack(3, "hdmv_pgs_subtitle", "bur"))
+                val shown = if (!withDoc) project else {
+                    val doc = SubtitleOps.fromCues(listOf(SrtCue(1_000, 3_000, "ဒီည ထွက်သွားရမယ်။ We have to leave tonight, before the rain starts."),
+                        SrtCue(4_000, 6_000, "Second line")), SubtitleDoc.trackSource(2), lang = "eng")
+                    val st = (ArtifactStore(fs, dir).put(CoreJson.encodeToString(SubtitleDoc.serializer(), doc).encodeToByteArray(),
+                        ArtifactKind.SUBTITLES, "json") as CoreResult.Ok).value.id
+                    (store.save(dir, project.copy(subtitles = project.subtitles!!.copy(current = st))) as CoreResult.Ok).value
+                }
+                current.set(OpenProject(dir, shown))
                 val session = ProjectSession(fs, store, index, current)
                 val model = SubtitlesModel(session, fs, DashboardModel(fs, store, index, SettingsStore(fs, "/app/s.json"), FakePicker(), current),
-                    null, kotlinx.coroutines.MainScope(), probe = { null })
+                    null, kotlinx.coroutines.MainScope(), probe = { io.github.alalkipgen.autoflow.media.probe.MediaInfo(durationMs = 3_725_000,
+                        width = 1920, height = 1080, fps = 25.0, videoCodec = "h264", audioCodec = "aac", subtitleTracks = tracks) })
                 setContent {
                     CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
                         LocalUiFontFamily provides BurmeseTestFont.family) { SubtitlesScreen(model, session) }
@@ -116,7 +135,24 @@ class SubtitlesRouteTest {
                     "fps" to "29.97", "sound" to UiText.SUBTITLES_SOUND_NO.text(language))
                 onNodeWithTag("subtitles-video-facts").assertIsDisplayed().assertTextEquals(My.breakSyllables(facts))
                 onNodeWithTag("subtitles-no-video").assertDoesNotExist()
+                if (withDoc) {
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-doc-facts").fetchSemanticsNodes().isNotEmpty() }
+                    onNodeWithTag("subtitles-doc-facts").assertTextEquals(My.breakSyllables(UiText.SUB_DOC_FACTS.text(language,
+                        "n" to 2, "from" to UiText.SUB_FROM_TRACK.text(language, "index" to "2"))))
+                    onNodeWithTag("subtitles-edit-planned").performScrollTo().assertIsNotEnabled()
+                } else {
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-track-2").fetchSemanticsNodes().isNotEmpty() }
+                    onNodeWithTag("subtitles-track-2").performScrollTo().assertIsEnabled().assertIsSelected() // the only text track
+                    onNodeWithTag("subtitles-track-3").assertDoesNotExist() // picture track: one line, not an option
+                    onNodeWithTag("subtitles-picture-tracks").assertTextEquals(My.breakSyllables(UiText.SUB_PICTURE_TRACK.text(language,
+                        "n" to 1, "codec" to "hdmv_pgs_subtitle")))
+                    onNodeWithTag("subtitles-use-track").performScrollTo().assertIsEnabled()
+                    onNodeWithTag("subtitles-transcribe-planned").performScrollTo().assertIsNotEnabled()
+                }
                 assertEquals(emptyList(), textFitProblems(width, font))
+                val shots = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "subtitles").apply { mkdirs() }
+                ImageIO.write(onRoot().captureToImage().toAwtImage(), "png",
+                    File(shots, "02-${if (withDoc) "doc" else "source"}-$width-${language.name.lowercase()}.png"))
             }
         }
     }

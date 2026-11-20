@@ -75,6 +75,7 @@ val uiModule = module {
     single {
         io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(),
             probe = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.probeWith(get()),
+            extract = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.extractWith(get()),
             uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) })
     }
     factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
