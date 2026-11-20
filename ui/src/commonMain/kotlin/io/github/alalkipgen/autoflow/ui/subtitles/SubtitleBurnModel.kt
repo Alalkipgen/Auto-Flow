@@ -4,6 +4,7 @@ import io.github.alalkipgen.autoflow.core.config.ToolsConfig
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.ExportBlock
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleChecks
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
@@ -17,6 +18,7 @@ import io.github.alalkipgen.autoflow.media.render.FontInfo
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.media.render.SubtitleBurn
+import io.github.alalkipgen.autoflow.media.tool.ToolExec
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.export.RecapFrames
@@ -33,7 +35,10 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** The video part of the export dialog: look, size, the last started burn ([output]) and why one did not start. */
 data class SubtitleBurnUi(val look: BurnLook = BurnLook.CLEAN, val size: BurnSize = BurnSize.MEDIUM, val output: String? = null,
-    val notice: UiNotice? = null, val ok: Boolean = false)
+    val notice: UiNotice? = null, val ok: Boolean = false, val checking: Boolean = false, val frame: BurnFrame? = null)
+
+/** A checked frame: line index [line] at [atMs], PNG [bytes]. */
+class BurnFrame(val line: Int, val atMs: Long, val bytes: ByteArray)
 
 /**
  * "Video with subtitles" (specs/quick-tools.md §5 Export, §9 Burn, S-4c): the saved version in the chosen language
@@ -55,8 +60,8 @@ class SubtitleBurnModel(
     private val _state = MutableStateFlow(SubtitleBurnUi())
     val state: StateFlow<SubtitleBurnUi> = _state.asStateFlow()
 
-    fun setLook(look: BurnLook) { _state.value = _state.value.copy(look = look, notice = null) }
-    fun setSize(size: BurnSize) { _state.value = _state.value.copy(size = size, notice = null) }
+    fun setLook(look: BurnLook) { _state.value = _state.value.copy(look = look, notice = null, frame = null) }
+    fun setSize(size: BurnSize) { _state.value = _state.value.copy(size = size, notice = null, frame = null) }
 
     val runs: StateFlow<List<MediaTaskRun>> get() = tasks.runs
 
@@ -64,6 +69,8 @@ class SubtitleBurnModel(
     fun run(): MediaTaskRun? = _state.value.output?.let(tasks::forOutput)
 
     fun cancel() { run()?.let { tasks.cancel(it.id) } }
+
+    fun clearFrame() { _state.value = _state.value.copy(frame = null) }
 
     val sharesFiles: Boolean get() = share?.sharesFiles ?: false
 
@@ -89,35 +96,66 @@ class SubtitleBurnModel(
     }
 
     suspend fun start(doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice) {
-        val open = session.open ?: return
-        val video = open.project.subtitles?.video ?: return
         if (run()?.state?.finished == false) return
+        if (!tasks.available) return say(UiNotice(UiText.RESULT_DETAIL, "detail" to "This app cannot make videos here."))
+        val p = prepare(doc, version, choice) ?: return
+        val codec = if (!p.video.hasAudio) null else (audioCodec ?: ::probeAudio)(joinPath(p.dir, p.video.file), p.dir)
+        val args = SubtitleBurn.args(p.video.file, p.ass, RecapFrames.FONTS_DIR, codec, config.burn.x264Preset, config.burn.crf)
+        val task = MediaTaskJob(MediaTaskJob.SUBTITLE_BURN, args, "${SubtitleExport.EXPORTS_DIR}/${p.name}.mp4", p.video.durationMs)
+        val started = tasks.start(task, p.dir, "${p.project} · ${UiText.SUB_EXPORT_VIDEO.en}", SUBTITLES_SCREEN) ?: return
+        _state.value = _state.value.copy(output = started.output, notice = null)
+    }
+
+    /**
+     * Check one frame (S-4d): line [line]'s middle frame from the source with the same `.ass` and fonts as Make video
+     * (`-ss -copyts`, spec §9 Exact frame), written to `.cache/burn/` and shown before the long render.
+     */
+    suspend fun checkFrame(doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice, line: Int) {
+        val cue = doc.cues.getOrNull(line) ?: return
+        if (_state.value.checking) return
+        val runner = media?.runner
+        val ffmpeg = media?.ffmpeg()
+        if (runner == null || ffmpeg == null) return say(UiNotice(UiText.RESULT_DETAIL, "detail" to "ffmpeg is not available here."))
+        val p = prepare(doc, version, choice) ?: return
+        val at = (cue.startMs + cue.endMs) / 2
+        val image = ".cache/burn/${p.name}-$at.png"
+        _state.value = _state.value.copy(checking = true, frame = null, notice = null)
+        val r = runner.run(listOf(ffmpeg, "-hide_banner") + SubtitleBurn.frameArgs(p.video.file, p.ass, RecapFrames.FONTS_DIR, at, image), p.dir,
+            FRAME_TIMEOUT_MS, false) {}
+        val bytes = if (r is ToolExec.Done && r.exitCode == 0) runCatching { fs.read(joinPath(p.dir, image)) }.getOrNull() else null
+        _state.value = _state.value.copy(checking = false, frame = bytes?.let { BurnFrame(line, at, it) })
+        if (bytes == null) say(UiNotice(UiText.RESULT_DETAIL, "detail" to when (r) {
+            is ToolExec.Done -> r.tail.lastOrNull { it.isNotBlank() } ?: "ffmpeg exit ${r.exitCode}"
+            is ToolExec.CannotStart -> r.message
+        }))
+    }
+
+    private class Prepared(val dir: String, val project: String, val video: SourceVideo, val name: String, val ass: String)
+
+    /** Pre-flight, the font into `.cache/fonts`, and the `.ass` of this choice in `.cache/burn/`; null = [say] why. */
+    private fun prepare(doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice): Prepared? {
+        val open = session.open ?: return null
+        val video = open.project.subtitles?.video ?: return null
         SubtitleChecks.exportBlocks(doc).firstOrNull()?.let { b ->
-            return say(UiNotice(if (b == ExportBlock.NO_LINES) UiText.SUB_EXPORT_NO_LINES else UiText.SUB_EXPORT_BAD_TIMES))
+            say(UiNotice(if (b == ExportBlock.NO_LINES) UiText.SUB_EXPORT_NO_LINES else UiText.SUB_EXPORT_BAD_TIMES)); return null
         }
         val burmese = choice == TextChoice.BURMESE && doc.cues.any { !it.textMy.isNullOrBlank() }
         val font = frames?.font()
-        if (font == null && burmese) return say(UiNotice(UiText.SUB_BURN_NO_FONT))
-        frames?.installFont(open, font)?.let { return say(UiNotice(UiText.RESULT_DETAIL, "detail" to it)) }
-        if (!tasks.available) return say(UiNotice(UiText.RESULT_DETAIL, "detail" to "This app cannot make videos here."))
+        if (font == null && burmese) { say(UiNotice(UiText.SUB_BURN_NO_FONT)); return null }
+        frames?.installFont(open, font)?.let { say(UiNotice(UiText.RESULT_DETAIL, "detail" to it)); return null }
         val s = _state.value
         val name = SubtitleExport.fileName(open.project.name, choice, version?.value.orEmpty(), "mp4").removeSuffix(".mp4") +
             "-${s.look.name.lowercase()}-${s.size.name.lowercase()}"
         val ass = ".cache/burn/$name.ass"
-        val width = video.width.takeIf { it > 0 } ?: 1920
-        val height = video.height.takeIf { it > 0 } ?: 1080
-        try {
+        return try {
             fs.createDirectories(joinPath(open.dir, ".cache/burn"))
-            fs.writeDurably(joinPath(open.dir, ass), SubtitleBurn.ass(SubtitleOps.toSrt(doc, choice), width, height, font?.family ?: "Sans",
-                s.look, s.size, config.subtitles.maxCharsPerLine, font?.let { FontInfo.parse(it.bytes)?.assScale }).encodeToByteArray())
+            fs.writeDurably(joinPath(open.dir, ass), SubtitleBurn.ass(SubtitleOps.toSrt(doc, choice), video.width.takeIf { it > 0 } ?: 1920,
+                video.height.takeIf { it > 0 } ?: 1080, font?.family ?: "Sans", s.look, s.size, config.subtitles.maxCharsPerLine,
+                font?.let { FontInfo.parse(it.bytes)?.assScale }).encodeToByteArray())
+            Prepared(open.dir, open.project.name, video, name, ass)
         } catch (e: Exception) {
-            return say(UiNotice(UiText.RESULT_DETAIL, "detail" to (e.message ?: e::class.simpleName.orEmpty())))
+            say(UiNotice(UiText.RESULT_DETAIL, "detail" to (e.message ?: e::class.simpleName.orEmpty()))); null
         }
-        val codec = if (!video.hasAudio) null else (audioCodec ?: ::probeAudio)(joinPath(open.dir, video.file), open.dir)
-        val args = SubtitleBurn.args(video.file, ass, RecapFrames.FONTS_DIR, codec, config.burn.x264Preset, config.burn.crf)
-        val task = MediaTaskJob(MediaTaskJob.SUBTITLE_BURN, args, "${SubtitleExport.EXPORTS_DIR}/$name.mp4", video.durationMs)
-        val started = tasks.start(task, open.dir, "${open.project.name} · ${UiText.SUB_EXPORT_VIDEO.en}", SUBTITLES_SCREEN) ?: return
-        _state.value = _state.value.copy(output = started.output, notice = null)
     }
 
     /** The source's sound codec; unknown → null, which copies (an mp4 source from a phone has AAC). */
@@ -129,5 +167,5 @@ class SubtitleBurnModel(
 
     private fun say(notice: UiNotice?, ok: Boolean = false) { _state.value = _state.value.copy(notice = notice, ok = ok) }
 
-    private companion object { const val MP4 = "video/mp4" }
+    private companion object { const val MP4 = "video/mp4"; const val FRAME_TIMEOUT_MS = 60_000L }
 }

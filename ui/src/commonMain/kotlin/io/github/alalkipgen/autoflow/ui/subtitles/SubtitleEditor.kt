@@ -130,7 +130,8 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             }
         }
     }
-    if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base, { exporting = false }, burner)
+    if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base, { exporting = false }, burner,
+        cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 })
     ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
             if (wide) Row(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-wide")) {
