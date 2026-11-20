@@ -80,6 +80,25 @@ class ToolProjectIndexTest {
     }
 
     @Test
+    fun voiceAudioProjectIsListedWithItsLabelButNotOpenedYet() {
+        val store = ProjectStore(fs)
+        val current = CurrentProject()
+        val model = DashboardModel(fs, store, ProjectIndex(fs, path, StepClock()), SettingsStore(fs, "/home/u/.autoflow/settings.json"), FakePicker(), current)
+        store.create("/p/Voice.autoflow", "Voice", Mode.VOICE_AUDIO).getOrNull()!!
+        val bytes = fs.read("/p/Voice.autoflow/project.json")
+        assertFalse(model.open("/p/Voice.autoflow")) // its screens come with V-1c
+        assertNull(current.state.value)
+        val row = model.state.value.rows.single().entry
+        assertEquals(Mode.VOICE_AUDIO to "Voice", row.mode to row.name)
+        assertEquals(UiText.V3_VOICE_AUDIO, row.mode.label())
+        assertFalse(row.mode.hasShots())
+        assertContentEquals(bytes, fs.read("/p/Voice.autoflow/project.json"))
+        model.remove("/p/Voice.autoflow")
+        assertTrue(model.state.value.rows.isEmpty())
+        assertTrue(fs.exists("/p/Voice.autoflow/project.json"))
+    }
+
+    @Test
     fun newerAppProjectIsNeverReplacedFromAnOlderBackup() {
         val store = ProjectStore(fs)
         val model = DashboardModel(fs, store, ProjectIndex(fs, path, StepClock()), SettingsStore(fs, "/home/u/.autoflow/settings.json"),
@@ -88,7 +107,7 @@ class ToolProjectIndexTest {
         store.create(dir, "New", Mode.MUSIC_VIDEO).getOrNull()!!
         val old = fs.read("$dir/project.json")
         fs.writeDurably("$dir/${RecapMigration.BACKUP_FILE}", old)
-        val newer = old.decodeToString().replaceFirst("{", "{\n    \"voice\": {},").encodeToByteArray()
+        val newer = old.decodeToString().replaceFirst("{", "{\n    \"futureTool\": {},").encodeToByteArray()
         fs.writeDurably("$dir/project.json", newer)
         assertFalse(model.open(dir))
         assertEquals(UiText.NEEDS_NEWER_APP.en, model.state.value.message)

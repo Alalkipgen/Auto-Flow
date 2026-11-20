@@ -28,6 +28,7 @@ class ToolProjectTest {
         for ((name, p) in projects) {
             val encoded = CoreJson.encodeToString(p)
             assertFalse("subtitles" in Json.parseToJsonElement(encoded).jsonObject, name) // recap has its own nested one
+            assertFalse("voice" in Json.parseToJsonElement(encoded).jsonObject, name)
             // Same bytes as encoding the same tree without the field, i.e. what the previous build wrote.
             val previous = CoreJson.encodeToString(JsonObject.serializer(),
                 Json.parseToJsonElement(encoded).jsonObject.filterKeys { it != "subtitles" }.let(::JsonObject))
@@ -46,13 +47,28 @@ class ToolProjectTest {
     }
 
     @Test
+    fun voiceAudioProjectRoundTripsAndOnlyItWritesTheVoiceKey() {
+        val p = Project(id = "id-v", name = "Voice", mode = Mode.VOICE_AUDIO, createdAt = Instant.parse("2026-11-20T08:00:00Z"),
+            updatedAt = Instant.parse("2026-11-20T08:00:00Z"), voice = VoiceTool(task = VoiceTool.TASK_TEXT, text = "မင်္ဂလာပါ။ Hello.",
+                lock = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", "m", "Kore", "my"), tone = "calm",
+                parts = listOf(VoicePart("p1", "h1", ArtifactId("au_1")), VoicePart("p2", "h2"))))
+        val encoded = CoreJson.encodeToString(p)
+        val tree = Json.parseToJsonElement(encoded).jsonObject
+        assertTrue("voice" in tree && "subtitles" !in tree)
+        assertEquals(p, CoreJson.decodeFromString<Project>(encoded))
+        assertFalse(ProjectCompat.madeByNewerApp(encoded.encodeToByteArray()))
+        val bare = p.copy(voice = null)
+        assertFalse("voice" in Json.parseToJsonElement(CoreJson.encodeToString(bare)).jsonObject)
+    }
+
+    @Test
     fun recognisesProjectsFromANewerApp() {
         val tree = Json.parseToJsonElement(CoreJson.encodeToString(subtitlesProject())).jsonObject
         fun newer(change: (Map<String, kotlinx.serialization.json.JsonElement>) -> Map<String, kotlinx.serialization.json.JsonElement>) =
             ProjectCompat.madeByNewerApp(JsonObject(change(tree)).toString().encodeToByteArray())
         assertTrue(newer { it + ("schemaVersion" to JsonPrimitive(Project.SCHEMA_VERSION + 1)) })
         assertTrue(newer { it + ("mode" to JsonPrimitive("DUBBING_NEXT")) })
-        assertTrue(newer { it + ("voice" to JsonObject(emptyMap())) })
+        assertTrue(newer { it + ("futureTool" to JsonObject(emptyMap())) })
         assertFalse(newer { it })
     }
 

@@ -11,6 +11,8 @@ enum class Mode {
     @SerialName("MOVIE_RECAP") MOVIE_RECAP,
     /** Phase 7 quick tool (D-77, specs/quick-tools.md §3). */
     @SerialName("SUBTITLES") SUBTITLES,
+    /** Phase 7 quick tool: Text → voice, Clean up sound, Video sound (specs/quick-tools.md §6). */
+    @SerialName("VOICE_AUDIO") VOICE_AUDIO,
 }
 
 /** Output aspect ratio. Serialized as the human form, e.g. `"9:16"`. */

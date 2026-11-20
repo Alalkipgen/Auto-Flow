@@ -286,3 +286,7 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Done: "Done: n lines have Burmese…", the editor shows the new version; Burmese view shows the lines, the name written as given, the hand-edited line unchanged. Versions still has the old lines.
 - Cancel job: "Translate cancelled. Your subtitles did not change." and editing comes back.
 - If Gemini is busy: the job card says Paused with **Resume n remaining**; Resume sends only the rest. If a batch fails: "n lines not translated. The rest is kept." + Retry asks again for only those lines.
+
+### V-1a — Voice & Audio project data (nothing to press yet)
+
+- Nothing new to see: Home still shows Voice & Audio as Planned. Existing Music Video, Movie Recap and Subtitles projects open and save exactly as before.
