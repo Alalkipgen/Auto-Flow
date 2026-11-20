@@ -14,12 +14,15 @@ data class FeatureFlags(
     val schemaVersion: Int = SCHEMA_VERSION,
     val studioV2: Boolean = false,
     val quickRecap: Boolean = false,
+    /** Phase 7 quick tools (D-84): a Home tile is enabled only when its flag is on and its route works. */
+    val tools: Tools = Tools(),
     val labs: Labs = Labs(),
 ) {
     /** Every flag by its override key: `studioV2`, `quickRecap`, `labs.voiceClone`, … */
     fun asMap(): Map<String, Boolean> = linkedMapOf(
         STUDIO_V2 to studioV2,
         QUICK_RECAP to quickRecap,
+        TOOLS_SUBTITLES to tools.subtitles,
         "labs.voiceClone" to labs.voiceClone,
         "labs.dubbing" to labs.dubbing,
         "labs.vocalSeparation" to labs.vocalSeparation,
@@ -37,6 +40,7 @@ data class FeatureFlags(
         return copy(
             studioV2 = v(STUDIO_V2, studioV2),
             quickRecap = v(QUICK_RECAP, quickRecap),
+            tools = Tools(subtitles = v(TOOLS_SUBTITLES, tools.subtitles)),
             labs = Labs(
                 voiceClone = v("labs.voiceClone", labs.voiceClone),
                 dubbing = v("labs.dubbing", labs.dubbing),
@@ -54,6 +58,7 @@ data class FeatureFlags(
         const val SCHEMA_VERSION = 1
         const val STUDIO_V2 = "studioV2"
         const val QUICK_RECAP = "quickRecap"
+        const val TOOLS_SUBTITLES = "tools.subtitles"
 
         private val json = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
 
@@ -70,6 +75,13 @@ data class FeatureFlags(
         fun load(fileText: String?, overrides: Map<String, Boolean>): FeatureFlags = parse(fileText).withOverrides(overrides)
     }
 }
+
+/** Phase 7 quick tools (D-84), each off until its route ships; `voiceAudio` arrives with V-1. */
+@Serializable
+@SerialName("Tools")
+data class Tools(
+    val subtitles: Boolean = false,
+)
 
 /** Experimental features, off until their PLAN Labs item ships. */
 @Serializable

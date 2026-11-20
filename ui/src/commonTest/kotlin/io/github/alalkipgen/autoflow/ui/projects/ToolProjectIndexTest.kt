@@ -61,15 +61,15 @@ class ToolProjectIndexTest {
     }
 
     @Test
-    fun subtitlesProjectIsListedButNotOpenedInThisBuild() {
+    fun subtitlesProjectIsListedOpenedAndRemovedLikeTheOthers() {
         val store = ProjectStore(fs)
         val index = ProjectIndex(fs, path, StepClock())
         val current = CurrentProject()
         val model = DashboardModel(fs, store, index, SettingsStore(fs, "/home/u/.autoflow/settings.json"), FakePicker(), current)
         store.create("/p/Clip.autoflow", "Clip", Mode.SUBTITLES).getOrNull()!!
-        assertFalse(model.open("/p/Clip.autoflow"))
-        assertNull(current.state.value)
-        assertEquals(UiText.NEEDS_NEWER_APP.en, model.state.value.message)
+        assertTrue(model.open("/p/Clip.autoflow"))
+        assertEquals(Mode.SUBTITLES, current.state.value?.project?.mode)
+        assertNull(model.state.value.message)
         val row = model.state.value.rows.single().entry
         assertEquals(Mode.SUBTITLES to "Clip", row.mode to row.name)
         assertEquals(UiText.V3_SUBTITLES, row.mode.label())

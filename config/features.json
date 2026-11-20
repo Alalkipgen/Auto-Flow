@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "studioV2": true,
   "quickRecap": true,
+  "tools": {
+    "subtitles": false
+  },
   "labs": {
     "voiceClone": false,
     "dubbing": false,

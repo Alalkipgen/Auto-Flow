@@ -33,8 +33,8 @@ class ShellModel(private val session: ProjectSession) {
         when (p.mode) {
             Mode.MOVIE_RECAP -> return recapShell(p, language)
             Mode.MUSIC_VIDEO -> Unit
-            // Not openable in this build (DashboardModel refuses it); lock every screen if it is ever set.
-            Mode.SUBTITLES -> return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { UiText.NEEDS_NEWER_APP.text(language) })
+            // A tool project has its own screen; the Music Video / Recap screens stay locked.
+            Mode.SUBTITLES -> return ShellUiState(locks = (SCREEN_STEPS.keys + RECAP_SCREEN).associateWith { UiText.LOCK_TOOL_PROJECT.text(language) })
         }
         val lookup = session.lookup()
         val locks = SCREEN_STEPS.mapNotNull { (screen, step) ->

@@ -202,3 +202,12 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 
 - In a disposable Music Video project, share an MP4 and a JPG from Gallery. Inbox must not show inline **Delete…**, and a short tap or **Attach to Shot…** must not open Delete. Long-press the MP4 card → **Delete…** → Cancel once, then repeat and confirm. Repeat on the photo. At 360/412 dp and English/Burmese large font, check the long filename and both confirmation buttons. Check the per-file TalkBack action; desktop equivalent is right-click.
 - Share the same file twice and delete just one Inbox copy. If shares are waiting, long-press one there to delete it without using **Move here**. Leave Inbox, reopen it, then force-stop/relaunch and check that deleted copies stay gone, the other copy still attaches, and the Gallery originals and any already-attached shot media still play.
+
+## Phase 7 — Subtitles · Voice & Audio · Dubbing (PHONE_PENDING, never blocks the next PR, D-85)
+
+### S-1a/S-1b — Subtitles projects (PHONE_PENDING)
+
+- With `tools.subtitles` off (default): Home → Quick tools shows Subtitles as **Planned**; Home, Projects, Music Video and Movie Recap look and work exactly as before.
+- Self-test → Preview features → turn on `tools.subtitles`. Home → Subtitles opens the system picker at once. Cancel: no project appears anywhere. Pick a short video: a project named `<file name> · <date time>` (phone's local time) opens, shows "Copying…", then the Video card (length · size · fps · sound). Pick an audio-only file: nothing is created and Home says the file has no picture.
+- Projects shows the new row with the Subtitles label and no shot counter; Home Continue shows it with the Subtitles icon and "Subtitles". Long-press → Remove → Restore → Remove → Delete permanently works as for other projects (D-76). Backup → Restore lists it again.
+- 360/412 dp, English/Burmese, font 1.0/2.0: the Video card and the Planned "Subtitle source" card fit without clipping.
