@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.voice
 
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -16,7 +17,7 @@ internal fun SpeakPanel(model: VoiceSpeakModel, dir: String, job: AiJob?) {
     val s = all.takeIf { it.dir == dir } ?: VoiceSpeakUi()
     val c = s.confirm
     when {
-        job != null -> AfCard(My.breakSyllables(tr(UiText.JOB_TEXT_TTS)), Modifier.testTag("voice-speak-job")) {
+        job != null -> ToolAiJobCard(job, Modifier.testTag("voice-speak-job")) {
             val n = maxOf(job.initialItemCount ?: 0, job.items.size)
             val done = n - job.items.size
             val text = when (job.state) {

@@ -56,6 +56,29 @@ internal fun MusicGeminiJobCard(jobs: StoryboardJobs, project: OpenProject?, mod
     })
 }
 
+/**
+ * A tool page's AI job (F-2: Subtitles Transcribe / Translate, Dubbing Voice, Voice & Audio Speak): the same card as
+ * Movie Recap's runs — title with the state, status chip, progress bar, live timing and rate-limit wait — then the
+ * tool's own [content] (its "line k of n" and Pause / Resume / Cancel).
+ */
+@Composable
+internal fun ToolAiJobCard(job: AiJob, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val language = LocalUiLanguage.current
+    val row = remember(job, language) { jobRows(null, null, null, listOf(job), language).single() }
+    JobRunCard(row.copy(projectTitle = null, detail = null), modifier, actions = content)
+}
+
+/** A tool page's direct AI request with no job (Dubbing Shorten): the same card, running, with live wait time. */
+@Composable
+internal fun ToolAiRequestCard(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit = {}) {
+    val started = remember { kotlin.time.TimeSource.Monotonic.markNow() }
+    val tick by produceState(0) { while (true) { delay(500); value++ } }
+    val language = LocalUiLanguage.current
+    val seconds = remember(tick) { started.elapsedNow().inWholeSeconds }
+    JobCard(title, StudioStatus.RUNNING, "${UiText.JOB_WAITING_GEMINI.text(language)} · ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}",
+        modifier, indeterminate = true, actions = content)
+}
+
 @Composable
 internal fun ProjectAiJobCard(job: AiJob, onCancel: () -> Unit, modifier: Modifier = Modifier,
     cancelModifier: Modifier = Modifier, onResume: (() -> Unit)? = null) {
