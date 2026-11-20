@@ -4,7 +4,21 @@ package io.github.alalkipgen.autoflow.media.audio
 class PcmWav(val rate: Int, val samples: FloatArray) {
     val durationMs: Long get() = if (rate <= 0) 0 else samples.size * 1000L / rate
 
+    /**
+     * The voice inside the silence (Dubbing fit, specs/dubbing.md §4): ms of silence before the first sample above
+     * [threshold] (≈ −40 dBFS) and ms from it to the last one. Null when everything is silent.
+     */
+    fun voicedMs(threshold: Float = VOICED): Pair<Long, Long>? {
+        if (rate <= 0) return null
+        val first = samples.indexOfFirst { kotlin.math.abs(it) > threshold }
+        if (first < 0) return null
+        val last = samples.indexOfLast { kotlin.math.abs(it) > threshold }
+        return first * 1000L / rate to ((last + 1 - first) * 1000L + rate - 1) / rate
+    }
+
     companion object {
+        const val VOICED = 0.01f
+
         fun parse(bytes: ByteArray): PcmWav? {
             if (bytes.size < 12 || ascii(bytes, 0) != "RIFF" || ascii(bytes, 8) != "WAVE") return null
             var pos = 12

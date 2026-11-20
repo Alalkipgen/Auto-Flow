@@ -9,6 +9,14 @@ import kotlinx.serialization.Serializable
 @SerialName("DubApproval")
 data class DubApproval(val hash: String, val at: Long)
 
+/**
+ * A line's dub voice (D-2): the `au` take [au], spoken for take key [key] (`DubRules.takeKey`), with [ms] of voice after
+ * the [leadMs] of silence before it (trailing silence not counted) — what the fit (`DubFit`) measures.
+ */
+@Serializable
+@SerialName("DubTake")
+data class DubTake(val au: ArtifactId, val key: String, val ms: Long, val leadMs: Long = 0)
+
 /** Original sound under the dub (D-83): [LOWER] to [volume] (music and effects stay) or [MUTE] (everything goes). */
 @Serializable
 @SerialName("DubOriginal")
@@ -22,7 +30,7 @@ data class DubOriginal(val mode: String = LOWER, val volume: Double = 0.15) {
 /**
  * `project.dubbing` of a [Mode.DUBBING] project (specs/dubbing.md §3, D-83). The video and the current `st` version live
  * in `project.subtitles` as in a Subtitles project (D-88), so Video / Translate reuse the Subtitles screens; the
- * spoken lines (`spokenMy`) live on the `st` cues. [takes]: cue id → `au` take (D-2).
+ * spoken lines (`spokenMy`) live on the `st` cues. [takes]: cue id → its [DubTake] (D-2).
  */
 @Serializable
 @SerialName("DubbingTool")
@@ -31,7 +39,7 @@ data class DubbingTool(
     val scriptApproved: DubApproval? = null,
     val lock: VoiceLock? = null,
     val tone: String? = null,
-    val takes: Map<String, ArtifactId> = emptyMap(),
+    val takes: Map<String, DubTake> = emptyMap(),
     val original: DubOriginal = DubOriginal(),
     val burnSubtitles: Boolean = false,
 )

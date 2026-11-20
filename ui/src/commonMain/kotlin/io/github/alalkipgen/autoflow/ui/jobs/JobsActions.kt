@@ -140,8 +140,11 @@ fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProje
         JobSource.STORYBOARD -> row.projectScreen ?: SHOT_SHEET
         JobSource.AI -> when (row.aiKind) {
             AiJobKind.PUBLISH_KIT -> "Export"
-            AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE -> SUBTITLES_SCREEN
+            // A Dubbing project's Video / Translate jobs open its own screen (D-88), not the Subtitles one.
+            AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE ->
+                if (current.state.value?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.DUBBING) DUBBING_SCREEN else SUBTITLES_SCREEN
             AiJobKind.TEXT_TTS -> io.github.alalkipgen.autoflow.ui.shell.VOICE_SCREEN
+            AiJobKind.DUB_TTS -> DUBBING_SCREEN
             else -> "Recap"
         }
         JobSource.RECAP, JobSource.RECAP_VOICE -> "Recap"
