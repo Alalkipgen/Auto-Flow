@@ -26,7 +26,8 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 @Composable
 fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel, modifier: Modifier = Modifier,
     vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir), onBack: (() -> Unit)? = null,
-    exporter: SubtitleExportModel? = null, burner: SubtitleBurnModel? = null, transcribe: SubtitleTranscribeModel? = null) {
+    exporter: SubtitleExportModel? = null, burner: SubtitleBurnModel? = null, transcribe: SubtitleTranscribeModel? = null,
+    translate: SubtitleTranslateModel? = null) {
     val all by model.state.collectAsState()
     val open by session.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -50,6 +51,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
         }
         state.warning?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-warning"), color = AutoFlowColors.Amber) }
         if (transcribe != null && open != null) TranscribePanel(transcribe, open!!.dir)
+        if (translate != null && open != null) TranslatePanel(translate, open!!.dir)
     }
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         if (video != null && draft != null && !choosing) {
@@ -59,7 +61,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
                     AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),
                         Modifier.testTag("subtitles-doc-facts"), bold = true)
                     VideoFacts(video)
-                }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner)
+                }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner, translate = translate)
             }
         } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
             .testTag("subtitles-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {

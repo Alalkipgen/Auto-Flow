@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: SourceVideo, player: SubtitlePlayer,
     header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit, exporter: SubtitleExportModel? = null,
-    burner: SubtitleBurnModel? = null) {
+    burner: SubtitleBurnModel? = null, translate: SubtitleTranslateModel? = null) {
     val s by editor.state.collectAsState()
     val draft = s.draft ?: return
     val cues = draft.doc.cues
@@ -50,7 +50,8 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     var editing by remember(s.dir) { mutableStateOf<String?>(null) }
     var shifting by remember(s.dir) { mutableStateOf(false) }
     var exporting by remember(s.dir) { mutableStateOf(false) }
-    val idle = s.offer == null
+    val translating = translate?.jobOf(s.dir, translate.jobs.collectAsState().value) // S-6b: read-only while it runs
+    val idle = s.offer == null && translating == null
     val playhead = remember(s.dir) { Playhead() }
     val live = cues.indexOfFirst { playhead.positionMs >= it.startMs && playhead.positionMs < it.endMs }
     var scrolledAt by remember { mutableLongStateOf(0L) }
@@ -114,7 +115,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     WrapRow {
                         AfButton(My.breakSyllables(tr(UiText.SUB_UNDO)), editor::undo, Modifier.testTag("subtitles-undo"), enabled = idle && draft.canUndo)
                         AfButton(My.breakSyllables(tr(UiText.SUB_REDO)), editor::redo, Modifier.testTag("subtitles-redo"), enabled = idle && draft.canRedo)
-                        AfButton(My.breakSyllables(tr(UiText.SUB_CHANGE_SOURCE)), onChangeSource, Modifier.testTag("subtitles-change-source"), enabled = !draft.dirty)
+                        AfButton(My.breakSyllables(tr(UiText.SUB_CHANGE_SOURCE)), onChangeSource, Modifier.testTag("subtitles-change-source"), enabled = !draft.dirty && translating == null)
                         AfButton(My.breakSyllables(tr(UiText.SUB_SHIFT)), { shifting = !shifting }, Modifier.testTag("subtitles-shift"), enabled = idle)
                     }
                     if (shifting && idle) ShiftCard(editor, cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 })
@@ -147,14 +148,24 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                 Box(Modifier.fillMaxWidth().padding(start = screenPadding, end = screenPadding, top = 8.dp)) { preview() }
                 cueList(Modifier.weight(1f).fillMaxWidth())
             }
-            if (draft.dirty) StickyActionBar(
+            if (translating != null) StickyActionBar(
+                primary = StudioAction(tr(UiText.CANCEL_JOB), { translate.cancel(translating) }, tag = "subtitles-translate-cancel"),
+                caption = My.breakSyllables(tr(UiText.SUB_TRANSLATE_LOCKED)),
+            )
+            else if (draft.dirty) StickyActionBar(
                 primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save"),
                 secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard"),
                 caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)),
             )
-            else if (exporter != null) StickyActionBar(
-                primary = StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open"),
-            )
+            else {
+                val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open") }
+                val toMy = translate?.takeIf { it.offers(draft.doc.lang) }?.let { m ->
+                    StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask(); scope.launch { list.animateScrollToItem(0) } },
+                        enabled = idle, tag = "subtitles-translate")
+                }
+                if (export != null) StickyActionBar(primary = export, secondary = toMy)
+                else if (toMy != null) StickyActionBar(primary = toMy)
+            }
         }
     }
 }
