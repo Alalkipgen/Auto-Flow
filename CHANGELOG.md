@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Tools on by default** (D-84): `tools.subtitles`, `tools.voiceAudio` and `labs.dubbing` are now on in `config/features.json`, so the Home tiles Subtitles, Voice & Audio and Dubbing open on a fresh install (they showed "Planned" before). Self-test → Preview features can still turn them off.
 - **Edge voices** (V-1b, D-86, D-90): free Microsoft Edge Burmese voices Thiha and Nilar, no API key, as "Thiha · Edge" / "Nilar · Edge" chips next to the Gemini voices in Voice & Audio and Dubbing (flag `labs.edgeVoices`). Unofficial: if Microsoft refuses, the item fails visibly and Gemini voices stay available.
 
 ## v0.4.2

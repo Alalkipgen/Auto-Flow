@@ -3,12 +3,12 @@
   "studioV2": true,
   "quickRecap": true,
   "tools": {
-    "subtitles": false,
-    "voiceAudio": false
+    "subtitles": true,
+    "voiceAudio": true
   },
   "labs": {
     "voiceClone": false,
-    "dubbing": false,
+    "dubbing": true,
     "vocalSeparation": false,
     "smartReframe": false,
     "autoCaptionPlacement": false,
