@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 
 /**
  * The subtitle editor (specs/quick-tools.md §5): view and issues chips, undo/redo, Shift times, a list keyed by cue
- * id, and Save · Discard while there are unsaved changes. [header] is the screen's back row and notices. Tap a line =
+ * id, Save · Discard while there are unsaved changes, else Export (S-4a). [header] is the screen's back row and notices. Tap a line =
  * seek + select; while the video plays the list follows the playhead unless the owner scrolled in the last 3 s.
  * Below [WIDE_DP] window width: the video above the list and the edit panel under its line. From [WIDE_DP]: the video
  * and the edit panel on the left, the list on the right (D-22: one tree, two panes). Keys on the editor surface
@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: SourceVideo, player: SubtitlePlayer,
-    header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit) {
+    header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit, exporter: SubtitleExportModel? = null) {
     val s by editor.state.collectAsState()
     val draft = s.draft ?: return
     val cues = draft.doc.cues
@@ -48,6 +48,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     val scope = rememberCoroutineScope()
     var editing by remember(s.dir) { mutableStateOf<String?>(null) }
     var shifting by remember(s.dir) { mutableStateOf(false) }
+    var exporting by remember(s.dir) { mutableStateOf(false) }
     val idle = s.offer == null
     val playhead = remember(s.dir) { Playhead() }
     val live = cues.indexOfFirst { playhead.positionMs >= it.startMs && playhead.positionMs < it.endMs }
@@ -128,6 +129,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             }
         }
     }
+    if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base) { exporting = false }
     ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
             if (wide) Row(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-wide")) {
@@ -147,6 +149,9 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                 primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save"),
                 secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard"),
                 caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)),
+            )
+            else if (exporter != null) StickyActionBar(
+                primary = StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open"),
             )
         }
     }
@@ -275,7 +280,7 @@ private fun TimeRow(label: UiText, value: String, onChange: (String) -> Unit, ke
     }
 }
 
-private fun viewLabel(v: TextChoice) = when (v) {
+internal fun viewLabel(v: TextChoice) = when (v) {
     TextChoice.ORIGINAL -> UiText.SUB_VIEW_ORIGINAL
     TextChoice.BURMESE -> UiText.SUB_VIEW_BURMESE
     TextChoice.BOTH -> UiText.SUB_VIEW_BOTH

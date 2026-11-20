@@ -5,7 +5,7 @@ import io.github.alalkipgen.autoflow.platform.PlatformResult
 import java.awt.Desktop
 import java.io.File
 
-/** Export screen on the desktop: Open plays the mp4 in the default player; there is no share sheet. */
+/** Export screens on the desktop: Open plays the mp4 in the default player, Open folder shows the exports; no share sheet. */
 class DesktopFileShare : FileShare {
     override fun open(path: String, mime: String): PlatformResult<Unit> = try {
         val desktop = Desktop.getDesktop().takeIf { Desktop.isDesktopSupported() && it.isSupported(Desktop.Action.OPEN) }
@@ -17,6 +17,20 @@ class DesktopFileShare : FileShare {
         }
     } catch (e: Exception) {
         PlatformResult.Failed("Cannot open the video: ${e.message ?: e::class.simpleName}")
+    }
+
+    override val sharesFiles: Boolean get() = false
+
+    override fun openFolder(path: String): PlatformResult<Unit> = try {
+        val desktop = Desktop.getDesktop().takeIf { Desktop.isDesktopSupported() && it.isSupported(Desktop.Action.OPEN) }
+        val dir = File(path)
+        when {
+            desktop == null -> PlatformResult.Unsupported("Opening folders is not available here: $path")
+            !dir.isDirectory -> PlatformResult.Failed("The folder is gone: $path")
+            else -> { desktop.open(dir); PlatformResult.Ok(Unit) }
+        }
+    } catch (e: Exception) {
+        PlatformResult.Failed("Cannot open the folder: ${e.message ?: e::class.simpleName}")
     }
 
     override fun share(path: String, mime: String, title: String): PlatformResult<Unit> =
