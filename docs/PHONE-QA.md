@@ -297,3 +297,9 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Press it: "What do you want to do?" with **Text → voice**, and Clean up sound / Video sound as Planned. Nothing appears in Projects yet.
 - Text → voice: paste a long Burmese text (with names, numbers like 3.5 and English): the line under it shows characters and parts (about 500 characters per part). Back returns to the chooser and creates nothing.
 - **Continue with this text**: a project "Voice · <date time>" opens with the text; "Speak n parts" is shown as Planned. Change the text, wait a second, go Home and reopen it from Continue: the change is there.
+
+### V-1d — Voice, tone and parts list (phone + Windows, PHONE_PENDING)
+
+- Open a Text → voice project: under the text are **Voice** (saved voices from Library first, then Burmese models and the six voices), **Tone** (Calm / Lively / News / Storytelling) and the parts list; every part says "Not voiced yet" (Speak comes with V-1e, still Planned).
+- Pick another voice or tone, leave and reopen: the choice is kept. Tap the chosen tone again: no tone.
+- Burmese labels fit at 360 dp with large text; owner: check the Burmese wording of the tone chips.

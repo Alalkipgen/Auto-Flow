@@ -89,7 +89,10 @@ class VoiceAudioRouteTest {
                 val open = assertNotNull(app.koin.get<CurrentProject>().state.value)
                 assertEquals(Mode.VOICE_AUDIO, open.project.mode)
                 assertTrue(open.project.name.startsWith("Voice · "), open.project.name)
-                assertEquals(VoiceTool(task = VoiceTool.TASK_TEXT, text = "မင်္ဂလာပါ။ Hello there."), open.project.voice)
+                val voice = assertNotNull(open.project.voice)
+                assertEquals(VoiceTool.TASK_TEXT to "မင်္ဂလာပါ။ Hello there.", voice.task to voice.text)
+                assertEquals(listOf("p1"), voice.parts.map { it.id })
+                assertEquals(app.koin.get<VoiceAudioModel>().defaultLock(), voice.lock)
 
                 type("voice-text", " Two.")
                 val store = ProjectStore(fs)
@@ -120,7 +123,7 @@ class VoiceAudioRouteTest {
                         text = "ဒီနေ့ ရာသီဥတု ကောင်းတယ်။ ".repeat(40)))) as CoreResult.Ok).value))
                 }
                 val model = VoiceAudioModel(session, DashboardModel(fs, store, index, SettingsStore(fs, "/app/s.json"), FakePicker(), current),
-                    ToolsConfig(), MainScope())
+                    ToolsConfig(), MainScope(), models = listOf("gemini-2.5-flash-preview-tts"))
                 if (!withProject) model.begin()
                 setContent {
                     CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,

@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * `config/tools.json` (D-84, specs/quick-tools.md §10): tunables of the Phase 7 tools. The defaults here equal the
@@ -36,7 +37,19 @@ data class ToolsConfig(
     data class Subtitles(val minCueMs: Long = 700, val maxCharsPerLine: Int = 42, val maxLines: Int = 2, val nudgeMs: Long = 100)
 
     @Serializable
-    data class Tts(val maxCharsPerPart: Int = 500, val partGapMs: Long = 300, val m4aBitrate: String = "160k", val tones: JsonObject = JsonObject(emptyMap()))
+    data class Tts(val maxCharsPerPart: Int = 500, val partGapMs: Long = 300, val m4aBitrate: String = "160k", val tones: JsonObject = TONES) {
+        /** The TTS `style` text of a tone chip (`calm`, `lively`, `news`, `story`); null for no tone or an unknown one. */
+        fun style(tone: String?): String? = tone?.let { (tones[it] as? JsonPrimitive)?.takeIf { p -> p.isString }?.content?.takeIf(String::isNotBlank) }
+
+        companion object {
+            val TONES = JsonObject(mapOf(
+                "calm" to "Read calmly and warmly, at an easy pace.",
+                "lively" to "Read in a lively, upbeat and energetic way.",
+                "news" to "Read clearly and evenly, like a news presenter.",
+                "story" to "Read like a storyteller, with warmth and gentle expression.",
+            ).mapValues { JsonPrimitive(it.value) })
+        }
+    }
 
     @Serializable
     data class Burn(val x264Preset: String = "veryfast", val crf: Int = 20)

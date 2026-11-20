@@ -10,14 +10,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.model.VoiceTool
+import io.github.alalkipgen.autoflow.core.recap.VoiceLock
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /**
  * Voice & Audio (specs/quick-tools.md §6): the task chooser (Text → voice; Clean up sound and Video sound stay Planned
- * until V-2/V-3), then Text → voice with the text, its counter and part count. [onBack] leaves the tool.
+ * until V-2/V-3), then Text → voice with the text, its counter and part count; once the project exists also the voice
+ * lock, tone chips and the parts list (V-1d). [onBack] leaves the tool.
  */
 @Composable
 fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null,
@@ -63,6 +66,52 @@ private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi) {
     AfTextField(s.text, model::setText, tr(UiText.VA_PASTE), Modifier.fillMaxWidth().testTag("voice-text"), lines = 8, mono = false)
     val parts = remember(s.text) { model.parts(s.text) }
     AfText(My.breakSyllables(tr(UiText.VA_COUNT, "chars" to s.text.length, "n" to parts)), Modifier.testTag("voice-count"), muted = true)
-    if (!s.fresh) PlannedTile(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to parts)), My.breakSyllables(tr(UiText.VA_SPEAK_NEXT)),
+    if (s.fresh) return
+    VoicePicker(model, s)
+    AfText(tr(UiText.VA_TONE), bold = true)
+    WrapRow {
+        TONES.forEach { (id, label) -> AfChip(My.breakSyllables(tr(label)), s.tone == id, { model.setTone(id) }, Modifier.testTag("voice-tone-$id")) }
+    }
+    AfText(My.breakSyllables(tr(UiText.VA_TAKE_RULE)), muted = true)
+    AfText(My.breakSyllables(tr(UiText.VA_PARTS, "n" to s.rows.size)), bold = true)
+    s.rows.forEachIndexed { i, row ->
+        Row(Modifier.fillMaxWidth().testTag("voice-part-${row.id}"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText("${i + 1}.", muted = true)
+            Column(Modifier.weight(1f)) {
+                AfText(My.breakSyllables(row.text))
+                AfText(My.breakSyllables(tr(if (row.voiced) UiText.VA_VOICED else UiText.VA_NOT_VOICED)), Modifier.testTag("voice-part-${row.id}-status"),
+                    muted = !row.voiced, color = if (row.voiced) AutoFlowColors.Green else null)
+            }
+        }
+    }
+    PlannedTile(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to s.rows.count { !it.voiced })), My.breakSyllables(tr(UiText.VA_SPEAK_NEXT)),
         Modifier.fillMaxWidth().testTag("voice-speak-planned"))
+}
+
+private val TONES = listOf("calm" to UiText.VA_TONE_CALM, "lively" to UiText.VA_TONE_LIVELY, "news" to UiText.VA_TONE_NEWS,
+    "story" to UiText.VA_TONE_STORY)
+
+/** Saved voices first (Library), then the Burmese-capable models and voices; a tap saves the new lock. */
+@Composable
+private fun VoicePicker(model: VoiceAudioModel, s: VoiceAudioUi) {
+    val lock = s.lock
+    AfText(tr(UiText.VA_VOICE), bold = true)
+    if (s.savedVoices.isNotEmpty()) {
+        AfText(My.breakSyllables(tr(UiText.VA_SAVED_VOICES)), muted = true)
+        WrapRow { s.savedVoices.forEach { v -> AfChip(v.name, lock == v.lock, { model.setLock(v.lock) }, Modifier.testTag("voice-saved-${v.id}")) } }
+    }
+    AfText(My.breakSyllables(tr(UiText.BURMESE_TTS_MODELS)), muted = true)
+    if (model.models.isEmpty()) AfText(My.breakSyllables(tr(UiText.BURMESE_MODELS_MISSING)), color = AutoFlowColors.Amber)
+    WrapRow {
+        model.models.forEach { id ->
+            AfChip(id, lock?.model == id, { model.setLock(VoiceLock("gemini", id, lock?.voice ?: "Charon", "my")) }, Modifier.testTag("voice-model-$id"))
+        }
+    }
+    WrapRow {
+        RecapModel.TTS_VOICES.forEach { (name, _) ->
+            val modelId = lock?.model?.takeIf { it.isNotBlank() } ?: model.models.firstOrNull()
+            AfChip(My.breakSyllables("$name · ${ttsVoiceKind(name)}"), lock?.voice == name, { modelId?.let { model.setLock(VoiceLock("gemini", it, name, "my")) } },
+                Modifier.testTag("voice-voice-$name"), enabled = modelId != null)
+        }
+    }
 }
