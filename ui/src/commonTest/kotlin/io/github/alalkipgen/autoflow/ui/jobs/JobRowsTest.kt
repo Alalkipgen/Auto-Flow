@@ -58,7 +58,7 @@ class JobRowsTest {
         AiJobKind.entries.forEach { kind ->
             val job = AiJob("stable", kind, "/p/A.autoflow", listOf("stable-b"), AiJobState.PAUSED)
             val row = jobRows(null, null, null, listOf(job), projectNames = mapOf(job.project to "Real saved name")).single()
-            assertEquals(if (kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE, AiJobKind.MEDIA_TRANSCRIBE)) 1 else null, row.resumeCount)
+            assertEquals(if (kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE, AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE)) 1 else null, row.resumeCount)
             assertEquals(job.project, row.projectDir); assertEquals(job.id, row.jobId)
             assertEquals("Real saved name", row.projectTitle)
             assertNull(jobRows(null, null, null, listOf(job.copy(items = emptyList()))).single().resumeCount)

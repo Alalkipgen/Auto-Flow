@@ -41,6 +41,8 @@ enum class AiJobKind {
     @SerialName("SCRIPT") SCRIPT,
     /** Whole-video transcription of a Subtitles project (S-5, D-80): items `k<start>-<end>`. */
     @SerialName("MEDIA_TRANSCRIBE") MEDIA_TRANSCRIBE,
+    /** Translation of a Subtitles project's lines to Burmese (S-6, D-81): items `b<first cue id>`. */
+    @SerialName("SUB_TRANSLATE") SUB_TRANSLATE,
 }
 
 @Serializable

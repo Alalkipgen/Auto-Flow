@@ -69,6 +69,7 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         AiJobKind.PUBLISH_KIT -> "Publish Kit"
         AiJobKind.SCRIPT -> "Script"
         AiJobKind.MEDIA_TRANSCRIBE -> "Transcribing the video"
+        AiJobKind.SUB_TRANSLATE -> "Translating subtitles"
     }
 
     private fun buildForeground(title: String, text: String): ForegroundInfo {

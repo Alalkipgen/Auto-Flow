@@ -277,3 +277,7 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - With lines already there (Choose another source → Transcribe): the card says it makes a new version; after Done, Versions still has the old lines.
 - Cancel job: "Transcribe cancelled. Your subtitles did not change."
 - Phone: close the app during a long job, reopen: the job card is there (running or paused) and Resume sends only the rest.
+
+### S-6a — Translate job (no button yet; checked with S-6b)
+
+- Nothing to press yet. With S-6b: Jobs shows "Translate subtitles" and opens the Subtitles screen.
