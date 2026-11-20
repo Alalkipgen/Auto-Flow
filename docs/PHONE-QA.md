@@ -317,3 +317,7 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - **Save wav**: "Saved: …/exports/<name>-voice-….wav" at once; listen to it — parts in order with a short pause, no clicks, nothing cut.
 - **Save m4a**: "Making the m4a: n%" with Cancel (also in Jobs as "Save m4a"); then the file path. Cancel leaves no m4a.
 - Phone: **Share…** opens the share sheet; **Save to Music** puts it in Music/AutoFlow (check a music app sees it). Windows: **Open folder…** shows the exports folder.
+
+### V-2a — Clean up sound commands (nothing to press yet)
+
+- Nothing new on screen; Clean up sound stays Planned until V-2b.

@@ -62,6 +62,16 @@ class ToolProjectTest {
     }
 
     @Test
+    fun cleanUpSoundProjectRoundTrips() {
+        val p = Project(id = "id-c", name = "Talk", mode = Mode.VOICE_AUDIO, createdAt = Instant.parse("2026-11-20T08:00:00Z"),
+            updatedAt = Instant.parse("2026-11-20T08:00:00Z"), voice = VoiceTool(task = VoiceTool.TASK_CLEAN,
+                source = SourceVideo("source/song.mp3", 4_000, 90_000, hasAudio = true), clean = CleanChoice(pauses = false)))
+        assertEquals(p, CoreJson.decodeFromString<Project>(CoreJson.encodeToString(p)))
+        assertFalse(CleanChoice(false, false, false).any)
+        assertTrue(CleanChoice().let { it.pauses && it.noise && it.loudness })
+    }
+
+    @Test
     fun recognisesProjectsFromANewerApp() {
         val tree = Json.parseToJsonElement(CoreJson.encodeToString(subtitlesProject())).jsonObject
         fun newer(change: (Map<String, kotlinx.serialization.json.JsonElement>) -> Map<String, kotlinx.serialization.json.JsonElement>) =

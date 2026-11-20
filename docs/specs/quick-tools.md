@@ -194,6 +194,7 @@ New `config/tools.json` (starting values; Burmese line length uses `CaptionChunk
   "subtitles":  { "minCueMs": 700, "maxCharsPerLine": 42, "maxLines": 2, "nudgeMs": 100 },
   "tts":        { "maxCharsPerPart": 500, "partGapMs": 300, "m4aBitrate": "160k", "tones": { } },
   "burn":       { "x264Preset": "veryfast", "crf": 20 },
+  "clean":      { "pauseMs": 700, "keepMs": 350, "previewMs": 30000 },
   "dubbing":    { "minGapMs": 100, "maxVoiceSpeed": 1.0, "originalVolume": 0.15, "maxSourceMs": 600000, "stemGroup": 50 } }
 ```
 
