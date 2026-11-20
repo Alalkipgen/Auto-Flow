@@ -82,6 +82,7 @@ val uiModule = module {
     single { io.github.alalkipgen.autoflow.core.config.ToolsConfig.parse(get<BundledConfig>().toolsJson()) }
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleEditorModel(get(), get(), MainScope(), config = get()) }
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleExportModel(get(), get(), getOrNull(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.media.MediaTasks(getOrNull(), MainScope()) }
     factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     factory { StoryboardModel(get(), get(), get(), media = get()) }
     factory { ShotsModel(get()) }

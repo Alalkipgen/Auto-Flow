@@ -29,6 +29,10 @@ data class RenderJob(
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val projectIdentity: String? = null,
+    /** A direct ffmpeg command instead of [graph] (specs/quick-tools.md §7); null = a graph render. */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val mediaTask: MediaTaskJob? = null,
 ) {
     companion object {
         const val SCHEMA_VERSION = 1
