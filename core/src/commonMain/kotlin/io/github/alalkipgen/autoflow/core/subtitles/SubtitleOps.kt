@@ -42,6 +42,26 @@ object SubtitleOps {
     }
 
     /**
+     * The owner typed the original text of [id]. A Burmese line made from the old text keeps its stamp, so
+     * "Original changed" shows; the same text is no change.
+     */
+    fun setText(doc: SubtitleDoc, id: String, text: String): Edit {
+        val cue = doc.cues.firstOrNull { it.id == id } ?: return Edit.Refused(EditRefusal.NoSuchLine)
+        if (cue.text == text) return Edit.Done(doc)
+        return Edit.Done(doc.copy(cues = doc.cues.map { if (it.id == id) it.copy(text = text) else it }))
+    }
+
+    /** The owner typed the Burmese of [id]: marked as theirs (D-81) and stamped with the current original. Blank = none. */
+    fun setTextMy(doc: SubtitleDoc, id: String, textMy: String): Edit {
+        val cue = doc.cues.firstOrNull { it.id == id } ?: return Edit.Refused(EditRefusal.NoSuchLine)
+        val my = textMy.takeIf { it.isNotBlank() }
+        if (cue.textMy == my) return Edit.Done(doc)
+        return Edit.Done(doc.copy(cues = doc.cues.map {
+            if (it.id == id) it.copy(textMy = my, myFrom = my?.let { _ -> myHash(it.text) }, myEdited = my != null) else it
+        }))
+    }
+
+    /**
      * Splits line [id] at [atMs] (strictly inside). Text: at [textCut] when given, else at the first line break,
      * else refused with [EditRefusal.SplitNeedsTextCut]. Burmese: at [myCut] when given, else it stays on the first
      * half (and is then flagged "Original changed"). The second half gets `c<nextId>`.

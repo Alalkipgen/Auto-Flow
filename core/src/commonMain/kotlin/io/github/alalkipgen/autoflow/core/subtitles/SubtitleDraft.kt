@@ -29,6 +29,9 @@ class SubtitleDraft private constructor(
     fun undo(): SubtitleDraft = if (undos.isEmpty()) this else SubtitleDraft(base, saved, undos.last(), undos.dropLast(1), redos + doc)
     fun redo(): SubtitleDraft = if (redos.isEmpty()) this else SubtitleDraft(base, saved, redos.last(), (undos + doc).takeLast(LIMIT), redos.dropLast(1))
 
+    /** Discard: back to the saved version, without history. */
+    fun revert(): SubtitleDraft = of(base, saved)
+
     /** The document to save as a new `st`: marked as an edit of [base]. */
     fun toSave(): SubtitleDoc = doc.copy(source = SubtitleDoc.SOURCE_EDIT, derivedFrom = base)
 

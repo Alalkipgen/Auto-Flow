@@ -78,6 +78,9 @@ val uiModule = module {
             extract = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.extractWith(get()),
             uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) })
     }
+    // config/tools.json (D-84): Phase 7 tunables; the defaults when the app does not ship the file.
+    single { io.github.alalkipgen.autoflow.core.config.ToolsConfig.parse(get<BundledConfig>().toolsJson()) }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleEditorModel(get(), get(), MainScope(), config = get()) }
     factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     factory { StoryboardModel(get(), get(), get(), media = get()) }
     factory { ShotsModel(get()) }
