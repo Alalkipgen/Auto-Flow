@@ -134,9 +134,6 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                 }
                 RecapPreviewSound(source.timeline, source.music, outputMs, playing)
             }
-            if (source.timeline.voice.isNotEmpty() || source.music != null) {
-                AfText(My.breakSyllables(tr(UiText.PREVIEW_SOUND_HINT)), Modifier.testTag("timeline-sound-hint"), muted = true, size = 12.sp)
-            }
             problem?.let { AfText(it, color = AutoFlowColors.Amber) }
             val readouts: @Composable () -> Unit = {
                 AfText("${outputMs} / ${source.timeline.durationMs} ms · ${clock.clip?.blockId ?: tr(UiText.FINISHED)}", modifier = Modifier.testTag("timeline-position"))
@@ -159,6 +156,10 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                 AfButton(tr(UiText.BACK_FIVE_SECONDS), { clock.seek(clock.positionMs - 5_000); refresh++ }, Modifier.testTag("timeline-back"))
                 AfButton(tr(UiText.FORWARD_FIVE_SECONDS), { clock.seek(clock.positionMs + 5_000); refresh++ }, Modifier.testTag("timeline-forward"))
                 AfButton(tr(UiText.CLOSE_PLAYER), { enabled = false; editFramePrime = null; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"), enabled = enabled)
+            }
+            // Below the controls, so the picture, scrubber and Play keep their place.
+            if (source.timeline.voice.isNotEmpty() || source.music != null) {
+                AfText(My.breakSyllables(tr(UiText.PREVIEW_SOUND_HINT)), Modifier.testTag("timeline-sound-hint"), muted = true, size = 12.sp)
             }
             if (studio) SectionCard(tr(UiText.V3_DIAGNOSTICS), Modifier.testTag("timeline-diagnostics"), initiallyExpanded = false) {
                 AfText(tr(UiText.TIMELINE_HINT), muted = true, size = 12.sp)

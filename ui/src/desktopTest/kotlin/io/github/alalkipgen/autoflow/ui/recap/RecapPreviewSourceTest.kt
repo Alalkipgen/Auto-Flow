@@ -73,9 +73,9 @@ class RecapPreviewSourceTest {
             assertEquals(2_400L, source.timeline.durationMs)
             // F-5 (D-94): the preview plays the export's voice cue (the take at the block start + lead) and no music yet.
             val takePath = File(dir, "artifacts/" + file.file).path
-            assertEquals(listOf(takePath), source.timeline.voice.map { it.file })
+            assertEquals(listOf(takePath), source.timeline.voice.map { File(it.file).path })
             assertEquals(RecapFit.LEAD_MS, source.timeline.voice.single().startMs)
-            assertNull(source.timeline.voiceAt(RecapFit.LEAD_MS - 1)); assertEquals(takePath, source.timeline.voiceAt(1_000)?.file)
+            assertNull(source.timeline.voiceAt(RecapFit.LEAD_MS - 1)); assertEquals(takePath, source.timeline.voiceAt(1_000)?.file?.let { File(it).path })
             assertNull(source.music)
             resolver.position(source, 1_200); assertEquals(1_200L, resolver.currentPosition())
             resolver.position(source, 9_999); assertEquals(2_399L, resolver.currentPosition())
@@ -94,7 +94,7 @@ class RecapPreviewSourceTest {
             val scored = (store.save(dir, newer.copy(recap = r.copy(audio = RecapAudio(bgm = bgm.id, bgmVolume = 0.3)))) as CoreResult.Ok).value
             current.set(OpenProject(dir, scored))
             val music = assertNotNull(assertNotNull(resolver.resolve(state.copy(recap = scored.recap))).music)
-            assertEquals(File(dir, "artifacts/" + bgm.file).path, music.file); assertEquals(0.3f, music.volume)
+            assertEquals(File(dir, "artifacts/" + bgm.file).path, File(music.file).path); assertEquals(0.3f, music.volume)
         } finally { root.deleteRecursively() }
     }
 }
