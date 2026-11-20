@@ -76,11 +76,13 @@ val uiModule = module {
         io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(),
             probe = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.probeWith(get()),
             extract = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.extractWith(get()),
-            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) })
+            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) },
+            dubMaxMs = get<io.github.alalkipgen.autoflow.core.config.ToolsConfig>().dubbing.maxSourceMs)
     }
     // config/tools.json (D-84): Phase 7 tunables; the defaults when the app does not ship the file.
     single { io.github.alalkipgen.autoflow.core.config.ToolsConfig.parse(get<BundledConfig>().toolsJson()) }
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleEditorModel(get(), get(), MainScope(), config = get()) }
+    single { io.github.alalkipgen.autoflow.ui.dubbing.DubScriptModel(get(), get(), config = get()) }
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleExportModel(get(), get(), getOrNull(), MainScope()) }
     single { io.github.alalkipgen.autoflow.ui.media.MediaTasks(getOrNull(), MainScope()) }
     single { io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber(get(), get(), getOrNull(), getOrNull(), config = get()) }

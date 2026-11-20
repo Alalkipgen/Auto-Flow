@@ -80,7 +80,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
 }
 
 @Composable
-private fun LeaveDialog(save: () -> Unit, discard: () -> Unit, stay: () -> Unit) {
+internal fun LeaveDialog(save: () -> Unit, discard: () -> Unit, stay: () -> Unit) {
     Dialog(onDismissRequest = stay) {
         AfCard(My.breakSyllables(tr(UiText.SUB_LEAVE)), Modifier.widthIn(max = 440.dp).testTag("subtitles-leave")) {
             WrapRow {

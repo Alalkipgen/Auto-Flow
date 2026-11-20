@@ -1433,6 +1433,28 @@ enum class UiText(val en: String, val my: String?) {
     V3_LIBRARY_PARTIAL("Not all Brand Kit files/settings could be applied ({done}/{total} files copied). Some project changes may have been saved.", "Brand Kit ဖိုင်နှင့် ဆက်တင်အားလုံးကို မသုံးနိုင်ပါ (ဖိုင် {done}/{total} ခု ကူးပြီး)။ Project ပြောင်းလဲမှုအချို့ သိမ်းပြီး ဖြစ်နိုင်သည်။"),
     V3_LIBRARY_PRESET_UNSUPPORTED("Only caption presets can be applied here. Style/export preset application is planned.", "ဒီနေရာတွင် စာတန်း Preset များကိုသာ သုံးနိုင်သည်။ ပုံစံနှင့် ထုတ်ယူ Preset သုံးနိုင်ရန် နောက်မှ ထည့်မည်။"),
     V3_LIBRARY_PRESET_INVALID("This caption preset cannot be read.", "ဒီစာတန်း Preset ကို မဖတ်နိုင်ပါ။"),
+    // Dubbing (D-1b, specs/dubbing.md §2 and §9); the owner checks the Burmese.
+    DUB_STEP_VIDEO("Video", "ဗီဒီယို"),
+    DUB_STEP_TRANSLATE("Translate", "ဘာသာပြန်"),
+    DUB_STEP_SCRIPT("Dub script", "ပြောမည့်စာ"),
+    DUB_STEP_VOICE("Voice", "အသံ"),
+    DUB_STEP_EXPORT("Export", "ထုတ်မယ်"),
+    DUB_PICK_VIDEO("Choose a video to dub", "အသံအစားထိုးမယ့် ဗီဒီယို ရွေးပါ"),
+    DUB_LIMIT("Dubbing works with videos up to {minutes} min for now.", "Dubbing က လောလောဆယ် {minutes} မိနစ်အထိ ဗီဒီယိုတွေနဲ့ပဲ ရပါတယ်။"),
+    DUB_LOCK_NO_VIDEO("Choose a video on Video first.", "ဗီဒီယို အဆင့်မှာ ဗီဒီယို အရင်ရွေးပါ။"),
+    DUB_LOCK_NO_LINES("Add the lines on Video first: a subtitle track, an .srt file or the speech.", "ဗီဒီယို အဆင့်မှာ စာကြောင်းတွေ အရင်ထည့်ပါ — စာတန်း track၊ .srt ဖိုင် ဒါမှမဟုတ် စကားသံကနေ။"),
+    DUB_NOT_TRANSLATED("Not translated: {n} lines have no Burmese subtitle text yet.", "ဘာသာမပြန်ရသေး: စာကြောင်း {n} ကြောင်းမှာ မြန်မာ စာတန်းစာ မရှိသေးပါ။"),
+    DUB_LOCK_UNSAVED("Save or discard the subtitle changes first.", "စာတန်း ပြင်ထားတာကို အရင် သိမ်းပါ ဒါမှမဟုတ် ပယ်ပါ။"),
+    DUB_LOCK_NOT_APPROVED("Approve the dub script first.", "ပြောမည့်စာကို အရင် အတည်ပြုပါ။"),
+    DUB_GO_TO("Go to {step}", "{step} အဆင့်ကို သွားမယ်"),
+    DUB_SLOT("Room until the next line: {s} s", "နောက်စာကြောင်းအထိ နေရာ {s} စက္ကန့်"),
+    DUB_SUBTITLE("Subtitle text", "စာတန်းစာ"),
+    DUB_SPOKEN("Spoken line", "ပြောမည့်စာ"),
+    DUB_USE_SUBTITLE("Use the subtitle text", "စာတန်းစာကို ပြန်သုံးမယ်"),
+    DUB_LINE_SAVED("Spoken line saved as a new version.", "ပြောမည့်စာကို ဗားရှင်းအသစ်အဖြစ် သိမ်းပြီးပါပြီ။"),
+    DUB_APPROVE("Approve the dub script", "ပြောမည့်စာကို အတည်ပြုမယ်"),
+    DUB_APPROVED("Dub script approved.", "ပြောမည့်စာကို အတည်ပြုပြီးပါပြီ။"),
+    DUB_NOT_APPROVED("Not approved yet. Any change to a spoken line needs a new approval.", "မအတည်ပြုရသေးပါ။ ပြောမည့်စာ ပြောင်းတိုင်း ပြန်အတည်ပြုရပါမယ်။"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }

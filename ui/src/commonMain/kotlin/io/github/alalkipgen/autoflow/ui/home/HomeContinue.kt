@@ -6,6 +6,7 @@ import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.recap.RecapStep
+import io.github.alalkipgen.autoflow.ui.shell.DUBBING_SCREEN
 import io.github.alalkipgen.autoflow.ui.shell.MV_CLASSIC
 import io.github.alalkipgen.autoflow.ui.shell.SHOT_SHEET
 import io.github.alalkipgen.autoflow.ui.shell.SUBTITLES_SCREEN
@@ -31,7 +32,8 @@ internal enum class HomeStep(val mode: Mode, val screen: String, val recap: Reca
     REFERENCES(Mode.MUSIC_VIDEO, "References"),
     FLOW_HANDOFF(Mode.MUSIC_VIDEO, "Flow Handoff"),
     SUBTITLES(Mode.SUBTITLES, SUBTITLES_SCREEN),
-    VOICE_AUDIO(Mode.VOICE_AUDIO, VOICE_SCREEN);
+    VOICE_AUDIO(Mode.VOICE_AUDIO, VOICE_SCREEN),
+    DUBBING(Mode.DUBBING, DUBBING_SCREEN);
 
     fun nav(): V2Nav = V2Nav(StudioV2Dest.PROJECTS, screen,
         recapStep = if (recap == RecapStep.EXPORT) RecapStep.STYLE else recap ?: RecapStep.SOURCE)

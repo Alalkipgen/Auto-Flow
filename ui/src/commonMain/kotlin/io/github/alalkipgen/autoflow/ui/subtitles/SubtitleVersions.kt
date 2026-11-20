@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 
 import io.github.alalkipgen.autoflow.core.CoreError
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.dubbing.DubRules
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
@@ -19,7 +20,10 @@ internal class SubtitleVersions(private val session: ProjectSession, private val
             runCatching { CoreJson.decodeFromString(SubtitleDoc.serializer(), it.decodeToString()) }.getOrNull()
         }
 
-    /** Saves [doc] after the current version (`derivedFrom`) and points `project.subtitles.current` at it. */
+    /**
+     * Saves [doc] after the current version (`derivedFrom`) and points `project.subtitles.current` at it. In a Dubbing
+     * project the same write clears the Dub script approval when the spoken lines changed (`DubRules.afterEdit`).
+     */
     fun save(dir: String, doc: SubtitleDoc): CoreResult<Pair<ArtifactId, SubtitleDoc>> {
         val open = session.open?.takeIf { it.dir == dir } ?: return CoreResult.Err(CoreError.InvalidInput(ProjectSession.OTHER_PROJECT))
         val next = doc.copy(derivedFrom = open.project.subtitles?.current)
@@ -28,7 +32,9 @@ internal class SubtitleVersions(private val session: ProjectSession, private val
             is CoreResult.Ok -> r.value.id
             is CoreResult.Err -> return r
         }
-        return when (val r = session.update(dir, open.project.id) { it.copy(subtitles = (it.subtitles ?: SubtitlesTool()).copy(current = id)) }) {
+        return when (val r = session.update(dir, open.project.id) {
+            it.copy(subtitles = (it.subtitles ?: SubtitlesTool()).copy(current = id), dubbing = it.dubbing?.let { d -> DubRules.afterEdit(d, next) })
+        }) {
             is CoreResult.Ok -> CoreResult.Ok(id to next)
             is CoreResult.Err -> r
         }

@@ -108,13 +108,16 @@ const val SUBTITLES_SCREEN = "Subtitles"
 /** The Voice & Audio tool (specs/quick-tools.md §6): chooser and tasks on one project screen. */
 const val VOICE_SCREEN = "Voice & Audio"
 
+/** Dubbing (specs/dubbing.md §2): five steps on one project screen. */
+const val DUBBING_SCREEN = "Dubbing"
+
 /** First Studio v2 project screen per mode (D-77); null when this build has no screen for it. */
 internal fun v2EntryScreen(mode: io.github.alalkipgen.autoflow.core.model.Mode): String? = when (mode) {
     io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP -> "Recap"
     io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO -> "Input"
     io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
     io.github.alalkipgen.autoflow.core.model.Mode.VOICE_AUDIO -> VOICE_SCREEN
-    io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> null
+    io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> DUBBING_SCREEN
 }
 
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
@@ -179,12 +182,13 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                         io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO, null -> "Input"
                         io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
                         io.github.alalkipgen.autoflow.core.model.Mode.VOICE_AUDIO -> VOICE_SCREEN
-                        io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> "Dashboard" // not openable before D-1b
+                        io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> DUBBING_SCREEN
                     }
                 })
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
                 SUBTITLES_SCREEN -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject())
                 VOICE_SCREEN -> io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), speak = koinInject(), export = koinInject(), clean = koinInject(), video = koinInject())
+                DUBBING_SCREEN -> io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { screen = "Dashboard" }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject())
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
@@ -220,6 +224,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                     backHandler = backHandler,
                     subtitlesTool = features.tools.subtitles,
                     voiceTool = features.tools.voiceAudio,
+                    dubbingTool = features.labs.dubbing,
                 )
             } else if (compact) {
                 PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
@@ -282,6 +287,7 @@ private fun StudioV2App(
     backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit,
     subtitlesTool: Boolean = false,
     voiceTool: Boolean = false,
+    dubbingTool: Boolean = false,
 ) {
     val rows = io.github.alalkipgen.autoflow.ui.jobs.rememberJobRows()
     val badge = jobsBadgeValue(rows)
@@ -369,6 +375,9 @@ private fun StudioV2App(
                     onNewSubtitles = if (subtitlesTool) {
                         { subtitlesModel.start { openProjectScreen(SUBTITLES_SCREEN) } }
                     } else null,
+                    onNewDubbing = if (dubbingTool) {
+                        { subtitlesModel.start(dubbing = true) { openProjectScreen(DUBBING_SCREEN) } }
+                    } else null,
                     onNewVoice = if (voiceTool) {
                         { voiceModel.begin(); openProjectScreen(VOICE_SCREEN) }
                     } else null,
@@ -395,6 +404,8 @@ private fun StudioV2App(
                         if (screen == VOICE_SCREEN) {
                             io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), onBack = { openProjectScreen(null) },
                                 speak = koinInject(), export = koinInject(), clean = koinInject(), video = koinInject())
+                        } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.DUBBING && screen == DUBBING_SCREEN) {
+                            io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { openProjectScreen(null) }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject())
                         } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES && screen == SUBTITLES_SCREEN) {
                             io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject(), onBack = { openProjectScreen(null) })
                         } else if (isRecap && screen in listOf("Recap", "Export")) {
