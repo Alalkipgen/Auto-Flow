@@ -18,6 +18,9 @@ import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleCue
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.media.audio.DubMixer
+import io.github.alalkipgen.autoflow.media.render.BurnFit
+import io.github.alalkipgen.autoflow.media.render.BurnLength
+import io.github.alalkipgen.autoflow.media.render.BurnSize
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderJob
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
@@ -154,6 +157,31 @@ class DubExportModelTest {
         val g = f.graph(5)
         assertTrue(g.startsWith("[0:v]ass=") && "volume" !in g && "libx264" in f.args(5), "burned, Mute = only the voice")
         assertTrue(f.fs.exists("${f.dir}/.cache/burn/" + f.args(5).let { it[it.indexOf("-filter_complex") + 1] }.substringAfter("filename=.cache/burn/").substringBefore(":")))
+    }
+
+    /** Owner, 2026-11-21: a landscape dub burns 1 short line by default; size, lines and length are chosen, each its own video. */
+    @Test fun burnedSubtitlesFitTheFrameAndTheChoiceNamesTheVideo() {
+        val f = Fixture(withFont = true)
+        f.model.setBurn(true)
+        assertEquals(BurnFit(1, BurnLength.SHORT), f.model.fit(), "1920×1080 → 1 short line")
+        fun assOf(i: Int): Pair<String, String> {
+            val name = f.graph(i).substringAfter("filename=").substringBefore(":fontsdir")
+            return name to f.fs.read("${f.dir}/$name").decodeToString()
+        }
+        f.model.start(f.doc); f.queue.done(0); f.queue.done(1)
+        val (oneName, one) = assOf(2)
+        assertTrue(oneName.endsWith("-dub-medium-1l-short.ass"), oneName)
+        assertTrue(one.lines().filter { it.startsWith("Dialogue:") }.none { "\\N" in it }, "one line at a time")
+        f.queue.done(2)
+        f.model.setSize(BurnSize.SMALL)
+        f.model.setFit(BurnFit(2, BurnLength.LONG))
+        assertEquals(BurnFit(2, BurnLength.LONG), f.model.fit())
+        f.model.start(f.doc)
+        f.queue.done(3); f.queue.done(4)
+        val (twoName, _) = assOf(5)
+        assertTrue(twoName.endsWith("-dub-small-2l-long.ass"), twoName)
+        assertTrue(f.queue.task(5).output != f.queue.task(2).output, "another choice makes another video")
+        assertEquals(BurnSize.SMALL, f.model.state.value.size, "the choice stays for the next export")
     }
 
     @Test fun burningWithoutABurmeseFontSaysSo() {

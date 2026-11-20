@@ -91,12 +91,8 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
                     AfChip(My.breakSyllables(tr(label)), s.look == look, { burner.setLook(look) }, Modifier.testTag("subtitles-burn-${look.name}"))
                 }
         }
-        AfText(My.breakSyllables(tr(UiText.SIZE)), color = AutoFlowColors.Muted)
-        WrapRow {
-            listOf(BurnSize.SMALL to UiText.SMALL, BurnSize.MEDIUM to UiText.MEDIUM, BurnSize.LARGE to UiText.LARGE).forEach { (size, label) ->
-                AfChip(My.breakSyllables(tr(label)), s.size == size, { burner.setSize(size) }, Modifier.testTag("subtitles-burn-${size.name}"))
-            }
-        }
+        BurnSizeChips(s.size, burner::setSize, "subtitles-burn")
+        BurnFitChips(burner.fit(), burner::setFit, "subtitles-burn")
         AfText(My.breakSyllables(tr(UiText.SUB_BURN_KEEPS)), color = AutoFlowColors.Muted)
         CheckFrame(burner, doc, version, choice, startLine)
         when (state) {

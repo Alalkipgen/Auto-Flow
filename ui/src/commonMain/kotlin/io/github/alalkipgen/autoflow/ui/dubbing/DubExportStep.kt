@@ -14,6 +14,8 @@ import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
+import io.github.alalkipgen.autoflow.ui.subtitles.BurnFitChips
+import io.github.alalkipgen.autoflow.ui.subtitles.BurnSizeChips
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlinx.coroutines.launch
 
@@ -47,6 +49,10 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                     AfChip(My.breakSyllables(tr(UiText.DUB_SAVE_WAV)), s.wav, { model.setWav(!s.wav) }, Modifier.testTag("dub-save-wav"), enabled = !s.busy)
                 }
                 AfText(My.breakSyllables(tr(UiText.DUB_EXPORT_KEEPS)), muted = true)
+                if (tool?.burnSubtitles == true) {
+                    BurnSizeChips(s.size, model::setSize, "dub-burn-size", enabled = !s.busy)
+                    BurnFitChips(model.fit(open), model::setFit, "dub-burn", enabled = !s.busy)
+                }
             }
             if (run != null) Progress(model, s, run.kind, run.state)
             s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("dub-export-notice"),

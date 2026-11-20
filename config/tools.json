@@ -2,7 +2,7 @@
   "transcribe": { "chunkMaxMs": 600000, "silenceWindowMs": 30000, "overlapMs": 2000,
                   "languages": ["auto", "en", "ko", "zh", "th", "ja", "hi", "my"] },
   "translate":  { "batchLines": 40, "contextLines": 5, "style": "spoken" },
-  "subtitles":  { "minCueMs": 700, "maxCharsPerLine": 42, "maxLines": 2, "nudgeMs": 100 },
+  "subtitles":  { "minCueMs": 700, "maxCharsPerLine": 42, "maxLines": 2, "nudgeMs": 100, "shortCharsPerLine": 30 },
   "tts":        { "maxCharsPerPart": 500, "partGapMs": 300, "m4aBitrate": "160k", "tones": {
                   "calm": "Read calmly and warmly, at an easy pace.",
                   "lively": "Read in a lively, upbeat and energetic way.",

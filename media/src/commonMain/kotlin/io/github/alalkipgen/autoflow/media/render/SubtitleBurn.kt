@@ -10,6 +10,21 @@ enum class BurnLook { CLEAN, BOXED, OUTLINE }
 /** Text height as a share of the video height. */
 enum class BurnSize(val share: Double) { SMALL(0.045), MEDIUM(0.055), LARGE(0.07) }
 
+/** How long one burned line may be: [SHORT] = `subtitles.shortCharsPerLine`, [LONG] = `subtitles.maxCharsPerLine`. */
+enum class BurnLength { SHORT, LONG }
+
+/**
+ * How much text a burned caption shows at once (owner, 2026-11-21: three long lines covered the picture in a landscape
+ * dub): at most [lines] lines of [length]; a longer cue is shown in parts one after another, each part's time its share
+ * of the text ([CaptionChunks.split]), never re-timed outside the cue.
+ */
+data class BurnFit(val lines: Int, val length: BurnLength) {
+    companion object {
+        /** By the frame: landscape → one short line (the picture stays clear); portrait or square → two short lines. */
+        fun auto(width: Int, height: Int): BurnFit = BurnFit(if (width > height) 1 else 2, BurnLength.SHORT)
+    }
+}
+
 /**
  * A subtitle burn as one direct ffmpeg command (spec §9; no render graph, whose `Output.fps` is an Int and whose
  * sizes are presets): the `.ass` from [AssWriter] with `PlayResX/Y` = the source size, then
@@ -25,12 +40,16 @@ object SubtitleBurn {
     /**
      * One overlay per cue at the cue's own times (never re-timed). A line wider than the picture — at most
      * [maxChars], fewer when the text is large for the width — is broken like [CaptionChunks] (never inside a
-     * Burmese syllable); the `.ass` has no automatic wrap.
+     * Burmese syllable); the `.ass` has no automatic wrap. [maxLines] > 0 ([BurnFit.lines]): a cue with more lines is
+     * shown in parts of at most that many lines, one after another inside the cue's time ([CaptionChunks.split]).
      */
-    fun overlays(cues: List<SrtCue>, width: Int, height: Int, font: String, look: BurnLook, size: BurnSize, maxChars: Int): List<Overlay> {
+    fun overlays(cues: List<SrtCue>, width: Int, height: Int, font: String, look: BurnLook, size: BurnSize, maxChars: Int,
+        maxLines: Int = 0): List<Overlay> {
         val px = maxOf(12, (height * size.share).roundToInt())
-        val fit = maxOf(8, minOf(maxChars, (width * 0.9 / (px * 0.6)).toInt()))
-        return cues.filter { it.text.isNotBlank() && it.endMs > it.startMs }.map { c ->
+        val fit = fitChars(width, height, size, maxChars)
+        val shown = cues.filter { it.text.isNotBlank() && it.endMs > it.startMs }
+        val parts = if (maxLines > 0) CaptionChunks.split(shown, fit, maxLines).filter { it.text.isNotBlank() && it.endMs > it.startMs } else shown
+        return parts.map { c ->
             val text = c.text.trim().split('\n').flatMap { l -> if (l.trim().length > fit) CaptionChunks.lines(l, fit) else listOf(l.trim()) }
                 .joinToString("\n")
             Overlay(text, c.startMs, c.endMs, font, px, box = look == BurnLook.BOXED,
@@ -38,9 +57,16 @@ object SubtitleBurn {
         }
     }
 
-    /** The `.ass` text; [assScale] = the font's [FontInfo.assScale] (null = 1.0). */
-    fun ass(cues: List<SrtCue>, width: Int, height: Int, font: String, look: BurnLook, size: BurnSize, maxChars: Int, assScale: Double?): String =
-        AssWriter.write(overlays(cues, width, height, font, look, size, maxChars), Output(Ratio.R16_9, width, height, 0, Quality.EXPORT, ""), { assScale })
+    /** The longest line in characters: [maxChars], fewer when the text is large for the picture width. */
+    fun fitChars(width: Int, height: Int, size: BurnSize, maxChars: Int): Int {
+        val px = maxOf(12, (height * size.share).roundToInt())
+        return maxOf(8, minOf(maxChars, (width * 0.9 / (px * 0.6)).toInt()))
+    }
+
+    /** The `.ass` text; [assScale] = the font's [FontInfo.assScale] (null = 1.0); [maxLines] as in [overlays]. */
+    fun ass(cues: List<SrtCue>, width: Int, height: Int, font: String, look: BurnLook, size: BurnSize, maxChars: Int, assScale: Double?,
+        maxLines: Int = 0): String =
+        AssWriter.write(overlays(cues, width, height, font, look, size, maxChars, maxLines), Output(Ratio.R16_9, width, height, 0, Quality.EXPORT, ""), { assScale })
 
     internal fun filter(ass: String, fontsDir: String) = "ass=filename=${RenderCompiler.filterPath(ass)}:fontsdir=${RenderCompiler.filterPath(fontsDir)}"
 

@@ -66,4 +66,41 @@ class SubtitleBurnTest {
         assertTrue("PlayResX: 1920" in ass && "PlayResY: 800" in ass, ass)
         assertTrue("0:00:01.00,0:00:02.50" in ass, ass)
     }
+
+    /** Owner, 2026-11-21: three long lines covered a landscape dub; at most N lines at once, a long cue in timed parts. */
+    @Test
+    fun maxLinesShowsALongCueInTimedParts() {
+        val text = "မင်းရဲ့ မင်းဆက်က ဒီနိုင်ငံတွေကို စုစည်းပြီး မှောင်မိုက်ခေတ်ကို တားဆီးနိုင်ပါ့မလား။"
+        val cues = listOf(SrtCue(10_000, 16_000, text), SrtCue(20_000, 21_000, "Hi"))
+        val all = SubtitleBurn.overlays(cues, 1920, 1080, "Sans", BurnLook.BOXED, BurnSize.MEDIUM, 30)
+        assertEquals(2, all.size)
+        assertTrue(all[0].text.count { it == '\n' } >= 2, "no limit: the whole cue at once, wrapped")
+        val one = SubtitleBurn.overlays(cues, 1920, 1080, "Sans", BurnLook.BOXED, BurnSize.MEDIUM, 30, maxLines = 1)
+        val parts = one.dropLast(1)
+        assertTrue(parts.size >= 3, "${parts.map { it.text }}")
+        assertTrue(parts.all { '\n' !in it.text && it.text.length <= 30 })
+        assertEquals(10_000L, parts.first().startMs)
+        assertEquals(16_000L, parts.last().endMs)
+        parts.zipWithNext().forEach { (a, b) -> assertEquals(a.endMs, b.startMs) }
+        assertEquals(text.replace(" ", ""), parts.joinToString("") { it.text.replace(" ", "") })
+        assertEquals(SrtCueLike(20_000, 21_000, "Hi"), one.last().let { SrtCueLike(it.startMs, it.endMs, it.text) })
+        val two = SubtitleBurn.overlays(cues, 1920, 1080, "Sans", BurnLook.BOXED, BurnSize.MEDIUM, 30, maxLines = 2)
+        assertTrue(two.dropLast(1).all { it.text.count { c -> c == '\n' } <= 1 })
+        assertTrue(two.size < one.size)
+        // The same choice in the .ass: one Dialogue per part.
+        val ass = SubtitleBurn.ass(cues, 1920, 1080, "Sans", BurnLook.CLEAN, BurnSize.MEDIUM, 30, null, maxLines = 1)
+        assertEquals(one.size, ass.lines().count { it.startsWith("Dialogue:") })
+    }
+
+    private data class SrtCueLike(val startMs: Long, val endMs: Long, val text: String)
+
+    @Test
+    fun autoFitFollowsTheFrame() {
+        assertEquals(BurnFit(1, BurnLength.SHORT), BurnFit.auto(1920, 1080))
+        assertEquals(BurnFit(1, BurnLength.SHORT), BurnFit.auto(1920, 800))
+        assertEquals(BurnFit(2, BurnLength.SHORT), BurnFit.auto(1080, 1920))
+        assertEquals(BurnFit(2, BurnLength.SHORT), BurnFit.auto(1080, 1080))
+        assertEquals(30, SubtitleBurn.fitChars(1920, 1080, BurnSize.MEDIUM, 30))
+        assertTrue(SubtitleBurn.fitChars(1080, 1920, BurnSize.LARGE, 42) < 42)
+    }
 }

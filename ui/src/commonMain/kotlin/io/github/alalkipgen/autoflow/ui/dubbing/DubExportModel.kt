@@ -19,6 +19,9 @@ import io.github.alalkipgen.autoflow.media.audio.DubMixer
 import io.github.alalkipgen.autoflow.media.audio.VideoSound
 import io.github.alalkipgen.autoflow.media.render.BurnLook
 import io.github.alalkipgen.autoflow.media.render.BurnSize
+import io.github.alalkipgen.autoflow.media.render.BurnFit
+import io.github.alalkipgen.autoflow.ui.subtitles.maxChars
+import io.github.alalkipgen.autoflow.ui.subtitles.nameSuffix
 import io.github.alalkipgen.autoflow.media.render.FontInfo
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderState
@@ -44,7 +47,9 @@ import kotlinx.coroutines.launch
 
 /** Export (D-3b): the runs of the last start in order ([runs], of [total] tasks), the files it makes, and why it stopped. */
 data class DubExportUi(val dir: String? = null, val wav: Boolean = false, val runs: List<String> = emptyList(), val total: Int = 0,
-    val srt: String? = null, val voice: String? = null, val busy: Boolean = false, val notice: UiNotice? = null, val ok: Boolean = false)
+    val srt: String? = null, val voice: String? = null, val busy: Boolean = false, val notice: UiNotice? = null, val ok: Boolean = false,
+    /** Burned Burmese subtitles: text size, and lines / line length (null = [BurnFit.auto] by the video's frame). */
+    val size: BurnSize = BurnSize.MEDIUM, val fit: BurnFit? = null)
 
 /**
  * The Export step (specs/dubbing.md §2, §6): pre-flight ([DubExport.check]), then the [DubMixer] tasks one after
@@ -78,7 +83,27 @@ class DubExportModel(
         session.update(open.dir, open.project.id) { p -> p.copy(dubbing = (p.dubbing ?: DubbingTool()).copy(burnSubtitles = on)) }
     }
 
-    fun setWav(on: Boolean) { if (!_state.value.busy) _state.update { it.copy(wav = on, notice = null) } }
+    fun setWav(on: Boolean) = edit { it.copy(wav = on) }
+
+    /** Burned subtitles' text size (this export only). */
+    fun setSize(size: BurnSize) = edit { it.copy(size = size) }
+
+    /** Burned subtitles' lines on screen and line length (this export only). */
+    fun setFit(fit: BurnFit) = edit { it.copy(fit = fit) }
+
+    /** The lines / line length the burn uses now: the owner's choice, else by the open video's frame. */
+    fun fit(open: OpenProject? = session.open): BurnFit = _state.value.takeIf { it.dir == open?.dir }?.fit ?: autoFit(open)
+
+    private fun autoFit(open: OpenProject?): BurnFit = open?.project?.subtitles?.video.let { v ->
+        BurnFit.auto(v?.width?.takeIf { it > 0 } ?: 1920, v?.height?.takeIf { it > 0 } ?: 1080)
+    }
+
+    /** A choice for the open project (another project's state starts fresh); none while an export runs. */
+    private fun edit(f: (DubExportUi) -> DubExportUi) {
+        val dir = session.open?.dir ?: return
+        if (_state.value.busy) return
+        _state.update { cur -> f(if (cur.dir == dir) cur else DubExportUi(dir)).copy(notice = null) }
+    }
 
     /** The run of the step going now, or the last one (it stays after it ends, so the card shows how). */
     fun current(): MediaTaskRun? = _state.value.runs.lastOrNull()?.let(tasks::run)
@@ -103,7 +128,7 @@ class DubExportModel(
         }
         val base = SubtitleExport.fileName(open.project.name, TextChoice.BURMESE, open.project.subtitles?.current?.value.orEmpty(), "srt").removeSuffix(".srt")
         val group = config.dubbing.stemGroup
-        val wav = _state.value.wav
+        val wav = _state.value.takeIf { it.dir == open.dir }?.wav == true
         val voice = DubMixer.voicePlan(cues, video.durationMs, group)
         // the kept .wav is the same mix written once more into exports, so the video's name never depends on it
         val keep = if (!wav) null else voice.voice.copy(output = "${SubtitleExport.EXPORTS_DIR}/$base-voice-${voice.voice.output.substringAfterLast('-').take(8)}.wav")
@@ -114,8 +139,9 @@ class DubExportModel(
             ass, RecapFrames.FONTS_DIR, config.burn.x264Preset, config.burn.crf)
         val all = voice.tasks + listOfNotNull(keep) + MediaTaskJob(DubMixer.EXPORT, args, "${SubtitleExport.EXPORTS_DIR}/$base-dub-${DubMixer.key(args).take(8)}.$ext", video.durationMs)
         val srt = writeSrt(open, doc, "$base.srt") ?: return null
+        val kept = _state.value.takeIf { it.dir == open.dir }
         _state.value = DubExportUi(open.dir, wav, total = all.size, srt = srt,
-            voice = keep?.let { MediaTaskJob.absolute(open.dir, it.output) }, busy = true)
+            voice = keep?.let { MediaTaskJob.absolute(open.dir, it.output) }, busy = true, size = kept?.size ?: BurnSize.MEDIUM, fit = kept?.fit)
         return scope.launch {
             for (t in all) {
                 val title = "${open.project.name} · ${(if (t.kind == DubMixer.EXPORT) UiText.DUB_EXPORT_MAKING else UiText.DUB_EXPORT_MIXING).en}"
@@ -140,17 +166,22 @@ class DubExportModel(
         }
     }
 
-    /** The font into `.cache/fonts` and the Burmese `.ass` (as Subtitles' burn, medium boxed); null = [say] why. */
+    /**
+     * The font into `.cache/fonts` and the Burmese `.ass` (as Subtitles' burn, boxed, at the chosen size, lines and
+     * line length — named by them, so another choice makes another video); null = [say] why.
+     */
     private fun burnAss(open: OpenProject, doc: SubtitleDoc, base: String): String? {
         val video = open.project.subtitles?.video ?: return null
         val font = frames?.font() ?: return say(open.dir, UiNotice(UiText.DUB_BURN_NO_FONT)).let { null }
         frames.installFont(open, font)?.let { return say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to it)).let { null } }
-        val ass = ".cache/burn/$base-dub.ass"
+        val size = _state.value.takeIf { it.dir == open.dir }?.size ?: BurnSize.MEDIUM
+        val fit = fit(open)
+        val ass = ".cache/burn/$base-dub-${size.name.lowercase()}-${fit.nameSuffix()}.ass"
         return try {
             fs.createDirectories(joinPath(open.dir, ".cache/burn"))
             fs.writeDurably(joinPath(open.dir, ass), SubtitleBurn.ass(SubtitleOps.toSrt(doc, TextChoice.BURMESE), video.width.takeIf { it > 0 } ?: 1920,
-                video.height.takeIf { it > 0 } ?: 1080, font.family, BurnLook.BOXED, BurnSize.MEDIUM, config.subtitles.maxCharsPerLine,
-                FontInfo.parse(font.bytes)?.assScale).encodeToByteArray())
+                video.height.takeIf { it > 0 } ?: 1080, font.family, BurnLook.BOXED, size, fit.maxChars(config.subtitles),
+                FontInfo.parse(font.bytes)?.assScale, maxLines = fit.lines).encodeToByteArray())
             ass
         } catch (e: Exception) {
             say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to (e.message ?: e::class.simpleName.orEmpty()))); null

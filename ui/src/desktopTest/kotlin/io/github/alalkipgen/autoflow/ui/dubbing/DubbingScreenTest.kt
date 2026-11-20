@@ -312,6 +312,18 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-step-EXPORT").assert(chosen)
                     onNodeWithTag("dub-export-blocks").assertDoesNotExist()
                     onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.DUB_LOWER.text(language)))
+                    onNodeWithTag("dub-burn-lines-1").assertDoesNotExist()
+                    onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isNotEmpty() }
+                    onNodeWithTag("dub-burn-lines-1").performScrollTo().assert(chosen) // 1920×1080: 1 short line
+                    onNodeWithTag("dub-burn-length-SHORT").performScrollTo().assert(chosen)
+                    onNodeWithTag("dub-burn-size-MEDIUM").performScrollTo().assert(chosen)
+                    onNodeWithTag("dub-burn-lines-2").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { export.fit().lines == 2 }
+                    onNodeWithTag("dub-burn-lines-2").assert(chosen)
+                    assertEquals(emptyList(), textFitProblems(width, font))
+                    onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isEmpty() }
                     onNodeWithTag("dub-save-wav").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { export.state.value.wav }
                     onNodeWithTag("dub-export-go").assertIsEnabled().performMouseInput { click() }
