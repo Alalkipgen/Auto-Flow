@@ -51,7 +51,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     }
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         if (video != null && draft != null && !choosing) {
-            Box(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
+            Box(Modifier.widthIn(max = 1400.dp).fillMaxSize()) { // two panes from 840 dp
                 SubtitleEditor(editor, joinPath(open!!.dir, video.file), video, player, header = {
                     header()
                     AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),

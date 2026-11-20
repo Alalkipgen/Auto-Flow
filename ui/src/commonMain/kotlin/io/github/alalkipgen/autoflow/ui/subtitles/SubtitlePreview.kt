@@ -57,11 +57,11 @@ internal fun moviePlayer(vlcDir: String?): SubtitlePlayer = { path, request, mod
 
 /**
  * The video with the line under the playhead drawn over it (the chosen view), Play/Pause and a scrubber. Kept to a
- * third of the window height so the lines stay in sight on a phone. Without a decoder it says so; editing goes on.
+ * third of the window height ([heightShare]) so the lines stay in sight on a phone. Without a decoder it says so; editing goes on.
  */
 @Composable
 internal fun SubtitlePreview(path: String, video: SourceVideo, cues: List<SubtitleCue>, view: TextChoice, playhead: Playhead,
-    player: SubtitlePlayer) {
+    player: SubtitlePlayer, heightShare: Float = 0.34f) {
     val aspect = if (video.width > 0 && video.height > 0) video.width.toFloat() / video.height else 16f / 9
     val viewport = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp().value }.takeIf { it > 0f } ?: 600f
     var failed by remember(path) { mutableStateOf(false) }
@@ -71,7 +71,7 @@ internal fun SubtitlePreview(path: String, video: SourceVideo, cues: List<Subtit
             AfText(My.breakSyllables(tr(UiText.SUB_PREVIEW_UNAVAILABLE)), Modifier.testTag("subtitles-preview-unavailable"), muted = true)
             AfText(TimeText.show(playhead.positionMs), Modifier.testTag("subtitles-playhead"), mono = true)
         } else BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            val width = minOf(maxWidth.value, viewport * 0.34f * aspect)
+            val width = minOf(maxWidth.value, viewport * heightShare * aspect)
             Box(Modifier.width(width.dp).aspectRatio(aspect).background(AutoFlowColors.Panel).testTag("subtitles-preview"),
                 contentAlignment = Alignment.BottomCenter) {
                 player(path, MovieRequest(playhead.seekMs, playhead.revision, playing = playhead.playing, muted = false),

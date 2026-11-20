@@ -47,6 +47,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlin.test.*
+import androidx.compose.ui.input.key.Key
 
 /** S-3c: the editor on the Subtitles screen — edit panel, Save · Discard, leave guard — and its fit (spec S-3). */
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
@@ -251,5 +252,49 @@ class SubtitleEditorScreenTest {
         assertEquals(listOf("c1" to 0L, "c2" to 1_500L, "c3" to 2_900L), starts())
         onNodeWithTag("subtitles-editor-notice").assertTextEquals(UiText.SUB_SHIFT_LIMIT.text(UiLanguage.ENGLISH, "s" to 0.0))
         onNodeWithTag("subtitles-save").assertIsDisplayed()
+    }
+
+    /** S-3f: from 840 dp the video and the edit panel sit left of the list; the editor's own keys. */
+    @Test fun wideTwoPanesAndKeys() = runDesktopComposeUiTest(width = 1440, height = 900) {
+        val f = Fixture()
+        show(f, 1440, 1f, UiLanguage.ENGLISH, ahead)
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("subtitles-wide").assertExists()
+        onNode(hasTestTag("subtitles-preview") and hasAnyAncestor(hasTestTag("subtitles-left"))).assertIsDisplayed()
+        val host = onNodeWithTag("project-shortcuts")
+        host.assertIsFocused()
+        host.performKeyInput { pressKey(Key.DirectionDown) } // nothing selected → the first line
+        assertEquals("c1", f.editor.state.value.selected)
+        host.performKeyInput { pressKey(Key.DirectionDown) }
+        assertEquals("c2", f.editor.state.value.selected)
+        onNodeWithTag("subtitles-playhead").assertTextEquals("0:02.5") // ↓ seeks too
+        host.performKeyInput { pressKey(Key.Enter) }
+        onNode(hasTestTag("subtitles-edit-panel") and hasAnyAncestor(hasTestTag("subtitles-left"))).assertIsDisplayed()
+        onNodeWithTag("subtitles-cue-c1").assertIsDisplayed() // the list stays in sight beside it
+        host.performKeyInput { pressKey(Key.DirectionDown) } // the open panel keeps the line
+        assertEquals("c2", f.editor.state.value.selected)
+        click("subtitles-start-plus")
+        assertEquals(2_600, f.editor.state.value.draft!!.doc.cues.first { it.id == "c2" }.startMs)
+        host.requestFocus()
+        host.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.Z) } }
+        assertEquals(2_500, f.editor.state.value.draft!!.doc.cues.first { it.id == "c2" }.startMs)
+        click("subtitles-start-plus")
+        host.requestFocus()
+        host.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.S) } }
+        assertNotEquals(f.first, f.saved())
+        host.performKeyInput { pressKey(Key.Spacebar) }
+        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PAUSE.en)
+    }
+
+    /** Keys typed into a line's text stay text: Space and Enter are not shortcuts inside a field. */
+    @Test fun keysInsideATextFieldStayText() = runDesktopComposeUiTest(width = 412, height = 900) {
+        val f = Fixture()
+        show(f, 412, 1f, UiLanguage.ENGLISH)
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+        click("subtitles-cue-edit-c3")
+        onNodeWithTag("subtitles-edit-text").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-edit-text").performKeyInput { pressKey(Key.Spacebar); pressKey(Key.DirectionDown); pressKey(Key.Enter) }
+        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PLAY.en)
+        assertEquals(4_000, f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.startMs) // ↑/↓/Enter did nothing either
     }
 }
