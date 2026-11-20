@@ -26,7 +26,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 @Composable
 fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel, modifier: Modifier = Modifier,
     vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir), onBack: (() -> Unit)? = null,
-    exporter: SubtitleExportModel? = null, burner: SubtitleBurnModel? = null) {
+    exporter: SubtitleExportModel? = null, burner: SubtitleBurnModel? = null, transcribe: SubtitleTranscribeModel? = null) {
     val all by model.state.collectAsState()
     val open by session.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -49,6 +49,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
                 color = if (state.ok) AutoFlowColors.Green else AutoFlowColors.Failed)
         }
         state.warning?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-warning"), color = AutoFlowColors.Amber) }
+        if (transcribe != null && open != null) TranscribePanel(transcribe, open!!.dir)
     }
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         if (video != null && draft != null && !choosing) {
@@ -65,7 +66,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
             header()
             if (video != null) {
                 VideoCard(video)
-                SourceCard(state, model, video.hasAudio, onCancel = if (draft != null) ({ choosing = false }) else null)
+                SourceCard(state, model, open!!.dir, video.hasAudio, transcribe, onCancel = if (draft != null) ({ choosing = false }) else null)
             } else if (state.busy == null) AfText(My.breakSyllables(tr(UiText.SUBTITLES_NO_VIDEO)), Modifier.testTag("subtitles-no-video"), muted = true)
         }
     }
@@ -113,9 +114,10 @@ private fun VideoFacts(video: SourceVideo) {
         Modifier.testTag("subtitles-video-facts"), muted = true)
 }
 
-/** Where the lines come from: a text track, an `.srt` file, or (Planned, S-5) the speech. */
+/** Where the lines come from: a text track, an `.srt` file, or the speech (S-5b, Gemini). */
 @Composable
-private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, hasSound: Boolean, onCancel: (() -> Unit)?) {
+private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, dir: String, hasSound: Boolean, transcribe: SubtitleTranscribeModel?,
+    onCancel: (() -> Unit)?) {
     val idle = state.busy == null
     AfCard(tr(UiText.SUB_START_HOW), Modifier.testTag("subtitles-source")) {
         AfText(My.breakSyllables(tr(UiText.SUB_TRACKS)), bold = true)
@@ -143,7 +145,8 @@ private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, hasSound:
         }
         AfButton(My.breakSyllables(tr(UiText.IMPORT_SUBTITLES)), { model.importSrt() }, Modifier.fillMaxWidth().testTag("subtitles-import-srt"),
             kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle)
+        if (transcribe != null) TranscribeButton(transcribe, dir, hasSound, idle)
         onCancel?.let { AfButton(tr(UiText.CANCEL), it, Modifier.testTag("subtitles-source-cancel")) }
     }
-    PlannedTile(tr(UiText.SUB_TRANSCRIBE), tr(if (hasSound) UiText.SUB_TRANSCRIBE_NEXT else UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE), Modifier.testTag("subtitles-transcribe-planned"))
+    if (transcribe == null) PlannedTile(tr(UiText.SUB_TRANSCRIBE), tr(if (hasSound) UiText.SUB_TRANSCRIBE_NEXT else UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE), Modifier.testTag("subtitles-transcribe-planned"))
 }
