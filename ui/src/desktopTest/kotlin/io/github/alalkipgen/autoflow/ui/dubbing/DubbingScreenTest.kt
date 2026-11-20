@@ -174,7 +174,7 @@ class DubbingScreenTest {
                 val runner = io.github.alalkipgen.autoflow.ui.jobs.DesktopAiJobRunner(io.github.alalkipgen.autoflow.core.recap.AiJobStore(fs, "/files/ai-jobs"),
                     jobScope, io.github.alalkipgen.autoflow.ui.jobs.RecapJobProcessor({ null }, { null }, { null }, { null }, { speak }),
                     pacer = { io.github.alalkipgen.autoflow.core.recap.RpmPacer(1_000) })
-                val voice = DubVoiceModel(session, speak, runner, MainScope(), models = listOf("tts-a"))
+                val voice = DubVoiceModel(session, speak, runner, jobScope, models = listOf("tts-a")) // not the Swing main: the start must not wait for it
                 try {
                     setContent {
                         CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
@@ -197,7 +197,7 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-speak-confirm").assertIsDisplayed()
                     onNodeWithTag("dub-speak-start").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 10_000) { current.state.value!!.project.dubbing!!.takes.size == 2 }
-                    waitForIdle()
+                    waitUntil(timeoutMillis = 10_000) { voice.state.value.ok } // the job finished: nothing else runs
                     onNodeWithTag("dub-voice-rows").performScrollToKey("c1")
                     onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_FITS.text(language)))
                     onNodeWithTag("dub-voice-rows").performScrollToKey("c2")
