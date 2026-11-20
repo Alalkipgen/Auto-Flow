@@ -26,7 +26,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 @Composable
 fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel, modifier: Modifier = Modifier,
     vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir), onBack: (() -> Unit)? = null,
-    exporter: SubtitleExportModel? = null) {
+    exporter: SubtitleExportModel? = null, burner: SubtitleBurnModel? = null) {
     val all by model.state.collectAsState()
     val open by session.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -58,7 +58,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
                     AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),
                         Modifier.testTag("subtitles-doc-facts"), bold = true)
                     VideoFacts(video)
-                }, onChangeSource = { choosing = true }, exporter = exporter)
+                }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner)
             }
         } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
             .testTag("subtitles-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
