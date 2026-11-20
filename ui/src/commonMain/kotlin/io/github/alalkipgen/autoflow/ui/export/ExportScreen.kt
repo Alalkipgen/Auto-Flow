@@ -66,6 +66,8 @@ internal const val LOUDNESS = "အသံကျယ်မှု"
 @Composable
 fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Boolean = false,
     onPreflightFix: ((RecapStep) -> Unit)? = null,
+    /** F-5: the Movie Recap live preview above the render controls (phone Export step). */
+    livePreview: (@Composable () -> Unit)? = null,
 ) {
     val state by model.state.collectAsState()
     val open by model.projects.collectAsState()
@@ -87,6 +89,7 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Bool
             return@Column
         }
         val recap = state.recap
+        if (recap != null) livePreview?.invoke()
         val inlineRun = state.run?.let { it.quality == Quality.PREVIEW && it.state is RenderState.Done } == true
         val showOpen = !inlineRun && (state.run != null || state.lastRenders.none { it.quality == Quality.PREVIEW })
         ExportPreviewCard(state.preview, model, showOpen)

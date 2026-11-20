@@ -1504,6 +1504,8 @@ enum class UiText(val en: String, val my: String?) {
     BURN_LINE_LENGTH("Line length", "စာကြောင်း အရှည်"),
     BURN_SHORT("Short", "တို"),
     BURN_LONG("Long", "ရှည်"),
+    PREVIEW_SOUND_HINT("Play plays the voice and music with the picture, before any render. The render adds the movie's own sound, voice polish and ducking.",
+        "Play နှိပ်ရင် Render မလုပ်ခင် ရုပ်နဲ့အတူ အသံ (voice) နဲ့ သီချင်းကို ဖွင့်ပြမယ်။ ရုပ်ရှင်မူရင်းအသံ၊ အသံသန့်စင်ခြင်းနဲ့ ducking ကို Render မှာ ထည့်မယ်။"),
     BURN_FIT_HINT("A longer line is shown in parts, one after another. Landscape starts at 1 short line so the picture stays clear.", "ရှည်တဲ့ စာကြောင်းကို အပိုင်းလိုက် တစ်ခုပြီးတစ်ခု ပြမယ်။ အလျားလိုက် ဗီဒီယိုမှာ ပုံရိပ် မကွယ်အောင် စာကြောင်းတို ၁ ကြောင်းနဲ့ စမယ်။"),
     DUB_SAVE_WAV("Also save the voice track (.wav)", "အသံ track ကိုလည်း (.wav) သိမ်းမယ်"),
     DUB_EXPORT_KEEPS("Without subtitles the picture is copied as it is (no quality loss). With Burmese subtitles a new video is made, which takes longer.", "စာတန်း မပါရင် ပုံရိပ်ကို မူရင်းအတိုင်း ကူးမယ် (အရည်အသွေး မကျ)။ မြန်မာ စာတန်း ပါရင် ဗီဒီယို အသစ် ထုတ်ရလို့ ပိုကြာမယ်။"),

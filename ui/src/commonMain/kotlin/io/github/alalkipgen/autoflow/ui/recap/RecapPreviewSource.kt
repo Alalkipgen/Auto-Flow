@@ -22,7 +22,10 @@ class RecapPreviewSource(private val session: ProjectSession, private val fs: Fi
     fun position(source: Source, outputMs: Long) {
         if (source.key == projectKey()) mutableCursor.value = Cursor(source.key, outputMs.coerceIn(0, (source.timeline.durationMs - 1).coerceAtLeast(0)))
     }
-    data class Source(val key: String, val path: String, val timeline: RecapTimeline, val vlcDir: String?, val projectDir: String)
+    /** F-5: the background music the render mixes under the voice, looped from the start, at its volume. */
+    data class Music(val file: String, val volume: Float)
+    data class Source(val key: String, val path: String, val timeline: RecapTimeline, val vlcDir: String?, val projectDir: String,
+        val music: Music? = null)
     /** The result is discarded if this revision stops being current while disk IO/decoding is in flight. */
     internal fun images(source: Source, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2): Map<String, androidx.compose.ui.graphics.ImageBitmap>? {
         if (source.key != projectKey()) return null
@@ -42,6 +45,9 @@ class RecapPreviewSource(private val session: ProjectSession, private val fs: Fi
             item?.let { joinPath(joinPath(open.dir, ArtifactStore.ARTIFACTS_DIR), it.file) }?.takeIf(fs::exists)
         }, output, state.lexicon)
         if (timeline.clips.isEmpty()) return null
-        return Source("${open.dir}:${open.project.id}:${open.project.updatedAt}", joinPath(open.dir, movie.file), timeline, media?.vlcDir(), open.dir)
+        val music = recap.audio.bgm?.let { id -> (artifacts.get(id) as? CoreResult.Ok)?.value }
+            ?.let { joinPath(joinPath(open.dir, ArtifactStore.ARTIFACTS_DIR), it.file) }?.takeIf(fs::exists)
+            ?.let { Music(it, recap.audio.bgmVolume.toFloat()) }
+        return Source("${open.dir}:${open.project.id}:${open.project.updatedAt}", joinPath(open.dir, movie.file), timeline, media?.vlcDir(), open.dir, music)
     }
 }

@@ -21,6 +21,11 @@ fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp
     val state by model.state.collectAsState()
     val open by model.projects.collectAsState()
     val current = open != null && state.projectDir == open?.dir
+    val wide = windowWidthDp >= 840f
+    // F-5: the live preview (picture + voice + music) needs the Recap state of this project, before any render.
+    LaunchedEffect(recapModel, open?.dir, open?.project?.updatedAt) { recapModel.refresh() }
+    val phonePreview: (@Composable () -> Unit)? =
+        if (wide) null else ({ RecapTimelinePreview(recapModel, studio = true) })
     key(open?.dir, open?.project?.id) {
         navigation.handleBack(true, navigation.back)
         Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
@@ -32,8 +37,12 @@ fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp
                         AfText(tr(UiText.EXPORT), bold = true)
                         AfText(tr(UiText.SHELL_EXPORT_HINT), muted = true)
                     }
-                }, editor = { ExportScreen(model, studio = true, onPreflightFix = onPreflightFix) },
-                    preview = { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { ExactFrameCard(recapModel) } })
+                }, editor = { ExportScreen(model, studio = true, onPreflightFix = onPreflightFix,
+                    livePreview = phonePreview) },
+                    preview = { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        RecapTimelinePreview(recapModel, studio = true)
+                        ExactFrameCard(recapModel)
+                    } })
             }
             StickyActionBar(
                 StudioAction(state.recap?.let { tr(UiText.EXPORT_WITH_QUALITY, "quality" to it.quality.uiLabel()) }

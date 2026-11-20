@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Watch before render** (F-5, D-94): Movie Recap's live preview now plays the voice takes (at their fit speed) and the background music with the picture, before any render, and the phone's Export step shows that preview above Export / Preview. Movie sound, polish, ducking and loudness are heard in the render only; on desktop the preview stays silent.
 - **Chatbox AI key** (F-4, D-93): Settings → AI & keys has a Chatbox AI license key under the Gemini key (Save / Test / Remove) and two choices — who answers Script, Translate, Shorten and Storyboard, and who answers Transcribe (Gemini or Chatbox AI; Gemini by default). Chatbox AI needs a paid plan and uses its points; voices stay Gemini / Edge.
 - **Edge voices keep their own pace** (F-3, D-92): an Edge voice job sends 20 lines a minute (`tts.edge.rpm`) instead of Gemini's 3, so the time shown before Speak is shorter; when Microsoft answers "busy" (429) the job waits and Resume retries. Edge has no API key and no published limit.
 - **Same progress card everywhere** (F-2): Subtitles Transcribe / Translate, Dubbing Voice / Shorten and Voice & Audio Speak show their AI job on the project page in the Movie Recap card — state, progress bar, live time and rate-limit wait — not only in Jobs.
