@@ -55,4 +55,11 @@ class DubFitTest {
         val json = CoreJson.encodeToString(DubbingTool.serializer(), tool)
         assertEquals(tool, CoreJson.decodeFromString(DubbingTool.serializer(), json))
     }
+
+    @Test fun shortenLimitFollowsTheSlotOverTheTake() {
+        assertEquals(19, DubRules.maxChars(30, 2_000, 3_000), "30 × 2/3 × 0.95 = 19")
+        assertEquals(28, DubRules.maxChars(30, 2_990, 3_000), "28.4 → 28 (floor)")
+        assertEquals(1, DubRules.maxChars(10, 0, 3_000), "never below one character")
+        assertEquals(30, DubRules.maxChars(30, 2_000, 0), "no take: no limit from it")
+    }
 }

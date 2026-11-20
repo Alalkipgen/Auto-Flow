@@ -89,4 +89,8 @@ object DubRules {
     /** Ids of the lines with no current take, in order: what Speak sends (lines that did not change are never re-spoken). */
     fun toSpeak(tool: DubbingTool?, doc: SubtitleDoc, lexicon: Lexicon): List<String> =
         doc.cues.filter { currentTake(tool, it, lexicon) == null && sayText(it, lexicon).isNotEmpty() }.map { it.id }
+
+    /** Shorten's limit for a line (spec §5): floor(chars × slotMs / takeMs × 0.95), at least 1; no take → [chars]. */
+    fun maxChars(chars: Int, slotMs: Long, takeMs: Long): Int =
+        if (takeMs <= 0) chars else (chars.toLong() * slotMs.coerceAtLeast(0) * 95 / (takeMs * 100)).toInt().coerceAtLeast(1)
 }

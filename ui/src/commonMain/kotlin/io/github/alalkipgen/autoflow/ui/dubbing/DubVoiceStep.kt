@@ -28,7 +28,8 @@ private fun sec(ms: Long) = ((ms + 99) / 100) / 10.0
 
 /** The Voice step (D-2b): voice, tone and original sound, the Speak card, and every line with its take and fit. */
 @Composable
-internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, toExport: () -> Unit) {
+internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, toExport: () -> Unit,
+    shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}) {
     val all by model.state.collectAsState()
     val jobs by model.jobs.collectAsState()
     val dir = open?.dir
@@ -43,6 +44,7 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(key = "settings") { Settings(model, open, idle) }
             item(key = "speak") { Speak(model, s, job) }
+            if (shorten != null && script != null && dir != null) item(key = "shorten") { Shorten(shorten, script, dir, rows, doc, idle, toScript) }
             items(rows, key = { it.id }) { r ->
                 AfCard("#${r.n} · ${TimeText.show(r.startMs)} → ${TimeText.show(r.endMs)}", Modifier.testTag("dub-voice-row-${r.id}")) {
                     AfText(My.breakSyllables(r.spoken))
@@ -138,6 +140,48 @@ private fun Speak(model: DubVoiceModel, s: DubVoiceUi, job: AiJob?) {
         else -> s.notice?.let {
             AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("dub-speak-notice"),
                 color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
+        }
+    }
+}
+
+/** Shorten (D-2c): offered for TOO_LONG lines; Gemini's lines next to the current ones, chosen per line, then Use n lines. */
+@Composable
+private fun Shorten(model: DubShortenModel, script: DubScriptModel, dir: String, rows: List<DubVoiceRow>, doc: SubtitleDoc, idle: Boolean,
+    toScript: () -> Unit) {
+    val all by model.state.collectAsState()
+    val s = all.takeIf { it.dir == dir } ?: DubShortenUi()
+    val long = remember(rows, doc) { model.lines(rows, doc).size }
+    if (long == 0 && s.rows.isEmpty() && s.notice == null) return
+    AfCard(My.breakSyllables(tr(UiText.DUB_SHORTEN)), Modifier.testTag("dub-shorten-card")) {
+        when {
+            s.busy -> AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_WORKING)), Modifier.testTag("dub-shorten-working"), muted = true)
+            s.rows.isNotEmpty() -> {
+                AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_TITLE)), bold = true)
+                s.rows.forEach { r ->
+                    Column(Modifier.fillMaxWidth().testTag("dub-shorten-row-${r.id}"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        AfText("#${r.n}", muted = true)
+                        AfText(My.breakSyllables(r.old), muted = true)
+                        AfText(My.breakSyllables(r.new), Modifier.testTag("dub-shorten-new-${r.id}"), bold = true)
+                        AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_NEW, "len" to r.new.length, "max" to r.maxChars)),
+                            color = if (r.new.length > r.maxChars) AutoFlowColors.Amber else null, muted = r.new.length <= r.maxChars)
+                        AfChip(My.breakSyllables(tr(UiText.DUB_USE)), r.use, { model.toggle(r.id) }, Modifier.testTag("dub-shorten-use-${r.id}"))
+                    }
+                }
+                val n = s.rows.count { it.use }
+                WrapRow {
+                    AfButton(My.breakSyllables(tr(UiText.DUB_USE_LINES, "n" to n)), { if (model.use(script)) toScript() },
+                        Modifier.testTag("dub-shorten-apply"), kind = ButtonKind.Primary, enabled = n > 0 && idle)
+                    AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("dub-shorten-back"))
+                }
+            }
+            else -> {
+                s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("dub-shorten-notice"), color = AutoFlowColors.Amber) }
+                if (long > 0) {
+                    AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_N, "n" to long)))
+                    AfButton(My.breakSyllables(tr(UiText.DUB_SHORTEN)), { model.ask(dir, rows, doc) }, Modifier.testTag("dub-shorten"),
+                        enabled = idle && model.available)
+                }
+            }
         }
     }
 }
