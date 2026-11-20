@@ -50,6 +50,7 @@ import kotlin.test.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.koin.compose.KoinIsolatedContext
@@ -145,6 +146,67 @@ class DubbingScreenTest {
                 onNodeWithTag("dub-use-subtitle-c2").performScrollTo().assertIsDisplayed()
                 assertEquals(emptyList(), textFitProblems(width, font))
                 ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "02-script-$width-${language.name.lowercase()}.png"))
+            }
+        }
+    }
+
+    @Test fun voiceStepSpeaksEveryLineAndShowsTheFitAtSmallAndWideSizesInBothLanguages() {
+        for ((width, font) in listOf(360 to 2f, 1440 to 1f)) for (language in UiLanguage.entries) {
+            runDesktopComposeUiTest(width = width, height = 760) {
+                val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
+                val index = ProjectIndex(fs, "/app/projects.json")
+                val dir = "/p/Dub.autoflow"
+                val doc = SubtitleDoc(source = "srt", nextId = 3, cues = listOf(
+                    SubtitleCue("c1", 1_000, 3_000, "We have to leave tonight.", textMy = "ဒီည ထွက်သွားရမယ်။"),
+                    SubtitleCue("c2", 4_000, 6_000, "Before the rain starts.", textMy = "မိုးမရွာခင် သွားရမယ်။")))
+                val created = (store.create(dir, "Dub", Mode.DUBBING) as CoreResult.Ok).value
+                val st = (ArtifactStore(fs, dir).put(CoreJson.encodeToString(SubtitleDoc.serializer(), doc).encodeToByteArray(),
+                    ArtifactKind.SUBTITLES, "json") as CoreResult.Ok).value.id
+                val tool = io.github.alalkipgen.autoflow.core.dubbing.DubRules.approve(DubbingTool(), 65_000, 600_000, doc, 1)!!
+                val p = (store.save(dir, created.copy(dubbing = tool, subtitles = SubtitlesTool(
+                    video = SourceVideo("source/movie.mp4", 9, 65_000, 1920, 1080, 25.0), current = st))) as CoreResult.Ok).value
+                current.set(OpenProject(dir, p))
+                val session = ProjectSession(fs, store, index, current)
+                val subtitles = SubtitlesModel(session, fs, DashboardModel(fs, store, index, SettingsStore(fs, "/app/s.json"), FakePicker(), current),
+                    null, MainScope(), probe = { null })
+                val speak = DubSpeakJob(session, fs, io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider(msPerChar = 100))
+                val jobScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Default)
+                val runner = io.github.alalkipgen.autoflow.ui.jobs.DesktopAiJobRunner(io.github.alalkipgen.autoflow.core.recap.AiJobStore(fs, "/files/ai-jobs"),
+                    jobScope, io.github.alalkipgen.autoflow.ui.jobs.RecapJobProcessor({ null }, { null }, { null }, { null }, { speak }),
+                    pacer = { io.github.alalkipgen.autoflow.core.recap.RpmPacer(1_000) })
+                val voice = DubVoiceModel(session, speak, runner, MainScope(), models = listOf("tts-a"))
+                try {
+                    setContent {
+                        CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
+                            LocalUiFontFamily provides BurmeseTestFont.family) {
+                            DubbingScreen(DubScriptModel(session, fs), subtitles, session, SubtitleEditorModel(session, fs, MainScope()), onBack = {},
+                                player = { _, _, m, _ -> androidx.compose.foundation.layout.Box(m) }, voice = voice)
+                        }
+                    }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-voice-rows").fetchSemanticsNodes().isNotEmpty() }
+                    onNodeWithTag("dub-step-VOICE").assert(chosen) // approved → lands on Voice
+                    onNodeWithTag("dub-voice-rows").performScrollToKey("c1")
+                    onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_NO_VOICE.text(language)))
+                    onNodeWithTag("dub-voice-rows").performScrollToKey("settings")
+                    onNodeWithTag("dub-voice-Kore").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.lock?.voice == "Kore" }
+                    onNodeWithTag("dub-original-mute").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.original.mode == "mute" }
+                    onNodeWithTag("dub-speak").assertIsEnabled().performMouseInput { click() }
+                    onNodeWithTag("dub-voice-rows").performScrollToKey("speak")
+                    onNodeWithTag("dub-speak-confirm").assertIsDisplayed()
+                    onNodeWithTag("dub-speak-start").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 10_000) { current.state.value!!.project.dubbing!!.takes.size == 2 }
+                    waitForIdle()
+                    onNodeWithTag("dub-voice-rows").performScrollToKey("c1")
+                    onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_FITS.text(language)))
+                    onNodeWithTag("dub-voice-rows").performScrollToKey("c2")
+                    onNodeWithTag("dub-fit-c2").assertTextEquals(My.breakSyllables(UiText.DUB_USES_PAUSE.text(language)))
+                    onNodeWithTag("dub-redo-c2").assertIsEnabled()
+                    onNodeWithTag("dub-go-export").assertIsDisplayed()
+                    assertEquals(emptyList(), textFitProblems(width, font))
+                    ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "03-voice-$width-${language.name.lowercase()}.png"))
+                } finally { jobScope.cancel() }
             }
         }
     }

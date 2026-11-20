@@ -361,3 +361,17 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - **Voice** and **Export** show Planned (not built yet). Back with unsaved subtitle edits asks Save / Discard / Keep editing.
 - Check the Burmese wording of the new lines.
 
+### D-2a — Dub voices job (no screen)
+
+- Nothing new on screen until D-2b; Jobs would show a "Dub voices" / "Dubbing အသံ" row once Voice starts one.
+
+### D-2b — Dubbing: Voice step (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- In a Dubbing project with an **approved** dub script, the project opens on **Voice · Step 4 of 5**. Before approval, Voice says "Approve the dub script first." with **Go to Dub script**.
+- **Voice** card: a model chip, the six voice chips, Tone (Calm / Lively / News / Storytelling) and **Original sound**: Lower (music and effects stay, original voices quietly) / Mute. A tap saves at once; the approval stays.
+- Every line shows its spoken text, "Room until the next line", and "No voice". **Speak n lines** → the confirm card (n Gemini requests, voice · model, about n/3 min) → **Start**. Nothing is sent before Start.
+- While it speaks: "Speaking: line k of n"; the voice, tone and original chips are greyed. Turn on airplane mode for a moment → "Paused …" with **Resume n remaining**; Resume sends only the lines left. Close and reopen the app during Speak: Jobs shows **Dub voices** and Resume continues.
+- Each spoken line: "Voice: n s", a fit chip — **Fits** (inside the line), **Uses the pause** (into the gap before the next line) or **+n s too long** (red) — ▶ plays the take, ↻ **Speak this line again** asks for exactly that one line; the other lines keep their takes.
+- Change the tone (or voice): every line shows "Script changed" (old take kept as a file, not used) and Speak asks for all lines again. Edit one spoken line on Dub script and approve again: only that line needs a new voice.
+- When every line has a voice: **Go to Export** (Export is still Planned until D-3). Check the Burmese wording of the new lines.
+

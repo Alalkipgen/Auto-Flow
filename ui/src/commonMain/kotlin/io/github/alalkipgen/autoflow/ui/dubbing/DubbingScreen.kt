@@ -25,24 +25,25 @@ enum class DubStep(val text: UiText) {
     VOICE(UiText.DUB_STEP_VOICE), EXPORT(UiText.DUB_STEP_EXPORT);
 
     companion object {
-        /** Where an opened project lands: the first step that is not done yet (Voice / Export are still Planned). */
+        /** Where an opened project lands: the first step that is not done yet (Export is still Planned). */
         fun first(g: DubGates): DubStep = when {
             g.video != null || g.script == DubBlock.NO_LINES -> VIDEO
             g.script != null -> TRANSLATE
-            else -> SCRIPT
+            g.voice != null -> SCRIPT
+            else -> VOICE
         }
     }
 }
 
 /**
  * Dubbing (D-1b). Video and Translate are the Subtitles source chooser and editor (D-88); Dub script shows every line
- * with its spoken line and the sticky Approve. A locked step says why and where to go; Voice and Export stay Planned
- * until D-2 / D-3.
+ * with its spoken line and the sticky Approve; Voice (D-2b) makes and checks each line's take. A locked step says why
+ * and where to go; Export stays Planned until D-3.
  */
 @Composable
 fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel,
     onBack: () -> Unit, modifier: Modifier = Modifier, vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir),
-    transcribe: SubtitleTranscribeModel? = null, translate: SubtitleTranslateModel? = null) {
+    transcribe: SubtitleTranscribeModel? = null, translate: SubtitleTranslateModel? = null, voice: DubVoiceModel? = null) {
     val open by session.state.collectAsState()
     val st by script.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -53,6 +54,8 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
     val dirty = ed.dir == open?.dir && ed.draft?.let { it.dirty && it.base == current } == true
     var step by remember(open?.dir) { mutableStateOf<DubStep?>(null) }
     val shown = step ?: DubStep.first(gates).takeIf { current == null || doc != null } ?: DubStep.VIDEO
+    // Landing on Dub script or Voice stays put (Approve does not move the owner away); Video → Translate still follows the lines.
+    LaunchedEffect(open?.dir, doc != null) { if (step == null && doc != null && shown >= DubStep.SCRIPT) step = shown }
     var leaving by remember { mutableStateOf(false) }
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         ProjectTopBar(open?.project?.name.orEmpty(), shown.ordinal + 1, tr(shown.text), { if (dirty) leaving = true else onBack() })
@@ -73,7 +76,15 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                     gates.script != null -> Lock(block(gates.script, gates, script), target(gates.script), go)
                     doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok)
                 }
-                DubStep.VOICE, DubStep.EXPORT -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
+                DubStep.VOICE -> when {
+                    dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
+                    gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
+                    voice != null && doc != null -> VoiceStep(voice, open, doc) { step = DubStep.EXPORT }
+                    else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
+                        PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-VOICE"))
+                    }
+                }
+                DubStep.EXPORT -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
                     PlannedTile(tr(shown.text), gates.voice?.let { block(it, gates, script) }, Modifier.testTag("dub-planned-${shown.name}"))
                 }
             }
