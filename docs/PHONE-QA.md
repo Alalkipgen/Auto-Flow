@@ -329,3 +329,7 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 - Three chips (all on): Shorten long pauses · Reduce noise · Even loudness (−14 LUFS). The last one on cannot be turned off.
 - **Before / After (first 30 s)**: "Listening to the sound…", then ▶ Before and ▶ After — After should have shorter pauses, less hiss, and a steady level.
 - **Save m4a** / **Save wav**: "Cleaning the sound: n%" with Cancel (Jobs shows "Clean up sound"); then the file in exports, Share / Save to Music (phone) or Open folder (Windows). Play it in another app.
+
+### V-3a — Video sound commands (nothing to press yet)
+
+- Nothing new on screen; Video sound stays Planned until V-3b.
