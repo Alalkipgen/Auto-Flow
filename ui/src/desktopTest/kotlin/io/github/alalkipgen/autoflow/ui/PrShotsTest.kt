@@ -150,7 +150,11 @@ class PrShotsTest(val width: Int, val font: Float) {
 
     @Test fun jobsList() {
         val rows = jobs()
-        shot("jobs") {
+        // Desktop list–detail: select the failed job, so the detail pane shows its reason and Retry.
+        val select: (ComposeUiTest.() -> Unit)? = if (width < 1440) null else ({
+            onNodeWithTag("job-card-failed").performMouseInput { click() }
+        })
+        shot("jobs", select) {
             StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
                 JobsScreen(rows, scope, {}, actions = JobsActions(scope), thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
             }

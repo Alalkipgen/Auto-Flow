@@ -1552,6 +1552,7 @@ enum class UiText(val en: String, val my: String?) {
     PROJECTS_FILTER_ALL("All", "အားလုံး"),
     // P9-9b desktop Projects (D2): the detail pane of the selected project.
     PROJECTS_SELECTED("Selected project", "ရွေးထားသော ပရောဂျက်"),
+    JOBS_SELECTED("Selected job", "ရွေးထားသော အလုပ်"),
     PROJECT_LAST_OPENED("Last opened", "နောက်ဆုံး ဖွင့်ခဲ့ချိန်"),
     PROJECT_SHOW_FOLDER("Show in folder", "ဖိုင်တွဲမှာ ပြမယ်"),
     ;

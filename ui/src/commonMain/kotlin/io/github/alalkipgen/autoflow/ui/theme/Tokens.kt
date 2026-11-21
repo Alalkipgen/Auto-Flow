@@ -109,4 +109,7 @@ object AfDesktop {
     /** Projects D2 from this Projects width: a card grid (cards ≥ [ProjectCardMin] × the font scale) + the detail pane. */
     val GridWide = 900.dp
     val ProjectCardMin = 240.dp
+
+    /** The selected job's thumbnail in the Jobs detail pane is at most this wide (16:9). */
+    val DetailThumbMax = 480.dp
 }
