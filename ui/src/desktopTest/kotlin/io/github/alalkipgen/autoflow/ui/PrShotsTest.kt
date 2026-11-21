@@ -38,6 +38,10 @@ import io.github.alalkipgen.autoflow.ui.recap.QaRecapFixture
 import io.github.alalkipgen.autoflow.ui.settings.*
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Shell
+import io.github.alalkipgen.autoflow.ui.shell.ShellActions
+import io.github.alalkipgen.autoflow.ui.shell.ShellShortcut
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.shell.V2SubBar
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import kotlinx.coroutines.CoroutineScope
@@ -68,6 +72,11 @@ class PrShotsTest(val width: Int, val font: Float) {
     private val case get() = if (phone) "phone-$font" else "desktop"
     private val language = UiLanguage.BURMESE
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    // The app's sidebar actions (AppShell): New project, Settings and the two always-on create shortcuts.
+    private val actions = ShellActions({}, {}, listOf(
+        ShellShortcut(UiText.MOVIE_RECAP, AfIcons.Duotone.Film, AutoFlowColors.PrimaryFill, "nav-create-recap") {},
+        ShellShortcut(UiText.MUSIC_VIDEO, AfIcons.Duotone.Music, AutoFlowColors.Info, "nav-create-mv") {},
+    ))
 
     private fun shot(screen: String, content: @Composable () -> Unit) {
         val dir = out ?: return
@@ -94,7 +103,7 @@ class PrShotsTest(val width: Int, val font: Float) {
     @Test fun home() {
         val index = index(); val rows = jobs()
         shot("home") {
-            StudioV2Shell(StudioV2Dest.HOME, {}, jobsBadgeValue(rows), width.toFloat()) {
+            StudioV2Shell(StudioV2Dest.HOME, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
                 HomeScreen(recent = index.entries.value, jobs = rows)
             }
         }
@@ -104,13 +113,13 @@ class PrShotsTest(val width: Int, val font: Float) {
         val fs = JvmFs()
         val model = DashboardModel(fs, ProjectStore(fs), index(),
             SettingsStore(fs, File(fixture.dir.parentFile, "settings-shots.json").path), FakePicker(), CurrentProject())
-        shot("projects") { StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat()) { DashboardScreen(model, {}) } }
+        shot("projects") { StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), actions = actions) { DashboardScreen(model, {}) } }
     }
 
     @Test fun jobsList() {
         val rows = jobs()
         shot("jobs") {
-            StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), width.toFloat()) {
+            StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
                 JobsScreen(rows, scope, {}, actions = JobsActions(scope))
             }
         }
@@ -125,7 +134,7 @@ class PrShotsTest(val width: Int, val font: Float) {
             FakePicker(), { PlatformResult.Ok(Unit) }, { error("No provider call in screenshots") },
             bundledFeatures = """{"schemaVersion":1,"studioV2":true}""")
         shot("settings") {
-            StudioV2Shell(StudioV2Dest.HOME, {}, 0, width.toFloat()) {
+            StudioV2Shell(StudioV2Dest.HOME, {}, 0, width.toFloat(), actions = actions) {
                 Column(Modifier.fillMaxSize()) {
                     V2SubBar(UiText.BACK.text(language), provider.current()) {}
                     Box(Modifier.weight(1f)) { SettingsScreen(model, info = AppInfo("QA fixture host")) }

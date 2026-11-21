@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -473,12 +474,34 @@ private fun StudioV2App(
         }
     }
 
+    // Desktop sidebar extras (DESIGN.md §9.8): the same create actions as Home, only for the modes that exist.
+    val subtitlesForNav = if (subtitlesTool || dubbingTool) koinInject<io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel>() else null
+    val voiceForNav = if (voiceTool) koinInject<io.github.alalkipgen.autoflow.ui.voice.VoiceAudioModel>() else null
+    val shellActions = ShellActions(
+        onNewProject = { nav = V2Nav(StudioV2Dest.PROJECTS) },
+        onOpenSettings = { nav = nav.copy(settings = true) },
+        create = listOfNotNull(
+            ShellShortcut(UiText.MOVIE_RECAP, AfIcons.Duotone.Film, AutoFlowColors.PrimaryFill, "nav-create-recap") {
+                nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) },
+            ShellShortcut(UiText.MUSIC_VIDEO, AfIcons.Duotone.Music, AutoFlowColors.Info, "nav-create-mv") {
+                nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO) },
+            if (dubbingTool) ShellShortcut(UiText.V3_DUBBING, AfIcons.Duotone.Dub, AutoFlowColors.Amber, "nav-create-dubbing") {
+                subtitlesForNav?.start(dubbing = true) { openProjectScreen(DUBBING_SCREEN) } } else null,
+            if (voiceTool) ShellShortcut(UiText.V3_VOICE_AUDIO, AfIcons.Duotone.Wave, AutoFlowColors.Cyan, "nav-create-voice") {
+                voiceForNav?.begin(); openProjectScreen(VOICE_SCREEN) } else null,
+            if (subtitlesTool) ShellShortcut(UiText.V3_SUBTITLES, AfIcons.Duotone.Subtitles, AutoFlowColors.Surface3, "nav-create-subtitles") {
+                subtitlesForNav?.start { openProjectScreen(SUBTITLES_SCREEN) } } else null,
+        ),
+    )
     StudioV2Shell(
         selected = nav.dest,
         // Projects again while on Projects = back to the list; other tabs keep the open project screen for later.
         onSelect = { nav = v2Select(nav, it) },
         jobsBadge = badge,
         windowWidthDp = windowWidthDp,
+        // An open project editor keeps the 72 dp rail for room (DESIGN.md §9.8).
+        editor = !nav.settings && nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null,
+        actions = shellActions,
         content = content,
     )
     // Exit confirmation dialog (D-52)
