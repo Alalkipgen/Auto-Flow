@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import io.github.alalkipgen.autoflow.ui.components.MediumContent
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -118,7 +119,7 @@ fun StudioV2Shell(
             }
             NavStyle.RAIL -> Row(Modifier.fillMaxSize()) {
                 V2NavRail(selected, onSelect, jobsBadge, actions)
-                Box(Modifier.fillMaxSize()) { content() }
+                Box(Modifier.fillMaxSize()) { MediumContent(windowWidthDp, content) }
             }
             NavStyle.SIDEBAR -> Row(Modifier.fillMaxSize()) {
                 V2Sidebar(selected, onSelect, jobsBadge, actions)

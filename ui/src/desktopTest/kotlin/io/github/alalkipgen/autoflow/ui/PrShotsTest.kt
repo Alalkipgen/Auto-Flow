@@ -62,7 +62,8 @@ import kotlin.test.Test
 
 /**
  * Phase 9 before / after screenshots for every PR (DESIGN.md §9.6): a 360 dp phone in Burmese at font 1.0 and 2.0
- * (drawn at 2× so the PNG reads like the phone) and a 1440 × 900 desktop window. Runs only when
+ * (drawn at 2× so the PNG reads like the phone), a 760 dp medium window (rail + centred phone layout) and a 1440 × 900
+ * desktop window. Runs only when
  * `AUTOFLOW_PR_SHOTS_DIR` is set; writes `<screen>-<case>.png`. Fixture data only — nothing is saved.
  */
 @RunWith(Parameterized::class)
@@ -71,11 +72,11 @@ class PrShotsTest(val width: Int, val font: Float) {
     companion object {
         private val fixture by lazy { QaRecapFixture.create(Files.createTempDirectory("pr-shots").toFile()) }
         @JvmStatic @Parameterized.Parameters(name = "{0}dp/{1}")
-        fun cases() = listOf(arrayOf<Any>(360, 1f), arrayOf<Any>(360, 2f), arrayOf<Any>(1440, 1f))
+        fun cases() = listOf(arrayOf<Any>(360, 1f), arrayOf<Any>(360, 2f), arrayOf<Any>(760, 1f), arrayOf<Any>(1440, 1f))
     }
     private val out = System.getenv("AUTOFLOW_PR_SHOTS_DIR")?.let(::File)
     private val phone get() = width < 600
-    private val case get() = if (phone) "phone-$font" else "desktop"
+    private val case get() = if (phone) "phone-$font" else if (width < 840) "medium" else "desktop"
     private val language = UiLanguage.BURMESE
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
     // The app's sidebar actions (AppShell): New project, Settings and the two always-on create shortcuts.

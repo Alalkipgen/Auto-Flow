@@ -185,7 +185,7 @@ internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (
         hint?.let { AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(AfSpace.S, Alignment.End), verticalArrangement = Arrangement.spacedBy(AfSpace.S),
             itemVerticalAlignment = Alignment.CenterVertically) {
-            leading?.invoke(); secondary?.invoke(Modifier.widthIn(min = StickyButtonMin)); primary(Modifier.widthIn(min = StickyButtonMin))
+            leading?.invoke(); secondary?.invoke(Modifier.widthIn(min = AfDesktop.StickyButtonMin)); primary(Modifier.widthIn(min = AfDesktop.StickyButtonMin))
         }
     }) { items, c ->
         val gap = AfSpace.L.roundToPx()
@@ -207,7 +207,6 @@ internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (
     }
 }
 
-private val StickyButtonMin = 150.dp
 private val HintMin = 200.dp
 
 /**

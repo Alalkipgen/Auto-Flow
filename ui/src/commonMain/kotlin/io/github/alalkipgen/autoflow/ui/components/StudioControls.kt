@@ -48,7 +48,9 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
     val page = LocalProjectPreviewPage.current?.takeIf { it.available }
     Column(modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 6.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        AfTopBar(name, subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step)), onBack = onBack,
+        // Right-click on the bar opens the same ⋮ options (DESIGN.md §9.8).
+        AfTopBar(name, if (options.isEmpty()) Modifier else Modifier.onSecondaryClick { open = true },
+            subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step)), onBack = onBack,
             backModifier = Modifier.testTag("project-back")) {
             if (page != null) AfIconButton(if (page.shown) AfIcons.Regular.Edit else AfIcons.Fill.Play,
                 tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW), { page.shown = !page.shown },
