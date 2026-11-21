@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
@@ -35,12 +36,13 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
 /** UI callback, not a persisted command or engine state. */
-data class StudioAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val tag: String? = null)
+data class StudioAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val tag: String? = null,
+    val icon: ImageVector? = null)
 
 @Composable
 private fun Action(action: StudioAction, primary: Boolean = false, modifier: Modifier = Modifier) = AfButton(
     action.label, action.onClick, modifier.then(action.tag?.let { Modifier.testTag(it) } ?: Modifier),
-    kind = if (primary) ButtonKind.Primary else ButtonKind.Secondary, enabled = action.enabled,
+    kind = if (primary) ButtonKind.Primary else ButtonKind.Secondary, enabled = action.enabled, icon = action.icon,
 )
 
 /**

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.export
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.storyboard.text
@@ -154,7 +155,7 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Bool
 /** Movie Recap project (docs/specs/recap.md §6): scenes, voice, sound, looks, captions, quality and the rights reminder. */
 @Composable
 private fun RecapSummary(recap: RecapExport, font: String?, model: ExportModel, studio: Boolean, busy: Boolean) {
-    AfCard(if (studio) tr(UiText.OUTPUT_CARD) else "Movie Recap", Modifier.testTag("export-output")) {
+    AfCard(if (studio) tr(UiText.OUTPUT_CARD) else "Movie Recap", Modifier.testTag("export-output"), icon = if (studio) AfIcons.Regular.Film else null) {
         AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
         AfText(tr(UiText.RECAP_SCENE_COUNT, "segments" to (recap.segments), "durationMs" to (InputModel.formatDuration(recap.durationMs))) + (recap.movieFile?.let { " · 🎬 $it" } ?: ""))
         val silent = recap.segments - recap.voiced

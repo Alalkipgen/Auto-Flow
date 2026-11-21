@@ -66,6 +66,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.theme.AfRadius
@@ -178,7 +179,7 @@ fun AfButton(
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            if (icon != null) AfIcon(icon, tint = ink, size = AfSize.IconSmall)
+            if (icon != null) AfIcon(icon, Modifier.testTag("button-icon"), tint = ink, size = AfSize.IconSmall)
             AfText(text, color = ink, type = if (small) AfType.ButtonSmall else AfType.Button)
         }
     }
@@ -317,9 +318,10 @@ fun AfH3(text: String, modifier: Modifier = Modifier) {
  */
 @Composable
 fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = false, headerAction: (@Composable () -> Unit)? = null,
-    attention: Tone? = null, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    attention: Tone? = null, onClick: (() -> Unit)? = null, icon: ImageVector? = null, content: @Composable ColumnScope.() -> Unit) {
     AfCard(modifier, selected, attention, onClick) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            icon?.let { AfIcon(it, Modifier.testTag("card-icon"), tint = AutoFlowColors.PrimaryText, size = AfSize.IconSmall) }
             AfText(title, Modifier.weight(1f), size = 14.sp, bold = true)
             headerAction?.invoke()
         }

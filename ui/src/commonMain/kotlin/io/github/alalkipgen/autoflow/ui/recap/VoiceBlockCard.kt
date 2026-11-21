@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -112,7 +113,7 @@ private fun SpeakTab(
     if (showAction) AfText(tr(UiText.VOICE_DETAILS, "ttsVoice" to (recap.ttsVoice), "name" to (recap.voiceSource.name)), muted = true, size = 11.sp)
     if (showAction) WrapRow {
         AfButton(tr(UiText.SPEAK_BLOCK), { model.speak(index) },
-            kind = ButtonKind.Primary, enabled = idle && text.isNotBlank())
+            kind = ButtonKind.Primary, enabled = idle && text.isNotBlank(), icon = AfIcons.Regular.Volume)
     }
     // Per-chunk caption timing edit (D-53, audit F05): the caption window in voice time (0 = the take starts);
     // saved as captions.chunkEdits — the movie clips are not changed.
@@ -205,12 +206,12 @@ private fun RecordTab(
 
     WrapRow {
         if (state.recording == index) {
-            AfButton(tr(UiText.STOP), { model.stopRecording() }, kind = ButtonKind.Danger)
+            AfButton(tr(UiText.STOP), { model.stopRecording() }, kind = ButtonKind.Danger, icon = AfIcons.Fill.Square)
             AfButton(tr(UiText.CANCEL), { model.cancelRecording() })
         } else {
             if (model.canRecord) {
                 AfButton(tr(UiText.RECORD), { model.startRecording(index) }, kind = ButtonKind.Primary,
-                    enabled = idle && seg.textMy.isNotBlank())
+                    enabled = idle && seg.textMy.isNotBlank(), icon = AfIcons.Regular.Dub)
             }
             AfButton(tr(UiText.IMPORT_FILE), { model.importTake(index) }, enabled = idle && seg.textMy.isNotBlank())
         }
@@ -234,7 +235,7 @@ private fun CleanTab(
     }
     AfText(tr(UiText.CLEAN_HINT), muted = true, size = 12.sp)
     // Polish / trim silence via ffmpeg silenceremove (available after render, D-54).
-    AfButton(tr(UiText.CLEAN_TAKE), { model.cleanTake(index) }, enabled = idle, kind = ButtonKind.Primary)
+    AfButton(tr(UiText.CLEAN_TAKE), { model.cleanTake(index) }, enabled = idle, kind = ButtonKind.Primary, icon = AfIcons.Regular.Scissors)
 }
 
 /**

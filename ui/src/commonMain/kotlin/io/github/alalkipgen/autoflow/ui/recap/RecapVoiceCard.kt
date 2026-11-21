@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.components.AfIconButton
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,11 +57,11 @@ internal fun VoiceCard(model: RecapModel, state: RecapUiState, recap: RecapV2, b
                 val etaStr = eta.etaSeconds?.let { tr(UiText.SPEAK_ALL_ETA, "it60" to (it / 60)) } ?: ""
                 AfText(tr(UiText.SPEAK_ALL_CONFIRM, "count" to (eta.count), "etaStr" to (etaStr)), bold = true)
                 WrapRow {
-                    AfButton(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) }, kind = ButtonKind.Primary)
+                    AfButton(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) }, kind = ButtonKind.Primary, icon = AfIcons.Fill.Play)
                     AfButton(tr(UiText.CANCEL), { model.cancelSpeakAll() })
                 }
             } else {
-                AfButton(tr(UiText.SPEAK_ALL), { model.speakAll() }, kind = ButtonKind.Primary, enabled = idle)
+                AfButton(tr(UiText.SPEAK_ALL), { model.speakAll() }, kind = ButtonKind.Primary, enabled = idle, icon = AfIcons.Regular.Volume)
             }
             AfText(tr(UiText.SPEAK_ALL_HINT), muted = true, size = 12.sp)
         }
@@ -98,11 +100,12 @@ private fun VoiceRow(model: RecapModel, state: RecapUiState, recap: RecapV2, scr
         AfText(seg.textMy, size = 12.sp)
         WrapRow {
             if (state.recording == i) {
-                AfButton(tr(UiText.STOP), { model.stopRecording() }, kind = ButtonKind.Danger)
+                AfButton(tr(UiText.STOP), { model.stopRecording() }, kind = ButtonKind.Danger, icon = AfIcons.Fill.Square)
                 AfButton(tr(UiText.CANCEL), { model.cancelRecording() })
             } else {
-                AfButton("🔊", { model.speak(i) }, enabled = idle && seg.textMy.isNotBlank())
-                if (model.canRecord) AfButton(tr(UiText.RECORD), { model.startRecording(i) }, kind = ButtonKind.Primary, enabled = idle && seg.textMy.isNotBlank())
+                AfIconButton(AfIcons.Regular.Volume, tr(UiText.SPEAK_BLOCK), { model.speak(i) }, enabled = idle && seg.textMy.isNotBlank())
+                if (model.canRecord) AfButton(tr(UiText.RECORD), { model.startRecording(i) }, kind = ButtonKind.Primary, enabled = idle && seg.textMy.isNotBlank(),
+                    icon = AfIcons.Regular.Dub)
                 AfButton(tr(UiText.IMPORT_FILE), { model.importTake(i) }, enabled = idle && seg.textMy.isNotBlank())
             }
             val file = state.takeFiles[i]

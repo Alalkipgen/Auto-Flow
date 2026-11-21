@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
@@ -77,7 +78,8 @@ private fun JobCard(model: SubtitleTranscribeModel, job: AiJob) {
                 AfButton(My.breakSyllables(tr(UiText.V3_RESUME_REMAINING, "n" to job.items.size)), { model.resume(job) },
                     Modifier.testTag("subtitles-transcribe-resume"), kind = ButtonKind.Primary)
             } else {
-                AfButton(My.breakSyllables(tr(UiText.PAUSE)), { pausing = true; model.pause(job) }, Modifier.testTag("subtitles-transcribe-pause"), enabled = !pausing)
+                AfButton(My.breakSyllables(tr(UiText.PAUSE)), { pausing = true; model.pause(job) }, Modifier.testTag("subtitles-transcribe-pause"), enabled = !pausing,
+                    icon = AfIcons.Fill.Pause)
             }
             AfButton(My.breakSyllables(tr(UiText.CANCEL_JOB)), { model.cancel(job) }, Modifier.testTag("subtitles-transcribe-cancel"), kind = ButtonKind.Danger)
         }

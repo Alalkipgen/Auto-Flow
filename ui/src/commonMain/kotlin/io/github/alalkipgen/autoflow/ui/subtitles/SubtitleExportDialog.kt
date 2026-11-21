@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
@@ -127,7 +128,7 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
             is RenderState.Done -> {
                 AfText(My.breakSyllables(tr(UiText.SUB_BURN_DONE, "path" to state.output)), Modifier.testTag("subtitles-burn-done"), color = AutoFlowColors.Green)
                 WrapRow {
-                    AfButton(My.breakSyllables(tr(UiText.PLAY)), { burner.open() }, Modifier.testTag("subtitles-burn-play"))
+                    AfButton(My.breakSyllables(tr(UiText.PLAY)), { burner.open() }, Modifier.testTag("subtitles-burn-play"), icon = AfIcons.Fill.Play)
                     if (burner.sharesFiles) {
                         AfButton(My.breakSyllables(tr(UiText.SHARE)), { burner.share(shareTitle) }, Modifier.testTag("subtitles-burn-share"))
                         AfButton(My.breakSyllables(tr(UiText.SAVE_GALLERY)), { scope.launch { burner.saveToGallery() } }, Modifier.testTag("subtitles-burn-gallery"))

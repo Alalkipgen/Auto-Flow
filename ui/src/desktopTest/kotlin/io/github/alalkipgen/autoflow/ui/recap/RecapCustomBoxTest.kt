@@ -6,6 +6,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -68,12 +70,14 @@ class RecapCustomBoxTest {
         assertEquals(MaskPreset.CUSTOM.rect, visual().masks.single().rect)
         onNodeWithText(UiText.CAPTIONS_ON_BOX.en).assertDoesNotExist()
 
-        onNodeWithText("◀").performClick()
+        // P9-11b: the nudges are labelled icon buttons (no ▲ ▼ ◀ ▶ text).
+        listOf(UiText.MOVE_UP, UiText.MOVE_DOWN, UiText.MOVE_RIGHT).forEach { onNodeWithContentDescription(it.en).assertHasClickAction() }
+        onNodeWithContentDescription(UiText.MOVE_LEFT.en).performClick()
         waitForIdle()
         onNodeWithText(UiText.WIDER.en).performClick()
         waitForIdle()
         assertEquals(listOf(0.26f, 0.3f, 0.44f, 0.2f), visual().masks.single().rect)
-        onNodeWithText("▶").performClick()
+        onNodeWithContentDescription(UiText.MOVE_RIGHT.en).performClick()
         onNodeWithText(UiText.NARROWER.en).performClick()
         waitForIdle()
         assertEquals(listOf(0.3f, 0.3f, 0.4f, 0.2f), visual().masks.single().rect)

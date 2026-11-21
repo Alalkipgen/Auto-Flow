@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -142,7 +143,7 @@ internal fun StudioBlockVoiceAction(model: RecapModel, state: RecapUiState, row:
             StickyActionBar(StudioAction(tr(UiText.START_PLAY), {
                 rejected = !model.voiceInspector.confirm(request); pending = null
                 if (rejected) model.refresh()
-            }, allowed, "voice-block-confirm"),
+            }, allowed, "voice-block-confirm", AfIcons.Fill.Play),
                 StudioAction(tr(UiText.CANCEL), { pending = null }, tag = "voice-block-cancel"))
         }
     }
