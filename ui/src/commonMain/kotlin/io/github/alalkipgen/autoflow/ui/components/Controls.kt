@@ -60,6 +60,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -68,6 +69,7 @@ import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.theme.AfRadius
 import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import io.github.alalkipgen.autoflow.ui.theme.AfType
+import io.github.alalkipgen.autoflow.ui.theme.Tone
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
@@ -318,22 +320,39 @@ fun AfH3(text: String, modifier: Modifier = Modifier) {
     AfText(text, modifier, size = 13.sp, bold = true)
 }
 
-/** Panel card with a [title] (DESIGN.md §1: radius 12, 1px border, no shadow). */
+/**
+ * Panel card with a [title] (DESIGN.md §9.4: radius 18, 1 px border, no shadow); [selected] = primary border,
+ * [attention] = a 4 dp tone bar on the left, [onClick] makes the whole card a button with hover.
+ */
 @Composable
-fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = false, headerAction: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier
-            .fillMaxWidth()
-            .clip(AutoFlowShapes.Card)
-            .background(AutoFlowColors.Panel)
-            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, AutoFlowShapes.Card)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = false, headerAction: (@Composable () -> Unit)? = null,
+    attention: Tone? = null, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    AfCard(modifier, selected, attention, onClick) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText(title, Modifier.weight(1f), size = 14.sp, bold = true)
             headerAction?.invoke()
         }
         content()
     }
+}
+
+/** Title-less card (rows, players, attention cards). */
+@Composable
+fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: Tone? = null, onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(AfRadius.Card)
+    val interaction = remember { MutableInteractionSource() }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .then(if (onClick == null) Modifier else Modifier.clickable(interaction, null, role = Role.Button, onClick = onClick))
+            .background(AutoFlowColors.Panel)
+            .drawBehind { attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) } }
+            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
+            .interactionOverlay(interaction, shape)
+            .padding(start = if (attention != null) 20.dp else 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = content,
+    )
 }

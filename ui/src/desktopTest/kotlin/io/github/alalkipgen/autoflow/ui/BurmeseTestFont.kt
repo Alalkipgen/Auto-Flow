@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui
 
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.text.font.FontFamily
 import io.github.alalkipgen.autoflow.ui.theme.UiFont
 import java.io.File
@@ -45,7 +46,8 @@ fun syllableCuts(layout: androidx.compose.ui.text.TextLayoutResult): List<Int> {
 }
 
 /**
- * Every laid-out text on screen: inside the window, not truncated, no Burmese line break inside a syllable. With
+ * Every laid-out text on screen: inside the window, not truncated (unless the full text is its content description),
+ * no Burmese line break inside a syllable. With
  * [strict] also not clipped by its own box or a parent (Phase 9 no-clipping rule, D-100). Strict is opt-in: each
  * Phase 9 PR turns it on for the screens it polishes (older screens still draw emoji glyphs wider than their box).
  */
@@ -64,7 +66,10 @@ fun androidx.compose.ui.test.ComposeUiTest.textFitProblems(width: Int, font: Flo
         val b = node.boundsInRoot
         when {
             syllableCuts(layout).isNotEmpty() -> "cut inside a syllable at ${syllableCuts(layout)}: $text"
-            layout.multiParagraph.didExceedMaxLines -> "truncated: $text"
+            // D-100: an ellipsis is allowed only when the full text stays readable (contentDescription / tooltip).
+            layout.multiParagraph.didExceedMaxLines &&
+                node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription)
+                    ?.contains(text) != true -> "truncated: $text"
             b.width > 0f && (b.left < -0.5f || b.right > width + 0.5f) -> "outside the window ($b): $text"
             strict -> clipProblem(node, layout)
             else -> null

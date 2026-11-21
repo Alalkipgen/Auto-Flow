@@ -92,10 +92,11 @@ fun ModeChip(mode: Mode, modifier: Modifier = Modifier) {
     }
 }
 
-internal fun Mode.icon(): ImageVector = when (this) {
-    Mode.MOVIE_RECAP -> AfIcons.Regular.Film
-    Mode.MUSIC_VIDEO -> AfIcons.Regular.Music
-    Mode.SUBTITLES -> AfIcons.Regular.Subtitles
-    Mode.VOICE_AUDIO -> AfIcons.Regular.Wave
-    Mode.DUBBING -> AfIcons.Regular.Dub
+/** Regular in chips and rows; [duotone] inside tiles (DESIGN.md §8). */
+internal fun Mode.icon(duotone: Boolean = false): ImageVector = when (this) {
+    Mode.MOVIE_RECAP -> if (duotone) AfIcons.Duotone.Film else AfIcons.Regular.Film
+    Mode.MUSIC_VIDEO -> if (duotone) AfIcons.Duotone.Music else AfIcons.Regular.Music
+    Mode.SUBTITLES -> if (duotone) AfIcons.Duotone.Subtitles else AfIcons.Regular.Subtitles
+    Mode.VOICE_AUDIO -> if (duotone) AfIcons.Duotone.Wave else AfIcons.Regular.Wave
+    Mode.DUBBING -> if (duotone) AfIcons.Duotone.Dub else AfIcons.Regular.Dub
 }

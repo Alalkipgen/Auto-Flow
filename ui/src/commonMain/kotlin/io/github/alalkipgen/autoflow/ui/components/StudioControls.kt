@@ -164,21 +164,7 @@ fun JobCard(title: String, status: StudioStatus, detail: String, modifier: Modif
 ) {
     AfCard(title, modifier, headerAction = headerAction) {
         StatusChip(status)
-        if (indeterminate && progress == null) {
-            val position by rememberInfiniteTransition().animateFloat(-.28f, 1f, infiniteRepeatable(tween(1100, easing = LinearEasing)))
-            Canvas(Modifier.fillMaxWidth().height(4.dp).semantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate }) {
-                drawRect(AutoFlowColors.Line)
-                val start = position.coerceIn(0f, 1f) * size.width
-                val end = (position + .28f).coerceIn(0f, 1f) * size.width
-                drawRect(AutoFlowColors.Cyan, Offset(start, 0f), androidx.compose.ui.geometry.Size(end - start, size.height))
-            }
-        }
-        progress?.let { p ->
-            require(p.isFinite() && p in 0f..1f)
-            Box(Modifier.fillMaxWidth().height(4.dp).background(AutoFlowColors.Line).semantics {
-                progressBarRangeInfo = ProgressBarRangeInfo(p, 0f..1f)
-            }) { Box(Modifier.fillMaxWidth(p).fillMaxHeight().background(AutoFlowColors.Cyan)) }
-        }
+        if (progress != null || indeterminate) AfProgress(progress)
         AfText(detail, muted = true)
         actions()
     }
