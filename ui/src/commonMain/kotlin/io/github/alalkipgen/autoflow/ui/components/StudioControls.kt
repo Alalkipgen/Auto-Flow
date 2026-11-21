@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
 /** UI callback, not a persisted command or engine state. */
 data class StudioAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val tag: String? = null)
@@ -61,16 +62,19 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
     }
 }
 
-/** A measured sibling of the scrolling content, not an overlay with a guessed bottom spacer. */
+/**
+ * A measured sibling of the scrolling content, not an overlay with a guessed bottom spacer: bar colour with a top
+ * divider, above the keyboard. [caption] is the hint (centred below on a phone, left on the desktop); [leading] is an
+ * optional control before the buttons (DESIGN.md §9.4).
+ */
 @Composable
-fun StickyActionBar(primary: StudioAction, secondary: StudioAction? = null, caption: String? = null, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().background(AutoFlowColors.Panel).imePadding().padding(12.dp)
-        .testTag("sticky-action-bar"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        caption?.let { AfText(it, muted = true) }
-        if (LocalCompact.current) {
-            secondary?.let { Action(it, modifier = Modifier.fillMaxWidth()) }
-            Action(primary, true, Modifier.fillMaxWidth())
-        } else WrapRow { secondary?.let { Action(it) }; Action(primary, true) }
+fun StickyActionBar(primary: StudioAction, secondary: StudioAction? = null, caption: String? = null, modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null) {
+    Column(modifier.fillMaxWidth().background(AutoFlowColors.TitleBar).imePadding().testTag("sticky-action-bar")) {
+        Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
+        Box(Modifier.padding(horizontal = if (LocalCompact.current) 12.dp else 16.dp, vertical = 12.dp)) {
+            StickyActions({ Action(primary, true, it) }, secondary?.let { s -> { Action(s, modifier = it) } }, caption, leading)
+        }
     }
 }
 

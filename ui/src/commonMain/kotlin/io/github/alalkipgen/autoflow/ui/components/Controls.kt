@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -99,6 +100,7 @@ fun AfText(
     maxLines: Int = Int.MAX_VALUE,
     ellipsis: Boolean = false,
     weight: FontWeight? = null,
+    textAlign: TextAlign? = null,
 ) {
     // The bundled Burmese fonts do not contain U+21BB, and a system symbol font is
     // not guaranteed. Draw that decoration only; retain the exact label/semantics and prose font.
@@ -119,7 +121,7 @@ fun AfText(
             weight ?: type?.weight ?: if (bold) FontWeight.Bold else FontWeight.Normal,
             if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
             numbers = type?.numbers == true,
-        ),
+        ).let { if (textAlign != null) it.copy(textAlign = textAlign) else it },
         overflow = if (ellipsis) TextOverflow.Ellipsis else TextOverflow.Clip,
         maxLines = maxLines,
         inlineContent = if ('↻' !in text) emptyMap() else mapOf(
@@ -240,20 +242,7 @@ fun AfSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modif
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(
-            Modifier
-                .size(width = 34.dp, height = 18.dp)
-                .clip(CircleShape)
-                .background(if (checked) AutoFlowColors.Purple else AutoFlowColors.Line),
-        ) {
-            Box(
-                Modifier
-                    .offset(x = if (checked) 18.dp else 2.dp, y = 2.dp)
-                    .size(14.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-            )
-        }
+        SwitchTrack(checked)
         AfText(label)
     }
 }
