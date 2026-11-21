@@ -58,7 +58,7 @@ fun ShotStatus.badgeColor(): Color = when (this) {
     ShotStatus.NEEDS_FLOW -> AutoFlowColors.Purple
     ShotStatus.IMPORTED -> AutoFlowColors.Amber
     ShotStatus.ACCEPTED -> AutoFlowColors.Green
-    ShotStatus.STALE -> Color(0xFFEF4444)
+    ShotStatus.STALE -> AutoFlowColors.Stale
 }
 
 /**

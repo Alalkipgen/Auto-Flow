@@ -1,0 +1,45 @@
+name: Import UI Polish screenshots
+# The text-only repository connection cannot upload binary blobs. A Phase 9 PR sends its before/after screenshots as a
+# base64 manifest; this job checks them and commits the WebP files under docs/screenshots/phase-9/ (D-97). Like
+# ui-polish-mockups.yml it only writes that folder and never forces a push.
+on:
+  push:
+    branches: ['work/phase-9-*']
+    paths: [.github/ui-polish-screens.json]
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { ref: "${{ github.ref_name }}" }
+      - name: Verify and import the screenshots
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json
+          from pathlib import Path
+          manifest = Path('.github/ui-polish-screens.json')
+          if not manifest.exists():
+              raise SystemExit('No transport manifest; nothing to import')
+          rows = json.loads(manifest.read_text())
+          assert 0 < len(rows) <= 24 and len({r['path'] for r in rows}) == len(rows)
+          for row in rows:
+              path = Path(row['path'])
+              assert path.parts[:3] == ('docs', 'screenshots', 'phase-9') and len(path.parts) == 5
+              assert '..' not in path.parts and path.suffix == '.webp'
+              data = base64.b64decode(row['base64'], validate=True)
+              assert len(data) < 250_000 and data[:4] == b'RIFF' and data[8:12] == b'WEBP'
+              assert hashlib.sha256(data).hexdigest() == row['sha256']
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+          manifest.unlink()
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/screenshots/phase-9 .github/ui-polish-screens.json
+          git commit -m 'phase9(screens): import before/after screenshots'
+          # A concurrent update rejects this ordinary push; never force or rewrite.
+          git push origin "HEAD:refs/heads/$BRANCH"
