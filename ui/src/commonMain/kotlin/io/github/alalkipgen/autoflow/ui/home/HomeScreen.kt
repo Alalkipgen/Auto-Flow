@@ -21,6 +21,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.DpSize
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -71,49 +74,79 @@ fun HomeScreen(
     /** A project's thumbnail source by folder; null = placeholders only. */
     thumbSource: (suspend (dir: String) -> MediaThumbnails.Source?)? = null,
 ) {
-    Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
-        Column(Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding)
-            .testTag("home-scroll"), verticalArrangement = Arrangement.spacedBy(AfSpace.L)) {
+    BoxWithConstraints(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
+        // D1 (DESIGN.md §9.8): from AfDesktop.HomeWide the hero shares its row with the Jobs column, Continue shows up
+        // to 4 cards and the tiles form one row; below it the phone column (centred ≤ 720 dp).
+        val wide = maxWidth >= AfDesktop.HomeWide
+        val running = jobs.filter { it.running }
+        val jobCard: @Composable (Int, JobRow) -> Unit = { i, row ->
+            JobRunCard(row, Modifier.testTag("home-job-$i")) {
+                if (row.canCancel && jobActions?.canCancel(row) == true) {
+                    AfButton(tr(UiText.CANCEL), { jobActions.cancel(row) }, Modifier.testTag("home-job-cancel-$i"), kind = ButtonKind.Danger)
+                }
+            }
+        }
+        Column(Modifier.widthIn(max = if (wide) AfDesktop.HomeMax else AfSize.ContentMax).fillMaxSize().paneScroll(rememberScrollState())
+            .padding(screenPadding).testTag("home-scroll"), verticalArrangement = Arrangement.spacedBy(if (wide) AfDesktop.PaneGap else AfSpace.L)) {
             HomeHeader(onOpenSettings)
             status?.let { AfText(My.breakSyllables(it), muted = true) }
             notice?.let { AfText(My.breakSyllables(it), color = AutoFlowColors.Failed) }
-            QuickRecapWizardCard(onQuickRecapStart, onNewRecap, backHandler)
+            if (wide && running.isNotEmpty()) HeroRow({ QuickRecapWizardCard(onQuickRecapStart, onNewRecap, backHandler, wide = true) }) {
+                HomeSection(tr(UiText.JOB_RUNNING), Modifier.testTag("home-running"), { SeeAll(onViewJobs, "home-view-jobs") }) {
+                    running.take(AfDesktop.HomeJobs).forEachIndexed { i, row -> jobCard(i, row) }
+                }
+            } else QuickRecapWizardCard(onQuickRecapStart, onNewRecap, backHandler, wide)
             val latest = recent.maxByOrNull { it.lastOpenedAt }
             if (latest == null) AfText(My.breakSyllables(tr(UiText.HOME_EMPTY)), muted = true)
             else HomeSection(tr(UiText.V3_CONTINUE), Modifier.testTag("home-continue"), { SeeAll(onOpenProjects, "home-all-projects") }) {
-                ContinueCard(latest, continueStep.takeIf { latest.path == continueProjectPath }, onOpenProject, thumbSource)
+                val step = continueStep.takeIf { latest.path == continueProjectPath }
+                if (wide) ContinueRow(recent.sortedByDescending { it.lastOpenedAt }, step, onOpenProject, thumbSource)
+                else ContinueCard(latest, step, onOpenProject, thumbSource)
             }
-            HomeSection(tr(UiText.CREATE)) {
-                TileGrid(3, listOf(
-                    { m, stacked -> HomeTile(AfIcons.Duotone.Film, AutoFlowColors.PrimaryFill, tr(UiText.MOVIE_RECAP), tr(UiText.HOME_RECAP_CAPTION),
-                        onNewRecap, m.testTag("home-new-recap"), stacked) },
-                    { m, stacked -> HomeTile(AfIcons.Duotone.Music, AutoFlowColors.Info, tr(UiText.MUSIC_VIDEO), tr(UiText.HOME_MV_CAPTION),
-                        onNewMusicVideo, m.testTag("home-new-mv"), stacked) },
-                    { m, stacked -> HomeTile(AfIcons.Duotone.Dub, AutoFlowColors.Amber, tr(UiText.V3_DUBBING), tr(UiText.HOME_DUB_CAPTION),
-                        onNewDubbing, m.testTag("home-dubbing"), stacked, ink = AutoFlowColors.Background) },
-                ))
-            }
-            HomeSection(tr(UiText.V3_QUICK_TOOLS)) {
+            val recap: Tile = { m, stacked -> HomeTile(AfIcons.Duotone.Film, AutoFlowColors.PrimaryFill, tr(UiText.MOVIE_RECAP),
+                tr(UiText.HOME_RECAP_CAPTION), onNewRecap, m.testTag("home-new-recap"), stacked) }
+            val mv: Tile = { m, stacked -> HomeTile(AfIcons.Duotone.Music, AutoFlowColors.Info, tr(UiText.MUSIC_VIDEO),
+                tr(UiText.HOME_MV_CAPTION), onNewMusicVideo, m.testTag("home-new-mv"), stacked) }
+            val dub: Tile = { m, stacked -> HomeTile(AfIcons.Duotone.Dub, AutoFlowColors.Amber, tr(UiText.V3_DUBBING),
+                tr(UiText.HOME_DUB_CAPTION), onNewDubbing, m.testTag("home-dubbing"), stacked, ink = AutoFlowColors.Background) }
+            val voice: Tile = { m, stacked -> HomeTile(AfIcons.Duotone.Wave, AutoFlowColors.Cyan, tr(UiText.V3_VOICE_AUDIO),
+                tr(UiText.HOME_VOICE_CAPTION), onNewVoice, m.testTag("home-voice-tool"), stacked, ink = AutoFlowColors.Background) }
+            val subs: Tile = { m, stacked -> HomeTile(AfIcons.Duotone.Subtitles, AutoFlowColors.Surface3, tr(UiText.V3_SUBTITLES),
+                tr(UiText.HOME_SUBS_CAPTION), onNewSubtitles, m.testTag("home-subtitles-tool"), stacked) }
+            val toolsNote = @Composable {
                 if (onNewVoice == null || onNewSubtitles == null) {
                     AfText(My.breakSyllables(tr(UiText.V3_TOOLS_IN_PROJECT)), color = AutoFlowColors.Muted, type = AfType.Caption)
                 }
-                TileGrid(2, listOf(
-                    { m, stacked -> HomeTile(AfIcons.Duotone.Wave, AutoFlowColors.Cyan, tr(UiText.V3_VOICE_AUDIO), tr(UiText.HOME_VOICE_CAPTION),
-                        onNewVoice, m.testTag("home-voice-tool"), stacked, ink = AutoFlowColors.Background) },
-                    { m, stacked -> HomeTile(AfIcons.Duotone.Subtitles, AutoFlowColors.Surface3, tr(UiText.V3_SUBTITLES), tr(UiText.HOME_SUBS_CAPTION),
-                        onNewSubtitles, m.testTag("home-subtitles-tool"), stacked) },
-                ))
             }
-            val running = jobs.filter { it.running }
-            if (running.isNotEmpty()) HomeSection(tr(UiText.JOB_RUNNING), Modifier.testTag("home-running"), { SeeAll(onViewJobs, "home-view-jobs") }) {
-                running.forEachIndexed { i, row ->
-                    JobRunCard(row, Modifier.testTag("home-job-$i")) {
-                        if (row.canCancel && jobActions?.canCancel(row) == true) {
-                            AfButton(tr(UiText.CANCEL), { jobActions.cancel(row) }, Modifier.testTag("home-job-cancel-$i"), kind = ButtonKind.Danger)
-                        }
-                    }
-                }
+            if (wide) HomeSection(tr(UiText.CREATE)) { TileGrid(5, listOf(recap, mv, dub, voice, subs)); toolsNote() }
+            else {
+                HomeSection(tr(UiText.CREATE)) { TileGrid(3, listOf(recap, mv, dub)) }
+                HomeSection(tr(UiText.V3_QUICK_TOOLS)) { toolsNote(); TileGrid(2, listOf(voice, subs)) }
             }
+            if (!wide && running.isNotEmpty()) HomeSection(tr(UiText.JOB_RUNNING), Modifier.testTag("home-running"),
+                { SeeAll(onViewJobs, "home-view-jobs") }) {
+                running.forEachIndexed { i, row -> jobCard(i, row) }
+            }
+        }
+    }
+}
+
+private typealias Tile = @Composable (Modifier, stacked: Boolean) -> Unit
+
+/**
+ * D1 top row: the Jobs column ([AfDesktop.DetailPane], at most half the row) on the right, the hero takes the rest and
+ * is at least as tall (its content centred), so the two panes end on one line.
+ */
+@Composable
+private fun HeroRow(hero: @Composable () -> Unit, side: @Composable () -> Unit) {
+    Layout({ Box(propagateMinConstraints = true) { hero() }; Box { side() } }) { (heroPart, sidePart), c ->
+        val gap = AfDesktop.PaneGap.roundToPx()
+        val sideWidth = AfDesktop.DetailPane.roundToPx().coerceAtMost((c.maxWidth - gap) / 2)
+        val sidePlaced = sidePart.measure(Constraints.fixedWidth(sideWidth))
+        val heroWidth = c.maxWidth - sideWidth - gap
+        val heroPlaced = heroPart.measure(Constraints(heroWidth, heroWidth, sidePlaced.height, Constraints.Infinity))
+        layout(c.maxWidth, maxOf(heroPlaced.height, sidePlaced.height)) {
+            heroPlaced.place(0, 0); sidePlaced.place(heroWidth + gap, 0)
         }
     }
 }
@@ -190,6 +223,44 @@ private fun ContinueCard(entry: ProjectEntry, step: String?, onOpen: (String) ->
     }
 }
 
+/**
+ * Desktop Continue (D1): the most recent projects as thumbnail cards in one row — as many as fit
+ * [AfDesktop.ContinueCardMin] × the font scale, at most 4. A card opens its project (tag `recent-<name>`); the first
+ * (latest) card carries the step text and the `home-mode-<MODE>` tag. The click layer sits under the content, so
+ * the texts stay separate nodes.
+ */
+@Composable
+private fun ContinueRow(entries: List<ProjectEntry>, step: String?, onOpen: (String) -> Unit,
+    thumbSource: (suspend (String) -> MediaThumbnails.Source?)?) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val gap = AfSpace.CardGap
+        val columns = ((maxWidth + gap) / (AfDesktop.ContinueCardMin * LocalDensity.current.fontScale + gap)).toInt().coerceIn(1, 4)
+        val card = (maxWidth - gap * (columns - 1)) / columns
+        val thumb = DpSize(card - AfSpace.L * 2, (card - AfSpace.L * 2) * 9f / 16f)
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            entries.take(columns).forEachIndexed { i, entry ->
+                val source by produceState<MediaThumbnails.Source?>(null, entry.path, entry.lastOpenedAt, thumbSource) {
+                    value = thumbSource?.invoke(entry.path)
+                }
+                val label = tr(UiText.HOME_RESUME, "name" to entry.name)
+                Box(Modifier.width(card).fillMaxHeight()) {
+                    AfCard(Modifier.matchParentSize().afTooltip(label).semantics { contentDescription = label }
+                        .testTag("recent-${entry.name}"), onClick = { onOpen(entry.path) }) {}
+                    Column(Modifier.padding(AfSpace.L), verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+                        MediaThumb(source, entry.mode.icon(duotone = true), size = thumb, durationMs = source?.durationMs)
+                        AfText(entry.name, Modifier.semantics { contentDescription = entry.name }, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
+                        ModeChip(entry.mode, if (i == 0) Modifier.testTag("home-mode-${entry.mode.name}") else Modifier)
+                        if (i == 0) step?.let {
+                            AfText(My.breakSyllables(it), Modifier.testTag("home-continue-step"), color = AutoFlowColors.Muted, type = AfType.Caption)
+                        }
+                        if (entry.totalShots > 0) AfProgress(entry.acceptedShots.coerceIn(0, entry.totalShots) / entry.totalShots.toFloat())
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** Round filled play button (48 dp) with a tooltip. */
 @Composable
 private fun ResumeButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -206,7 +277,7 @@ private fun ResumeButton(label: String, onClick: () -> Unit, modifier: Modifier 
  * is as tall as the tallest. A tile is `stacked` (icon over the text) unless it is twice that minimum wide.
  */
 @Composable
-private fun TileGrid(max: Int, tiles: List<@Composable (Modifier, stacked: Boolean) -> Unit>) {
+private fun TileGrid(max: Int, tiles: List<Tile>) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val gap = AfSpace.CardGap
         val min = AfSize.TileCardMin * LocalDensity.current.fontScale
@@ -259,12 +330,12 @@ private fun HeroCard(content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().clip(shape).background(AutoFlowColors.Panel)
         .background(Brush.linearGradient(listOf(AutoFlowColors.Hero, Color.Transparent)))
         .border(AutoFlowShapes.Border, AutoFlowColors.Purple, shape).padding(AfSpace.L).testTag("home-quick"),
-        verticalArrangement = Arrangement.spacedBy(AfSpace.M), content = content)
+        verticalArrangement = Arrangement.spacedBy(AfSpace.M, Alignment.CenterVertically), content = content)
 }
 
 @Composable
 private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepByStep: () -> Unit,
-    backHandler: @Composable (Boolean, () -> Unit) -> Unit,
+    backHandler: @Composable (Boolean, () -> Unit) -> Unit, wide: Boolean,
 ) {
     var step by remember { mutableStateOf(WizardStep.IDLE) }
     var targetMs by remember { mutableStateOf(300_000L) }
@@ -282,9 +353,13 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepBySt
                 AfText(My.breakSyllables(tr(UiText.HOME_HERO_TITLE)), type = AfType.CardTitle)
                 AfText(My.breakSyllables(tr(UiText.V3_APPROVAL_BEFORE_VOICE)), color = AutoFlowColors.Muted, type = AfType.Caption)
                 AfText(My.breakSyllables(tr(UiText.HOME_QUICK_SOURCE)), color = AutoFlowColors.Muted, type = AfType.Caption)
-                AfButton(tr(UiText.HOME_QUICK_START), { step = WizardStep.LENGTH }, Modifier.fillMaxWidth().testTag("home-quick-start"),
-                    kind = ButtonKind.Primary, icon = AfIcons.Fill.Spark)
-                AfButton(tr(UiText.V3_STEP_BY_STEP), onStepByStep, Modifier.testTag("home-step-by-step"))
+                val start = @Composable { m: Modifier ->
+                    AfButton(tr(UiText.HOME_QUICK_START), { step = WizardStep.LENGTH }, m.testTag("home-quick-start"),
+                        kind = ButtonKind.Primary, icon = AfIcons.Fill.Spark)
+                }
+                val stepByStep = @Composable { AfButton(tr(UiText.V3_STEP_BY_STEP), onStepByStep, Modifier.testTag("home-step-by-step")) }
+                // Desktop: the two buttons side by side at their own width; phone: the main one full width.
+                if (wide) WrapRow { start(Modifier); stepByStep() } else { start(Modifier.fillMaxWidth()); stepByStep() }
             }
             WizardStep.LENGTH -> {
                 AfText(tr(UiText.LENGTH), type = AfType.RowTitle)
