@@ -18,11 +18,14 @@ import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
+import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.platform.DesktopToolLocator
 import io.github.alalkipgen.autoflow.platform.JvmFs
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.home.HomeScreen
+import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.media.thumbSource
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
@@ -42,6 +45,7 @@ import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.recap.RecapNavigation
 import io.github.alalkipgen.autoflow.ui.recap.RecapStep
 import io.github.alalkipgen.autoflow.ui.recap.StudioRecapScreen
+import io.github.alalkipgen.autoflow.ui.recap.StudioThumbnailsLayoutTest
 import io.github.alalkipgen.autoflow.ui.settings.*
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Shell
@@ -86,7 +90,8 @@ class PrShotsTest(val width: Int, val font: Float) {
         ShellShortcut(UiText.MUSIC_VIDEO, AfIcons.Duotone.Music, AutoFlowColors.Info, "nav-create-mv") {},
     ))
 
-    private fun shot(screen: String, after: (ComposeUiTest.() -> Unit)? = null, content: @Composable () -> Unit) {
+    private fun shot(screen: String, after: (ComposeUiTest.() -> Unit)? = null, ready: (ComposeUiTest.() -> Unit)? = null,
+        content: @Composable () -> Unit) {
         val dir = out ?: return
         val scale = if (phone) 2f else 1f
         runDesktopComposeUiTest(width = (width * scale).toInt(), height = ((if (phone) 760 else 900) * scale).toInt()) {
@@ -95,6 +100,8 @@ class PrShotsTest(val width: Int, val font: Float) {
                     LocalUiLanguage provides language, LocalUiFontFamily provides BurmeseTestFont.family) { content() }
             }
             waitForIdle()
+            // E.g. scroll a list row into view and wait for its real thumbnail.
+            ready?.let { it(); waitForIdle() }
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir.apply { mkdirs() }, "$screen-$case.png"))
             // A second state of the same screen (e.g. a selected desktop card), written as `<screen>-selected-<case>.png`.
             after?.let {
@@ -171,6 +178,37 @@ class PrShotsTest(val width: Int, val font: Float) {
             }
         }
     }
+
+    /**
+     * Recap Source / Story / Voice lists with real scene frames: the QA movie through the real ffmpeg into a temporary app
+     * cache (never the project), [row] scrolled into view once its [thumb] has loaded.
+     */
+    private fun recapList(screen: String, step: RecapStep, row: String, thumb: String, f: QaRecapFixture.Built = fixture) {
+        val fs = JvmFs(); val current = CurrentProject().apply { set(OpenProject(f.dir.path, f.project)) }
+        val media = MediaTools(SettingsStore(fs, File(fixture.dir.parentFile, "settings-shots.json").path), DesktopToolLocator(fs),
+            StudioThumbnailsLayoutTest.tools(mutableListOf()))
+        val model = RecapModel(ProjectSession(fs, ProjectStore(fs), index(), current), fs, media, null, scope,
+            thumbnailCacheDir = Files.createTempDirectory("pr-shots-cache").toString())
+        shot(screen, ready = {
+            onNodeWithTag(row).performScrollTo()
+            onNodeWithTag("$thumb-slot", useUnmergedTree = true).performScrollTo()
+            waitUntil(timeoutMillis = 20_000) { onAllNodesWithTag(thumb, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag(row).performScrollTo()
+        }) {
+            StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
+                StudioRecapScreen(model, step, width.toFloat(), {}, RecapNavigation({}, {}, {}))
+            }
+        }
+    }
+
+    /** Source with two detected scenes, one picked (a separate fixture copy: the shared one has no scenes). */
+    @Test fun recapSource() = recapList("recap-source", RecapStep.SOURCE, "scene-pick-0", "scene-thumbnail-0",
+        QaRecapFixture.create(Files.createTempDirectory("pr-shots-source").toFile()).let { f ->
+            f.copy(project = (ProjectStore(JvmFs()).save(f.dir.path, f.project.copy(recap = f.project.recap!!.copy(
+                scenes = listOf(RecapScene(2_000, 4_000, true), RecapScene(6_000, 8_000, false))))) as CoreResult.Ok).value)
+        })
+    @Test fun recapBlocks() = recapList("recap-blocks", RecapStep.STORY, "block-select-0", "block-thumbnail-${fixture.story.blocks.first().id}")
+    @Test fun recapVoice() = recapList("recap-voice", RecapStep.VOICE, "block-select-0", "block-thumbnail-${fixture.story.blocks.first().id}")
 
     @Test fun settings() {
         val fs = InMemoryFileSystem(); val settings = SettingsStore(fs, "/app/settings.json")

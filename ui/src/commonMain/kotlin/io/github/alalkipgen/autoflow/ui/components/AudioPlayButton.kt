@@ -4,12 +4,16 @@ import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 
-/** ▶ / ■ for one audio file; the player exists only while it plays (none on desktop: [rememberSongPlayer] is null). */
+/**
+ * Play / Stop icon button (48 dp, label = description + tooltip) for one audio file; the player exists only while it
+ * plays (none on desktop: [rememberSongPlayer] is null).
+ */
 @Composable
 fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit) {
     if (!playing) {
-        AfButton("▶", onToggle)
+        AfIconButton(AfIcons.Fill.Play, tr(UiText.AUDIO_PLAY), onToggle)
         return
     }
     val player = rememberSongPlayer(path)
@@ -25,5 +29,5 @@ fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit) {
         while (player.playing) kotlinx.coroutines.delay(200)
         onToggle()
     }
-    AfButton("■", { player.pause(); onToggle() })
+    AfIconButton(AfIcons.Fill.Square, tr(UiText.AUDIO_STOP), { player.pause(); onToggle() }, selected = true)
 }
