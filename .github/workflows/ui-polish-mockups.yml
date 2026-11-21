@@ -1,6 +1,8 @@
 name: Import compressed UI Polish mockups
 # The text-only repository connection cannot upload binary blobs. This one-time,
 # scoped job imports only the compressed Phase 9 mockups (P9-0), like ui-v3-concepts.yml.
+# The 2026-11-21 bundle update (mockups 1-3, Phosphor icons) arrives in two manifests
+# (one push stays under the connection's size limit) and retires the old icons.js.
 on:
   push:
     branches: [work/phase-9-polish-docs]
@@ -14,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { ref: work/phase-9-polish-docs }
-      - name: Verify and import the eleven compressed mockups
+      - name: Verify and import the compressed mockups
         run: |
           python3 - <<'PY'
           import base64, hashlib, json
@@ -23,10 +25,13 @@ jobs:
           if not manifest.exists():
               raise SystemExit('No transport manifest; nothing to import')
           rows = json.loads(manifest.read_text())
-          assert len(rows) == 11 and len({r['path'] for r in rows}) == 11
+          allowed = {f'{n}.webp' for n in ['01_Home', '02_Projects', '03_Jobs', '04_Settings', '05_Subtitles_Editor',
+              '06_Dubbing_Voice', '07_Dubbing_Export', '08_Voice_Audio', 'D1_Home', 'D2_Projects', 'D3_Dubbing',
+              'D4_Subtitles', 'current-c298c06', 'polish-1', 'polish-2', 'polish-3']}
+          assert 0 < len(rows) <= len(allowed) and len({r['path'] for r in rows}) == len(rows)
           for row in rows:
               path = Path(row['path'])
-              assert path.parts[:3] == ('docs', 'mockups', 'ui-polish')
+              assert path.parts[:3] == ('docs', 'mockups', 'ui-polish') and len(path.parts) == 4 and path.name in allowed
               assert '..' not in path.parts and path.suffix == '.webp'
               data = base64.b64decode(row['base64'], validate=True)
               assert len(data) < 150_000 and data[:4] == b'RIFF' and data[8:12] == b'WEBP'
@@ -34,10 +39,13 @@ jobs:
               path.parent.mkdir(parents=True, exist_ok=True)
               path.write_bytes(data)
           manifest.unlink()
+          old = Path('docs/mockups/ui-polish/icons.js')  # superseded by icons/ (Phosphor, D-98)
+          if old.exists():
+              old.unlink()
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/mockups/ui-polish .github/ui-polish-mockups.json
+          git add -A docs/mockups/ui-polish .github/ui-polish-mockups.json
           git commit -m 'phase9(docs): import compressed UI Polish mockups'
           # A concurrent update rejects this ordinary push; never force or rewrite.
           git push origin HEAD:refs/heads/work/phase-9-polish-docs
