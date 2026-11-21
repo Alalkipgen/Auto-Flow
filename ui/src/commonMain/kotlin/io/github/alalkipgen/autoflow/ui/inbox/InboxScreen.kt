@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.inbox
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,7 +60,7 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
     LaunchedEffect(model, shared, project, sharedState?.arrivals) { refresh() }
 
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
+        modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         WrapRow {

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -76,7 +76,7 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
 @Composable
 private fun ClassicRecapContent(model: RecapModel, state: RecapUiState, modifier: Modifier, onGoToExport: () -> Unit) {
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
+        modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AfText("Movie Recap", size = 18.sp, bold = true)

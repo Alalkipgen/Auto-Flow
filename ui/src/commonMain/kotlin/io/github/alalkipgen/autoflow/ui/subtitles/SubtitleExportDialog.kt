@@ -2,7 +2,6 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.foundation.Image
 import androidx.compose.ui.Modifier
@@ -43,7 +42,7 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
     val shareTitle = tr(UiText.SUB_EXPORT_SRT)
     DisposableEffect(Unit) { onDispose(exporter::clear) }
     Dialog(onDismissRequest = onClose) {
-        Column(Modifier.widthIn(max = 520.dp).verticalScroll(rememberScrollState()).testTag("subtitles-export"),
+        Column(Modifier.widthIn(max = 520.dp).paneScroll(rememberScrollState()).testTag("subtitles-export"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_TEXT))) {
                 WrapRow {

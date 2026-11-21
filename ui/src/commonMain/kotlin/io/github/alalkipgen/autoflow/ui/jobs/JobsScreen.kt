@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.jobs
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -8,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -299,7 +299,7 @@ fun JobsScreen(
     val live = actions ?: rememberJobsActions(scope)
     val language = LocalUiLanguage.current
     Column(
-        modifier.fillMaxSize().background(AutoFlowColors.Background).testTag("jobs-content").verticalScroll(rememberScrollState()).padding(screenPadding),
+        modifier.fillMaxSize().background(AutoFlowColors.Background).testTag("jobs-content").paneScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         AfText(tr(UiText.JOBS), size = 20.sp, bold = true)

@@ -21,9 +21,9 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import io.github.alalkipgen.autoflow.ui.components.MediumContent
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -210,7 +210,7 @@ private fun V2Sidebar(selected: StudioV2Dest, onSelect: (StudioV2Dest) -> Unit, 
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) { content() }
     Row(Modifier.fillMaxHeight()) {
         Column(Modifier.width(AfDesktop.Sidebar).fillMaxHeight().background(AutoFlowColors.Background).padding(AfSpace.L)) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
+            Column(Modifier.weight(1f).paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) {
                     BrandTile()
                     navLabel(tr(UiText.V3_APP_NAME), false, sidebar = true)

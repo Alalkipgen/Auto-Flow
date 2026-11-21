@@ -2,7 +2,6 @@ package io.github.alalkipgen.autoflow.ui.dubbing
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -37,7 +36,7 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
     val run = remember(runs, s.runs) { model.current() }
     val tool = open?.project?.dubbing
     Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(screenPadding).testTag("dub-export"),
+        Column(Modifier.fillMaxWidth().weight(1f).paneScroll(rememberScrollState()).padding(screenPadding).testTag("dub-export"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             preview() // F-6: scrolls with the step
             if (check != null && !check.ok) AfCard(My.breakSyllables(tr(UiText.DUB_EXPORT_NOT_READY)), Modifier.testTag("dub-export-blocks")) {

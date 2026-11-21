@@ -2,7 +2,6 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -138,7 +137,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
             if (wide) Row(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-wide")) {
-                Column(Modifier.weight(0.46f).fillMaxHeight().verticalScroll(rememberScrollState())
+                Column(Modifier.weight(0.46f).fillMaxHeight().paneScroll(rememberScrollState())
                     .padding(start = screenPadding, top = screenPadding, bottom = screenPadding).testTag("subtitles-left"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     preview()

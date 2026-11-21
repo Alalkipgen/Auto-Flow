@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -39,11 +38,11 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
         state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("source-picks"),
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("source-picks"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { SourcePicks(model, state, recap) }
             }, editor = {
                 key(state.projectDir) {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp).testTag("source-content"),
+                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(14.dp).testTag("source-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (state.runnerJobId == null) state.job?.let {
                             StatusChip(StudioStatus.RUNNING)
@@ -97,7 +96,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                     }
                 }
             }, preview = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     RecapTimelinePreview(model, studio = true)
                     ExactFrameCard(model)
                 }
@@ -110,7 +109,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
     }
     if (replacing) Dialog(onDismissRequest = { replacing = false }) {
         AfCard(tr(UiText.REPLACE_MOVIE), Modifier.fillMaxWidth().widthIn(max = 560.dp)) {
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+            Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState())) {
                 AfText(My.breakSyllables(tr(UiText.V3_REPLACE_MOVIE_CONFIRM)), Modifier.testTag("source-replace-warning"))
             }
             StickyActionBar(StudioAction(tr(UiText.REPLACE_MOVIE), { replacing = false; model.importMovie() }, idle, "source-replace-confirm"),

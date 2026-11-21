@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.components
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.*
@@ -46,7 +45,7 @@ internal fun CardRemoval(
     pending?.let { intent ->
         Dialog(onDismissRequest = { pending = null }) {
             AfCard(My.breakSyllables(if (intent.confirming) title else delete),
-                Modifier.widthIn(max = 440.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                Modifier.widthIn(max = 440.dp).heightIn(max = 440.dp).paneScroll(rememberScrollState())) {
                 if (intent.confirming) AfText(My.breakSyllables(tr(explanation)), muted = true)
                 WrapRow {
                     AfButton(My.breakSyllables(if (intent.confirming) tr(UiText.DELETE) else delete), {
