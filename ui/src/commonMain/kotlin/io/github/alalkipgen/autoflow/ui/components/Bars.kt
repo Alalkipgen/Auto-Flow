@@ -213,16 +213,18 @@ private val HintMin = 200.dp
  * One choice from a few (DESIGN.md §9.4): `Card` track with a `LineStrong` outline, radius 12, padding 3; the selected
  * segment `Surface3`. Each segment is a 48 dp target around its 34 dp visual; labels take ≤ 2 lines, then "…" with the
  * full text kept for screen readers. When a word does not fit its equal share, the segments stack (one per line).
+ * [tags]: optional test tags, one per option.
  */
 @Composable
-fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    tags: List<String>? = null) {
     val inner = RoundedCornerShape(AfRadius.Button - SegmentPad)
     Layout({
         options.forEachIndexed { i, option ->
             val interaction = remember { MutableInteractionSource() }
             val on = i == selected
             val text = My.breakSyllables(option)
-            Box(Modifier.widthIn(min = AfSize.Touch).heightIn(min = AfSize.Touch)
+            Box(Modifier.then(tags?.let { Modifier.testTag(it[i]) } ?: Modifier).widthIn(min = AfSize.Touch).heightIn(min = AfSize.Touch)
                 .selectable(on, interaction, null, enabled, Role.RadioButton) { onSelect(i) }
                 .padding(vertical = (AfSize.Touch - SegmentVisual) / 2).heightIn(min = SegmentVisual)
                 .clip(inner).background(if (on) AutoFlowColors.Surface3 else Color.Transparent)

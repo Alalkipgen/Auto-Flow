@@ -139,7 +139,7 @@ class SubtitlesRouteTest {
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-doc-facts").fetchSemanticsNodes().isNotEmpty() }
                     onNodeWithTag("subtitles-doc-facts").assertTextEquals(My.breakSyllables(UiText.SUB_DOC_FACTS.text(language,
                         "n" to 2, "from" to UiText.SUB_FROM_TRACK.text(language, "index" to "2"))))
-                    onNodeWithTag("subtitles-view-ORIGINAL").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "selected"))
+                    onNodeWithTag("subtitles-view-ORIGINAL").assertIsSelected() // one Segmented choice (P9-12b)
                     onNodeWithTag("subtitles-cues").assertIsDisplayed().performScrollToKey("c1")
                     onNodeWithTag("subtitles-cue-c1").assertIsDisplayed()
                     onNodeWithTag("subtitles-save").assertDoesNotExist() // nothing to save before an edit

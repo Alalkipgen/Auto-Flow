@@ -72,12 +72,18 @@ enum class StudioStatus(val text: UiText) {
 @Composable
 fun StatusChip(status: StudioStatus, modifier: Modifier = Modifier, deltaMs: Long? = null, showIcon: Boolean = true) {
     val label = status.label(LocalUiLanguage.current, deltaMs)
-    val tone = status.tone
-    Row(modifier.testTag("status-${status.name}").heightIn(min = AfSize.StatusChip).clip(RoundedCornerShape(50))
-        .background(tone.container).semantics { stateDescription = label }.padding(horizontal = 9.dp, vertical = 2.dp),
+    ToneChip(label, status.tone, modifier.testTag("status-${status.name}").semantics { stateDescription = label },
+        status.icon.takeIf { showIcon })
+}
+
+/** A [tone] pill with an optional 15 dp [icon] and its word, for states that are not a [StudioStatus] (DESIGN.md §9.4). */
+@Composable
+fun ToneChip(text: String, tone: Tone, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    Row(modifier.heightIn(min = AfSize.StatusChip).clip(RoundedCornerShape(50)).background(tone.container)
+        .padding(horizontal = 9.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        if (showIcon) AfIcon(status.icon, tint = tone.text, size = AfSize.IconXs)
-        AfText(My.breakSyllables(label), color = tone.text, type = AfType.Micro)
+        icon?.let { AfIcon(it, tint = tone.text, size = AfSize.IconXs) }
+        AfText(My.breakSyllables(text), color = tone.text, type = AfType.Micro)
     }
 }
 
