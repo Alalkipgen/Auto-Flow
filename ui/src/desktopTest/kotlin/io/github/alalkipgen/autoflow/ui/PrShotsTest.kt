@@ -15,6 +15,8 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
+import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
@@ -117,11 +119,24 @@ class PrShotsTest(val width: Int, val font: Float) {
         }
     }
 
+    /** Projects: the recap fixture (with its running / failed jobs), a music video and a subtitles project. */
     @Test fun projects() {
         val fs = JvmFs()
-        val model = DashboardModel(fs, ProjectStore(fs), index(),
+        val index = ProjectIndex(fs, File(fixture.dir.parentFile, "index-projects-$width-$font.json").path)
+        index.record(fixture.dir.path, fixture.project)
+        listOf(Triple("ချစ်သူ့ ကမ္ဘာ", "mv", Mode.MUSIC_VIDEO), Triple("Interview", "subs", Mode.SUBTITLES)).forEach { (name, folder, mode) ->
+            val dir = File(fixture.dir.parentFile, "shots-$folder.autoflow").path
+            val project = (ProjectStore(fs).open(dir) as? CoreResult.Ok)?.value ?: (ProjectStore(fs).create(dir, name, mode) as CoreResult.Ok).value
+            index.record(dir, project)
+        }
+        val model = DashboardModel(fs, ProjectStore(fs), index,
             SettingsStore(fs, File(fixture.dir.parentFile, "settings-shots.json").path), FakePicker(), CurrentProject())
-        shot("projects") { StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), actions = actions) { DashboardScreen(model, {}) } }
+        val rows = jobs()
+        shot("projects") {
+            StudioV2Shell(StudioV2Dest.PROJECTS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
+                DashboardScreen(model, {}, jobs = rows, thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
+            }
+        }
     }
 
     @Test fun jobsList() {

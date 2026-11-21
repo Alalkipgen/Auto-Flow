@@ -137,16 +137,16 @@ fun AttentionCard(title: String, body: String, modifier: Modifier = Modifier, to
     }
 }
 
-/** Nothing here yet: icon, title, one line of help, and the real next action if there is one. */
+/** Nothing here yet: icon, title, one line of help (if any), and the real next action if there is one. */
 @Composable
-fun EmptyState(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier, action: StudioAction? = null) {
+fun EmptyState(icon: ImageVector, title: String, body: String?, modifier: Modifier = Modifier, action: StudioAction? = null) {
     Column(modifier.fillMaxWidth().padding(vertical = AfSpace.Xl, horizontal = AfSpace.L),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
         Box(Modifier.size(56.dp).clip(CircleShape).background(AutoFlowColors.Card), contentAlignment = Alignment.Center) {
             AfIcon(icon, size = AfSize.IconLarge)
         }
         AfText(title, type = AfType.RowTitle)
-        AfText(body, color = AutoFlowColors.Muted, type = AfType.Caption)
+        body?.let { AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption) }
         action?.let { AfButton(it.label, it.onClick, it.tag?.let { t -> Modifier.testTag(t) } ?: Modifier, ButtonKind.Primary, it.enabled) }
     }
 }

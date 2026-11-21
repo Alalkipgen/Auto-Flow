@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -326,17 +327,21 @@ fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = fal
     }
 }
 
-/** Title-less card (rows, players, attention cards). */
+/** Title-less card (rows, players, attention cards); [onLongClick] (with [onClick]) opens a row's options. */
 @Composable
 fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: Tone? = null, onClick: (() -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit) {
+    onLongClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(AfRadius.Card)
     val interaction = remember { MutableInteractionSource() }
     Column(
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .then(if (onClick == null) Modifier else Modifier.clickable(interaction, null, role = Role.Button, onClick = onClick))
+            .then(when {
+                onClick == null -> Modifier
+                onLongClick == null -> Modifier.clickable(interaction, null, role = Role.Button, onClick = onClick)
+                else -> Modifier.combinedClickable(interaction, null, role = Role.Button, onLongClick = onLongClick, onClick = onClick)
+            })
             .background(AutoFlowColors.Panel)
             .drawBehind { attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) } }
             .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
