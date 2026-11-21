@@ -6,6 +6,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.*
+import androidx.compose.ui.text.style.TextAlign
+import io.github.alalkipgen.autoflow.ui.icons.IconTile
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,7 +25,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
@@ -35,7 +45,7 @@ import io.github.alalkipgen.autoflow.ui.theme.*
 fun AfIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     selected: Boolean = false, enabled: Boolean = true) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(AfRadius.ButtonSmall)
+    val shape = RoundedCornerShape(AfRadius.Button)
     Box(modifier.afTooltip(label).size(AfSize.Touch)
         .clickable(interaction, null, enabled = enabled, role = Role.Button, onClick = onClick)
         .semantics { contentDescription = label }
@@ -141,4 +151,148 @@ private fun NumberedSteps(texts: List<String>, current: Int) = Row(verticalAlign
         if (i < texts.lastIndex) Box(Modifier.weight(1f).padding(horizontal = AfSpace.S).height(1.dp)
             .background(if (done) AutoFlowColors.PrimaryFill else AutoFlowColors.Line))
     }
+}
+
+/**
+ * Sticky bar actions. Phone: [primary] full width, or [secondary] + [primary] of equal width (stacked, each full
+ * width, when a label does not fit half the bar), an optional [leading] control first, then the [hint] centred below.
+ * Desktop: the hint on the left and the buttons on the right (each ≥ 150 dp, never full width); the hint moves above
+ * the buttons when both do not fit one line.
+ */
+@Composable
+internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (@Composable (Modifier) -> Unit)?,
+    hint: String?, leading: (@Composable () -> Unit)?) {
+    if (LocalCompact.current) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+        Layout({ leading?.invoke(); secondary?.invoke(Modifier); primary(Modifier) }) { items, c ->
+            val gap = AfSpace.S.roundToPx()
+            val lead = if (leading != null) items.first() else null
+            val buttons = if (leading != null) items.drop(1) else items
+            val leadWidth = lead?.maxIntrinsicWidth(Constraints.Infinity) ?: 0
+            val share = (c.maxWidth - (if (lead != null) leadWidth + gap else 0) - gap * (buttons.size - 1)) / buttons.size
+            if (buttons.all { it.maxIntrinsicWidth(Constraints.Infinity) <= share }) {
+                val placed = listOfNotNull(lead?.measure(Constraints(maxWidth = leadWidth))) + buttons.map { it.measure(Constraints.fixedWidth(share)) }
+                val h = placed.maxOf { it.height }
+                layout(c.maxWidth, h) { var x = 0; placed.forEach { it.place(x, (h - it.height) / 2); x += it.width + gap } }
+            } else {
+                val placed = items.map { it.measure(Constraints.fixedWidth(c.maxWidth)) }
+                layout(c.maxWidth, placed.sumOf { it.height } + gap * (placed.size - 1)) {
+                    var y = 0; placed.forEach { it.place(0, y); y += it.height + gap }
+                }
+            }
+        }
+        hint?.let { AfText(it, Modifier.fillMaxWidth(), color = AutoFlowColors.Muted, type = AfType.Caption, textAlign = TextAlign.Center) }
+    } else Layout({
+        hint?.let { AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(AfSpace.S, Alignment.End), verticalArrangement = Arrangement.spacedBy(AfSpace.S),
+            itemVerticalAlignment = Alignment.CenterVertically) {
+            leading?.invoke(); secondary?.invoke(Modifier.widthIn(min = StickyButtonMin)); primary(Modifier.widthIn(min = StickyButtonMin))
+        }
+    }) { items, c ->
+        val gap = AfSpace.L.roundToPx()
+        val text = if (hint != null) items.first() else null
+        val row = items.last()
+        val rowWidth = row.maxIntrinsicWidth(Constraints.Infinity).coerceAtMost(c.maxWidth)
+        val beside = text == null || rowWidth + gap + minOf(text.maxIntrinsicWidth(Constraints.Infinity), HintMin.roundToPx()) <= c.maxWidth
+        if (beside) {
+            val buttons = row.measure(Constraints(maxWidth = rowWidth))
+            val label = text?.measure(Constraints(maxWidth = (c.maxWidth - rowWidth - gap).coerceAtLeast(0)))
+            val h = maxOf(buttons.height, label?.height ?: 0)
+            layout(c.maxWidth, h) { label?.place(0, (h - label.height) / 2); buttons.place(c.maxWidth - buttons.width, (h - buttons.height) / 2) }
+        } else {
+            val label = text!!.measure(Constraints(maxWidth = c.maxWidth))
+            val buttons = row.measure(Constraints(maxWidth = c.maxWidth))
+            val v = AfSpace.S.roundToPx()
+            layout(c.maxWidth, label.height + v + buttons.height) { label.place(0, 0); buttons.place(c.maxWidth - buttons.width, label.height + v) }
+        }
+    }
+}
+
+private val StickyButtonMin = 150.dp
+private val HintMin = 200.dp
+
+/**
+ * One choice from a few (DESIGN.md §9.4): `Card` track with a `LineStrong` outline, radius 12, padding 3; the selected
+ * segment `Surface3`. Each segment is a 48 dp target around its 34 dp visual; labels take ≤ 2 lines, then "…" with the
+ * full text kept for screen readers. When a word does not fit its equal share, the segments stack (one per line).
+ */
+@Composable
+fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val inner = RoundedCornerShape(AfRadius.Button - SegmentPad)
+    Layout({
+        options.forEachIndexed { i, option ->
+            val interaction = remember { MutableInteractionSource() }
+            val on = i == selected
+            val text = My.breakSyllables(option)
+            Box(Modifier.widthIn(min = AfSize.Touch).heightIn(min = AfSize.Touch)
+                .selectable(on, interaction, null, enabled, Role.RadioButton) { onSelect(i) }
+                .padding(vertical = (AfSize.Touch - SegmentVisual) / 2).heightIn(min = SegmentVisual)
+                .clip(inner).background(if (on) AutoFlowColors.Surface3 else Color.Transparent)
+                .interactionOverlay(interaction, inner).padding(horizontal = AfSpace.S), contentAlignment = Alignment.Center) {
+                AfText(text, Modifier.semantics { contentDescription = text }, color = if (on) AutoFlowColors.Text else AutoFlowColors.Muted,
+                    type = AfType.ButtonSmall, maxLines = 2, ellipsis = true, textAlign = TextAlign.Center)
+            }
+        }
+    }, modifier.drawBehind {
+        val inset = (AfSize.Touch - SegmentVisual - SegmentPad * 2).toPx() / 2
+        val r = CornerRadius(AfRadius.Button.toPx())
+        drawRoundRect(AutoFlowColors.Card, Offset(0f, inset), Size(size.width, size.height - inset * 2), r)
+        drawRoundRect(AutoFlowColors.LineStrong, Offset(0f, inset), Size(size.width, size.height - inset * 2), r, Stroke(1.dp.toPx()))
+    }.selectableGroup().alpha(if (enabled) 1f else .4f), SegmentedPolicy)
+}
+
+private val SegmentVisual = 34.dp
+private val SegmentPad = 3.dp
+
+/** Equal shares in one row when every segment's longest word fits its share; otherwise one segment per line. The control
+ * takes its natural width (widest segment × count) unless the modifier makes it fill. */
+private object SegmentedPolicy : MeasurePolicy {
+    override fun MeasureScope.measure(measurables: List<Measurable>, constraints: Constraints): MeasureResult {
+        val pad = SegmentPad.roundToPx()
+        val widest = measurables.maxOf { it.maxIntrinsicWidth(Constraints.Infinity) }
+        val width = (widest * measurables.size + pad * 2).coerceIn(constraints.minWidth, constraints.maxWidth) // natural unless told to fill
+        val share = (width - pad * 2) / measurables.size
+        return if (measurables.all { it.minIntrinsicWidth(Constraints.Infinity) <= share }) {
+            val h = measurables.maxOf { it.maxIntrinsicHeight(share) }
+            val placed = measurables.map { it.measure(Constraints.fixed(share, h)) }
+            layout(width, h) { placed.forEachIndexed { i, p -> p.place(pad + share * i, 0) } }
+        } else {
+            val placed = measurables.map { it.measure(Constraints.fixedWidth(width - pad * 2)) }
+            layout(width, placed.sumOf { it.height }) { var y = 0; placed.forEach { it.place(pad, y); y += it.height } }
+        }
+    }
+    override fun IntrinsicMeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Int) =
+        measurables.maxOf { it.maxIntrinsicWidth(height) } * measurables.size + SegmentPad.roundToPx() * 2
+    override fun IntrinsicMeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Int) =
+        measurables.maxOf { it.minIntrinsicWidth(height) } + SegmentPad.roundToPx() * 2
+    override fun IntrinsicMeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Int) =
+        measurables.maxOf { it.maxIntrinsicHeight(width / measurables.size) }
+    override fun IntrinsicMeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Int) =
+        measurables.maxOf { it.minIntrinsicHeight(width / measurables.size) }
+}
+
+/** Title + optional subtitle with a switch at the end (and an optional icon tile first); the whole row toggles. */
+@Composable
+fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier,
+    icon: ImageVector? = null, enabled: Boolean = true) {
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(AfRadius.Button)
+    Row(modifier.fillMaxWidth().heightIn(min = AfSize.Touch).clip(shape)
+        .toggleable(checked, interaction, null, enabled, Role.Switch, onChange)
+        .semantics { stateDescription = if (checked) "on" else "off" }
+        .interactionOverlay(interaction, shape).alpha(if (enabled) 1f else .4f).padding(vertical = AfSpace.S),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) {
+        icon?.let { IconTile(it, AutoFlowColors.Surface3, size = AfSize.TileSmall, radius = AfRadius.TileSmall, ink = AutoFlowColors.Text) }
+        Column(Modifier.weight(1f)) {
+            AfText(title, type = AfType.RowTitle)
+            subtitle?.let { AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption) }
+        }
+        SwitchTrack(checked)
+    }
+}
+
+/** The switch drawing: 40 × 24 pill, `PrimaryFill` when on, `LineStrong` when off, white 18 dp thumb. */
+@Composable
+internal fun SwitchTrack(checked: Boolean) = Box(Modifier.size(40.dp, 24.dp).clip(CircleShape)
+    .background(if (checked) AutoFlowColors.PrimaryFill else AutoFlowColors.LineStrong)) {
+    Box(Modifier.offset(x = if (checked) 19.dp else 3.dp, y = 3.dp).size(18.dp).clip(CircleShape).background(Color.White))
 }
