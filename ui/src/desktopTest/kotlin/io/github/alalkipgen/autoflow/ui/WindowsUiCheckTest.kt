@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
@@ -112,6 +113,8 @@ class WindowsUiCheckTest {
             koin.get<CurrentProject>().set(null)
             setContent { CompositionLocalProvider(LocalDensity provides Density(2f)) { TestApp() } }
             save(dir, "phone-dashboard")
+            // Since P9-9a the create card opens from the Projects header's "+" once projects exist.
+            onNodeWithTag("projects-new").performClick()
             onNodeWithText("New Music Video").performClick()
             save(dir, "phone-new-project")
             onNode(hasText("More") and isSelectable()).performClick()
