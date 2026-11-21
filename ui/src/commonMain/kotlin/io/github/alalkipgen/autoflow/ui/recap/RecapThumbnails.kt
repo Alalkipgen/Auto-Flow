@@ -18,9 +18,9 @@ import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.media.probe.FrameGrab
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
+import io.github.alalkipgen.autoflow.ui.media.ThumbnailGate
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.random.Random
 
@@ -34,7 +34,7 @@ internal class RecapThumbnails(private val fs: FileSystem, private val media: Me
     val enabled: Boolean get() = cacheDir != null
 
     /**
-     * One decoder at a time. Revision is deliberately conservative: the movie is not hashed (D-33), so even
+     * One decoder at a time (shared with [io.github.alalkipgen.autoflow.ui.media.MediaThumbnails]). Revision is deliberately conservative: the movie is not hashed (D-33), so even
      * same-size replacements cannot reuse an earlier saved revision. Cache collisions are checked, not trusted.
      * 64 replaceable app-cache slots, plus temporary work files; no project file is written.
      */
@@ -44,7 +44,7 @@ internal class RecapThumbnails(private val fs: FileSystem, private val media: Me
             val movie = source.movie
             if (cache == source.dir || cache.startsWith("${source.dir}/") ||
                 fromMs < 0 || toMs <= fromMs || toMs > movie.durationMs) return@withContext null
-            mutex.withLock {
+            ThumbnailGate.withLock {
                 ensureActive()
                 if (!current()) return@withLock null
                 val nonce = Random.nextLong().toString(16)
@@ -97,7 +97,6 @@ internal class RecapThumbnails(private val fs: FileSystem, private val media: Me
 
     companion object {
         private const val MAX_BYTES = 2_097_152L
-        private val mutex = Mutex()
     }
 }
 

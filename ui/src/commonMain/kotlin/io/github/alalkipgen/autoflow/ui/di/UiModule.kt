@@ -156,6 +156,9 @@ val uiModule = module {
         app = getOrNull<io.github.alalkipgen.autoflow.ui.settings.AppInfo>()?.version.orEmpty()) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull(), frames = getOrNull()) }
     single { io.github.alalkipgen.autoflow.ui.jobs.RenderHistory(get(), get<AppDirs>().root) }
+    // DESIGN.md §9.5: row thumbnails, app cache only; they wait while an export runs.
+    single { io.github.alalkipgen.autoflow.ui.media.MediaThumbnails(get(), get(), joinPath(get<AppDirs>().root, "cache/media-thumbnails-v1"),
+        busy = { getOrNull<ExportModel>()?.state?.value?.busy == true }) }
     // Library (5A-7)
     single { io.github.alalkipgen.autoflow.core.library.LibraryStore(get(), get<AppDirs>().library) }
     single { io.github.alalkipgen.autoflow.ui.library.LibraryModel(get(), get(), MainScope(), fs = get()) }
