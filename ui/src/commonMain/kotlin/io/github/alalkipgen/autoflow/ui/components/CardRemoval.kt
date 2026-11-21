@@ -40,17 +40,7 @@ internal fun CardRemoval(
     card(Modifier.pointerInput(key) {
         detectTapGestures(onTap = if (onTap == null) null else { { tap?.invoke() } },
             onLongPress = { openMenu() })
-    }.pointerInput(key) {
-        awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
-                    event.changes.forEach { it.consume() }
-                    openMenu()
-                }
-            }
-        }
-    }.semantics {
+    }.onSecondaryClick { openMenu() }.semantics {
         customActions = listOf(CustomAccessibilityAction(accessibilityLabel ?: delete, ::openMenu))
     })
     pending?.let { intent ->
