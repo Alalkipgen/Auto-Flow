@@ -66,6 +66,9 @@ object AfSize {
     val ThumbContinue = DpSize(96.dp, 60.dp)
     val ThumbExport = DpSize(124.dp, 74.dp)
 
+    /** A tile in a tile grid (Home create / tools) is at least this wide × the font scale; fewer columns otherwise. */
+    val TileCardMin = 96.dp
+
     /** One-column screens are capped at this width and centred at 840 / 1440 dp. */
     val ContentMax = 720.dp
 

@@ -70,6 +70,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.platform.AppDirs
+import io.github.alalkipgen.autoflow.ui.media.thumbSource
 import io.github.alalkipgen.autoflow.ui.home.HomeContinueCache
 import io.github.alalkipgen.autoflow.ui.home.HomeResume
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
@@ -359,6 +360,9 @@ private fun StudioV2App(
                 val resume = visibleRoute ?: listOfNotNull(lastSeen, cached).firstOrNull {
                     latest != null && it.path == latest.path && it.step.mode == latest.mode && (active == null || it.belongsTo(active))
                 }
+                val store = koinInject<io.github.alalkipgen.autoflow.core.store.ProjectStore>()
+                val homeThumbSource: suspend (String) -> io.github.alalkipgen.autoflow.ui.media.MediaThumbnails.Source? =
+                    remember(store) { { dir -> store.thumbSource(dir) } }
                 HomeScreen(
                     onNewRecap = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) },
                     onNewMusicVideo = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO) },
@@ -372,6 +376,8 @@ private fun StudioV2App(
                     jobs = rows,
                     jobActions = io.github.alalkipgen.autoflow.ui.jobs.rememberJobsActions(scope),
                     onViewJobs = { nav = v2Select(nav, StudioV2Dest.JOBS) },
+                    onOpenProjects = { nav = v2Select(nav, StudioV2Dest.PROJECTS) },
+                    thumbSource = homeThumbSource,
                     backHandler = backHandler,
                     continueProjectPath = resume?.path,
                     continueStep = resume?.step?.let { target ->

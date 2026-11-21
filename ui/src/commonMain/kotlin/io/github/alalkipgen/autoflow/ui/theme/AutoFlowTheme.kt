@@ -56,6 +56,9 @@ object AutoFlowColors {
 
     /** Teleprompter well (was inline in VoiceBlockCard). */
     val Well = Color(0xFF0D1526)
+
+    /** Hero card gradient start (Home's Quick Recap card), fading to [Panel]. */
+    val Hero = PrimaryFill.copy(alpha = .3f)
 }
 
 /** Radius 12, subtle 1px borders — docs/DESIGN.md §1. */

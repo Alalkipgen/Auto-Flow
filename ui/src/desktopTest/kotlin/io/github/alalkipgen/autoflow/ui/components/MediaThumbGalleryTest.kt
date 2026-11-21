@@ -78,11 +78,15 @@ class MediaThumbGalleryTest(val width: Int, val font: Float) {
         assertEquals(emptyList(), textFitProblems(width, font, strict = true))
         assertEquals(4, onAllNodesWithTag("media-thumb-placeholder", useUnmergedTree = true).fetchSemanticsNodes().size)
         assertEquals(5, onAllNodesWithTag("media-thumb-image", useUnmergedTree = true).fetchSemanticsNodes().size)
-        // Badges sit inside their thumbnail (never cut); at font 1.0 every size has room for one.
+        // Badges sit inside their thumbnail (never cut).
         val thumbs = onAllNodesWithTag("media-thumb", useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
         val badges = onAllNodes(hasText(":", substring = true), useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
         badges.forEach { b -> assertTrue(thumbs.any { t -> b.left >= t.left && b.right <= t.right && b.top >= t.top && b.bottom <= t.bottom }, "badge $b inside a thumbnail") }
+        // At font 1.0 every size has room for one; a placeholder's icon moves up rather than sit under it.
         if (font == 1f) assertEquals(8, badges.size)
+        val icons = onAllNodesWithTag("media-thumb-icon", useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
+        assertEquals(4, icons.size)
+        badges.forEach { b -> assertTrue(icons.none { it.deflate(it.width * .2f).overlaps(b) }, "badge $b covers a placeholder icon") }
         // A badge never covers the play circle (it is left out instead, e.g. on the export size at font 2.0).
         val plays = onAllNodesWithTag("media-thumb-play", useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
         assertEquals(3, plays.size)
