@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.recap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -51,10 +50,10 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                 steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, !draft, "classic-recap"))) }
             Box(Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("style-list"),
+                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("style-list"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) { sections() }
                 }, editor = {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp).testTag("style-content"),
+                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(14.dp).testTag("style-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (state.busy) StatusChip(StudioStatus.RUNNING)
                         state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
@@ -96,7 +95,7 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                         render.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), muted = true) }
                     }
                 }, preview = {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("style-preview"),
+                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("style-preview"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) { preview() }
                 })
             }

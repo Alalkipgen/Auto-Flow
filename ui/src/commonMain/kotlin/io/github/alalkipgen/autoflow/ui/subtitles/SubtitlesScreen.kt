@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,7 +62,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
                     VideoFacts(video)
                 }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner, translate = translate)
             }
-        } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
+        } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding)
             .testTag("subtitles-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             header()
             if (video != null) {

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.export
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,7 +80,7 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Bool
         } else null
     LaunchedEffect(model, open?.dir, open?.project?.id) { model.refresh() }
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
+        modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (!studio) AfText(tr(UiText.EXPORT), size = 18.sp, bold = true)

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -35,7 +34,7 @@ fun LibraryScreen(model: LibraryModel, modifier: Modifier = Modifier, focusLexic
         UiText.V3_LIBRARY_MUSIC, UiText.V3_LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS).map { tr(it) }
     fun section(index: Int, tag: String) = Modifier.testTag(tag).bringIntoViewRequester(targets[index])
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background).imePadding()
-        .verticalScroll(rememberScrollState()).padding(screenPadding),
+        .paneScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         AfText(tr(UiText.LIBRARY), Modifier.testTag("library-heading"), size = 20.sp, bold = true)
         AfText(My.breakSyllables(tr(UiText.LIBRARY_COPY_HINT, "APPLY" to tr(UiText.APPLY))), muted = true)

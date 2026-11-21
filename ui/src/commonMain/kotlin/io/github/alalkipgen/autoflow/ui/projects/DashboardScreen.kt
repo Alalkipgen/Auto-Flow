@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -69,7 +69,7 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     if (showRemoved && state.removed.isNotEmpty()) RemovedProjectsDialog(state.removed, model) { showRemoved = false }
     LaunchedEffect(model) { model.refresh() }
     Column(
-        modifier.fillMaxSize().background(AutoFlowColors.Background).verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
+        modifier.fillMaxSize().background(AutoFlowColors.Background).paneScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // With a projects home (Android, D-27) every project lives there; there is no folder to open.
@@ -187,7 +187,7 @@ private fun RemovedProjectsDialog(rows: List<RemovedProject>, model: DashboardMo
         }
         AfCard(My.breakSyllables(title)) {
             key(row, confirm) {
-                Column(Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                Column(Modifier.fillMaxWidth().heightIn(max = 380.dp).paneScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     when {
                         confirm != null -> {

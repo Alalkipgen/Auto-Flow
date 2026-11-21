@@ -1,11 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
@@ -547,7 +547,7 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float,
         // F-6 (D-95): the Music Video before any render, as its own page and on top of Export.
         MV_PREVIEW -> {
             val model = koinInject<io.github.alalkipgen.autoflow.ui.export.ExportModel>()
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).testTag("mv-preview-page")) {
+            Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).testTag("mv-preview-page")) {
                 io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview(model, io.github.alalkipgen.autoflow.ui.subtitles.moviePlayer(model.previewVlcDir()))
             }
         }
@@ -696,7 +696,7 @@ private fun Sidebar(selected: String?, locks: Map<String, String>, onSelect: (St
     Row(Modifier.fillMaxHeight()) {
         BoxWithConstraints(Modifier.width(190.dp).fillMaxHeight().background(AutoFlowColors.Panel)) {
             Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight)
+                modifier = Modifier.fillMaxWidth().paneScroll(rememberScrollState()).heightIn(min = maxHeight)
                     .padding(horizontal = 10.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {

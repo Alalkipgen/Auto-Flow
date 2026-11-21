@@ -2,7 +2,6 @@ package io.github.alalkipgen.autoflow.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -40,7 +39,7 @@ class AdaptiveShellTest(val width: Int, val font: Float) {
             CompositionLocalProvider(LocalCompact provides (width < 600), LocalDensity provides Density(1f, font),
                 LocalUiLanguage provides language, LocalUiFontFamily provides BurmeseTestFont.family) {
                 StudioV2Shell(StudioV2Dest.PROJECTS, {}, 2, width.toFloat()) {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("g-content")) {
+                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("g-content")) {
                         repeat(6) { listOf(UiText.HOME_RECENT, UiText.CREATE, UiText.MOVIE_RECAP, UiText.MUSIC_VIDEO, UiText.V3_SUBTITLES).forEach { AfText(tr(it)) } }
                     }
                 }
@@ -62,7 +61,7 @@ class AdaptiveShellTest(val width: Int, val font: Float) {
     }
 }
 
-/** P9-6 panes and right-click (DESIGN.md §9.8). */
+/** P9-6 panes, scrollbar and right-click (DESIGN.md §9.8). */
 @OptIn(ExperimentalTestApi::class)
 class AdaptivePanesTest {
     @Test fun listDetailAndEditorPanesFollowTheWidthClass() {
@@ -92,6 +91,22 @@ class AdaptivePanesTest {
         }
     }
 
+    @Test fun dragTheScrollbarThumbScrollsAndAClickBesideItReachesTheContent() = runDesktopComposeUiTest(width = 400, height = 400) {
+        val state = ScrollStateHolder()
+        var clicks = 0
+        setContent {
+            val scroll = rememberScrollState().also { state.value = it }
+            Column(Modifier.size(400.dp).paneScroll(scroll).testTag("pane")) {
+                AfButton("TOP", { clicks++ }, Modifier.fillMaxWidth().testTag("top"))
+                repeat(40) { AfText("row $it") }
+            }
+        }
+        onNodeWithTag("top").performMouseInput { click() }; assertEquals(1, clicks)
+        onNodeWithTag("pane").performMouseInput { moveTo(androidx.compose.ui.geometry.Offset(395f, 10f)); press(); moveBy(androidx.compose.ui.geometry.Offset(0f, 120f)); release() }
+        waitForIdle()
+        assertTrue(state.value!!.value > 0, "dragging the thumb scrolls")
+    }
+
     @Test fun rightClickOnTheProjectTopBarOpensTheOverflowOptions() = runDesktopComposeUiTest(width = 900, height = 400) {
         var classic = 0
         setContent { ProjectTopBar("Film", 2, "Story", {}, options = listOf(StudioAction("Classic", { classic++ }, tag = "opt-classic"))) }
@@ -101,4 +116,6 @@ class AdaptivePanesTest {
         onNodeWithTag("opt-classic").assertExists().performMouseInput { click() }
         assertEquals(1, classic)
     }
+
+    private class ScrollStateHolder { var value: androidx.compose.foundation.ScrollState? = null }
 }

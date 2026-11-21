@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -151,7 +151,7 @@ private fun BottomTabs(selected: String?, locks: Map<String, String>, onTap: (St
 @Composable
 fun MoreScreen(locks: Map<String, String>, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
+        modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AfText(My.screen(MORE), size = 18.sp, bold = true)

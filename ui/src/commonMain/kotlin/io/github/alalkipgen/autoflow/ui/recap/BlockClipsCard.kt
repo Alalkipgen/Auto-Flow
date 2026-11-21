@@ -2,7 +2,6 @@ package io.github.alalkipgen.autoflow.ui.recap
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -33,7 +32,7 @@ internal fun BlockClipsCard(model: RecapModel, state: RecapUiState, block: Recap
         fun replace(i: Int, values: List<ClipRangeInput>) { rows = rows.take(i) + values + rows.drop(i + 1) }
         Dialog(onDismissRequest = editor::cancel) {
             AfCard(tr(UiText.V3_CLIPS), Modifier.widthIn(max = 560.dp).fillMaxWidth()) {
-                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("block-clips-form"),
+                Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState()).testTag("block-clips-form"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     AfText(tr(UiText.V3_CLIPS_HINT), muted = true)
                     rows.forEachIndexed { i, input ->

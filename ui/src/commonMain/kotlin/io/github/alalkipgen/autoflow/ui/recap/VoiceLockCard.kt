@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -8,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +41,7 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
     val captured = draft ?: return
     Dialog(onDismissRequest = { draft = null }) {
         AfCard(tr(UiText.CHANGE_VOICE), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.heightIn(max = 520.dp).paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 var selectedModel by remember(captured) { mutableStateOf(lock?.model?.takeIf { it in controls.models } ?: controls.models.firstOrNull().orEmpty()) }
                 var voice by remember(captured) { mutableStateOf(lock?.voice ?: "Charon") }
                 var error by remember { mutableStateOf<String?>(null) }

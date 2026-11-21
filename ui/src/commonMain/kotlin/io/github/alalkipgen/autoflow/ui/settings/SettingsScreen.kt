@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,7 +73,7 @@ private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppI
     LaunchedEffect(backup) { backup?.refresh() }
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
     Column(
-        Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
+        Modifier.widthIn(max = 900.dp).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AfText(tr(UiText.SETTINGS_TITLE), Modifier.testTag("settings-heading"), size = 24.sp, bold = true)
@@ -387,7 +387,7 @@ private fun ModelsCard(state: SettingsUiState, model: SettingsModel, scope: Coro
         }
         Box(
             Modifier.fillMaxWidth().heightIn(max = 240.dp).background(AutoFlowColors.Background)
-                .verticalScroll(rememberScrollState()).padding(10.dp),
+                .paneScroll(rememberScrollState()).padding(10.dp),
         ) {
             AfText(state.models.text, mono = true, size = 12.sp, muted = true)
         }
