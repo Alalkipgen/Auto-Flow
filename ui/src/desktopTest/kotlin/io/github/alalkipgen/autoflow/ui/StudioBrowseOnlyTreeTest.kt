@@ -87,6 +87,11 @@ class StudioBrowseOnlyTreeTest {
             fun tap(tag: String) = click(onNodeWithTag(tag))
             fun nav(text: UiText) = click(onNodeWithContentDescription(text.en))
             fun heading(tag: String, screen: String) { onNodeWithTag(tag).assertIsDisplayed(); unchanged(screen) }
+            // The desktop Projects grid (P9-9b) selects on click; Continue editing in the detail pane opens.
+            fun openProject(name: String) {
+                click(onNodeWithText(name).performScrollTo())
+                if (width == 1440) { mainClock.advanceTimeBy(1_000); tap("project-detail-open") }
+            }
 
             setContent { KoinIsolatedContext(graph) { App() } }
             heading("home-header", "Home")
@@ -96,7 +101,7 @@ class StudioBrowseOnlyTreeTest {
             tap("subscreen-back"); heading("home-header", "return to Home")
 
             nav(UiText.PROJECTS); heading("projects-heading", "routed Projects dashboard")
-            click(onNodeWithText(a.project.name).performScrollTo())
+            openProject(a.project.name)
             scroll("source-movie-name"); unchanged("Recap Source")
             tap("recap-next")
             heading(if (width == 1440) "story-list" else "story-content", "Recap Story")
@@ -123,7 +128,7 @@ class StudioBrowseOnlyTreeTest {
             nav(UiText.JOBS); heading("jobs-empty", "Jobs (no jobs launched)")
 
             nav(UiText.PROJECTS); nav(UiText.PROJECTS); heading("projects-heading", "routed Projects before switching to B")
-            click(onNodeWithText(music.name).performScrollTo())
+            openProject(music.name)
             val shotSheet = onNodeWithText(UiText.SHOT_SHEET.en).assertIsDisplayed()
             unchanged("Music Video Input")
             click(shotSheet)

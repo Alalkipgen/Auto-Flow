@@ -327,10 +327,13 @@ fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = fal
     }
 }
 
-/** Title-less card (rows, players, attention cards); [onLongClick] (with [onClick]) opens a row's options. */
+/**
+ * Title-less card (rows, players, attention cards); [onLongClick] (with [onClick]) opens a row's options and
+ * [onDoubleClick] is a desktop card's second action (select on click, open on double-click).
+ */
 @Composable
 fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: Tone? = null, onClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    onLongClick: (() -> Unit)? = null, onDoubleClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(AfRadius.Card)
     val interaction = remember { MutableInteractionSource() }
     Column(
@@ -339,8 +342,9 @@ fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: 
             .clip(shape)
             .then(when {
                 onClick == null -> Modifier
-                onLongClick == null -> Modifier.clickable(interaction, null, role = Role.Button, onClick = onClick)
-                else -> Modifier.combinedClickable(interaction, null, role = Role.Button, onLongClick = onLongClick, onClick = onClick)
+                onLongClick == null && onDoubleClick == null -> Modifier.clickable(interaction, null, role = Role.Button, onClick = onClick)
+                else -> Modifier.combinedClickable(interaction, null, role = Role.Button, onLongClick = onLongClick,
+                    onDoubleClick = onDoubleClick, onClick = onClick)
             })
             .background(AutoFlowColors.Panel)
             .drawBehind { attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) } }

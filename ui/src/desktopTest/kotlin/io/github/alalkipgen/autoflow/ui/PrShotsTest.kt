@@ -8,9 +8,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
@@ -88,7 +86,7 @@ class PrShotsTest(val width: Int, val font: Float) {
         ShellShortcut(UiText.MUSIC_VIDEO, AfIcons.Duotone.Music, AutoFlowColors.Info, "nav-create-mv") {},
     ))
 
-    private fun shot(screen: String, content: @Composable () -> Unit) {
+    private fun shot(screen: String, after: (ComposeUiTest.() -> Unit)? = null, content: @Composable () -> Unit) {
         val dir = out ?: return
         val scale = if (phone) 2f else 1f
         runDesktopComposeUiTest(width = (width * scale).toInt(), height = ((if (phone) 760 else 900) * scale).toInt()) {
@@ -98,6 +96,12 @@ class PrShotsTest(val width: Int, val font: Float) {
             }
             waitForIdle()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir.apply { mkdirs() }, "$screen-$case.png"))
+            // A second state of the same screen (e.g. a selected desktop card), written as `<screen>-selected-<case>.png`.
+            after?.let {
+                it()
+                waitForIdle()
+                ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "$screen-selected-$case.png"))
+            }
         }
     }
 
@@ -132,7 +136,12 @@ class PrShotsTest(val width: Int, val font: Float) {
         val model = DashboardModel(fs, ProjectStore(fs), index,
             SettingsStore(fs, File(fixture.dir.parentFile, "settings-shots.json").path), FakePicker(), CurrentProject())
         val rows = jobs()
-        shot("projects") {
+        // Desktop D2: click the recap card, so the detail pane shows (single click waits out the double-click time).
+        val select: (ComposeUiTest.() -> Unit)? = if (width < 1440) null else ({
+            onNodeWithTag("project-card-click-${fixture.project.name}").performMouseInput { click() }
+            mainClock.advanceTimeBy(1_000)
+        })
+        shot("projects", select) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
                 DashboardScreen(model, {}, jobs = rows, thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
             }
