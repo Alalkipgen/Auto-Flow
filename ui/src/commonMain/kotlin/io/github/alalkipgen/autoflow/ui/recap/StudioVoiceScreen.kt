@@ -117,7 +117,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
     }
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
         navigation?.let {
-            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, options = listOf(
+            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, steps = recapStepLabels(), options = listOf(
                 StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap")))
         }
         RecapForegroundCards(model, state)

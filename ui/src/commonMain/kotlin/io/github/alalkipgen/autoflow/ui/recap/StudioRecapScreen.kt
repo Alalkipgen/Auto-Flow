@@ -25,6 +25,10 @@ enum class RecapStep(val textKey: UiText) {
     fun next(): RecapStep? = entries.getOrNull(ordinal + 1)
 }
 
+/** The five step names under the project top bar's step bar. */
+@Composable
+internal fun recapStepLabels(): List<String> = RecapStep.entries.map { tr(it.textKey) }
+
 /** No tab bar: the label and wrapping actions remain readable at the owner's large font sizes. */
 @Composable
 fun RecapStepHeader(step: RecapStep, onBack: () -> Unit, onNext: () -> Unit, onClassic: () -> Unit) {

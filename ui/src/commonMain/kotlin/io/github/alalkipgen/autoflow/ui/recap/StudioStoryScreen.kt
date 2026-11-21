@@ -58,7 +58,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
     }
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 2, tr(UiText.STORY), back,
-            options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+            steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
         RecapForegroundCards(model, state)
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {

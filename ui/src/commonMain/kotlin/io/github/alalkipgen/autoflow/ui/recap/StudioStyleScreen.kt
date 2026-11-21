@@ -48,7 +48,7 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
     key(state.projectDir) {
         Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
             navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 4, tr(UiText.STYLE), back,
-                options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, !draft, "classic-recap"))) }
+                steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, !draft, "classic-recap"))) }
             Box(Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("style-list"),
