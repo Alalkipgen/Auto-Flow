@@ -244,12 +244,15 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
 }
 
 /** Where Studio v2 is: tab, project screen (null = the project list) and whether Settings is open over it. */
-data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE, val createMode: io.github.alalkipgen.autoflow.core.model.Mode? = null, val libraryLexicon: Boolean = false)
+data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE, val createMode: io.github.alalkipgen.autoflow.core.model.Mode? = null, val libraryLexicon: Boolean = false,
+    /** The Projects create card is open ("+" or the sidebar's New project). */
+    val createOpen: Boolean = false)
 
 /** Android Back in Studio v2: closes Settings, then steps project screen → list, then any tab → Home; null = leave. */
 fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
     nav.settings -> nav.copy(settings = false)
     nav.createMode != null -> nav.copy(createMode = null)
+    nav.createOpen && nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == null -> nav.copy(createOpen = false)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Export" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Classic Recap" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Recap" && recap && nav.recapStep.previous() != null -> nav.copy(recapStep = nav.recapStep.previous()!!)
@@ -261,7 +264,7 @@ fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
 }
 
 /** Tab switches retain the actual open step; selecting Projects again still returns to its list. */
-fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null, libraryLexicon = false,
+fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null, libraryLexicon = false, createOpen = false,
     projectScreen = if (dest == StudioV2Dest.PROJECTS && nav.dest == dest) null else nav.projectScreen)
 
 /** Preflight changes only transient navigation, never approval, selection IDs or project data. */
@@ -408,7 +411,12 @@ private fun StudioV2App(
             StudioV2Dest.PROJECTS -> {
                 val screen = nav.projectScreen
                 if (screen == null) {
-                    DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) }, onOpened = {
+                    val store = koinInject<io.github.alalkipgen.autoflow.core.store.ProjectStore>()
+                    val projectThumbSource: suspend (String) -> io.github.alalkipgen.autoflow.ui.media.MediaThumbnails.Source? =
+                        remember(store) { { dir -> store.thumbSource(dir) } }
+                    DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) },
+                        createOpen = nav.createOpen, onCreateOpenChange = { nav = nav.copy(createOpen = it) },
+                        jobs = rows, thumbSource = projectThumbSource, onOpened = {
                         val mode = currentProject.state.value?.project?.mode
                         mode?.let(::v2EntryScreen)?.let { openProjectScreen(it) }
                     })
@@ -486,7 +494,7 @@ private fun StudioV2App(
     val subtitlesForNav = if (subtitlesTool || dubbingTool) koinInject<io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel>() else null
     val voiceForNav = if (voiceTool) koinInject<io.github.alalkipgen.autoflow.ui.voice.VoiceAudioModel>() else null
     val shellActions = ShellActions(
-        onNewProject = { nav = V2Nav(StudioV2Dest.PROJECTS) },
+        onNewProject = { nav = V2Nav(StudioV2Dest.PROJECTS, createOpen = true) },
         onOpenSettings = { nav = nav.copy(settings = true) },
         create = listOfNotNull(
             ShellShortcut(UiText.MOVIE_RECAP, AfIcons.Duotone.Film, AutoFlowColors.PrimaryFill, "nav-create-recap") {

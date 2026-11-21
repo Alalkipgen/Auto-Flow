@@ -1548,6 +1548,8 @@ enum class UiText(val en: String, val my: String?) {
     HOME_DUB_CAPTION("Burmese voice-over", "မြန်မာ အသံသွင်း"),
     HOME_VOICE_CAPTION("Speech · clean-up · video sound", "စာမှ အသံ · အသံသန့် · ဗီဒီယို အသံ"),
     HOME_SUBS_CAPTION("Make · edit", "ဖန်တီး · ပြင်ဆင်"),
+    // P9-9 Projects (DESIGN.md §9.7): the first filter chip (all modes).
+    PROJECTS_FILTER_ALL("All", "အားလုံး"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }
