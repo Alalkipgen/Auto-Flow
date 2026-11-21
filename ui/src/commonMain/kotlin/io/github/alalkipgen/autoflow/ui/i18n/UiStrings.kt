@@ -1553,6 +1553,10 @@ enum class UiText(val en: String, val my: String?) {
     // P9-9b desktop Projects (D2): the detail pane of the selected project.
     PROJECTS_SELECTED("Selected project", "ရွေးထားသော ပရောဂျက်"),
     JOBS_SELECTED("Selected job", "ရွေးထားသော အလုပ်"),
+    AUDIO_PLAY("Play", "ဖွင့်မယ်"),
+    AUDIO_STOP("Stop", "ရပ်မယ်"),
+    PREVIOUS_PAGE("Previous page", "ယခင် စာမျက်နှာ"),
+    NEXT_PAGE("Next page", "နောက် စာမျက်နှာ"),
     PROJECT_LAST_OPENED("Last opened", "နောက်ဆုံး ဖွင့်ခဲ့ချိန်"),
     PROJECT_SHOW_FOLDER("Show in folder", "ဖိုင်တွဲမှာ ပြမယ်"),
     ;

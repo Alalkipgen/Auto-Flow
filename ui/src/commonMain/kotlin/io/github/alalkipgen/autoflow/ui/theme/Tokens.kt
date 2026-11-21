@@ -65,9 +65,13 @@ object AfSize {
     val ThumbCompact = DpSize(64.dp, 40.dp)
     val ThumbContinue = DpSize(96.dp, 60.dp)
     val ThumbExport = DpSize(124.dp, 74.dp)
+    val ThumbScene = DpSize(128.dp, 72.dp)
 
     /** A tile in a tile grid (Home create / tools) is at least this wide × the font scale; fewer columns otherwise. */
     val TileCardMin = 96.dp
+
+    /** The narrowest short-fact column ("#n" + a time) beside a thumbnail × the font scale; stacked below otherwise. */
+    val ThumbFactsMin = 80.dp
 
     /** One-column screens are capped at this width and centred at 840 / 1440 dp. */
     val ContentMax = 720.dp

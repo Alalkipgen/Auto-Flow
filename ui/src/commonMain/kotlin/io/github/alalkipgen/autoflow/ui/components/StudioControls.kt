@@ -2,6 +2,8 @@ package io.github.alalkipgen.autoflow.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -9,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -17,11 +20,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
+import io.github.alalkipgen.autoflow.ui.theme.AfSpace
+import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
@@ -135,18 +144,64 @@ fun PlannedTile(title: String, explanation: String? = null, modifier: Modifier =
     AfCard(title, modifier.semantics { disabled() }) { StatusChip(StudioStatus.PLANNED); explanation?.let { AfText(My.breakSyllables(it), muted = true) } }
 }
 
+/**
+ * A recap block row (P9-11): [thumbnail] (the 128 × 72 scene frame) beside "Block n" and its real [time] — above them
+ * when the text column would be narrower than [AfSize.TileCardMin] × the font scale — then the [status] chip, the
+ * script's first line (two lines at most; the full line stays its description and is in the editor), play and [actions].
+ */
 @Composable
 fun BlockCard(number: Int, time: String, script: String, status: StudioStatus, onOpen: () -> Unit,
     modifier: Modifier = Modifier, selected: Boolean = false, deltaMs: Long? = null,
     onPlay: (() -> Unit)? = null, thumbnail: (@Composable () -> Unit)? = null, actions: @Composable ColumnScope.() -> Unit = {},
 ) {
-    AfCard(tr(UiText.V3_BLOCK, "n" to number), modifier.clickable(role = Role.Button, onClick = onOpen), selected) {
-        AfText(time, muted = true, mono = true)
-        thumbnail?.invoke()
+    AfCard(modifier.clickable(role = Role.Button, onClick = onOpen), selected) {
+        val facts = @Composable { m: Modifier ->
+            Column(m, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
+                AfText(tr(UiText.V3_BLOCK, "n" to number), type = AfType.RowTitle)
+                AfText(time, muted = true, type = AfType.Numbers)
+            }
+        }
+        if (thumbnail == null) facts(Modifier.fillMaxWidth()) else ThumbBeside(AfSize.ThumbScene.width, thumbnail, facts)
         StatusChip(status, deltaMs = deltaMs)
-        AfText(script.lineSequence().firstOrNull().orEmpty())
-        onPlay?.let { AfButton(tr(UiText.PLAY), it) }
+        val line = script.lineSequence().firstOrNull().orEmpty()
+        if (line.isNotBlank()) AfText(line, Modifier.semantics { contentDescription = line }, type = AfType.Body, maxLines = 2, ellipsis = true)
+        onPlay?.let { AfIconButton(AfIcons.Fill.Play, tr(UiText.AUDIO_PLAY), it) }
         actions()
+    }
+}
+
+/**
+ * [leading] · [thumb] ([thumbWidth] wide) · [facts], or the facts (after [leading]) above the thumbnail when their column
+ * would be narrower than [factsMin] × the font scale (large fonts, narrow panes): text is never squeezed into a sliver.
+ */
+@Composable
+internal fun ThumbBeside(thumbWidth: Dp, thumb: @Composable () -> Unit, facts: @Composable (Modifier) -> Unit,
+    leading: (@Composable () -> Unit)? = null, factsMin: Dp = AfSize.TileCardMin) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val gap = AfSpace.M
+        val lead = if (leading != null) AfSize.Icon + gap else 0.dp
+        if (maxWidth - lead - thumbWidth - gap >= factsMin * LocalDensity.current.fontScale) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
+                leading?.invoke(); thumb(); facts(Modifier.weight(1f))
+            }
+        } else Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            if (leading == null) facts(Modifier.fillMaxWidth())
+            else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
+                leading(); facts(Modifier.weight(1f))
+            }
+            thumb()
+        }
+    }
+}
+
+/** A check box drawn for a toggleable row (22 dp, radius 6): checked = primary fill + white check. The row has the semantics. */
+@Composable
+fun CheckMark(checked: Boolean, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(6.dp)
+    Box(modifier.size(AfSize.Icon).clip(shape)
+        .then(if (checked) Modifier.background(AutoFlowColors.PrimaryFill) else Modifier.border(1.5.dp, AutoFlowColors.LineStrong, shape))
+        .testTag(if (checked) "check-mark-on" else "check-mark-off"), contentAlignment = Alignment.Center) {
+        if (checked) AfIcon(AfIcons.Regular.Check, tint = Color.White, size = AfSize.IconXs)
     }
 }
 
