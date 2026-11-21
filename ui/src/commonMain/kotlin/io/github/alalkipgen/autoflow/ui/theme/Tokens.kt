@@ -98,4 +98,11 @@ object AfDesktop {
     val DetailPane = 360.dp
     val StickyButtonMin = 150.dp
     val SelectedAccent = 3.dp
+
+    /** Home D1 from this Home width (window minus the nav): the hero beside the Jobs column (≤ [HomeJobs] cards). */
+    val HomeWide = 900.dp
+    val HomeMax = 1280.dp
+    const val HomeJobs = 3
+    /** A desktop Continue card is at least this wide × the font scale (≤ 4 in the row). */
+    val ContinueCardMin = 200.dp
 }
