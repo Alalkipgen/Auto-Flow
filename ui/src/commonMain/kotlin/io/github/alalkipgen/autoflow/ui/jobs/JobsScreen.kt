@@ -308,7 +308,8 @@ fun JobsScreen(
                 Modifier.testTag("job-cancel-$key"), kind = ButtonKind.Danger)
             if (live.hasOutput(row)) JobFileAction.entries.forEach { action ->
                 AfButton(tr(action.label), { live.file(row, action, language) },
-                    Modifier.testTag("job-file-${action.name}-$key"), enabled = !live.saving)
+                    Modifier.testTag("job-file-${action.name}-$key"), enabled = !live.saving,
+                    icon = if (action == JobFileAction.OPEN) AfIcons.Fill.Play else null)
             }
         }
         val external = noticeRow?.identity == row.identity

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Image
@@ -38,6 +39,8 @@ import io.github.alalkipgen.autoflow.core.recap.toV1
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.Scenes
 import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.AfIconButton
+import androidx.compose.ui.graphics.graphicsLayer
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
@@ -88,7 +91,7 @@ private fun ClassicRecapContent(model: RecapModel, state: RecapUiState, modifier
         state.message?.let { msg ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfText(state.notice?.text(LocalUiLanguage.current) ?: msg, Modifier.weight(1f), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber)
-                AfButton("✕", { model.dismissMessage() })
+                AfIconButton(AfIcons.Regular.Close, tr(UiText.CLOSE), { model.dismissMessage() })
             }
         }
         val recap = state.recap
@@ -117,7 +120,8 @@ internal fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
         val gate = RecapRulesV2.canImportMovie(recap)
         if (!gate.allowed) AfText(gate.blockers.first().text(LocalUiLanguage.current), color = AutoFlowColors.Amber)
         AfButton(if (movie == null) tr(UiText.IMPORT_MOVIE) else tr(UiText.REPLACE_MOVIE), { model.importMovie() },
-            kind = if (movie == null) ButtonKind.Primary else ButtonKind.Secondary, enabled = gate.allowed && !state.busy)
+            kind = if (movie == null) ButtonKind.Primary else ButtonKind.Secondary, enabled = gate.allowed && !state.busy,
+            icon = if (movie == null) AfIcons.Regular.Film else null)
     }
 }
 
@@ -131,7 +135,7 @@ internal fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         }
         WrapRow {
             AfButton(if (recap.scenes.isEmpty()) tr(UiText.FIND_SCENES) else tr(UiText.FIND_SCENES_AGAIN), { model.findScenes(recap.sceneThreshold) },
-                kind = if (recap.scenes.isEmpty()) ButtonKind.Primary else ButtonKind.Secondary, enabled = !state.busy)
+                kind = if (recap.scenes.isEmpty()) ButtonKind.Primary else ButtonKind.Secondary, enabled = !state.busy, icon = AfIcons.Regular.Search)
             AfChip(tr(UiText.MORE_SCENES), recap.sceneThreshold == Scenes.THRESHOLD_MORE, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_MORE) })
             AfChip(tr(UiText.NORMAL), recap.sceneThreshold == Scenes.THRESHOLD_NORMAL, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_NORMAL) })
             AfChip(tr(UiText.FEWER_SCENES), recap.sceneThreshold == Scenes.THRESHOLD_FEWER, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_FEWER) })
@@ -159,9 +163,9 @@ internal fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         shown.forEach { (i, scene) -> SceneRow(model, i, scene) }
         if (pages > 1) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton("◀", { page-- }, enabled = page > 0)
+                AfIconButton(AfIcons.Regular.Chevron, tr(UiText.PREVIOUS_PAGE), { page-- }, Modifier.graphicsLayer(scaleX = -1f), enabled = page > 0)
                 AfText(tr(UiText.SCENES_PAGE, "page1" to (page + 1), "pages" to (pages), "size" to (rows.size)), muted = true)
-                AfButton("▶", { page++ }, enabled = page < pages - 1)
+                AfIconButton(AfIcons.Regular.Chevron, tr(UiText.NEXT_PAGE), { page++ }, enabled = page < pages - 1)
             }
         }
     }

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.collectAsState
@@ -67,6 +68,8 @@ import io.github.alalkipgen.autoflow.ui.components.AfScrubber
 import io.github.alalkipgen.autoflow.ui.components.OptionChips
 import kotlin.math.roundToInt
 import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.AfIconButton
+import androidx.compose.ui.graphics.graphicsLayer
 import io.github.alalkipgen.autoflow.ui.components.MoviePlayback
 import io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported
 import io.github.alalkipgen.autoflow.ui.components.AfChip
@@ -97,7 +100,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     val v = recap.visual
     if (section != PictureSection.CAPTIONS) {
     // ── 🎬 Output ──────────────────────────────────────────────────────────────
-    AfCard(tr(UiText.OUTPUT_CARD)) {
+    AfCard(tr(UiText.OUTPUT_CARD), icon = AfIcons.Regular.Film) {
         AfH3(tr(UiText.VIDEO_RATIO))
         WrapRow {
             AfChip(tr(UiText.DEFAULT_RATIO), v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
@@ -108,7 +111,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
 
     // ── 🙈 Hide things ─────────────────────────────────────────────────────────
-    AfCard(tr(UiText.HIDE_THINGS_CARD)) {
+    AfCard(tr(UiText.HIDE_THINGS_CARD), icon = AfIcons.Regular.Square) {
         AfText(tr(UiText.HIDE_THINGS_HINT), muted = true, size = 12.sp)
         WrapRow {
             MaskPreset.entries.forEach { p ->
@@ -126,13 +129,17 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
             v.masks.forEach { m ->
                 WrapRow {
                     AfText(maskLabel(m.preset, LocalUiLanguage.current), size = 12.sp)
-                    AfButton("▲", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } })
-                    AfButton("▼", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } })
+                    // Nudges = the chevron turned to its direction (the icon set has one caret).
+                    AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_UP), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } },
+                        Modifier.graphicsLayer(rotationZ = -90f))
+                    AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_DOWN), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } },
+                        Modifier.graphicsLayer(rotationZ = 90f))
                     AfButton(tr(UiText.TALLER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
                     AfButton(tr(UiText.SHORTER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
                     if (!m.preset.isStrip) {
-                        AfButton("◀", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } })
-                        AfButton("▶", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
+                        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_LEFT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } },
+                            Modifier.graphicsLayer(scaleX = -1f))
+                        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_RIGHT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
                         AfButton(tr(UiText.WIDER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
                         AfButton(tr(UiText.NARROWER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
                     }
@@ -148,7 +155,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
 
     // ── 🖼 Background ──────────────────────────────────────────────────────────
     if (Look.FILL !in recap.looks) {
-    AfCard(tr(UiText.BACKGROUND_CARD)) {
+    AfCard(tr(UiText.BACKGROUND_CARD), icon = AfIcons.Regular.Image) {
         AfText(tr(UiText.BACKGROUND_HINT), muted = true, size = 12.sp)
         WrapRow {
             FrameBackground.entries.forEach { b ->
@@ -178,7 +185,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     if (section == null) RecapLayerControls(recap, idle, model)
 
     // ── 💧 Watermark ───────────────────────────────────────────────────────────
-    AfCard(tr(UiText.WATERMARK_CARD)) {
+    AfCard(tr(UiText.WATERMARK_CARD), icon = AfIcons.Regular.Image) {
         AfText(tr(UiText.WATERMARK_HINT), muted = true, size = 12.sp)
         WrapRow {
             if (v.watermarkFile != null) {
@@ -202,7 +209,7 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
 
     }
     // ── ✍️ Captions ────────────────────────────────────────────────────────────
-    if (section != PictureSection.LAYERS) AfCard(tr(UiText.CAPTIONS_CARD), Modifier.testTag("caption-controls")) {
+    if (section != PictureSection.LAYERS) AfCard(tr(UiText.CAPTIONS_CARD), Modifier.testTag("caption-controls"), icon = AfIcons.Regular.Subtitles) {
         val currentState by model.state.collectAsState()
         val open by model.previewSource.projects.collectAsState()
         val projectDir = currentState.projectDir
@@ -500,7 +507,8 @@ private fun ExactFrameContent(model: RecapModel, enabled: Boolean) {
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
     var working by remember { mutableStateOf(false) }
-    AfCard("🎯 ${tr(UiText.EXACT_FRAME)}") {
+    // The button names the card (a title would repeat "Exact frame"); its image icon replaces the old 🎯 title.
+    AfCard {
         AfText(tr(UiText.EXACT_FRAME_HINT), muted = true, size = 12.sp)
         AfButton(if (working) tr(UiText.RENDERING) else tr(UiText.EXACT_FRAME), {
             if (!working) {
@@ -508,7 +516,7 @@ private fun ExactFrameContent(model: RecapModel, enabled: Boolean) {
                 val at = model.previewSource.currentPosition()
                 scope.launch { try { result = model.exactFrame(at) } finally { working = false } }
             }
-        }, enabled = !working && enabled)
+        }, enabled = !working && enabled, icon = AfIcons.Regular.Image)
         if (!enabled) AfText(tr(UiText.V3_LAYER_DRAFT_PREVIEW), muted = true)
         when (val r = result.takeIf { enabled }) {
             is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Ok -> {

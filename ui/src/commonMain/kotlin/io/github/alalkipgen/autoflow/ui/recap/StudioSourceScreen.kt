@@ -84,7 +84,8 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                                 }
                                 AfText(My.breakSyllables(tr(UiText.V3_SCAN_HINT)), muted = true)
                                 AfButton(tr(if (recap.scenes.isEmpty()) UiText.FIND_SCENES else UiText.FIND_SCENES_AGAIN),
-                                    { model.findScenes(threshold) }, Modifier.testTag("source-scan"), enabled = idle && RecapRulesV2.canFindScenes(recap).allowed)
+                                    { model.findScenes(threshold) }, Modifier.testTag("source-scan"), enabled = idle && RecapRulesV2.canFindScenes(recap).allowed,
+                                    icon = AfIcons.Regular.Search)
                             }
                             SectionCard(tr(UiText.V3_SCAN_RESULT, "n" to recap.scenes.size)) {
                                 if (recap.scenes.isEmpty()) AfText(My.breakSyllables(tr(UiText.V3_NO_SCENES)), muted = true)
@@ -110,7 +111,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
             })
         }
         if (recap.movie == null) StickyActionBar(StudioAction(tr(UiText.IMPORT_MOVIE), { model.importMovie() },
-            idle && RecapRulesV2.canImportMovie(recap).allowed, "source-import"))
+            idle && RecapRulesV2.canImportMovie(recap).allowed, "source-import", AfIcons.Regular.Film))
         else navigation?.let { StickyActionBar(StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.STORY)),
             it.next, idle, "recap-next")) }
     }

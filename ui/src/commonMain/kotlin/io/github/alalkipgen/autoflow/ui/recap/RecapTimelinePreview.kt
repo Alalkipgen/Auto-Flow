@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -164,10 +165,12 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                     Modifier.testTag("timeline-scrubber"))
             } else readouts()
             WrapRow {
-                AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), togglePlay, Modifier.testTag("timeline-play"))
+                AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), togglePlay, Modifier.testTag("timeline-play"),
+                    icon = if (playing) AfIcons.Fill.Pause else AfIcons.Fill.Play)
                 AfButton(tr(UiText.BACK_FIVE_SECONDS), { clock.seek(clock.positionMs - 5_000); refresh++ }, Modifier.testTag("timeline-back"))
                 AfButton(tr(UiText.FORWARD_FIVE_SECONDS), { clock.seek(clock.positionMs + 5_000); refresh++ }, Modifier.testTag("timeline-forward"))
-                AfButton(tr(UiText.CLOSE_PLAYER), { enabled = false; editFramePrime = null; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"), enabled = enabled)
+                AfButton(tr(UiText.CLOSE_PLAYER), { enabled = false; editFramePrime = null; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"), enabled = enabled,
+                    icon = AfIcons.Regular.Close)
             }
             // Below the controls, so the picture, scrubber and Play keep their place.
             if (source.timeline.voice.isNotEmpty() || source.music != null) {

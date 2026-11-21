@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.components.AfIconButton
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -120,8 +122,9 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
             if (!gate.allowed) AfText(gate.blockers.first().text(LocalUiLanguage.current), muted = true, size = 12.sp)
             WrapRow {
                 AfButton(tr(UiText.WRITE_SCRIPT), { if (script == null && !studioOptions) model.writeScript() else confirming = WRITE_SCRIPT },
-                    kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
-                AfButton(tr(UiText.WRITE_MYSELF), { if (script == null) model.writeManually() else confirming = WRITE_MYSELF }, enabled = !state.busy)
+                    kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy, icon = AfIcons.Regular.Spark)
+                AfButton(tr(UiText.WRITE_MYSELF), { if (script == null) model.writeManually() else confirming = WRITE_MYSELF }, enabled = !state.busy,
+                    icon = AfIcons.Regular.Edit)
             }
         }
         if (script == null || studioOptions) return@content
@@ -135,7 +138,8 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         } else if (current) {
             val gate = RecapRulesV2.canApproveScript(recap, story)
             if (!gate.allowed) AfText(gate.blockers.first().text(LocalUiLanguage.current), muted = true, size = 12.sp)
-            AfButton(tr(UiText.APPROVE_SCRIPT), { model.approveScript() }, kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
+            AfButton(tr(UiText.APPROVE_SCRIPT), { model.approveScript() }, kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy,
+                icon = AfIcons.Regular.Check)
         }
     }
     if (studioOptions) io.github.alalkipgen.autoflow.ui.components.SectionCard(My.breakSyllables(tr(UiText.V3_STORY_OPTIONS)),
@@ -231,7 +235,8 @@ internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Re
         job != null -> if (!pinnedRun) RecapTranscribeRun(model, job)
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(tr(UiText.TRANSCRIBE_OFFER, "todoScenes" to (t.todoScenes)), muted = true, size = 12.sp)
-            AfButton(tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)
+            AfButton(tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy,
+                icon = AfIcons.Regular.Wave)
         }
     }
 }
@@ -245,8 +250,9 @@ private fun SegmentRow(model: RecapModel, state: RecapUiState, index: Int, seg: 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("#${index + 1} · ${clock(seg.startMs)}–${clock(seg.endMs)} · ${(seg.durationMs + 500) / 1000} s", Modifier.weight(1f), muted = true, size = 12.sp)
             if (!editing && !editTiming) {
-                AfButton("✎", { editing = true }, enabled = enabled)
-                AfButton("⏱", { editTiming = true }, enabled = enabled)
+                AfIconButton(AfIcons.Regular.Edit, tr(UiText.EDIT), { editing = true }, Modifier.testTag("segment-edit-$index"), enabled = enabled)
+                AfIconButton(AfIcons.Regular.Clock, tr(UiText.EDIT_CAPTION_TIMING), { editTiming = true },
+                    Modifier.testTag("segment-timing-$index"), enabled = enabled)
             }
         }
         TakeVoiceLabel(state.recap?.takeFor(state.story!!.blocks[index].id), state.recap?.voiceLock)

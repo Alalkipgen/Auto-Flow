@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.dubbing
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
@@ -91,7 +92,7 @@ private fun Progress(model: DubExportModel, s: DubExportUi, kind: String, state:
             s.voice?.let { AfText(My.breakSyllables(tr(UiText.DUB_EXPORT_WAV, "path" to it.substringAfterLast('/'))), Modifier.testTag("dub-export-wav"), muted = true) }
             val title = tr(UiText.DUB_STEP_EXPORT)
             WrapRow {
-                AfButton(My.breakSyllables(tr(UiText.PLAY)), { model.open() }, Modifier.testTag("dub-export-play"))
+                AfButton(My.breakSyllables(tr(UiText.PLAY)), { model.open() }, Modifier.testTag("dub-export-play"), icon = AfIcons.Fill.Play)
                 if (model.sharesFiles) {
                     AfButton(My.breakSyllables(tr(UiText.SHARE)), { model.share(title) }, Modifier.testTag("dub-export-share"))
                     AfButton(My.breakSyllables(tr(UiText.SAVE_GALLERY)), { scope.launch { model.saveToGallery() } }, Modifier.testTag("dub-export-gallery"))

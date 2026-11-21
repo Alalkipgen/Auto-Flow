@@ -8,6 +8,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -28,6 +30,7 @@ import io.github.alalkipgen.autoflow.ui.home.HomeScreen
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.media.thumbSource
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.jobs.JobsActions
@@ -209,6 +212,43 @@ class PrShotsTest(val width: Int, val font: Float) {
         })
     @Test fun recapBlocks() = recapList("recap-blocks", RecapStep.STORY, "block-select-0", "block-thumbnail-${fixture.story.blocks.first().id}")
     @Test fun recapVoice() = recapList("recap-voice", RecapStep.VOICE, "block-select-0", "block-thumbnail-${fixture.story.blocks.first().id}")
+
+    /** P9-11b: a Recap editor [step] after [ready] (open a section, scroll its buttons into view); no media tools. */
+    private fun recapStep(screen: String, step: RecapStep, f: QaRecapFixture.Built = fixture, ready: ComposeUiTest.() -> Unit) {
+        val fs = JvmFs(); val current = CurrentProject().apply { set(OpenProject(f.dir.path, f.project)) }
+        val model = RecapModel(ProjectSession(fs, ProjectStore(fs), index(), current), fs, null, null, scope)
+        shot(screen, ready = ready) {
+            StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
+                StudioRecapScreen(model, step, width.toFloat(), {}, RecapNavigation({}, {}, {}))
+            }
+        }
+    }
+    private fun button(key: UiText) = hasText(key.text(language)) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+
+    /** Story writing options (Write script / Write it myself) with two picked scenes. */
+    @Test fun recapStoryOptions() = recapStep("recap-story-options", RecapStep.STORY,
+        QaRecapFixture.create(Files.createTempDirectory("pr-shots-options").toFile()).let { f ->
+            f.copy(project = (ProjectStore(JvmFs()).save(f.dir.path, f.project.copy(recap = f.project.recap!!.copy(
+                scenes = listOf(RecapScene(2_000, 4_000, true), RecapScene(6_000, 8_000, true))))) as CoreResult.Ok).value)
+        }) {
+        if (onAllNodes(button(UiText.WRITE_SCRIPT)).fetchSemanticsNodes().isEmpty())
+            onNodeWithContentDescription(My.breakSyllables(UiText.V3_STORY_OPTIONS.text(language))).performScrollTo().performMouseInput { click() }
+        onNode(button(UiText.WRITE_SCRIPT)).performScrollTo()
+    }
+
+    /** Style: the picture cards (Output, Hide things, Background) under the layer options. */
+    @Test fun recapStyle() = recapStep("recap-style", RecapStep.STYLE) {
+        onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasAnyAncestor(hasTestTag("style-layer-options")))
+            .performScrollTo().performMouseInput { click() }
+        onAllNodes(hasText(UiText.OUTPUT_CARD.text(language)), useUnmergedTree = true)[0].performScrollTo()
+    }
+
+    /** Voice: block 1's detail with its Speak button in view (Start sits in the sticky bar). */
+    @Test fun recapVoiceDetail() = recapStep("recap-voice-detail", RecapStep.VOICE) {
+        onNodeWithTag("voice-open-0").performScrollTo().performMouseInput { click() }
+        waitForIdle()
+        onAllNodes(button(UiText.SPEAK_BLOCK)).fetchSemanticsNodes().firstOrNull()?.let { onNode(button(UiText.SPEAK_BLOCK)).performScrollTo() }
+    }
 
     @Test fun settings() {
         val fs = InMemoryFileSystem(); val settings = SettingsStore(fs, "/app/settings.json")

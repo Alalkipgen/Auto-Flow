@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.export
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -100,7 +101,11 @@ internal fun PreviewPlayback(path: String, media: RecapFrames.PreviewMedia, vlc:
                     started = true
                     playing = true
                 }
-            }, Modifier.testTag("export-preview-playback"))
+            }, Modifier.testTag("export-preview-playback"), icon = when (action) {
+                UiText.PAUSE -> AfIcons.Fill.Pause
+                UiText.PLAY -> AfIcons.Fill.Play
+                else -> AfIcons.Regular.Redo
+            })
             AfButton(tr(if (full) UiText.PREVIEW_EXIT_FULLSCREEN else UiText.PREVIEW_FULLSCREEN),
                 { switchFullscreen(!full) }, Modifier.testTag("export-preview-fullscreen"))
         }

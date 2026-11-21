@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -177,7 +178,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                 AfText(tr(UiText.SPEAK_ALL_HINT), muted = true)
                 WrapRow {
                     AfButton(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) },
-                        Modifier.testTag("voice-confirm"), kind = ButtonKind.Primary, enabled = idle && gate.allowed)
+                        Modifier.testTag("voice-confirm"), kind = ButtonKind.Primary, enabled = idle && gate.allowed, icon = AfIcons.Fill.Play)
                     AfButton(tr(UiText.CANCEL), model::cancelSpeakAll, Modifier.testTag("voice-confirm-cancel"))
                 }
             }
