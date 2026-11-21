@@ -42,20 +42,22 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
+import io.github.alalkipgen.autoflow.ui.theme.afTextStyle
 
 /*
  * Small foundation-only controls in the DESIGN.md §1 style. `:ui` has no Material dependency, so every screen builds
@@ -64,7 +66,10 @@ import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 
 private val ControlShape = RoundedCornerShape(8.dp)
 
-/** Body text; [muted] for secondary lines, [mono] for prompts, paths and JSON. */
+/**
+ * Body text; [muted] for secondary lines, [mono] for prompts, paths and JSON. A Phase 9 [type] sets size and weight
+ * (DESIGN.md §9.2); [maxLines] with [ellipsis] is for one-line titles whose full text is shown elsewhere (D-100).
+ */
 @Composable
 fun AfText(
     text: String,
@@ -74,6 +79,9 @@ fun AfText(
     bold: Boolean = false,
     mono: Boolean = false,
     color: Color? = null,
+    type: AfType? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    ellipsis: Boolean = false,
 ) {
     // The bundled Burmese fonts do not contain U+21BB, and a system symbol font is
     // not guaranteed. Draw that decoration only; retain the exact label/semantics and prose font.
@@ -88,12 +96,15 @@ fun AfText(
     BasicText(
         text = content,
         modifier = modifier,
-        style = TextStyle(
-            color = ink,
-            fontSize = size,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-            fontFamily = if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
+        style = afTextStyle(
+            ink,
+            type?.size ?: size,
+            type?.weight ?: if (bold) FontWeight.Bold else FontWeight.Normal,
+            if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
+            numbers = type?.numbers == true,
         ),
+        overflow = if (ellipsis) TextOverflow.Ellipsis else TextOverflow.Clip,
+        maxLines = maxLines,
         inlineContent = if ('↻' !in text) emptyMap() else mapOf(
             "regenerate-symbol" to InlineTextContent(Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)) {
                 Canvas(Modifier.fillMaxSize()) {
@@ -225,10 +236,11 @@ fun AfTextField(
             enabled = enabled,
             singleLine = lines == 1,
             minLines = lines,
-            textStyle = TextStyle(
-                color = if (enabled) AutoFlowColors.Text else AutoFlowColors.Muted,
-                fontSize = 13.sp,
-                fontFamily = if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
+            textStyle = afTextStyle(
+                if (enabled) AutoFlowColors.Text else AutoFlowColors.Muted,
+                13.sp,
+                FontWeight.Normal,
+                if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
             ),
             cursorBrush = SolidColor(AutoFlowColors.Cyan),
             visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,

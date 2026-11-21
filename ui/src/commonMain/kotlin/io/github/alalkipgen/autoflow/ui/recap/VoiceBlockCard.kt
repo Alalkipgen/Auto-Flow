@@ -246,7 +246,7 @@ private fun TeleprompterDisplay(current: String, next: String?) {
         Modifier
             .fillMaxWidth()
             .clip(AutoFlowShapes.Card)
-            .background(Color(0xFF0D1526))
+            .background(AutoFlowColors.Well)
             .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
