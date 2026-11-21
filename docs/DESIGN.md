@@ -116,3 +116,130 @@ One screen, one job: the main action lives in `StickyActionBar` (at most two but
 
 ### Checks for every Phase 7 UI PR
 360 / 412 / 840 / 1440 dp × font 1.0 / 1.3 / 2.0 × EN / MY screenshots; touch targets ≥ 48 dp; no clipped text; TalkBack labels on icon buttons (▶ ↻ ⋯ ✕); time fields read as minutes and seconds. Every new Burmese string is listed in the PR for the owner to check.
+
+## 9. Phase 9 — UI Polish (visual layer only, D-97…D-103)
+Port of the Phase 9 plan bundle `DESIGN.md` §1–§7 (2026-11-21, SHA-256 `2e940760…fad2c4`, base #260 @ `c298c06`), checked against the code. Where the repo and the bundle differ, the repo wins and the difference is noted here. Mockups: [`mockups/ui-polish/`](mockups/ui-polish/README.md) — phone panels 1 Home · 2 Projects · 3 Jobs · 4 Settings · 5 Subtitles editor · 6 Dubbing voice · 7 Dubbing export · 8 Voice & Audio at 412 dp, and desktop D1 Home · D2 Projects · D3 Dubbing · D4 Subtitles in a 1440 × 900 window (1 px = 1 dp, text px = sp). They set the structure, not the pixels (D-102); every number, name and label in them is an example.
+
+### 9.1 Principles
+1. **One main action** per screen area (filled primary); the others are outline or text. A destructive action is never the primary one (D-101).
+2. **State in words:** tone + icon + word, never colour alone.
+3. **Pictures first:** every video item shows a thumbnail (D-99).
+4. **Group, don't stack:** cards and grouped rows instead of long button columns or "+" expanders.
+5. **Burmese first:** generous line height; wrap before cutting (D-100).
+6. **Same parts everywhere:** screens use only shared components and theme tokens; no colours or sizes inline in screens.
+7. **Honest:** real data only; an element with no real feature behind it is left out and listed in the PR (§5 rule "No fake Saved, ETA, quota or concept sample data" stands).
+8. **One tree for every width** (D-22, D-103): phone and desktop are the same composables; only the layout changes by width class (§9.8).
+
+### 9.2 Tokens
+**Colours (Q-48 default: keep the UI v3 values; add only the missing roles).** Contrast is WCAG on the stated background.
+| Role | Mockup | Repo (`AutoFlowColors`) | Decision |
+|---|---|---|---|
+| background | #0A0F1E | `Background` #0B1020 | keep |
+| surface1 (cards, rows) | #111831 | `Panel` #131A2E | keep |
+| surface2 (icon buttons, segmented track) | #172140 | `Card` #1A2340 | keep |
+| surface3 (selected segment, neutral tile) | #222E55 | — | add |
+| bar (bottom nav, sticky bar) · desktop sidebar | #0D1428 · #0B1124 | `TitleBar` #0E1428 · `Background` | keep |
+| outline · step to-do segment | #243156 · #2A3660 | `Line` #263153 | keep |
+| outlineStrong (outline buttons, filter chips) | #3A4878 | — | add |
+| onSurface / muted | #EEF1FA / #98A3C2 | `Text` #E6EAF5 / `Muted` #8A94B3 (5.74:1 on Panel) | keep |
+| onSurfaceFaint (group labels) | #6F7AA0 (4.48:1 on `Background`, fails AA) | — | add as #717CA2 (4.60:1 on `Background`); never on cards |
+| primary fill | #7C5CFF (white text 4.35:1 — fails AA) | `PrimaryFill` #7C3AED (5.70:1), `Purple` #8B5CF6 | keep both |
+| primaryText (primary-coloured text/icons) | #A996FF | — (`Purple` as text is 4.08:1 on Panel) | add (6.99:1) |
+| success · warning · error | #22C55E · #F5A524 · #F0524F | `Green` · `Amber` · `Failed` | keep; containers at 12–13 % alpha |
+| running | #60A5FA | `Cyan` #22D3EE (§7 vocabulary) | keep Cyan |
+| info (hints, "uses the pause") | #2DD4BF | — | add |
+| neutral (mode chips, not generated) | #2A3557 / text #B7C0DA | `Muted` on `Card` | keep |
+
+Icon tiles use a two-stop gradient per tone (purple #8B6CFF→#5B3FE0, teal #2DD4BF→#0E9F8E, amber #FBBF24→#E08A0B with icon #2A1A00, blue #60A5FA→#2563EB; neutral = surface3). A selected card has a primary border.
+
+**Type (sp).** Today `AfText` defaults to 13 sp; `AfH2` 16 bold, `AfH3` 13 bold. P9-1 adds named styles; `AfH2`/`AfH3` keep their names.
+| Style | Size | Weight | Bundle line h. | Use |
+|---|---|---|---|---|
+| screenTitle | 22 | Bold | 1.35 | tab screen titles |
+| topBarTitle | 17 | SemiBold | 1.35 | pushed-screen title (1 line, ellipsis) |
+| cardTitle | 16.5–18.5 | SemiBold | 1.5 | hero and card titles |
+| rowTitle | 14.5 (13.5 in tiles) | SemiBold | 1.5 | rows, tiles |
+| body | 14.5 | Regular | 1.65 | paragraphs, cue/line text |
+| button | 14 (13 small) | SemiBold | 1.3 | buttons |
+| caption | 12.5 | Regular | 1.55 | meta, subtitles |
+| micro | 11–11.5 | SemiBold | 1.4 | nav labels, chips, step labels, badges |
+| numbers | caption + `tnum` | — | — | times, counts |
+Fonts stay as §1 (Pyidaungsu → Noto Sans Myanmar, `LocalUiFontFamily`); the mockups used Inter + Noto Sans Myanmar only as browser stand-ins. **Line height (repo differs):** the natural line height of Pyidaungsu is 1.72 × the size and of Noto Sans Myanmar 2.18 × — above every bundle value — so the styles keep the font's own line height (D-100's "at least 1.5×" holds); a fixed lower value would let stacked marks overlap or clip.
+
+**Burmese text rules (D-100).** No fixed height on anything holding text (`heightIn(min = …)`). Styles set `LineHeightStyle(Alignment.Center, Trim.None)` and, on Android, `PlatformTextStyle(includeFontPadding = true)` so stacked marks (ျ ြ ွ ှ ု ူ ့ ်) are not clipped. Nav, chip, step and button labels may take 2 lines at font ≥ 1.3, then ellipsis with the full text in the content description. Row and top-bar titles take 1 line with ellipsis; the detail screen shows the full text. Filters scroll (`LazyRow`, edge fade); options wrap (`WrapRow`). Buttons sharing a row stack when they do not fit. `My.breakSyllables` (§6) stays.
+
+**Spacing, radius, sizes (dp).** Repo values win where close: phone screen padding stays `screenPadding` (14 phone / 24 desktop; mockup 16).
+| Token | Value |
+|---|---|
+| spacing | 4 · 8 · 12 · 16 · 24; card gap 12 (8 in dense lists) |
+| card | radius 18 (list/cue cards 14; desktop panes 16), padding 12–16, 1 dp outline, no shadow; attention card + 4 dp left bar (warning/error) |
+| button | 44 visual / 48 touch, radius 12, side padding 15; small 36 / radius 10 (today: 48 min, radius 8); desktop sticky-bar buttons min width 150 |
+| icon button | 40 visual (34 compact) / 48 touch, radius 12, surface2 + outline |
+| chip | status 25 high, filter 34 high (48 touch), pill radius, padding 9 / 13 |
+| icon tile | 44 (settings rows 32, compact 36–38, sidebar 26), radius 13 (small 10) |
+| thumbnail | radius 10; list 100×62; compact 64×40; continue 96×60; export 124×74; player full width 16:9, radius 16 |
+| avatar · progress · step bar | 40 circle with initial · 6 high, radius 3 · 4 high segments, gap 6, micro labels below |
+| bottom nav · sticky bar | 70–80 high, 22 icon in a 3 × 16 pill, 19 badge · padding 12 / 16, 44 buttons, optional 11.5 muted hint |
+| desktop shell | sidebar 244 (nav rows 42, radius 10) · rail 72 (48 items) · content padding 22 top / 30 sides · pane gap 18 · list pane 420–480 · detail pane 360 · medium content max 640 |
+| icons | 22 default · 18 small · 15 extra small · 28 large |
+Motion: 150–200 ms fades/expands only; progress animates; respect the system "remove animations" setting.
+
+### 9.3 Icons — Phosphor (D-98)
+Owner choice (chat, 2026-11-21: "nicer icons"): Phosphor Icons 2.1 (`@phosphor-icons/core` 2.1.1, MIT), **copied in as code, no dependency**. Sources in [`mockups/ui-polish/icons/`](mockups/ui-polish/icons/MAPPING.md): `phosphor/{regular,fill,duotone}/<name>.svg`, `phosphor/LICENSE`, `MAPPING.md` (our key → Phosphor name → use; 60 keys) and `phosphor_to_kotlin.py <package> [keys…]`, which writes one Kotlin file of `ImageVector`s (`AfIcons.Regular.Home`, `AfIcons.Fill.Home`, `AfIcons.Duotone.Home`) through Compose's own `addPathNodes` — only the keys that are used. The MIT notice ships with the app (P9-2).
+- **Geometry:** viewport 256 × 256, default 24 dp; drawn at the §9.2 sizes. The icons are filled outlines (no stroke width).
+- **Weights:** Regular = default (top bars, rows, buttons, inactive nav, sidebar, rail) · Fill = active nav item, play / pause, status-chip icons except `check` · Duotone = inside coloured `IconTile`s (back layer alpha 0.2).
+- **Colour:** always the tint, never a colour inside the vector.
+- **Accessibility:** icon-only buttons have EN + MY content descriptions (and a tooltip on desktop); an icon next to its label has none.
+- **Nav keys:** home → `house`, folder → `folder-simple`, book → `books`, jobs → `list-checks`, gear → `gear-six`; modes film → `film-slate`, music → `music-notes`, dub → `microphone-stage`, wave → `waveform`, cc → `subtitles`.
+They replace the text glyphs, emoji and hand-drawn Canvas marks that stand for icons today (the nav rail's 🏠 📁 📚 ⚙, ←, ▶, ✎, "+", the drawn ⋮ and ↻).
+
+### 9.4 Components
+Extend what exists; keep public names, signatures in the repo style (`String` labels resolved with `tr`, `StudioAction` for actions) and every `testTag`. New names follow the bundle.
+| Phase 9 part | Today (extend, don't duplicate) | Change |
+|---|---|---|
+| `AfButton` | `AfButton` + `ButtonKind { Primary, Secondary, Flow, Danger }` | Secondary = outline (outlineStrong); add `Text`; Danger = destructive error outline; Flow keeps cyan; optional 18 dp icon (gap 7); `small`; hover, pressed 8 % overlay, disabled 40 % |
+| `StatusChip` | `StatusChip(StudioStatus)`, tag `status-<NAME>` | §7 mapping unchanged; add tone container + optional 15 dp icon |
+| `ModeChip` | `Mode.label()` (`projects/ModeUi.kt`) | neutral chip: mode icon + short name |
+| `FilterChipRow` | `AfChip`, `OptionChips` | scrolling filters with counts (count at 80 % opacity, selected = filled primary); options keep wrapping |
+| `IconTile`, `ListRow`, `TableRow`, `SectionHeader`, `GroupLabel`, `EmptyState` | `AfH2`/`AfH3`, ad-hoc rows | new; row = leading (tile/thumb/avatar) · title 1 line + subtitle ≤ 2 lines · trailing (value/chip/chevron/switch/actions); dividers only inside one card; `TableRow` = desktop list row (≥ 48 dp, hover one surface lighter, selected = primary container + 3 dp left accent) |
+| `AfCard` | `AfCard(title, …)` | title-less variant; `selected`, `attention` (left bar), `onClick`; radius 18 |
+| `AttentionCard` | `JobCard` in Needs you | left bar, icon in a tone container, actions right-aligned (outline secondary, filled primary) |
+| `AfProgress` | progress drawn inside `JobCard` | lifted out; determinate only with real progress, otherwise indeterminate (no fake %) |
+| `MediaThumb` | `RecapThumbnail`, `RefThumb`, `VideoThumb` | duration badge, play overlay, gradient placeholder with the type icon |
+| `AfTopBar` | `ProjectTopBar` (tags `project-back`, `project-overflow`, `project-progress`, `progress-segment-<i>`, `project-page-*`) | back icon button, 1-line title, subtitle with optional 8 dp status dot, ≤ 2 trailing icon buttons |
+| `StepBar` | `ProjectTopBar` segments + Dubbing's chip row (`dub-step-<STEP>`) | phone: N equal 4 dp segments (done/current primary, to-do `Line`), micro label under each (current primaryText SemiBold, ≤ 2 lines); desktop: horizontal numbered steps (done = check); a step is tappable only where it is today |
+| `StickyActionBar` | `StickyActionBar(primary, secondary, caption)`, tag `sticky-action-bar` | bar colour + top divider; phone: one full-width primary or equal secondary + primary, optional leading control (e.g. m4a / wav) and centred hint; desktop: hints left, buttons right (min 150, never full width); keeps `imePadding` |
+| `Segmented` | `OptionChips` used as a single choice | track surface2 + outline, radius 12, padding 3; selected surface3; 34 dp segments (48 touch) |
+| `SwitchRow` | `AfSwitch` | title + subtitle + switch row |
+| `AfBottomNav` · `AfSidebar` · `AfRail` | `V2BottomNav`, `V2NavRail` (≥ 600 dp, 5A-6), `V2NavRailCompact` (60 dp, ≥ 840 dp three-pane), badge tag `jobs-badge` | bottom nav: icon + micro label, active pill + primaryText; sidebar 244 dp and rail 72 dp per §9.8 with the same items, badge and tooltips; the badge keeps the §7 rule (amber Needs-you count first, else cyan Running + Queued), hidden at 0, "9+" above 9 |
+| `ListDetailPane` · `EditorPanes` | `ProjectPanes` and the per-screen ≥ 840 dp columns (§7) | expanded-width panes of §9.8 (list–detail for Projects, Jobs, Library, Settings; editor panes for Subtitles, Dubbing) |
+A debug-only gallery (screenshot test) shows every component in every state, EN + MY, font 1.0 and 2.0, phone and desktop widths.
+
+### 9.5 Thumbnails (D-99)
+Extend the existing cache (`RecapThumbnails` + `FrameGrab.thumb`, 240 px JPEG — the bundle says 320 px; the repo size stays unless a screen needs more — rebuildable app data outside the project, viewport-started, off the main thread; `decodeImage`) to the rows that have none today: Home Continue, Projects, Jobs, Library, Dubbing/Subtitles players. Source: Recap / Dubbing / Subtitles = the source video; Music Video = the first image or the last output; a finished job = its output; audio-only and voice items show an `IconTile`. Frame at 10 % of the duration, clamped 1–60 s. Keyed by project + source path + size + mtime; written through a `.part` file then renamed; one at a time, low priority, paused while a render or export runs; small in-memory LRU (~30). A missing or failed frame shows the placeholder, never a fake picture. Never written into a project folder, `project.json` or artifacts; deleting the cache is always safe.
+
+### 9.6 No-clipping test and screenshots
+In tests every laid-out text is checked (P9-1): `hasVisualOverflow` against its own box, clipping by a parent (only a scroll viewport or the window edge may hide part of a text), truncation against `maxLines` and syllable cuts. The MY smoke at 360 dp × font 2.0 fails if a nav label, step label, chip or button overflows. Screenshot grid: EN + MY × 360 / 412 / 840 / 1440 dp × font 1.0 / 1.3 / 2.0, desktop windows 1024 × 680, 1440 × 900 and 1920 × 1080 (MY, bundled font, plus one fallback-font shot) — `AUTOFLOW_SCREENSHOTS_DIR`, CI `windows-screenshots`. **Every PR description** carries before/after pairs at 360 dp MY font 1.0 and 2.0 and a 1440 × 900 desktop pair (MY, font 1.0, bundled font) (owner, 2026-11-21).
+
+### 9.7 Screens (top to bottom; "hide" = leave out when not real)
+- **Home (panel 1, D1):** header (spark tile, "Auto Flow", greeting caption, gear → Settings) · hero = the existing Quick Recap card (Q-50; no Link button — there is no link import; no time estimate; no drop zone — there is no drag-and-drop; no search field — there is no search) · "ဆက်လုပ်ရန်" + "အားလုံး ›" (→ Projects): latest unfinished project with thumbnail 96×60, title, step text, real progress, play = Resume; hidden when none (desktop: up to 4 thumbnail cards in a row) · "ဖန်တီးမယ်": Movie Recap · Music Video · Dubbing tiles · Quick tools: Voice & Audio · Subtitles · running-job card (opens Jobs; hidden when none; desktop: Jobs column on the right, ≤ 3 items + "အားလုံး ›") · nav. Tags `home-dubbing`, `home-voice-tool`, `home-subtitles-tool` stay; flag-off tiles stay `PlannedTile`.
+- **Projects (panel 2, D2):** title + "<n> ခု" (size only if real and cheap) · no search button (none exists) · "+" = the existing create action · filter chips All + one per mode with projects · rows: thumbnail 100×62 (duration badge only if known), 1-line title, `ModeChip`, a `StatusChip` only where a real state exists (e.g. a running or failed job of that project — `ProjectEntry` has no status), meta from the entry (relative date · ratio · shots), ⋮ with the existing actions · removed-projects row opens the existing list (retention text only if a rule exists) · Package / Backup: Settings plus the ⋮ menu (Q-51; Open package from D-96 stays) · empty state per filter. Desktop: grid of thumbnail cards (min 260 dp, 3 columns at 1440) + 360 dp detail pane (thumbnail, title, chips, facts, "ဆက်လုပ်မယ်" primary, folder / Package outline, remove last as destructive text); click selects, double-click or Enter opens, right-click = ⋮. A sort menu or grid/list toggle only if one exists.
+- **Jobs (panel 3):** title + counts · groups as `JobGroup` today: Running (thumb 64×40, title, step + meta, progress; Pause/Resume/Cancel only where supported) · Needs you as `AttentionCard`s (review = warning, failed = error with the plain reason; Retry / Resume remaining as today) · Finished (thumbnail, meta, play · share · save where `FileShare` supports them) · empty state. Desktop: list–detail.
+- **Recap and Music Video (no new mockup):** `AfTopBar` + `StepBar` with the existing steps, `StickyActionBar` per step, cards instead of stacked buttons, thumbnails in scene/clip lists, `StatusChip` for review, `AttentionCard` for needs-you; desktop editor panes with the rail. Renders stay byte-identical (existing tests).
+- **Subtitles editor (panel 5, D4):** top bar (title, project, status dot + "မသိမ်းရသေးပါ" only while unsaved, ⋮) · 16:9 player (radius 16) with the current cue as a preview overlay · 28 dp timeline strip (cue blocks: normal primary 33 %, selected primary, warning amber, untranslated red; playhead; `tnum` times; display-only — the editor has no drag-to-retime) · `Segmented` မူရင်း / မြန်မာ / နှစ်ခုလုံး + "စစ်ရန် N" filter chip · lazy cue cards ("#n start → end", state chip, MY 14.5, source 12.5 muted in Both; the selected card shows only existing actions) · sticky Discard / Save with "ပြင်ထားသည် N ကြောင်း" and the Undo hint (undo exists: Ctrl Z). Desktop D4: rail; video + timeline left, 460 dp cue list right; hints Space / Ctrl S / Esc (they exist) left, buttons right; "SRT ထုတ်မယ်" only if export exists.
+- **Dubbing (panels 6–7, D3):** shell = `AfTopBar` "Dubbing · <project>" + "အဆင့် k/5 · <step>" + `StepBar` of the real `DubStep`s (replaces the chip row that overflows at 360 dp × font 2.0) + sticky main action. Voice step: voice card (avatar, "<voice> · <provider>", lock chip when locked) · original-sound `Segmented` with the real options · `FilterChipRow` with counts · line cards with the fit chip (fits = success, uses the pause = info, "+x.x s" = warning with left bar and "စာ ပြင်မယ်" / "တိုအောင် (Gemini)" — shorten exists, not generated = neutral) and play on generated lines · sticky "ကျန် N ကြောင်း အသံထုတ်မယ်" + "ပြီး X/Y". Export step: output card (thumbnail 124×74 + play, title, format, size only if real, destination, real resolution `Segmented`) · subtitle `SwitchRow` with its option chips only when on · checklist from real checks (failing = warning + fix link) with a count chip · Render package row (D-96) · sticky export, disabled with its reason while a check fails. Desktop D3: rail; line table left (# · time · Burmese + source line · duration · fit chip · play, filter chips), selected line expands in place; right column 500 dp: video 16:9 with the subtitle overlay, waveform card for the selected line, voice card + original-sound segmented; shortcut hints left only for keys that exist.
+- **Voice & Audio (panel 8):** top bar · task `Segmented` (only with more than one real task) · text card (character count; import file / polish only if they exist) · voice card with "ပြောင်းမယ်" · tone chips (they exist) · parts card (play, 1-line preview, duration or "မထုတ်ရသေး") · sticky bar: leading m4a / wav `Segmented`, primary "ကျန် N ပိုင်း အသံထုတ်", hint with format + destination.
+- **Library:** phone 2-column grid or thumbnail rows with a type chip; `FilterChipRow` by type; play/share; `EmptyState`. Desktop: list–detail.
+- **Settings (panel 4):** pushed screen with back; groups အထွေထွေ (language) · AI နှင့် Key (Gemini key, Chatbox AI license with saved / not set chips, TTS providers) · ထုတ်ယူမှု (real defaults) · သိုလှောင်မှုနှင့် စစ်ဆေးမှု (Backup, Render package, Self-test — no storage usage, result chip or last-backup time: Settings has none of them today). Each row opens the **existing** controls unchanged; footer = version + build. Desktop: categories left, the chosen page right. The PR lists every old control and where it moved.
+
+### 9.8 Desktop and wide screens (mockup 3, D-103)
+One composable tree per screen for every width (D-22); only the layout changes by width class, with the phone components.
+- **Width classes:** compact < 600 dp = the phone layouts · medium 600–839 = phone layout, content max 640 dp centred, 72 dp rail instead of the bottom nav · expanded ≥ 840 = desktop layouts. Today: bottom nav < 600, `V2NavRail` ≥ 600 and `V2NavRailCompact` (60 dp) in the ≥ 840 three-pane layouts — P9-2/P9-6 turn these into the bottom nav, the 72 dp rail and the 244 dp sidebar.
+- **Shell (expanded):** native OS title bar (Q-53). Sidebar 244 dp on `Background` with a right divider: brand tile + "Auto Flow"; primary "ပရောဂျက် အသစ်" (the existing create action); nav ပင်မ · ပရောဂျက်များ · စာကြည့်တိုက် · အလုပ်များ (badge); group "ဖန်တီးမယ်" with the create shortcuts (26 dp duotone tiles) for modes that exist; Settings at the bottom. No storage meter (no real storage figure exists). Nav rows 42 dp, radius 10; active = primary container + Fill icon. Editors (Subtitles, Dubbing, the Recap/MV editors) and windows < 1200 dp use the 72 dp icon rail (48 dp items, tooltips, same badge). Content padding 22 top / 30 sides; pane gap 18; panes are `AfCard`s with radius 16.
+- **Jobs, Library, Settings (no mockup):** list–detail, list 420–480 dp left, detail right; Settings = the panel 4 groups as categories left, the page right.
+- **Lists and tables:** rows ≥ 48 dp; hover one surface step lighter; selected = primary container + 3 dp left accent.
+- **Pointer and keyboard:** hover on every clickable; tooltips (EN/MY) on icon-only buttons; visible scrollbars on scrolling panes; right-click = the same ⋮ menu. Shortcuts only for existing actions — today: Subtitles editor Space · ↑/↓ · Enter · Ctrl S · Ctrl Z (`SubtitleEditor`), project screens Space · ← / → (`ProjectShortcuts`); no search (no Ctrl K), no drag-and-drop, no drag-to-retime. The window sets no minimum size today; P9-18 adds 1024 × 680.
+- **Fonts:** desktop uses the bundled Myanmar font; the CI `fallback` shots are checked too. Nothing is clipped at font 2.0 at 1440 × 900 and 1024 × 680.
+
+### 9.9 Burmese labels
+The bundle's labels are proposals. Reuse existing `UiText` entries first (e.g. nav `HOME` · `PROJECTS` · `LIBRARY` · `JOBS`, `V3_JOBS_NEEDS_YOU` "သင် လုပ်ဆောင်ရန် လိုသည်", `V3_JOBS_FINISHED`); every new key has EN + MY with identical placeholders and is listed in its PR for the owner to check.

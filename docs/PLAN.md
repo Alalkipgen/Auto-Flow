@@ -288,6 +288,35 @@ Five asks from the owner's phone test of the Phase 7 APK (Dubbing export screens
 - [x] F-6 `tool-preview` — every tool can be watched before its render: phone Recap steps open the preview pane as a page (top bar ▶ / ✎), Music Video gets a Preview page (shots + lyrics + song) also shown on Export, Dubbing plays the current takes over the video on Script / Voice / Export, and Subtitles export shows the burned look under the playhead (D-95).
 - [x] F-7 `render-package` — one project with only what its render needs (project, sources, used artifacts, the font, `render.json` with the export screen's choices and the pronunciation fixes) as a zip from every export screen (📦 Render package; phone copy in `Download/AutoFlow/`, Share); Projects ▸ Open package unpacks and opens it on another phone or PC; the Linux app (`autoflow-linux-x64-<sha>` CI artifact) renders it without a window: `AutoFlow --render pkg.zip --out out/` (exit 0 / 1 / 2) — docs/render-package.md (D-96).
 
+## Phase 9 — UI Polish, visual layer only (owner requested 2026-11-21)
+
+Make every screen follow the Phase 9 mockups (`docs/mockups/ui-polish/`: phone panels 1–8, desktop D1–D4) on **phone and desktop (Windows/Linux)** with shared theme tokens and components: Phosphor icons, icon nav + desktop sidebar/rail, thumbnails, cards, status chips, step bar, sticky action bar, list–detail and editor panes, grouped settings, Burmese that never clips. Spec: DESIGN §9; decisions D-97…D-103; questions Q-46…Q-53. Base: top of the open Draft stack, PR #260 `work/phase-8-render-package` @ `c298c06` (CI 6/6 green; `main` @ `d5bada8`); each Phase 9 PR is a Draft stacked on the previous one, ≤ ~400 changed lines (screenshots excluded), split a/b when bigger. Visual only (D-97): no feature, model, `project.json`, job, render, AI, route, flag or settings-semantics change; Recap and MV outputs byte-identical; every `testTag` kept; no new dependency without a DECISIONS entry and the owner's yes (Phosphor is copied in as code, D-98). Every screen PR does the phone and the desktop layout together (D-103, DESIGN §9.8). Every PR: `./gradlew check` + all CI jobs green, before/after screenshots (360 dp MY font 1.0 and 2.0, 1440 × 900 desktop MY font 1.0; full grid in CI `windows-screenshots`), the list of new Burmese strings, and the mockup elements left out because the app does not have them. Statuses as in Phase 7: IMPLEMENTED · AUTOMATION_VERIFIED · PHONE_PENDING · OWNER_ACCEPTED (the last two only from the owner); phone checks never block (D-85) — at the end of M1–M4 the owner gets the build names and the Burmese checklist.
+
+- [x] P9-0 `polish-docs` — docs only: this section, DESIGN §9 (port of the bundle DESIGN §1–§7, checked against the code), D-97…D-103, Q-46…Q-53, compressed mockups 1–3 in `docs/mockups/ui-polish/` (imported by a one-time scoped workflow like PR-0 #176), Phosphor SVGs + `MAPPING.md` + MIT licence + converter in `docs/mockups/ui-polish/icons/`. IMPLEMENTED.
+- M1 foundation
+  - [ ] P9-1 `polish-tokens` — colour roles, type scale with Burmese line heights, spacing/radius/size tokens incl. desktop shell sizes (DESIGN §9.2); shared text styles; overflow-reporting check for tests. Done when `rg "Color\(0x"` hits only theme files or a documented allow-list and MY 360 dp × font 2.0 shows no clipping.
+  - [ ] P9-2 `polish-icons-nav` — Phosphor icons as in-repo `ImageVector`s (§9.3, MIT notice), `IconTile`; phone bottom nav (icon + label + active pill + badge); desktop sidebar 244 dp and rail 72 dp with the same items, badge and tooltips. Done when the nav fits at 360 dp × 2.0 (2-line labels allowed), sidebar labels are never cut at 1440 × font 2.0, the badge keeps the §7 rule and hides at 0, EN/MY content descriptions, no icon dependency in Gradle.
+  - [ ] P9-3 `polish-buttons-chips` — button kinds (primary, outline, text, small, destructive, optional icon), `StatusChip` tone + icon, `ModeChip`, `FilterChipRow` with counts, scroll vs wrap rows, hover + focus. Done when touch targets ≥ 48 dp, chip text is never cut, the gallery shows every state.
+  - [ ] P9-4 `polish-cards-rows` — `AfCard` variants, `ListRow`, `TableRow`, `SectionHeader`, `GroupLabel`, `AttentionCard`, `EmptyState`, `AfProgress`. Done when the gallery is green in EN/MY at font 1.0 and 2.0, phone and desktop widths.
+  - [ ] P9-5 `polish-bars` — `AfTopBar` (from `ProjectTopBar`), `StepBar` (phone bars + labels; desktop numbered steps), `StickyActionBar` (phone full-width; desktop hints left, buttons right), `Segmented`, `SwitchRow`. Done when step labels use ≤ 2 lines and are never cut and the sticky bar stays above insets and the keyboard.
+  - [ ] P9-6 `polish-adaptive-shell` — width classes (compact < 600, medium 600–839, expanded ≥ 840), sidebar / rail (editors and < 1200 dp), `ListDetailPane`, `EditorPanes`, desktop scrollbars, hover, tooltips, right-click = ⋮. Done when one composable tree per screen (D-22) and resizing 360 → 1920 never clips or overlaps.
+  - [ ] P9-7 `polish-thumbnails` — the existing thumbnail cache extended (D-99, §9.5) + `MediaThumb`. Done when a test proves `project.json` bytes unchanged, no work runs on the main thread and a failure shows the placeholder.
+- M2 (each phone + desktop)
+  - [ ] P9-8 `polish-home` — Home = panel 1 + D1 (§9.7, §9.8).
+  - [ ] P9-9 `polish-projects` — Projects = panel 2 + D2 (grid + detail pane).
+  - [ ] P9-10 `polish-jobs` — Jobs = panel 3 + desktop list–detail.
+- M3 (each phone + desktop)
+  - [ ] P9-11 `polish-recap` (a/b) — Recap flow; renders byte-identical.
+  - [ ] P9-12 `polish-subtitles` (a/b) — Subtitles editor = panel 5 + D4 and the other subtitle screens.
+  - [ ] P9-13 `polish-dubbing` (a: shell + steps 1–4, b: export) — panels 6–7 + D3; the 360 dp × font 2.0 step-row overflow is gone.
+  - [ ] P9-14 `polish-voice` — Voice & Audio = panel 8.
+  - [ ] P9-15 `polish-music-video` — Music Video flow; renders byte-identical.
+- M4
+  - [ ] P9-16 `polish-library` — Library, phone + desktop list–detail.
+  - [ ] P9-17 `polish-settings` (a/b) — Settings = panel 4 + desktop categories / page; every old control still reachable; the PR lists each control and where it moved.
+  - [ ] P9-18 `polish-desktop-extras` — right-click menus (= the ⋮ items), shortcuts for existing actions only, drag-and-drop only where it exists (none today), window minimum size 1024 × 680. Nothing changes on Android.
+  - [ ] P9-19 `polish-final-sweep` — 360 / 600 / 840 / 1024 / 1440 / 1920 widths, font 1.0 / 1.3 / 2.0, bundled and fallback Myanmar font on desktop; final before/after sheet; PLAN statuses.
+
 ## Open Questions
 - ~~Q-36 Phase 7 phone QA~~ Resolved (owner, 2026-11-20) → D-85: no fixed phone-QA schedule; the owner checks whenever he wants and the agent never waits for a phone test.
 - Phase 7 owner answers (2026-11-20): Q-14 resolved (b) — no Azure (no key), add Edge TTS instead (D-86). Q-37…Q-40, Q-43, Q-44 use the defaults below; Q-41/Q-42 keep their defaults (10 min, 1.0×) until the owner decides later.
@@ -298,6 +327,15 @@ Five asks from the owner's phone test of the Phase 7 APK (Dubbing export screens
 - Q-41 Dubbing v1 maximum length: set from the D-0 measurements. ~~Blocks D-1.~~ D-0 CI part (docs/perf/dubbing-d0.md): the mix of 10 min takes ~12 s, so the default **10 min** stays; TTS time (300 lines ≈ 100 min at 3 rpm) is the practical limit — the owner may lower `dubbing.maxSourceMs` later.
 - Q-42 Dubbing speed limit = spike S8 result: until the owner listens, `dubbing.maxVoiceSpeed` = 1.0 (no speed-up). Blocks only the D-2 speed step. (Recap's fit rows default to 1.5×; Dubbing does not use them.)
 - ~~Q-45 Edge TTS (V-1b, D-86)~~ — answered 2026-11-20 by the owner: (a) build it, free and selectable next to Gemini (D-90).
+- Phase 9 owner answers (2026-11-21): Q-46, Q-47 and Q-49 answered below; Q-48 and Q-50…Q-53 use their defaults until the owner says otherwise (none blocks a PR).
+- ~~Q-46 Phase 9: add Azure Speech now?~~ Answered (owner, 2026-11-21): not now — Edge + Gemini are enough (D-86, D-90 stand).
+- ~~Q-47 Land the open stack #161–#260 into `main` before Phase 9?~~ Answered (owner, 2026-11-21): no — Phase 9 stacks on the top of the open stack (#260 @ `c298c06`).
+- Q-48 Keep the UI v3 colours or switch to the mockup palette? Default **keep** (D-102); change only where contrast or hierarchy needs it (the mockup primary fails AA with white text).
+- ~~Q-49 Icons in the repo or from an icon library?~~ Answered (owner, chat 2026-11-21): Phosphor, copied into the repo as `ImageVector`s — no dependency (D-98).
+- Q-50 Home's main action a big Quick Recap card? Default **yes** — Quick Recap exists (P9-7).
+- Q-51 Package / Backup buttons on Projects too, or only in Settings? Default **Settings plus the Projects ⋮ menu** (P9-8, P9-16).
+- Q-52 Phone check after M2, M3 and M4, or only at the end? Default **after each milestone**, never blocking (D-85).
+- Q-53 Desktop window: native title bar or a custom one? Default **native** (D-103); the bar in mockup 3 is only a picture.
 - Q-43 Quick-tool projects in Projects: default **shown with a mode chip**. Blocks S-1 presentation only.
 - Q-44 Zawgyi `.srt` (S-2): no detector exists in the repo. Default: S-2 detects likely Zawgyi with a small in-house check and warns, without converting. "Convert to Unicode" needs a conversion table (a new dependency or ported rules) → a DECISIONS line and the owner's yes first. Q-14 is resolved (D-86).
 - F3 inline progress: the storyboard generator sends a whole-shot batch and provides no streamed shot counts. Show two logical stages, not a guessed shot percentage. Foreground requests are not resumed after process death.
@@ -463,6 +501,7 @@ Five asks from the owner's phone test of the Phase 7 APK (Dubbing export screens
 - 2026-11-16 Follow-up C/D (D-64): historical harness contracts mapped to current default-model/native-v2/serialized-save coverage; deterministic blocked-writer and child-JVM committed-byte assertions retained. Copy-only original-v1 recovery command and real-disk V1ProjectCopyTest; current v2 edits, backup and all artifacts unchanged. Procedure: `docs/FOLLOWUP-VERIFICATION.md`. No recovery UI or automatic replacement.
 - 2026-11-20 Phase 7 plan (Subtitles · Voice & Audio · Dubbing) ported as docs only (P7-0): specs/quick-tools.md, specs/dubbing.md, DESIGN §8, D-77…D-84, Q-36…Q-44. Base PR #216 @ `8d092a0`.
 - 2026-11-20 Phase 7 owner answers: phone checks never block (D-85); no Azure, Edge TTS added as V-1b (D-86); other questions use the defaults.
+- 2026-11-21 Phase 9 plan (UI Polish, visual layer only, phone + desktop) ported as docs only (P9-0): PLAN Phase 9, DESIGN §9, D-97…D-103, Q-46…Q-53, `docs/mockups/ui-polish/` (mockups 1–3, Phosphor icons). Base PR #260 @ `c298c06`. Owner answers: no Azure now (Q-46); keep stacking on the open stack (Q-47); Phosphor icons copied in (Q-49).
 
 
 ### Selected-take waveform — separate task 5 (in progress; stacked after PR196)
