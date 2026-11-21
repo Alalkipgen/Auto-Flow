@@ -157,11 +157,11 @@ private fun NumberedSteps(texts: List<String>, current: Int) = Row(verticalAlign
  * Sticky bar actions. Phone: [primary] full width, or [secondary] + [primary] of equal width (stacked, each full
  * width, when a label does not fit half the bar), an optional [leading] control first, then the [hint] centred below.
  * Desktop: the hint on the left and the buttons on the right (each ≥ 150 dp, never full width); the hint moves above
- * the buttons when both do not fit one line.
+ * the buttons when both do not fit one line. [keys] (desktop only, e.g. [KeyHints]) go above the hint.
  */
 @Composable
 internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (@Composable (Modifier) -> Unit)?,
-    hint: String?, leading: (@Composable () -> Unit)?) {
+    hint: String?, leading: (@Composable () -> Unit)?, keys: (@Composable () -> Unit)? = null) {
     if (LocalCompact.current) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
         Layout({ leading?.invoke(); secondary?.invoke(Modifier); primary(Modifier) }) { items, c ->
             val gap = AfSpace.S.roundToPx()
@@ -182,14 +182,17 @@ internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (
         }
         hint?.let { AfText(it, Modifier.fillMaxWidth(), color = AutoFlowColors.Muted, type = AfType.Caption, textAlign = TextAlign.Center) }
     } else Layout({
-        hint?.let { AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption) }
+        if (hint != null || keys != null) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
+            keys?.invoke()
+            hint?.let { AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption) }
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(AfSpace.S, Alignment.End), verticalArrangement = Arrangement.spacedBy(AfSpace.S),
             itemVerticalAlignment = Alignment.CenterVertically) {
             leading?.invoke(); secondary?.invoke(Modifier.widthIn(min = AfDesktop.StickyButtonMin)); primary(Modifier.widthIn(min = AfDesktop.StickyButtonMin))
         }
     }) { items, c ->
         val gap = AfSpace.L.roundToPx()
-        val text = if (hint != null) items.first() else null
+        val text = if (hint != null || keys != null) items.first() else null
         val row = items.last()
         val rowWidth = row.maxIntrinsicWidth(Constraints.Infinity).coerceAtMost(c.maxWidth)
         val beside = text == null || rowWidth + gap + minOf(text.maxIntrinsicWidth(Constraints.Infinity), HintMin.roundToPx()) <= c.maxWidth
@@ -296,4 +299,22 @@ fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boo
 internal fun SwitchTrack(checked: Boolean) = Box(Modifier.size(40.dp, 24.dp).clip(CircleShape)
     .background(if (checked) AutoFlowColors.PrimaryFill else AutoFlowColors.LineStrong)) {
     Box(Modifier.offset(x = if (checked) 19.dp else 3.dp, y = 3.dp).size(18.dp).clip(CircleShape).background(Color.White))
+}
+
+/**
+ * Keyboard shortcuts for a desktop sticky bar (DESIGN.md §9.8, D4): each key in a small outlined cap, then what it does
+ * ([keys] = key name to its label). Only list keys the screen really handles.
+ */
+@Composable
+fun KeyHints(keys: List<Pair<String, String>>, modifier: Modifier = Modifier) {
+    FlowRow(modifier.testTag("key-hints"), horizontalArrangement = Arrangement.spacedBy(AfSpace.L),
+        verticalArrangement = Arrangement.spacedBy(AfSpace.Xs), itemVerticalAlignment = Alignment.CenterVertically) {
+        keys.forEach { (key, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+                AfText(key, Modifier.border(AutoFlowShapes.Border, AutoFlowColors.LineStrong, RoundedCornerShape(AfRadius.Key))
+                    .padding(horizontal = AfSpace.S).testTag("key-hint-cap"), type = AfType.Micro)
+                AfText(My.breakSyllables(label), color = AutoFlowColors.Muted, type = AfType.Caption)
+            }
+        }
+    }
 }

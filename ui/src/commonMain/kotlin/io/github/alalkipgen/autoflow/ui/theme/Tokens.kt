@@ -37,6 +37,8 @@ object AfRadius {
     val Thumb = 10.dp
     val Player = 16.dp
     val Progress = 3.dp
+    /** A keyboard key cap in desktop hints. */
+    val Key = 6.dp
 }
 
 /** Component sizes (dp): visual sizes; every control keeps a 48 dp touch target ([Touch]). */
