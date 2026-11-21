@@ -2,9 +2,11 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -20,6 +22,8 @@ import io.github.alalkipgen.autoflow.media.playback.MovieSnapshot
 import io.github.alalkipgen.autoflow.media.render.Overlay
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.theme.AfRadius
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** The editor's playhead: where the video is, whether it plays, and a seek counter (one seek per change). */
@@ -57,7 +61,7 @@ internal fun moviePlayer(vlcDir: String?): SubtitlePlayer = { path, request, mod
 }
 
 /**
- * The video with the line under the playhead drawn over it (the chosen view), Play/Pause and a scrubber. Kept to a
+ * The video (radius 16) with the line under the playhead drawn over it (the chosen view), Play/Pause and a scrubber. Kept to a
  * third of the window height ([heightShare]) so the lines stay in sight on a phone. Without a decoder it says so; editing goes on.
  * F-6 (D-95), the preview before a render: [burned] = the burn's own overlays, drawn as the video will show them instead
  * of the plain line (empty = no subtitles on the video); the movie's sound at [volume] (0 = muted) and [sound] for
@@ -77,7 +81,8 @@ internal fun SubtitlePreview(path: String, video: SourceVideo, cues: List<Subtit
             AfText(TimeText.show(playhead.positionMs), Modifier.testTag("$tag-playhead"), mono = true)
         } else BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             val width = minOf(maxWidth.value, viewport * heightShare * aspect)
-            Box(Modifier.width(width.dp).aspectRatio(aspect).background(AutoFlowColors.Panel).testTag("$tag-preview"),
+            Box(Modifier.width(width.dp).aspectRatio(aspect).clip(RoundedCornerShape(AfRadius.Player)).background(AutoFlowColors.Panel)
+                .testTag("$tag-preview"),
                 contentAlignment = Alignment.BottomCenter) {
                 player(path, MovieRequest(playhead.seekMs, playhead.revision, playing = playhead.playing, muted = volume <= 0f,
                     volume = volume.coerceIn(0f, 1f)), Modifier.fillMaxSize()) { if (!playhead.report(it)) failed = true }
@@ -98,7 +103,7 @@ internal fun SubtitlePreview(path: String, video: SourceVideo, cues: List<Subtit
         if (!failed) sound(playhead.positionMs, playhead.playing)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfButton(My.breakSyllables(tr(if (playhead.playing) UiText.SUB_PAUSE else UiText.SUB_PLAY)), playhead::toggle,
-                Modifier.testTag("$tag-play"), enabled = !failed)
+                Modifier.testTag("$tag-play"), enabled = !failed, icon = if (playhead.playing) AfIcons.Fill.Pause else AfIcons.Fill.Play)
             AfScrubber(playhead.positionMs.toFloat() / duration, tr(UiText.SUB_PLAYHEAD),
                 { playhead.seek((it * duration).toLong()) }, Modifier.weight(1f).testTag("$tag-scrubber"))
         }
