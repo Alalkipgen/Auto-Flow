@@ -78,15 +78,15 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
 /**
  * A measured sibling of the scrolling content, not an overlay with a guessed bottom spacer: bar colour with a top
  * divider, above the keyboard. [caption] is the hint (centred below on a phone, left on the desktop); [leading] is an
- * optional control before the buttons (DESIGN.md §9.4).
+ * optional control before the buttons; [keys] = desktop keyboard hints above the caption (DESIGN.md §9.4, §9.8).
  */
 @Composable
 fun StickyActionBar(primary: StudioAction, secondary: StudioAction? = null, caption: String? = null, modifier: Modifier = Modifier,
-    leading: (@Composable () -> Unit)? = null) {
+    leading: (@Composable () -> Unit)? = null, keys: (@Composable () -> Unit)? = null) {
     Column(modifier.fillMaxWidth().background(AutoFlowColors.TitleBar).imePadding().testTag("sticky-action-bar")) {
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
         Box(Modifier.padding(horizontal = if (LocalCompact.current) 12.dp else 16.dp, vertical = 12.dp)) {
-            StickyActions({ Action(primary, true, it) }, secondary?.let { s -> { Action(s, modifier = it) } }, caption, leading)
+            StickyActions({ Action(primary, true, it) }, secondary?.let { s -> { Action(s, modifier = it) } }, caption, leading, keys)
         }
     }
 }

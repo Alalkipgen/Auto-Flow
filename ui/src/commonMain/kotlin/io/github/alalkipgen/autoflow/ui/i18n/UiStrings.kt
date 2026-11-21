@@ -1363,6 +1363,8 @@ enum class UiText(val en: String, val my: String?) {
     SUB_UNDO("Undo", "ပြန်ဖျက်မယ်"),
     SUB_REDO("Redo", "ပြန်လုပ်မယ်"),
     SUB_EDIT_LINE("Edit line", "စာကြောင်း ပြင်မယ်"),
+    SUB_KEY_PLAY("Play / pause", "ဖွင့် / ခဏရပ်"),
+    SUB_KEY_LINE("Previous / next line", "ယခင် / နောက် စာကြောင်း"),
     SUB_START("Start", "စချိန်"),
     SUB_END("End", "ဆုံးချိန်"),
     SUB_TIME_FORMAT("Write a time like 1:02.5 or 1:02:03.5. The old time is kept.", "အချိန်ကို 1:02.5 (သို့) 1:02:03.5 လို ရေးပါ။ အချိန်ဟောင်းကို ထားလိုက်ပါတယ်။"),

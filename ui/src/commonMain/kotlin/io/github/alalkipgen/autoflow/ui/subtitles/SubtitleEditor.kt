@@ -1,5 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -139,22 +143,31 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             }
         }
     }
+    // D4: the keys [onKey] handles, on the desktop bar (never while a translation locks the editor).
+    val keys: (@Composable () -> Unit)? = if (wide && idle) ({
+        KeyHints(listOf("Space" to tr(UiText.SUB_KEY_PLAY), "↑ ↓" to tr(UiText.SUB_KEY_LINE), "Enter" to tr(UiText.SUB_EDIT_LINE),
+            "Ctrl S" to tr(UiText.SAVE), "Ctrl Z" to tr(UiText.SUB_UNDO)), Modifier.testTag("subtitles-keys"))
+    }) else null
     // The editor's video waits while the export's own preview plays (one sound at a time).
     LaunchedEffect(exporting) { if (exporting) playhead.playing = false }
     if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base, { exporting = false }, burner,
         cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 }, BurnPreviewVideo(path, video, player))
     ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
-            if (wide) Row(Modifier.weight(1f).fillMaxWidth().testTag("subtitles-wide")) {
-                Column(Modifier.weight(0.46f).fillMaxHeight().paneScroll(rememberScrollState())
-                    .padding(start = screenPadding, top = screenPadding, bottom = screenPadding).testTag("subtitles-left"),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // D4: the video, its strip and the open line's panel left; the lines in a 460 dp pane right.
+            if (wide) EditorPanes(windowWidthDp(), main = {
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("subtitles-left"),
+                    verticalArrangement = Arrangement.spacedBy(AfSpace.M)) {
                     preview()
                     val i = cues.indexOfFirst { it.id == editing }
                     if (i >= 0 && idle) panel(i, cues[i])
                 }
-                cueList(Modifier.weight(0.54f).fillMaxHeight(), false)
-            } else BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            }, side = {
+                val pane = RoundedCornerShape(AfDesktop.PaneRadius)
+                Box(Modifier.fillMaxSize().clip(pane).background(AutoFlowColors.Panel).border(AutoFlowShapes.Border, AutoFlowColors.Line, pane)
+                    .testTag("subtitles-list-pane")) { cueList(Modifier.fillMaxSize(), false) }
+            }, Modifier.weight(1f).padding(start = screenPadding, end = screenPadding, top = AfSpace.L, bottom = AfSpace.L).testTag("subtitles-wide"))
+            else BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val pin = maxHeight >= AfSize.SubtitlesPinMin * LocalDensity.current.fontScale
                 Column(Modifier.fillMaxSize()) {
                     if (pin) Column(Modifier.fillMaxWidth().padding(start = screenPadding, end = screenPadding, top = 8.dp),
@@ -169,7 +182,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             else if (draft.dirty) StickyActionBar(
                 primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save", icon = AfIcons.Regular.Check),
                 secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard"),
-                caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)),
+                caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)), keys = keys,
             )
             else {
                 val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open") }
@@ -177,8 +190,8 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask(); scope.launch { list.animateScrollToItem(0) } },
                         enabled = idle, tag = "subtitles-translate")
                 }
-                if (export != null) StickyActionBar(primary = export, secondary = toMy)
-                else if (toMy != null) StickyActionBar(primary = toMy)
+                if (export != null) StickyActionBar(primary = export, secondary = toMy, keys = keys)
+                else if (toMy != null) StickyActionBar(primary = toMy, keys = keys)
             }
         }
     }
