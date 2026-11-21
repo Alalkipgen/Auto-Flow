@@ -79,6 +79,9 @@ class StudioThumbnailsLayoutTest(val width: Int, val font: Float, val language: 
                 val captures = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "thumbnails").apply { mkdirs() }
                 fun image(tag: String, parent: String) {
                     onNodeWithTag(parent).performScrollTo().assertIsDisplayed()
+                    // At 360 dp / font 2.0 the card is taller than the space between the bars: bring its picture slot
+                    // into view, since a thumbnail loads only once its slot is on screen.
+                    onNodeWithTag("$tag-slot", useUnmergedTree = true).performScrollTo()
                     waitUntil(timeoutMillis = 20_000) { onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
                     onNodeWithTag(tag, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
                     val bounds = onNodeWithTag(tag, useUnmergedTree = true).getUnclippedBoundsInRoot()
