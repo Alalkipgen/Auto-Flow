@@ -37,8 +37,12 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.serialization.json.JsonElement
 
-/** An in-memory Subtitles project named [name]: [lines] (ids c1, c2, …) over a [durationMs] video. Nothing touches the disk. */
-internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: String = "Clip", private val scope: CoroutineScope = MainScope()) {
+/**
+ * An in-memory Subtitles project named [name] (a Dubbing project with [dub]): [lines] (ids c1, c2, …) over a [durationMs]
+ * video. Nothing touches the disk.
+ */
+internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: String = "Clip", private val scope: CoroutineScope = MainScope(),
+    dub: Boolean = false) {
     data class Line(val startMs: Long, val endMs: Long, val text: String, val my: String? = null)
 
     val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
@@ -48,11 +52,12 @@ internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: Strin
     init {
         val doc = SubtitleOps.fromCues(lines.map { SrtCue(it.startMs, it.endMs, it.text) }, SubtitleDoc.SOURCE_SRT)
             .let { d -> d.copy(cues = d.cues.mapIndexed { i, c -> c.copy(textMy = lines[i].my) }) }
-        val created = (store.create(dir, name, Mode.SUBTITLES) as CoreResult.Ok).value
+        val created = (store.create(dir, name, if (dub) Mode.DUBBING else Mode.SUBTITLES) as CoreResult.Ok).value
         val st = (ArtifactStore(fs, dir).put(CoreJson.encodeToString(SubtitleDoc.serializer(), doc).encodeToByteArray(),
             ArtifactKind.SUBTITLES, "json") as CoreResult.Ok).value.id
         val video = SourceVideo("source/movie.mp4", 9, durationMs, 1920, 1080, 25.0)
-        current.set(OpenProject(dir, (store.save(dir, created.copy(subtitles = SubtitlesTool(video = video, current = st))) as CoreResult.Ok).value))
+        current.set(OpenProject(dir, (store.save(dir, created.copy(subtitles = SubtitlesTool(video = video, current = st),
+            dubbing = if (dub) DubbingTool() else created.dubbing)) as CoreResult.Ok).value))
     }
     val model = SubtitlesModel(session, fs, DashboardModel(fs, store, index, SettingsStore(fs, "/app/s.json"), FakePicker(), current),
         null, scope, probe = { null })

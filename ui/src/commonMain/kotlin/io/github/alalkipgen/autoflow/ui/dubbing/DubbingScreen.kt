@@ -1,8 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.dubbing
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,16 +8,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.dubbing.DubBlock
 import io.github.alalkipgen.autoflow.core.subtitles.TimeText
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.subtitles.*
+import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
-/** The five Dubbing steps on the existing `ProjectTopBar` (specs/dubbing.md §2). */
+/** The five Dubbing steps on the existing `ProjectTopBar`, whose step bar chooses them (specs/dubbing.md §2). */
 enum class DubStep(val text: UiText) {
     VIDEO(UiText.DUB_STEP_VIDEO), TRANSLATE(UiText.DUB_STEP_TRANSLATE), SCRIPT(UiText.DUB_STEP_SCRIPT),
     VOICE(UiText.DUB_STEP_VOICE), EXPORT(UiText.DUB_STEP_EXPORT);
@@ -65,11 +66,11 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
         if (export != null && doc != null) DubPreview(export, open, doc, playhead, player, captions)
     }
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
-        ProjectTopBar(open?.project?.name.orEmpty(), shown.ordinal + 1, tr(shown.text), { if (dirty) leaving = true else onBack() })
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp).testTag("dub-steps"),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DubStep.entries.forEach { s -> AfChip(My.breakSyllables(tr(s.text)), s == shown, { step = s }, Modifier.testTag("dub-step-${s.name}")) }
-        }
+        // "Dubbing · <project>"; the step bar is the step chooser (panel 6): each labelled step a tab, no chip row under it.
+        ProjectTopBar(listOfNotNull(tr(UiText.V3_DUBBING), open?.project?.name?.takeIf { it.isNotBlank() }).joinToString(" · "),
+            shown.ordinal + 1, tr(shown.text), { if (dirty) leaving = true else onBack() },
+            steps = DubStep.entries.map { tr(it.text) }, onStep = { step = DubStep.entries[it] },
+            stepTags = DubStep.entries.map { "dub-step-${it.name}" })
         val go: (DubStep) -> Unit = { step = it }
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
             when (shown) {
@@ -148,23 +149,31 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
             item(key = "preview") { preview() } // F-6: scrolls with the lines
             items(rows, key = { it.id }) { r -> ScriptRow(r, { model.setSpoken(r.id, it) }, { model.useSubtitle(r.id) }) }
         }
-        StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_APPROVE)), { model.approve() }, enabled = !approved, tag = "dub-approve"),
+        StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_APPROVE)), { model.approve() }, enabled = !approved, tag = "dub-approve",
+            icon = AfIcons.Regular.Check),
             caption = My.breakSyllables(tr(if (approved) UiText.DUB_APPROVED else UiText.DUB_NOT_APPROVED)))
     }
 }
 
+/** One line as a cue card (panel 6): "#n start → end" in tabular figures, its room, then the subtitle and the spoken line. */
 @Composable
 private fun ScriptRow(r: DubScriptRow, save: (String) -> Unit, useSubtitle: () -> Unit) {
     var text by remember(r.id, r.spoken) { mutableStateOf(r.spoken) }
-    AfCard("#${r.n} · ${TimeText.show(r.startMs)} → ${TimeText.show(r.endMs)}", Modifier.testTag("dub-row-${r.id}")) {
+    AfCard(Modifier.testTag("dub-row-${r.id}")) {
+        WrapRow(Modifier.testTag("dub-row-head-${r.id}")) {
+            AfText("#${r.n}", color = AutoFlowColors.Muted, type = AfType.Numbers, weight = FontWeight.SemiBold)
+            AfText("${TimeText.show(r.startMs)} → ${TimeText.show(r.endMs)}", color = AutoFlowColors.Muted, type = AfType.Numbers)
+        }
         AfText(My.breakSyllables(tr(UiText.DUB_SLOT, "s" to (r.slotMs / 100) / 10.0)), Modifier.testTag("dub-slot-${r.id}"), muted = true)
         AfText(My.breakSyllables(tr(UiText.DUB_SUBTITLE)), bold = true)
         AfText(My.breakSyllables(r.textMy), Modifier.testTag("dub-subtitle-${r.id}"))
         AfText(My.breakSyllables(tr(UiText.DUB_SPOKEN)), bold = true)
         AfTextField(text, { text = it }, tr(UiText.DUB_SPOKEN), Modifier.fillMaxWidth().testTag("dub-spoken-${r.id}"), lines = 2, mono = false)
         WrapRow {
-            if (text.trim() != r.spoken) AfButton(tr(UiText.SAVE), { save(text) }, Modifier.testTag("dub-save-${r.id}"), kind = ButtonKind.Primary)
-            if (r.own) AfButton(My.breakSyllables(tr(UiText.DUB_USE_SUBTITLE)), useSubtitle, Modifier.testTag("dub-use-subtitle-${r.id}"))
+            if (text.trim() != r.spoken) AfButton(tr(UiText.SAVE), { save(text) }, Modifier.testTag("dub-save-${r.id}"), kind = ButtonKind.Primary,
+                icon = AfIcons.Regular.Check)
+            if (r.own) AfButton(My.breakSyllables(tr(UiText.DUB_USE_SUBTITLE)), useSubtitle, Modifier.testTag("dub-use-subtitle-${r.id}"),
+                icon = AfIcons.Regular.Subtitles)
         }
     }
 }

@@ -47,12 +47,13 @@ private fun Action(action: StudioAction, primary: Boolean = false, modifier: Mod
 
 /**
  * Project editor header (DESIGN.md §9.4): [AfTopBar] (back, project name, "step k/5 · label", page preview and ⋮ as
- * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels).
+ * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels); with [onStep] its steps are
+ * tabs tagged [stepTags] (Dubbing moves between its steps there).
  */
 @Composable
 fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit,
     modifier: Modifier = Modifier, options: List<StudioAction> = emptyList(), saveState: StudioStatus? = null,
-    steps: List<String> = emptyList(),
+    steps: List<String> = emptyList(), onStep: ((Int) -> Unit)? = null, stepTags: List<String> = emptyList(),
 ) {
     require(step in 1..5)
     var open by remember(name) { mutableStateOf(false) }
@@ -69,7 +70,7 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
             if (options.isNotEmpty()) AfIconButton(AfIcons.Regular.More, tr(UiText.V3_MORE_OPTIONS), { open = !open },
                 Modifier.testTag("project-overflow"), selected = open)
         }
-        StepBar(steps, step, Modifier.padding(horizontal = 6.dp).testTag("project-progress"), count = 5)
+        StepBar(steps, step, Modifier.padding(horizontal = 6.dp).testTag("project-progress"), count = 5, onSelect = onStep, tags = stepTags)
         saveState?.let { StatusChip(it) } // callers omit this when no reliable save state exists
         if (open) WrapRow { options.forEach { action -> Action(action.copy(onClick = { open = false; action.onClick() })) } }
     }

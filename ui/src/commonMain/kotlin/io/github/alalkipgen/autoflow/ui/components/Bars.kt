@@ -82,10 +82,13 @@ fun AfTopBar(title: String, modifier: Modifier = Modifier, subtitle: String? = n
  * one-line label under each (current `PrimaryText`); when any label needs a second line (large fonts) the bars stand
  * alone, so the content keeps its room — callers name the current step elsewhere (the top bar subtitle). Desktop:
  * numbered steps (done = check), or the phone bars when they do not fit the width. Each step is tagged
- * `progress-segment-<i>`; the whole bar reports its progress to screen readers.
+ * `progress-segment-<i>`; the whole bar reports its progress to screen readers. With [onSelect] (and [labels]) every
+ * step is a ≥ 48 dp tab — its label the description and tooltip, the current one "selected", tagged [tags]`[i]` — so
+ * the bar also moves between the steps (Dubbing); without labels on a phone the bars alone are the targets.
  */
 @Composable
-fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, count: Int = labels.size) {
+fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, count: Int = labels.size,
+    onSelect: ((Int) -> Unit)? = null, tags: List<String> = emptyList()) {
     require(count > 0 && current in 1..count && (labels.isEmpty() || labels.size == count))
     val texts = labels.map { My.breakSyllables(it) }
     val measurer = rememberTextMeasurer()
@@ -102,7 +105,14 @@ fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, c
             width(texts[i], if (i == current - 1) FontWeight.SemiBold else FontWeight.Normal).size.width
         } + (dot + with(density) { AfSpace.S.roundToPx() }) * count +
             with(density) { (AfSpace.S * 2 + AfSpace.L).roundToPx() } * (count - 1) <= constraints.maxWidth
-        if (numbered) NumberedSteps(texts, current) else {
+        // A step as a tab (when the bar also navigates): 48 dp tall, centred, labelled, "selected" (as AfChip) when current.
+        val tab: @Composable (Int) -> Modifier = { i ->
+            if (onSelect == null) Modifier else Modifier.afTooltip(labels[i]).heightIn(min = AfSize.Touch)
+                .selectable(i == current - 1, remember(i) { MutableInteractionSource() }, null, role = Role.Tab) { onSelect(i) }
+                .semantics { contentDescription = labels[i]; stateDescription = if (i == current - 1) "selected" else "not selected" }
+                .let { m -> tags.getOrNull(i)?.let { m.testTag(it) } ?: m }
+        }
+        if (numbered) NumberedSteps(texts, current, tab) else {
             val column = (constraints.maxWidth - gap * (count - 1)) / count
             // Two-line labels would push the first content below the fold at font 2.0 (412 × 760, system font).
             val everyLabel = texts.isNotEmpty() && texts.indices.all { i ->
@@ -110,15 +120,16 @@ fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, c
                     if (i == current - 1) FontWeight.SemiBold else FontWeight.Normal, family),
                     maxLines = 1, constraints = Constraints(maxWidth = column.coerceAtLeast(1))).hasVisualOverflow
             }
-            Column(verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(AfSize.StepGap)) {
-                    repeat(count) { i -> Box(Modifier.weight(1f).height(AfSize.StepSegment).testTag("progress-segment-$i")
-                        .clip(RoundedCornerShape(2.dp)).background(if (i < current) AutoFlowColors.PrimaryFill else AutoFlowColors.Line)) }
-                }
-                if (everyLabel) Row(horizontalArrangement = Arrangement.spacedBy(AfSize.StepGap)) {
-                    texts.forEachIndexed { i, t -> AfText(t, Modifier.weight(1f), type = AfType.Micro, maxLines = 1,
-                        weight = if (i == current - 1) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (i == current - 1) AutoFlowColors.PrimaryText else AutoFlowColors.Muted) }
+            // Each step is one column (its bar, then its label), so a tab holds both.
+            Row(horizontalArrangement = Arrangement.spacedBy(AfSize.StepGap)) {
+                repeat(count) { i ->
+                    Column(Modifier.weight(1f).then(tab(i)), verticalArrangement = Arrangement.spacedBy(AfSpace.Xs, Alignment.CenterVertically)) {
+                        Box(Modifier.fillMaxWidth().height(AfSize.StepSegment).testTag("progress-segment-$i")
+                            .clip(RoundedCornerShape(2.dp)).background(if (i < current) AutoFlowColors.PrimaryFill else AutoFlowColors.Line))
+                        if (everyLabel) AfText(texts[i], Modifier.fillMaxWidth(), type = AfType.Micro, maxLines = 1,
+                            weight = if (i == current - 1) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (i == current - 1) AutoFlowColors.PrimaryText else AutoFlowColors.Muted)
+                    }
                 }
             }
         }
@@ -128,12 +139,12 @@ fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, c
 private val StepDot = 24.dp
 
 @Composable
-private fun NumberedSteps(texts: List<String>, current: Int) = Row(verticalAlignment = Alignment.CenterVertically) {
+private fun NumberedSteps(texts: List<String>, current: Int, tab: @Composable (Int) -> Modifier) = Row(verticalAlignment = Alignment.CenterVertically) {
     texts.forEachIndexed { i, t ->
         val done = i < current - 1
         val now = i == current - 1
-        Row(Modifier.testTag("progress-segment-$i"), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+        Box(tab(i), contentAlignment = Alignment.Center) { Row(Modifier.testTag("progress-segment-$i"),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.S)) {
             // A circle at least 24 dp that grows with the number at large font sizes.
             Box(Modifier.clip(CircleShape).background(if (done || now) AutoFlowColors.PrimaryFill else Color.Transparent)
                 .border(1.dp, if (done || now) AutoFlowColors.PrimaryFill else AutoFlowColors.LineStrong, CircleShape)
@@ -147,7 +158,7 @@ private fun NumberedSteps(texts: List<String>, current: Int) = Row(verticalAlign
             }
             AfText(t, color = if (now) AutoFlowColors.PrimaryText else if (done) AutoFlowColors.Text else AutoFlowColors.Muted,
                 type = AfType.Caption, weight = if (now) FontWeight.SemiBold else null, maxLines = 2)
-        }
+        } }
         if (i < texts.lastIndex) Box(Modifier.weight(1f).padding(horizontal = AfSpace.S).height(1.dp)
             .background(if (done) AutoFlowColors.PrimaryFill else AutoFlowColors.Line))
     }

@@ -57,6 +57,8 @@ import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesFixture
 import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesFixture.Line
 import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Shell
+import io.github.alalkipgen.autoflow.ui.dubbing.DubScriptModel
+import io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen
 import io.github.alalkipgen.autoflow.ui.shell.ShellActions
 import io.github.alalkipgen.autoflow.ui.shell.ShellShortcut
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
@@ -303,6 +305,19 @@ class PrShotsTest(val width: Int, val font: Float) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
                 SubtitlesScreen(f.model, f.session, f.editor, player = f.paused, onBack = {}, exporter = f.exporter(phone), burner = f.burner(phone),
                     translate = f.translate)
+            }
+        }
+    }
+
+    /** P9-13a: Dubbing's Dub script — the labelled step bar is the step chooser; each line a cue card, Approve with its check. */
+    @Test fun dubbingScript() {
+        val f = SubtitlesFixture(listOf(Line(1_000, 3_200, "We have to leave tonight.", "ဒီည ထွက်သွားရမယ်။"),
+            Line(3_600, 6_000, "Before the rain starts.", "မိုးမရွာခင်ပေါ့။"),
+            Line(6_400, 9_000, "I will never leave you behind.", "မင်းကို ဘယ်တော့မှ ထားမသွားဘူး။"),
+            Line(9_400, 11_000, "Wait for me at the bridge.", "တံတားမှာ စောင့်နေ။")), 20_000, "Kung Fu Panda 4", scope, dub = true)
+        shot("dubbing-script", ready = { waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-row-c1").fetchSemanticsNodes().isNotEmpty() } }) {
+            StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
+                DubbingScreen(DubScriptModel(f.session, f.fs), f.model, f.session, f.editor, onBack = {}, player = f.paused)
             }
         }
     }

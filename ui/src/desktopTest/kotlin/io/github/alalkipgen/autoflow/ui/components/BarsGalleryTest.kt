@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -50,7 +51,7 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
         }
     }
 
-    @Composable private fun Gallery() = TooltipHost(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+    @Composable private fun Gallery(onStep: (Int) -> Unit = {}) = TooltipHost(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             ProjectTopBar(LONG, 3, tr(UiText.VOICE), {}, options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), {})),
                 steps = recapStepLabels())
@@ -63,7 +64,7 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
                 StepBar(recapStepLabels(), 1)
                 StepBar(recapStepLabels(), 5)
                 GroupLabel(tr(Mode.DUBBING.label()))
-                StepBar(DubStep.entries.map { tr(it.text) }, 2)
+                StepBar(DubStep.entries.map { tr(it.text) }, 2, onSelect = onStep, tags = DubStep.entries.map { "tab-${it.name}" })
                 StepBar(emptyList(), 4, count = 5)
                 Row { AfIconButton(AfIcons.Regular.Back, tr(UiText.BACK), {}); AfIconButton(AfIcons.Regular.Edit, tr(UiText.EDIT), {}, selected = true) }
             }
@@ -73,9 +74,10 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
     private fun recapLabels(language: UiLanguage) = RecapStep.entries.map { My.breakSyllables(it.textKey.text(language)) }
 
     @Test fun barsFitAndKeep48dpTargets() = runDesktopComposeUiTest(width = width, height = if (font > 1f) 1500 else 900) {
+        var picked = -1
         setContent {
             CompositionLocalProvider(LocalCompact provides (width < 600), LocalDensity provides Density(1f, font),
-                LocalUiLanguage provides language, LocalUiFontFamily provides BurmeseTestFont.family) { Gallery() }
+                LocalUiLanguage provides language, LocalUiFontFamily provides BurmeseTestFont.family) { Gallery { picked = it } }
         }
         // Step labels are never cut: one line each, or (large fonts on a phone) none — the subtitle names the step.
         assertEquals(emptyList(), textFitProblems(width, font, strict = true))
@@ -92,6 +94,16 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
         // Desktop at font 1.0 has room for numbered steps: the steps still to do show their number.
         if (width >= 600 && font == 1f) onNode(hasText("4") and hasAnyAncestor(hasTestTag("project-progress")), useUnmergedTree = true).assertExists()
         onNodeWithTag("project-back").assertContentDescriptionEquals(UiText.BACK.text(language))
+        // P9-13a: a step bar that also navigates — each step a ≥ 48 dp tab named by its step (labels shown or not), the
+        // current one selected, its bar still tagged; a tap picks the step.
+        DubStep.entries.forEachIndexed { i, s ->
+            onNodeWithTag("tab-${s.name}").assertHeightIsAtLeast(48.dp).assert(hasContentDescription(s.text.text(language)))
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, i == 1))
+            onNode(hasTestTag("progress-segment-$i") and hasAnyAncestor(hasTestTag("tab-${s.name}")), useUnmergedTree = true).assertExists()
+        }
+        onNodeWithTag("tab-EXPORT").performMouseInput { click() }
+        assertEquals(4, picked)
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "gallery").apply { mkdirs() }
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "bars-$width-$font-${language.name.lowercase()}.png"))
         System.getenv("AUTOFLOW_PR_SHOTS_DIR")?.let { if (language == UiLanguage.BURMESE)
