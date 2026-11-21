@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -12,13 +13,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -29,6 +36,7 @@ import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.icons.IconTile
+import io.github.alalkipgen.autoflow.ui.icons.afTooltip
 import io.github.alalkipgen.autoflow.ui.jobs.JobRow
 import io.github.alalkipgen.autoflow.ui.media.MediaThumbnails
 import io.github.alalkipgen.autoflow.ui.theme.*
@@ -47,8 +55,11 @@ const val RIGHTS_TICK = "I own this footage or have permission to use it"
  * while the list is empty), filter chips All + one per mode with projects, thumbnail rows (mode chip, a status chip
  * only for a running / failed job of that project, relative date · ratio · shots, ⋮ = the existing options; long-press
  * and right-click open them too), the removed-projects row and Open package at the bottom. One column ≤ 720 dp.
- * [createOpen] / [onCreateOpenChange] let the shell open the create card (sidebar "New project"); [jobs] are the
- * Jobs rows; [thumbSource] reads a project's recorded source for its thumbnail (read-only, off the main thread).
+ * From [AfDesktop.GridWide] (D2, §9.8) the projects are a card grid: a click selects (the detail pane on the right),
+ * a double-click or Continue editing opens. [createOpen] / [onCreateOpenChange] let the shell open the create card
+ * (sidebar "New project"); [jobs] are the Jobs rows; [thumbSource] reads a project's recorded source for its
+ * thumbnail (read-only, off the main thread); [onShowFolder] shows a project folder in the file manager (desktop
+ * only) and returns the reason when it cannot.
  */
 @Composable
 fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modifier = Modifier, clock: Clock = Clock.System,
@@ -56,6 +67,7 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     createOpen: Boolean = false, onCreateOpenChange: ((Boolean) -> Unit)? = null,
     jobs: List<JobRow> = emptyList(),
     thumbSource: (suspend (dir: String) -> MediaThumbnails.Source?)? = null,
+    onShowFolder: ((dir: String) -> String?)? = null,
 ) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -68,15 +80,27 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     val compact = LocalCompact.current
     var showRemoved by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf<Mode?>(null) }
+    var selected by remember { mutableStateOf<String?>(null) }
+    // One options / remove dialog for rows, cards and the detail pane.
+    var optionsFor by remember { mutableStateOf<DashboardRow?>(null) }
+    var confirmFor by remember { mutableStateOf<DashboardRow?>(null) }
     if (showRemoved && state.removed.isNotEmpty()) RemovedProjectsDialog(state.removed, model) { showRemoved = false }
+    optionsFor?.let { row ->
+        ProjectOptionsDialog(managed = model.projectsHome != null, onRemove = { optionsFor = null; confirmFor = row }) { optionsFor = null }
+    }
+    confirmFor?.let { row -> RemoveProjectDialog(row.entry.name, onRemove = { model.remove(row.entry.path); confirmFor = null }) { confirmFor = null } }
     LaunchedEffect(model) { model.refresh() }
     val empty = state.rows.isEmpty() && state.newer.isEmpty()
     val modes = Mode.entries.filter { m -> state.rows.any { it.entry.mode == m } }
     val active = filter?.takeIf { it in modes }
-    Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
-      Column(Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding),
-        verticalArrangement = Arrangement.spacedBy(AfSpace.L),
-      ) {
+    val visible = state.rows.filter { active == null || it.entry.mode == active }
+    val now = clock.now()
+    val openProject: (DashboardRow) -> Unit = { row -> if (model.open(row.entry.path)) onOpened() }
+    val scroll = rememberScrollState()
+    BoxWithConstraints(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
+      val wide = maxWidth >= AfDesktop.GridWide
+      val picked = if (wide) visible.firstOrNull { it.entry.path == selected && !it.missing } else null
+      val list: @Composable (Modifier) -> Unit = { listModifier -> Column(listModifier, verticalArrangement = Arrangement.spacedBy(AfSpace.L)) {
         // With a projects home (Android, D-27) every project lives there; there is no folder to open.
         val openFolder: @Composable () -> Unit = {
             if (model.projectsHome == null) AfButton(tr(UiText.OPEN_FOLDER), { scope.launch { if (model.openFolder()) onOpened() } })
@@ -109,12 +133,16 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
                 EmptyState(AfIcons.Duotone.Folder, My.breakSyllables(
                     if (model.projectsHome == null) tr(UiText.PROJECTS_EMPTY_DESKTOP) else tr(UiText.PROJECTS_EMPTY)), null)
             }
-            val now = clock.now()
-            state.rows.filter { active == null || it.entry.mode == active }.forEach { row ->
+            if (wide) ProjectGrid(visible, back = { row ->
+                ProjectCardLayer(row, selected = row == picked, onSelect = { selected = row.entry.path }, onOpen = { openProject(row) },
+                    onOptions = { optionsFor = row })
+            }) { row, thumb ->
+                ProjectCardContent(row, now, projectStatus(row.entry.path, jobs), thumbSource, thumb, onOptions = { optionsFor = row },
+                    onRemove = { model.remove(row.entry.path) })
+            } else visible.forEach { row ->
                 key(row.entry.path) {
-                    ProjectRow(row, now, projectStatus(row.entry.path, jobs), thumbSource,
-                        onOpen = { if (model.open(row.entry.path)) onOpened() },
-                        onRemove = { model.remove(row.entry.path) }, managed = model.projectsHome != null)
+                    ProjectRow(row, now, projectStatus(row.entry.path, jobs), thumbSource, onOpen = { openProject(row) },
+                        onOptions = { optionsFor = row }, onRemove = { model.remove(row.entry.path) })
                 }
             }
             if (active == null) state.newer.forEach { row ->
@@ -129,7 +157,14 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
         // F-7 (D-96): a render package (or backup zip) from another phone or computer.
         if (model.opensPackages) AfButton(My.breakSyllables(tr(UiText.PACKAGE_OPEN)), { scope.launch { if (model.openPackage()) onOpened() } },
             Modifier.fillMaxWidth().testTag("projects-open-package"), enabled = creating == null)
-      }
+      } }
+      if (wide) Row(Modifier.fillMaxSize()) {
+          list(Modifier.weight(1f).fillMaxHeight().paneScroll(scroll).padding(screenPadding))
+          picked?.let { row ->
+              ProjectDetailPane(row, now, projectStatus(row.entry.path, jobs), thumbSource, onOpen = { openProject(row) },
+                  onClose = { selected = null }, onRemove = { confirmFor = row }, onShowFolder = onShowFolder)
+          }
+      } else list(Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().paneScroll(scroll).padding(screenPadding))
     }
 }
 
@@ -289,6 +324,80 @@ private fun RemovedProjectsDialog(rows: List<RemovedProject>, model: DashboardMo
     }
 }
 
+/** The existing project options (Remove from list; deleting files stays on the removed-projects list). */
+@Composable
+private fun ProjectOptionsDialog(managed: Boolean, onRemove: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        AfCard(tr(UiText.PROJECT_ACTIONS)) {
+            if (!managed) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_UNSUPPORTED)), muted = true)
+            WrapRow {
+                AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, Modifier.testTag("project-remove-action"))
+                AfButton(tr(UiText.CANCEL), onDismiss)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RemoveProjectDialog(name: String, onRemove: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth(0.85f)
+                .clip(AutoFlowShapes.Card)
+                .background(AutoFlowColors.Panel)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            AfText(tr(UiText.REMOVE_PROJECT_QUESTION, "name" to name), bold = true)
+            AfText(tr(UiText.REMOVE_PROJECT_HINT), muted = true)
+            WrapRow {
+                AfButton(tr(UiText.REMOVE), onRemove, kind = ButtonKind.Danger)
+                AfButton(tr(UiText.CANCEL), onDismiss)
+            }
+        }
+    }
+}
+
+/** The recorded source of a project for its thumbnail (none for a missing folder). */
+@Composable
+private fun projectThumb(row: DashboardRow, thumbSource: (suspend (String) -> MediaThumbnails.Source?)?): State<MediaThumbnails.Source?> =
+    produceState(null, row.entry.path, row.entry.lastOpenedAt, row.missing, thumbSource) {
+        value = if (row.missing) null else thumbSource?.invoke(row.entry.path)
+    }
+
+/** Title, mode chip + [status], relative date · ratio · shots; a missing folder: its path, "Folder not found", Remove. */
+@Composable
+private fun ProjectFacts(row: DashboardRow, now: Instant, status: StudioStatus?, onRemove: () -> Unit, modifier: Modifier) {
+    val e = row.entry
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
+        AfText(e.name, Modifier.semantics { contentDescription = e.name }, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
+        if (row.missing) {
+            AfText(e.path, muted = true, size = 11.sp, mono = true)
+            WrapRow {
+                AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
+                AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
+            }
+        } else {
+            WrapRow(spacing = AfSpace.Xs + 2.dp) {
+                ModeChip(e.mode, Modifier.testTag("project-mode-${e.mode.name}"))
+                status?.let { StatusChip(it) }
+            }
+            val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
+            val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted
+            WrapRow(spacing = AfSpace.S) {
+                AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), color = AutoFlowColors.Muted, type = AfType.Caption)
+                AfText(e.ratio.label, color = AutoFlowColors.Muted, type = AfType.Caption)
+                if (e.mode.hasShots()) AfText(My.breakSyllables(shots), color = shotsColor, type = AfType.Caption)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoreButton(name: String, onOptions: () -> Unit) =
+    AfIconButton(AfIcons.Regular.More, tr(UiText.PROJECT_ACTIONS), onOptions, Modifier.testTag("project-more-$name"))
+
 /**
  * A project row: thumbnail 100 × 62 (the recorded duration as badge), 1-line title, mode chip + [status], relative date
  * · ratio · shots, and ⋮ (the existing options; long-press and right-click open them too). A tap opens the project; a
@@ -296,87 +405,148 @@ private fun RemovedProjectsDialog(rows: List<RemovedProject>, model: DashboardMo
  */
 @Composable
 private fun ProjectRow(row: DashboardRow, now: Instant, status: StudioStatus?, thumbSource: (suspend (String) -> MediaThumbnails.Source?)?,
-    onOpen: () -> Unit, onRemove: () -> Unit, managed: Boolean) {
-    var options by remember { mutableStateOf(false) }
-    var confirmRemove by remember { mutableStateOf(false) }
-    if (options) Dialog(onDismissRequest = { options = false }) {
-        AfCard(tr(UiText.PROJECT_ACTIONS)) {
-            if (!managed) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_UNSUPPORTED)), muted = true)
-            WrapRow {
-                AfButton(tr(UiText.REMOVE_FROM_LIST), { options = false; confirmRemove = true }, Modifier.testTag("project-remove-action"))
-                AfButton(tr(UiText.CANCEL), { options = false })
-            }
-        }
-    }
-    if (confirmRemove) {
-        Dialog(onDismissRequest = { confirmRemove = false }) {
-            Column(
-                Modifier
-                    .fillMaxWidth(0.85f)
-                    .clip(AutoFlowShapes.Card)
-                    .background(AutoFlowColors.Panel)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                AfText(tr(UiText.REMOVE_PROJECT_QUESTION, "name" to (row.entry.name)), bold = true)
-                AfText(tr(UiText.REMOVE_PROJECT_HINT), muted = true)
-                WrapRow {
-                    AfButton(tr(UiText.REMOVE), { onRemove(); confirmRemove = false }, kind = ButtonKind.Danger)
-                    AfButton(tr(UiText.CANCEL), { confirmRemove = false })
-                }
-            }
-        }
-    }
+    onOpen: () -> Unit, onOptions: () -> Unit, onRemove: () -> Unit) {
     val e = row.entry
-    val source by produceState<MediaThumbnails.Source?>(null, e.path, e.lastOpenedAt, row.missing, thumbSource) {
-        value = if (row.missing) null else thumbSource?.invoke(e.path)
-    }
-    val openOptions = { options = true }
+    val source by projectThumb(row, thumbSource)
     val thumb = @Composable { MediaThumb(source, e.mode.icon(duotone = true), size = AfSize.ThumbList, durationMs = source?.durationMs) }
-    val more = @Composable {
-        AfIconButton(AfIcons.Regular.More, tr(UiText.PROJECT_ACTIONS), openOptions, Modifier.testTag("project-more-${e.name}"))
-    }
-    val facts = @Composable { m: Modifier ->
-        Column(m, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
-            AfText(e.name, Modifier.semantics { contentDescription = e.name }, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
-            if (row.missing) {
-                AfText(e.path, muted = true, size = 11.sp, mono = true)
-                WrapRow {
-                    AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
-                    AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
-                }
-            } else {
-                WrapRow(spacing = AfSpace.Xs + 2.dp) {
-                    ModeChip(e.mode, Modifier.testTag("project-mode-${e.mode.name}"))
-                    status?.let { StatusChip(it) }
-                }
-                val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
-                val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted
-                WrapRow(spacing = AfSpace.S) {
-                    AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), color = AutoFlowColors.Muted, type = AfType.Caption)
-                    AfText(e.ratio.label, color = AutoFlowColors.Muted, type = AfType.Caption)
-                    if (e.mode.hasShots()) AfText(My.breakSyllables(shots), color = shotsColor, type = AfType.Caption)
-                }
-            }
-        }
-    }
     // The whole card opens the project (a click layer under the content, so the texts stay separate nodes).
     Box(Modifier.fillMaxWidth().testTag("project-row-${e.name}")) {
-        AfCard(Modifier.matchParentSize().onSecondaryClick(openOptions), onClick = if (row.missing) null else onOpen,
-            onLongClick = openOptions) {}
+        AfCard(Modifier.matchParentSize().onSecondaryClick(onOptions), onClick = if (row.missing) null else onOpen,
+            onLongClick = onOptions) {}
         BoxWithConstraints(Modifier.padding(AfSpace.M)) {
             val gap = AfSpace.M
             if (maxWidth - AfSize.ThumbList.width - AfSize.Touch - gap * 2 >= AfSize.TileCardMin * LocalDensity.current.fontScale) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    thumb(); facts(Modifier.weight(1f)); more()
+                    thumb(); ProjectFacts(row, now, status, onRemove, Modifier.weight(1f)); MoreButton(e.name, onOptions)
                 }
             } else Column(verticalArrangement = Arrangement.spacedBy(gap)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    thumb(); more()
+                    thumb(); MoreButton(e.name, onOptions)
                 }
-                facts(Modifier.fillMaxWidth())
+                ProjectFacts(row, now, status, onRemove, Modifier.fillMaxWidth())
             }
         }
+    }
+}
+
+/**
+ * D2 grid: as many equal columns as fit [AfDesktop.ProjectCardMin] × the font scale. Each row measures its cards'
+ * content first and then sizes every card's click layer to the tallest, so a row's cards are equally tall (no
+ * intrinsic measuring — a wrapped chip row would be dropped by it).
+ */
+@Composable
+private fun ProjectGrid(rows: List<DashboardRow>, back: @Composable (DashboardRow) -> Unit,
+    front: @Composable (DashboardRow, DpSize) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("projects-grid")) {
+        val gap = AfSpace.CardGap
+        val columns = ((maxWidth + gap) / (AfDesktop.ProjectCardMin * LocalDensity.current.fontScale + gap)).toInt().coerceAtLeast(1)
+        val width = (maxWidth - gap * (columns - 1)) / columns
+        val thumb = (width - AfSpace.L * 2).let { DpSize(it, it * 9f / 16f) }
+        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            rows.chunked(columns).forEach { chunk ->
+                Layout(listOf({ chunk.forEach { row -> key(row.entry.path) { back(row) } } },
+                    { chunk.forEach { row -> key(row.entry.path) { front(row, thumb) } } })) { (backs, fronts), constraints ->
+                    val w = width.roundToPx(); val g = gap.roundToPx()
+                    val shown = fronts.map { it.measure(Constraints(minWidth = w, maxWidth = w)) }
+                    val h = shown.maxOfOrNull { it.height } ?: 0
+                    val layers = backs.map { it.measure(Constraints.fixed(w, h)) }
+                    // Each click layer is placed (so drawn and hit-tested) under its card's content.
+                    layout(constraints.maxWidth, h) { shown.indices.forEach { i -> layers[i].place(i * (w + g), 0); shown[i].place(i * (w + g), 0) } }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The click layer of a D2 card: selected = primary border. Click selects, double-click or Enter opens; long-press,
+ * right-click (and ⋮ on the card) open the options. A missing folder cannot be selected or opened.
+ */
+@Composable
+private fun ProjectCardLayer(row: DashboardRow, selected: Boolean, onSelect: () -> Unit, onOpen: () -> Unit, onOptions: () -> Unit) {
+    val name = row.entry.name
+    // Enter opens the focused card (a click / Space selects it).
+    val enterOpens = Modifier.onPreviewKeyEvent { event ->
+        val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
+        if (enter && !row.missing && event.type == KeyEventType.KeyDown) onOpen()
+        enter && !row.missing
+    }
+    AfCard(Modifier.onSecondaryClick(onOptions).semantics { this.selected = selected }.then(enterOpens)
+        .testTag("project-card-click-$name"), selected = selected,
+        onClick = if (row.missing) null else onSelect, onLongClick = onOptions, onDoubleClick = if (row.missing) null else onOpen) {}
+}
+
+/** A D2 card's content (`project-card-<name>`): 16:9 thumbnail (duration badge), the row's facts and ⋮. */
+@Composable
+private fun ProjectCardContent(row: DashboardRow, now: Instant, status: StudioStatus?, thumbSource: (suspend (String) -> MediaThumbnails.Source?)?,
+    thumb: DpSize, onOptions: () -> Unit, onRemove: () -> Unit) {
+    val e = row.entry
+    val source by projectThumb(row, thumbSource)
+    Column(Modifier.testTag("project-card-${e.name}").padding(AfSpace.L), verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+        MediaThumb(source, e.mode.icon(duotone = true), size = thumb, durationMs = source?.durationMs)
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
+            ProjectFacts(row, now, status, onRemove, Modifier.weight(1f))
+            MoreButton(e.name, onOptions)
+        }
+    }
+}
+
+/**
+ * D2 detail pane of the selected project: big thumbnail, title, chips, the facts the index has (last opened, ratio,
+ * shots, folder), Continue editing, Show in folder (desktop) and Remove from list (the confirm dialog). No player,
+ * steps list or per-project package (render packages live on Export).
+ */
+@Composable
+private fun ProjectDetailPane(row: DashboardRow, now: Instant, status: StudioStatus?,
+    thumbSource: (suspend (String) -> MediaThumbnails.Source?)?, onOpen: () -> Unit, onClose: () -> Unit, onRemove: () -> Unit,
+    onShowFolder: ((String) -> String?)?) {
+    val e = row.entry
+    val source by projectThumb(row, thumbSource)
+    var folderProblem by remember(e.path) { mutableStateOf<String?>(null) }
+    val line = AutoFlowColors.Line
+    Column(Modifier.width(AfDesktop.DetailPane).fillMaxHeight().background(AutoFlowColors.Panel)
+        .drawBehind { drawLine(line, Offset.Zero, Offset(0f, size.height), AutoFlowShapes.Border.toPx()) }
+        .paneScroll(rememberScrollState()).padding(AfSpace.Xl).testTag("project-detail-pane"),
+        verticalArrangement = Arrangement.spacedBy(AfSpace.L)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) {
+            AfText(My.breakSyllables(tr(UiText.PROJECTS_SELECTED)), Modifier.weight(1f), color = AutoFlowColors.Muted, type = AfType.Caption)
+            AfIconButton(AfIcons.Regular.Close, tr(UiText.CLOSE), onClose, Modifier.testTag("project-detail-close"))
+        }
+        val w = AfDesktop.DetailPane - AfSpace.Xl * 2
+        MediaThumb(source, e.mode.icon(duotone = true), size = DpSize(w, w * 9f / 16f), durationMs = source?.durationMs)
+        Column(verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+            AfText(e.name, Modifier.testTag("project-detail-title"), type = AfType.CardTitle)
+            WrapRow(spacing = AfSpace.Xs + 2.dp) { ModeChip(e.mode); status?.let { StatusChip(it) } }
+        }
+        val shape = RoundedCornerShape(AfRadius.ListCard)
+        Column(Modifier.fillMaxWidth().clip(shape).border(AutoFlowShapes.Border, line, shape).padding(AfSpace.M),
+            verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+            Fact(tr(UiText.PROJECT_LAST_OPENED), relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current))
+            Fact(tr(UiText.RATIO), e.ratio.label)
+            if (e.mode.hasShots()) Fact(tr(UiText.SHOTS), "${e.acceptedShots}/${e.totalShots}")
+            // One line (a path has no good break); the full path stays readable as tooltip and description.
+            val folder = tr(UiText.FOLDER_PATH, "it" to e.path)
+            AfText(folder, Modifier.afTooltip(e.path).semantics { contentDescription = folder }.testTag("project-detail-folder-path"),
+                color = AutoFlowColors.Muted, type = AfType.Caption, maxLines = 1, ellipsis = true)
+        }
+        AfButton(My.breakSyllables(tr(UiText.V3_CONTINUE)), onOpen, Modifier.fillMaxWidth().testTag("project-detail-open"),
+            kind = ButtonKind.Primary, icon = AfIcons.Fill.Play)
+        onShowFolder?.let { show ->
+            AfButton(My.breakSyllables(tr(UiText.PROJECT_SHOW_FOLDER)), { folderProblem = show(e.path) },
+                Modifier.fillMaxWidth().testTag("project-detail-folder"), icon = AfIcons.Regular.Folder)
+        }
+        folderProblem?.let { AfText(My.breakSyllables(it), color = AutoFlowColors.Amber, type = AfType.Caption) }
+        AfButton(My.breakSyllables(tr(UiText.REMOVE_FROM_LIST)), onRemove, Modifier.fillMaxWidth().testTag("project-detail-remove"),
+            kind = ButtonKind.Danger)
+    }
+}
+
+/** A label (muted, wraps) and its short value on one line. */
+@Composable
+private fun Fact(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) {
+        AfText(My.breakSyllables(label), Modifier.weight(1f), color = AutoFlowColors.Muted, type = AfType.Caption)
+        AfText(My.breakSyllables(value), type = AfType.Caption)
     }
 }
 

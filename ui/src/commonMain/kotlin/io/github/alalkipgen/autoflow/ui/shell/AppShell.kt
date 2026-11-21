@@ -414,9 +414,20 @@ private fun StudioV2App(
                     val store = koinInject<io.github.alalkipgen.autoflow.core.store.ProjectStore>()
                     val projectThumbSource: suspend (String) -> io.github.alalkipgen.autoflow.ui.media.MediaThumbnails.Source? =
                         remember(store) { { dir -> store.thumbSource(dir) } }
+                    // Desktop D2: "Show in folder" in the detail pane (no file manager where files are shared instead).
+                    val share = getKoin().getOrNull<io.github.alalkipgen.autoflow.platform.FileShare>()?.takeIf { !it.sharesFiles }
+                    val showFolder: ((String) -> String?)? = remember(share) {
+                        share?.let { s -> { dir: String ->
+                            when (val r = s.openFolder(dir)) {
+                                is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> null
+                                is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> r.reason
+                                is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> r.reason
+                            }
+                        } }
+                    }
                     DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) },
                         createOpen = nav.createOpen, onCreateOpenChange = { nav = nav.copy(createOpen = it) },
-                        jobs = rows, thumbSource = projectThumbSource, onOpened = {
+                        jobs = rows, thumbSource = projectThumbSource, onShowFolder = showFolder, onOpened = {
                         val mode = currentProject.state.value?.project?.mode
                         mode?.let(::v2EntryScreen)?.let { openProjectScreen(it) }
                     })

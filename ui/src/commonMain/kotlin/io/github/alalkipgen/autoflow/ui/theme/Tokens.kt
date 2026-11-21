@@ -105,4 +105,8 @@ object AfDesktop {
     const val HomeJobs = 3
     /** A desktop Continue card is at least this wide × the font scale (≤ 4 in the row). */
     val ContinueCardMin = 200.dp
+
+    /** Projects D2 from this Projects width: a card grid (cards ≥ [ProjectCardMin] × the font scale) + the detail pane. */
+    val GridWide = 900.dp
+    val ProjectCardMin = 240.dp
 }

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
@@ -70,8 +71,9 @@ class DashboardScreenTest {
         assertEquals(DashboardModel.RIGHTS_REQUIRED, model.state.value.message)
     }
 
+    // Phone rows (a tap opens); the desktop grid selects first — ProjectsDesktopTest.
     @Test
-    fun rowsOpenAndMissingFoldersCanBeRemoved() = runComposeUiTest {
+    fun rowsOpenAndMissingFoldersCanBeRemoved() = runDesktopComposeUiTest(width = 412, height = 760) {
         store.create("/p/Here.autoflow", "Here", Mode.MUSIC_VIDEO)
         store.create("/usb/Gone.autoflow", "Gone", Mode.MUSIC_VIDEO)
         model.open("/usb/Gone.autoflow")

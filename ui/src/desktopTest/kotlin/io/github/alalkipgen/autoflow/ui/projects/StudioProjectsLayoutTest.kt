@@ -84,7 +84,9 @@ class StudioProjectsLayoutTest(val width: Int, val font: Float, val language: Ui
             // Filter chips All + the one mode; the row: thumbnail, mode chip, ⋮; no status chip without a job.
             onNode(hasText(UiText.PROJECTS_FILTER_ALL.text(language)) and hasAnyAncestor(hasTestTag("projects-filters"))).assertIsDisplayed()
             onNode(hasText(UiText.MOVIE_RECAP.text(language)) and hasAnyAncestor(hasTestTag("projects-filters"))).assertIsDisplayed()
-            val rowTag = "project-row-${f.project.name}"
+            // 1440: the D2 card grid (click selects, the detail pane opens); else the phone rows (tap opens).
+            val wide = width >= 1440
+            val rowTag = if (wide) "project-card-${f.project.name}" else "project-row-${f.project.name}"
             onNode(hasTestTag("media-thumb") and hasAnyAncestor(hasTestTag(rowTag))).assertIsDisplayed()
             onNodeWithTag("project-mode-MOVIE_RECAP").assertIsDisplayed()
             onNode(hasTestTag("status-RUNNING") and hasAnyAncestor(hasTestTag(rowTag))).assertDoesNotExist()
@@ -102,6 +104,12 @@ class StudioProjectsLayoutTest(val width: Int, val font: Float, val language: Ui
             onNodeWithTag("project-remove-action").assertIsDisplayed()
             onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             clickText(f.project.name)
+            if (wide) {
+                mainClock.advanceTimeBy(1_000)
+                assertEquals(0, opened)
+                onNodeWithTag("project-detail-pane").assertIsDisplayed()
+                onNodeWithTag("project-detail-open").performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+            }
             assertEquals(1, opened); assertEquals(f.dir.path, current.state.value!!.dir)
             onNodeWithTag("project-more-${f.project.name}").performScrollTo().assertIsDisplayed()
                 .performMouseInput { moveTo(center); click(); exit() }

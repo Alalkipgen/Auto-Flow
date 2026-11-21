@@ -1550,6 +1550,10 @@ enum class UiText(val en: String, val my: String?) {
     HOME_SUBS_CAPTION("Make · edit", "ဖန်တီး · ပြင်ဆင်"),
     // P9-9 Projects (DESIGN.md §9.7): the first filter chip (all modes).
     PROJECTS_FILTER_ALL("All", "အားလုံး"),
+    // P9-9b desktop Projects (D2): the detail pane of the selected project.
+    PROJECTS_SELECTED("Selected project", "ရွေးထားသော ပရောဂျက်"),
+    PROJECT_LAST_OPENED("Last opened", "နောက်ဆုံး ဖွင့်ခဲ့ချိန်"),
+    PROJECT_SHOW_FOLDER("Show in folder", "ဖိုင်တွဲမှာ ပြမယ်"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }
