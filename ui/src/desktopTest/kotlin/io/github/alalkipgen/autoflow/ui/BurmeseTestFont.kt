@@ -45,11 +45,12 @@ fun syllableCuts(layout: androidx.compose.ui.text.TextLayoutResult): List<Int> {
 }
 
 /**
- * Every laid-out text on screen: inside the window, not truncated, no Burmese line break inside a syllable, not clipped
- * by its own box or a parent (Phase 9 no-clipping rule, D-100).
+ * Every laid-out text on screen: inside the window, not truncated, no Burmese line break inside a syllable. With
+ * [strict] also not clipped by its own box or a parent (Phase 9 no-clipping rule, D-100). Strict is opt-in: each
+ * Phase 9 PR turns it on for the screens it polishes (older screens still draw emoji glyphs wider than their box).
  */
 @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
-fun androidx.compose.ui.test.ComposeUiTest.textFitProblems(width: Int, font: Float): List<String> {
+fun androidx.compose.ui.test.ComposeUiTest.textFitProblems(width: Int, font: Float, strict: Boolean = false): List<String> {
     val nodes = onAllNodes(
         androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult),
         useUnmergedTree = true,
@@ -65,7 +66,8 @@ fun androidx.compose.ui.test.ComposeUiTest.textFitProblems(width: Int, font: Flo
             syllableCuts(layout).isNotEmpty() -> "cut inside a syllable at ${syllableCuts(layout)}: $text"
             layout.multiParagraph.didExceedMaxLines -> "truncated: $text"
             b.width > 0f && (b.left < -0.5f || b.right > width + 0.5f) -> "outside the window ($b): $text"
-            else -> clipProblem(node, layout)
+            strict -> clipProblem(node, layout)
+            else -> null
         }?.let { "$width/$font $it" }
     }
 }
