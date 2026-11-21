@@ -44,3 +44,5 @@ bf7d98ad5fd5f34ec95fa90cd4d3f7ce54a5acf815e6a85d8da0c151816901c2 D3_Dubbing.webp
 6cf5005222d57dcaf77f6b54de744198a9e13752f7f5160c3196d66ac8127f15 polish-2.webp
 a75e1e548a38365a69ca825da48cfc685b8e5fdca38abae1d341f84d6fe269ca polish-3.webp
 ```
+
+Imported on 2026-11-21 by the scoped workflow `.github/workflows/ui-polish-mockups.yml` (bot commits `b9189bd`, `eb2e310`); all 16 files match the hashes above. The SVGs, `MAPPING.md` and the converter are byte for byte the bundle's; `phosphor/LICENSE` is stored with LF line endings (the bundle's copy uses CRLF), same text.
