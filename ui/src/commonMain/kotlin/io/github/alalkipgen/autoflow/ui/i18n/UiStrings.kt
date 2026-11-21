@@ -1537,6 +1537,17 @@ enum class UiText(val en: String, val my: String?) {
     PACKAGE_PICKER("Choose an Auto Flow render package (.zip)", "Auto Flow render package (.zip) ကို ရွေးပါ"),
     PACKAGE_OPENED("Opened from the package: {name}", "Package ကနေ ဖွင့်ပြီး: {name}"),
     PACKAGE_NO_PROJECT("This zip has no Auto Flow project.", "ဒီ zip ထဲမှာ Auto Flow project မရှိဘူး။"),
+    // P9-8 Home (DESIGN.md §9.7): greeting, hero, "All ›" links, Resume and the create / tool tile captions.
+    HOME_GREETING("Hello · What will you make today?", "မင်္ဂလာပါ · ဒီနေ့ ဘာ ဖန်တီးမလဲ"),
+    HOME_QUICK_CHIP("Quick", "အမြန်"),
+    HOME_HERO_TITLE("Movie Recap in one flow", "Movie Recap တစ်ဆက်တည်း လုပ်မယ်"),
+    HOME_SEE_ALL("All ›", "အားလုံး ›"),
+    HOME_RESUME("Resume {name}", "{name} ဆက်လုပ်မယ်"),
+    HOME_RECAP_CAPTION("Movie summary", "ဇာတ်ကား အကျဉ်း"),
+    HOME_MV_CAPTION("Song + pictures", "သီချင်း + ပုံရိပ်"),
+    HOME_DUB_CAPTION("Burmese voice-over", "မြန်မာ အသံသွင်း"),
+    HOME_VOICE_CAPTION("Speech · clean-up · video sound", "စာမှ အသံ · အသံသန့် · ဗီဒီယို အသံ"),
+    HOME_SUBS_CAPTION("Make · edit", "ဖန်တီး · ပြင်ဆင်"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }

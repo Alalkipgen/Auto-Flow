@@ -23,6 +23,7 @@ import io.github.alalkipgen.autoflow.platform.JvmFs
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.home.HomeScreen
+import io.github.alalkipgen.autoflow.ui.media.thumbSource
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -111,7 +112,7 @@ class PrShotsTest(val width: Int, val font: Float) {
         val index = index(); val rows = jobs()
         shot("home") {
             StudioV2Shell(StudioV2Dest.HOME, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
-                HomeScreen(recent = index.entries.value, jobs = rows)
+                HomeScreen(recent = index.entries.value, jobs = rows, thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
             }
         }
     }
