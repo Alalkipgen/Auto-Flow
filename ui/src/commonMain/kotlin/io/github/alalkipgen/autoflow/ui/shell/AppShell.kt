@@ -493,10 +493,14 @@ private fun StudioV2App(
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
                 val state by dashboard.state.collectAsState()
                 var openFailed by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.jobs.JobRow?>(null) }
+                val jobsStore = koinInject<io.github.alalkipgen.autoflow.core.store.ProjectStore>()
+                val jobThumbSource: suspend (String) -> io.github.alalkipgen.autoflow.ui.media.MediaThumbnails.Source? =
+                    remember(jobsStore) { { dir -> jobsStore.thumbSource(dir) } }
                 io.github.alalkipgen.autoflow.ui.jobs.JobsScreen(rows, scope, onOpen = { row ->
                     val target = io.github.alalkipgen.autoflow.ui.jobs.openJobProject(row, dashboard, currentProject)
                     if (target != null) nav = target else openFailed = row
-                }, notice = if (openFailed != null) state.notice?.text(LocalUiLanguage.current) ?: state.message else null, noticeRow = openFailed)
+                }, notice = if (openFailed != null) state.notice?.text(LocalUiLanguage.current) ?: state.message else null, noticeRow = openFailed,
+                    thumbSource = jobThumbSource)
             }
         }
     }

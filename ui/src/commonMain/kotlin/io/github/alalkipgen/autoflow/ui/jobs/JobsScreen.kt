@@ -1,54 +1,40 @@
 package io.github.alalkipgen.autoflow.ui.jobs
 
-import io.github.alalkipgen.autoflow.ui.components.paneScroll
-import io.github.alalkipgen.autoflow.ui.i18n.*
-import io.github.alalkipgen.autoflow.ui.i18n.UiText
-import io.github.alalkipgen.autoflow.ui.i18n.tr
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.background
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import io.github.alalkipgen.autoflow.ui.components.JobCard
-import io.github.alalkipgen.autoflow.ui.components.CardRemoval
-import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
-import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
-import io.github.alalkipgen.autoflow.ui.i18n.My
-import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
+import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderState
-import io.github.alalkipgen.autoflow.ui.media.MediaTaskRun
-import io.github.alalkipgen.autoflow.ui.media.MediaTasks
-import io.github.alalkipgen.autoflow.ui.components.StudioStatus
-import io.github.alalkipgen.autoflow.ui.components.AfButton
-import io.github.alalkipgen.autoflow.ui.components.AfCard
-import io.github.alalkipgen.autoflow.ui.components.AfText
-import io.github.alalkipgen.autoflow.ui.components.ButtonKind
-import io.github.alalkipgen.autoflow.ui.components.WrapRow
-import io.github.alalkipgen.autoflow.ui.components.screenPadding
+import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.export.ExportModel
 import io.github.alalkipgen.autoflow.ui.export.ExportRun
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.media.MediaTaskRun
+import io.github.alalkipgen.autoflow.ui.media.MediaTasks
+import io.github.alalkipgen.autoflow.ui.media.MediaThumbnails
+import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
+import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.recap.RecapUiState
 import io.github.alalkipgen.autoflow.ui.recap.RecapVoiceRun
 import io.github.alalkipgen.autoflow.ui.storyboard.JobState
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
-import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.koin.compose.getKoin
@@ -283,8 +269,11 @@ internal fun rememberJobsActions(scope: CoroutineScope): JobsActions {
 }
 
 /**
- * Studio v2 Jobs screen (5A-5, DESIGN.md §7 "Jobs"): every running job with its project, progress, Cancel, and
- * "Open" to the screen it belongs to ([onOpen]).
+ * Studio v2 Jobs screen (5A-5; DESIGN.md §9.7 panel 3): title with the group counts, then Running (thumbnail, title,
+ * kind · detail · live timing, progress), Needs you (warning / error cards with the plain reason; Resume remaining /
+ * Retry) and Finished (thumbnail, file actions where the platform has them). Every job keeps its "Open" to the screen
+ * it belongs to ([onOpen]) and Cancel where the job supports it; finished jobs keep long-press / right-click → remove
+ * from history. [thumbSource] reads a project's recorded source for the thumbnail (read-only). One column ≤ 720 dp.
  */
 @Composable
 fun JobsScreen(
@@ -295,54 +284,53 @@ fun JobsScreen(
     actions: JobsActions? = null,
     notice: String? = null,
     noticeRow: JobRow? = null,
+    thumbSource: (suspend (dir: String) -> MediaThumbnails.Source?)? = null,
 ) {
     val live = actions ?: rememberJobsActions(scope)
     val language = LocalUiLanguage.current
+    Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
     Column(
-        modifier.fillMaxSize().background(AutoFlowColors.Background).testTag("jobs-content").paneScroll(rememberScrollState()).padding(screenPadding),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().testTag("jobs-content").paneScroll(rememberScrollState()).padding(screenPadding),
+        verticalArrangement = Arrangement.spacedBy(AfSpace.L),
     ) {
-        AfText(tr(UiText.JOBS), size = 20.sp, bold = true)
-        notice?.takeIf { noticeRow == null }?.let { AfText(it, Modifier.testTag("jobs-notice"), color = AutoFlowColors.Failed) }
-        if (rows.isEmpty()) {
-            AfText(
-                tr(UiText.JOBS_EMPTY_FIRST) +
-                    tr(UiText.JOBS_EMPTY_LAST),
-                Modifier.testTag("jobs-empty"),
-                muted = true,
-            )
+        Column(Modifier.testTag("jobs-header"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            AfText(tr(UiText.JOBS), Modifier.testTag("jobs-heading"), type = AfType.ScreenTitle)
+            val counts = JobGroup.entries.mapNotNull { g -> rows.count { it.group == g }.takeIf { it > 0 }?.let { "${tr(g.label)} $it" } }
+            if (counts.isNotEmpty()) AfText(My.breakSyllables(counts.joinToString(" · ")), Modifier.testTag("jobs-counts"),
+                color = AutoFlowColors.Muted, type = AfType.Caption)
         }
+        notice?.takeIf { noticeRow == null }?.let { AfText(My.breakSyllables(it), Modifier.testTag("jobs-notice"), color = AutoFlowColors.Failed) }
+        if (rows.isEmpty()) EmptyState(AfIcons.Duotone.Jobs, My.breakSyllables(tr(UiText.JOBS_EMPTY_FIRST) + tr(UiText.JOBS_EMPTY_LAST)),
+            null, Modifier.testTag("jobs-empty"))
         JobGroup.entries.forEach { group ->
             val members = rows.filter { it.group == group }
-            if (members.isNotEmpty()) {
-                AfText(tr(group.label), Modifier.testTag("jobs-group-${group.name}"), size = 18.sp, bold = true)
+            if (members.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.CardGap)) {
+                AfText(My.breakSyllables(tr(group.label)), Modifier.testTag("jobs-group-${group.name}"), color = AutoFlowColors.Muted,
+                    type = AfType.Caption)
                 members.forEach { row -> key(row.identity) {
                     val key = row.aiJobId ?: row.jobId?.takeIf { row.source == JobSource.RECAP_VOICE } ?: row.source.name.lowercase()
-                    val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
                     val card: @Composable (Modifier) -> Unit = { context ->
                         Column(Modifier.testTag("job-${row.source.name.lowercase()}")) {
-                        JobRunCard(row, Modifier.testTag("job-card-$key").then(context)) {
-                            if (row.failed) row.detail?.let { AfText(it, color = AutoFlowColors.Failed) }
-                            if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %") }
-                            WrapRow {
-                                if (row.projectDeleted) AfText(My.breakSyllables(tr(UiText.JOB_PROJECT_DELETED)), muted = true)
-                                else AfButton(tr(UiText.OPEN), { onOpen(row) }, Modifier.testTag("job-open-$key"))
-                                row.resumeCount?.takeIf { live.canResume(row) }?.let { n -> AfButton(
-                                    if (row.failed) tr(UiText.RETRY) else tr(UiText.V3_RESUME_REMAINING, "n" to n),
-                                    { live.resume(row) }, Modifier.testTag("job-resume-$key"), kind = ButtonKind.Primary)
+                            JobItemCard(row, thumbSource, Modifier.testTag("job-card-$key").then(context)) {
+                                WrapRow {
+                                    if (row.projectDeleted) AfText(My.breakSyllables(tr(UiText.JOB_PROJECT_DELETED)), muted = true)
+                                    else AfButton(tr(UiText.OPEN), { onOpen(row) }, Modifier.testTag("job-open-$key"))
+                                    row.resumeCount?.takeIf { live.canResume(row) }?.let { n -> AfButton(
+                                        if (row.failed) tr(UiText.RETRY) else tr(UiText.V3_RESUME_REMAINING, "n" to n),
+                                        { live.resume(row) }, Modifier.testTag("job-resume-$key"), kind = ButtonKind.Primary)
+                                    }
+                                    if (row.canCancel && live.canCancel(row)) AfButton(tr(UiText.CANCEL), { live.cancel(row) },
+                                        Modifier.testTag("job-cancel-$key"), kind = ButtonKind.Danger)
+                                    if (live.hasOutput(row)) JobFileAction.entries.forEach { action ->
+                                        AfButton(tr(action.label), { live.file(row, action, language) },
+                                            Modifier.testTag("job-file-${action.name}-$key"), enabled = !live.saving)
+                                    }
                                 }
-                                if (row.canCancel && live.canCancel(row)) AfButton(tr(UiText.CANCEL), { live.cancel(row) },
-                                    Modifier.testTag("job-cancel-$key"), kind = ButtonKind.Danger)
-                                if (live.hasOutput(row)) JobFileAction.entries.forEach { action ->
-                                    AfButton(tr(action.label), { live.file(row, action, language) },
-                                        Modifier.testTag("job-file-${action.name}-$key"), enabled = !live.saving)
-                                }
+                                val external = noticeRow?.identity == row.identity
+                                val feedback = if (external) notice else live.notice?.takeIf { live.noticeTarget == row.identity }?.text(language)
+                                feedback?.let { AfText(My.breakSyllables(it), Modifier.testTag("job-notice-$key"),
+                                    color = if (!external && live.notice?.key == UiText.EXPORT_GALLERY_SAVED) AutoFlowColors.Green else AutoFlowColors.Failed) }
                             }
-                            val external = noticeRow?.identity == row.identity
-                            val feedback = if (external) notice else live.notice?.takeIf { live.noticeTarget == row.identity }?.text(language)
-                            feedback?.let { AfText(it, Modifier.testTag("job-notice-$key"),
-                                color = if (!external && live.notice?.key == UiText.EXPORT_GALLERY_SAVED) AutoFlowColors.Green else AutoFlowColors.Failed) }
-                        }
                         }
                     }
                     if (live.canRemoveFinished(row)) CardRemoval("job-card-$key", UiText.JOB_DELETE_HISTORY,
@@ -353,4 +341,49 @@ fun JobsScreen(
             }
         }
     }
+    }
+}
+
+/**
+ * A job card (panel 3): Needs you = a warning (paused) or error (failed) bar with its icon tile, else the project's
+ * thumbnail 64 × 40 (real frame when cached, else the job's type icon); title (the project, else the job), kind ·
+ * detail · live timing, the status chip, the failure reason, progress while it runs (percent when not timed), then
+ * [actions].
+ */
+@Composable
+private fun JobItemCard(row: JobRow, thumbSource: (suspend (String) -> MediaThumbnails.Source?)?, modifier: Modifier,
+    actions: @Composable ColumnScope.() -> Unit) {
+    val attention = when { row.group != JobGroup.NEEDS_YOU -> null; row.failed -> Tone.Error; else -> Tone.Warning }
+    val dir = row.projectDir?.takeIf { !row.projectDeleted && attention == null }
+    val source by produceState<MediaThumbnails.Source?>(null, dir, thumbSource) { value = dir?.let { thumbSource?.invoke(it) } }
+    val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
+    val detail = jobDetail(row)
+    AfCard(modifier, attention = attention) {
+        Row(horizontalArrangement = Arrangement.spacedBy(AfSpace.M), verticalAlignment = Alignment.Top) {
+            if (attention != null) Box(Modifier.size(AfSize.TileSmall).clip(RoundedCornerShape(AfRadius.TileSmall)).background(attention.container),
+                contentAlignment = Alignment.Center) {
+                AfIcon(if (row.failed) AfIcons.Fill.XCircle else AfIcons.Fill.Warn, tint = attention.text, size = AfSize.IconSmall)
+            } else MediaThumb(source, row.icon(), size = AfSize.ThumbCompact)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
+                AfText(My.breakSyllables(row.projectTitle ?: row.title), type = AfType.RowTitle)
+                if (detail.isNotEmpty()) AfText(My.breakSyllables(detail), color = AutoFlowColors.Muted, type = AfType.Caption)
+                if (row.failed) row.detail?.let { AfText(My.breakSyllables(it), color = AutoFlowColors.Failed, type = AfType.Caption) }
+                StatusChip(row.status)
+            }
+        }
+        if (progress != null || row.indeterminate) AfProgress(progress?.toFloat())
+        if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %", color = AutoFlowColors.Muted, type = AfType.Caption) }
+        actions()
+    }
+}
+
+/** The placeholder icon of a job's thumbnail: what it makes. */
+private fun JobRow.icon(): ImageVector = when {
+    source == JobSource.STORYBOARD -> AfIcons.Duotone.Music
+    source == JobSource.RECAP_VOICE -> AfIcons.Duotone.Wave
+    aiKind == AiJobKind.TTS_ALL || aiKind == AiJobKind.TEXT_TTS -> AfIcons.Duotone.Wave
+    aiKind == AiJobKind.DUB_TTS -> AfIcons.Duotone.Dub
+    aiKind == AiJobKind.TRANSCRIBE || aiKind == AiJobKind.MEDIA_TRANSCRIBE || aiKind == AiJobKind.SUB_TRANSLATE -> AfIcons.Duotone.Subtitles
+    aiKind != null -> AfIcons.Duotone.Spark
+    else -> AfIcons.Duotone.Film
 }

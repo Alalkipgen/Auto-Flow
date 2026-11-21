@@ -16,6 +16,14 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun JobRunCard(row: JobRow, modifier: Modifier = Modifier, headerAction: (@Composable () -> Unit)? = null,
     actions: @Composable ColumnScope.() -> Unit = {}) {
+    JobCard(row.projectTitle ?: row.title, row.status, My.breakSyllables(jobDetail(row)), modifier,
+        progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }?.toFloat(),
+        indeterminate = row.indeterminate, headerAction = headerAction, actions = actions)
+}
+
+/** The job's second line: its kind (when the title is the project), its detail (not a failure reason) and live timing. */
+@Composable
+internal fun jobDetail(row: JobRow): String {
     val timing = if (row.timedRun && row.status == StudioStatus.RUNNING) {
         val active by AiRunTiming.active.collectAsState()
         val now = row.jobId?.let { active[it] }
@@ -23,11 +31,8 @@ internal fun JobRunCard(row: JobRow, modifier: Modifier = Modifier, headerAction
         val language = LocalUiLanguage.current
         remember(tick, now, language) { liveLabel(now, language) }
     } else null
-    val detail = listOfNotNull(row.title.takeIf { row.projectTitle != null }, row.detail?.takeIf { it != row.projectTitle && !row.failed }, timing)
+    return listOfNotNull(row.title.takeIf { row.projectTitle != null }, row.detail?.takeIf { it != row.projectTitle && !row.failed }, timing)
         .joinToString(" · ")
-    JobCard(row.projectTitle ?: row.title, row.status, My.breakSyllables(detail), modifier,
-        progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }?.toFloat(),
-        indeterminate = row.indeterminate, headerAction = headerAction, actions = actions)
 }
 
 private fun liveLabel(live: AiRunTiming.Live?, language: UiLanguage): String {
