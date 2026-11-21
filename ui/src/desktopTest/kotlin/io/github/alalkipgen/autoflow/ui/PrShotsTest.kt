@@ -152,7 +152,7 @@ class PrShotsTest(val width: Int, val font: Float) {
         val rows = jobs()
         shot("jobs") {
             StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
-                JobsScreen(rows, scope, {}, actions = JobsActions(scope))
+                JobsScreen(rows, scope, {}, actions = JobsActions(scope), thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
             }
         }
     }
