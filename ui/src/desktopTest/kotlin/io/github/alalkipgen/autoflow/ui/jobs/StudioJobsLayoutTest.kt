@@ -112,10 +112,13 @@ class StudioJobsLayoutTest(val width: Int, val font: Float, val language: UiLang
                         else AfText("Home", Modifier.testTag("jobs-returned-home"))
                     }
                 } }
+                // Desktop list–detail (P9-10b): a job's buttons are in the detail pane once its card is selected.
+                val wide = width == 1440
+                fun pick(id: String) { if (wide) onNodeWithTag("job-card-$id").performScrollTo().performMouseInput { click() } }
                 fun click(tag: String) {
                     val node = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().assertIsEnabled()
                     val bounds = node.getUnclippedBoundsInRoot()
-                    val viewport = onNodeWithTag("jobs-content").getUnclippedBoundsInRoot()
+                    val viewport = onNodeWithTag(if (wide) "jobs-detail" else "jobs-content").getUnclippedBoundsInRoot()
                     assertTrue((bounds.bottom - bounds.top).value >= 48 && bounds.top >= viewport.top && bounds.bottom <= viewport.bottom)
                     node.performMouseInput { click() }
                 }
@@ -137,23 +140,26 @@ class StudioJobsLayoutTest(val width: Int, val font: Float, val language: UiLang
                 click("job-open-render")
                 assertEquals(project, h.current.state.value?.dir); assertEquals("Export", opened?.projectScreen)
                 if (language == UiLanguage.BURMESE && font == 2f) {
+                    pick("paused")
                     onNodeWithTag("job-resume-paused").performScrollTo().assertIsDisplayed()
                     capture("paused")
                 }
+                pick("failed")
                 onNodeWithTag("job-resume-failed").performScrollTo().assertIsDisplayed()
                 capture("needs-you")
                 onNodeWithTag("job-card-failed").performScrollTo().performTouchInput { longClick(topCenter + androidx.compose.ui.geometry.Offset(0f, 20f)) }
                 onNodeWithTag("job-card-failed-remove-menu").assertIsDisplayed().performMouseInput { click() }
                 onNodeWithTag("job-card-failed-remove-confirm").assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("job-card-failed-remove-cancel").assertIsDisplayed().performMouseInput { click() }
-                click("job-open-paused")
+                pick("paused"); click("job-open-paused")
                 assertEquals(project, h.current.state.value?.dir); assertEquals(RecapStep.VOICE, opened?.recapStep)
-                click("job-resume-paused"); click("job-resume-failed")
+                click("job-resume-paused"); pick("failed"); click("job-resume-failed")
                 assertEquals(listOf("paused", "failed"), runner.resumed.map { it.id })
                 assertEquals(items, runner.resumed.first().items); assertTrue(runner.resumed.all { it.project == project })
                 onNodeWithTag("job-resume-unsupported").assertDoesNotExist()
-                click("job-cancel-paused"); assertEquals(listOf("paused"), runner.cancelled)
+                pick("paused"); click("job-cancel-paused"); assertEquals(listOf("paused"), runner.cancelled)
                 h.run.value = RenderState.Done(output.path, 5_000, 100, null)
+                pick("render")
                 onNodeWithTag("job-file-OPEN-render").performScrollTo().assertIsDisplayed()
                 capture("finished")
                 JobFileAction.entries.forEach { click("job-file-${it.name}-render") }

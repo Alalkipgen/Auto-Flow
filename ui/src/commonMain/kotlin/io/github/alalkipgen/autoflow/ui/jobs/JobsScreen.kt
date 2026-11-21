@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.jobs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,7 +10,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobKind
@@ -288,61 +294,114 @@ fun JobsScreen(
 ) {
     val live = actions ?: rememberJobsActions(scope)
     val language = LocalUiLanguage.current
-    Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
-    Column(
-        Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().testTag("jobs-content").paneScroll(rememberScrollState()).padding(screenPadding),
-        verticalArrangement = Arrangement.spacedBy(AfSpace.L),
-    ) {
-        Column(Modifier.testTag("jobs-header"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            AfText(tr(UiText.JOBS), Modifier.testTag("jobs-heading"), type = AfType.ScreenTitle)
-            val counts = JobGroup.entries.mapNotNull { g -> rows.count { it.group == g }.takeIf { it > 0 }?.let { "${tr(g.label)} $it" } }
-            if (counts.isNotEmpty()) AfText(My.breakSyllables(counts.joinToString(" · ")), Modifier.testTag("jobs-counts"),
-                color = AutoFlowColors.Muted, type = AfType.Caption)
-        }
-        notice?.takeIf { noticeRow == null }?.let { AfText(My.breakSyllables(it), Modifier.testTag("jobs-notice"), color = AutoFlowColors.Failed) }
-        if (rows.isEmpty()) EmptyState(AfIcons.Duotone.Jobs, My.breakSyllables(tr(UiText.JOBS_EMPTY_FIRST) + tr(UiText.JOBS_EMPTY_LAST)),
-            null, Modifier.testTag("jobs-empty"))
-        JobGroup.entries.forEach { group ->
-            val members = rows.filter { it.group == group }
-            if (members.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.CardGap)) {
-                AfText(My.breakSyllables(tr(group.label)), Modifier.testTag("jobs-group-${group.name}"), color = AutoFlowColors.Muted,
-                    type = AfType.Caption)
-                members.forEach { row -> key(row.identity) {
-                    val key = row.aiJobId ?: row.jobId?.takeIf { row.source == JobSource.RECAP_VOICE } ?: row.source.name.lowercase()
-                    val card: @Composable (Modifier) -> Unit = { context ->
-                        Column(Modifier.testTag("job-${row.source.name.lowercase()}")) {
-                            JobItemCard(row, thumbSource, Modifier.testTag("job-card-$key").then(context)) {
-                                WrapRow {
-                                    if (row.projectDeleted) AfText(My.breakSyllables(tr(UiText.JOB_PROJECT_DELETED)), muted = true)
-                                    else AfButton(tr(UiText.OPEN), { onOpen(row) }, Modifier.testTag("job-open-$key"))
-                                    row.resumeCount?.takeIf { live.canResume(row) }?.let { n -> AfButton(
-                                        if (row.failed) tr(UiText.RETRY) else tr(UiText.V3_RESUME_REMAINING, "n" to n),
-                                        { live.resume(row) }, Modifier.testTag("job-resume-$key"), kind = ButtonKind.Primary)
-                                    }
-                                    if (row.canCancel && live.canCancel(row)) AfButton(tr(UiText.CANCEL), { live.cancel(row) },
-                                        Modifier.testTag("job-cancel-$key"), kind = ButtonKind.Danger)
-                                    if (live.hasOutput(row)) JobFileAction.entries.forEach { action ->
-                                        AfButton(tr(action.label), { live.file(row, action, language) },
-                                            Modifier.testTag("job-file-${action.name}-$key"), enabled = !live.saving)
-                                    }
-                                }
-                                val external = noticeRow?.identity == row.identity
-                                val feedback = if (external) notice else live.notice?.takeIf { live.noticeTarget == row.identity }?.text(language)
-                                feedback?.let { AfText(My.breakSyllables(it), Modifier.testTag("job-notice-$key"),
-                                    color = if (!external && live.notice?.key == UiText.EXPORT_GALLERY_SAVED) AutoFlowColors.Green else AutoFlowColors.Failed) }
-                            }
-                        }
-                    }
-                    if (live.canRemoveFinished(row)) CardRemoval("job-card-$key", UiText.JOB_DELETE_HISTORY,
-                        tr(UiText.JOB_DELETE_HISTORY_CONFIRM), UiText.JOB_DELETE_HISTORY_KEEPS_FILES,
-                        { { live.removeFinished(row) } }, card = card)
-                    else card(Modifier)
-                } }
+    // A row's buttons and its feedback: under the card on phones, in the detail pane on the desktop.
+    val buttons: @Composable ColumnScope.(JobRow) -> Unit = { row ->
+        val key = row.tagKey
+        WrapRow {
+            if (row.projectDeleted) AfText(My.breakSyllables(tr(UiText.JOB_PROJECT_DELETED)), muted = true)
+            else AfButton(tr(UiText.OPEN), { onOpen(row) }, Modifier.testTag("job-open-$key"))
+            row.resumeCount?.takeIf { live.canResume(row) }?.let { n -> AfButton(
+                if (row.failed) tr(UiText.RETRY) else tr(UiText.V3_RESUME_REMAINING, "n" to n),
+                { live.resume(row) }, Modifier.testTag("job-resume-$key"), kind = ButtonKind.Primary)
+            }
+            if (row.canCancel && live.canCancel(row)) AfButton(tr(UiText.CANCEL), { live.cancel(row) },
+                Modifier.testTag("job-cancel-$key"), kind = ButtonKind.Danger)
+            if (live.hasOutput(row)) JobFileAction.entries.forEach { action ->
+                AfButton(tr(action.label), { live.file(row, action, language) },
+                    Modifier.testTag("job-file-${action.name}-$key"), enabled = !live.saving)
             }
         }
+        val external = noticeRow?.identity == row.identity
+        val feedback = if (external) notice else live.notice?.takeIf { live.noticeTarget == row.identity }?.text(language)
+        feedback?.let { AfText(My.breakSyllables(it), Modifier.testTag("job-notice-$key"),
+            color = if (!external && live.notice?.key == UiText.EXPORT_GALLERY_SAVED) AutoFlowColors.Green else AutoFlowColors.Failed) }
     }
+    BoxWithConstraints(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
+        // Desktop (expanded Jobs width): list left, the selected job right; the top job is selected until a card is clicked.
+        val wide = widthClass(maxWidth.value) == WidthClass.EXPANDED && rows.isNotEmpty()
+        var picked by remember { mutableStateOf<String?>(null) }
+        val selected = if (wide) rows.firstOrNull { it.identity == picked } ?: rows.sortedBy { it.group.ordinal }.first() else null
+        val list = @Composable {
+            Column(
+                Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().testTag("jobs-content").paneScroll(rememberScrollState()).padding(screenPadding),
+                verticalArrangement = Arrangement.spacedBy(AfSpace.L),
+            ) {
+                Column(Modifier.testTag("jobs-header"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    AfText(tr(UiText.JOBS), Modifier.testTag("jobs-heading"), type = AfType.ScreenTitle)
+                    val counts = JobGroup.entries.mapNotNull { g -> rows.count { it.group == g }.takeIf { it > 0 }?.let { "${tr(g.label)} $it" } }
+                    if (counts.isNotEmpty()) AfText(My.breakSyllables(counts.joinToString(" · ")), Modifier.testTag("jobs-counts"),
+                        color = AutoFlowColors.Muted, type = AfType.Caption)
+                }
+                notice?.takeIf { noticeRow == null }?.let { AfText(My.breakSyllables(it), Modifier.testTag("jobs-notice"), color = AutoFlowColors.Failed) }
+                if (rows.isEmpty()) EmptyState(AfIcons.Duotone.Jobs, My.breakSyllables(tr(UiText.JOBS_EMPTY_FIRST) + tr(UiText.JOBS_EMPTY_LAST)),
+                    null, Modifier.testTag("jobs-empty"))
+                JobGroup.entries.forEach { group ->
+                    val members = rows.filter { it.group == group }
+                    if (members.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.CardGap)) {
+                        AfText(My.breakSyllables(tr(group.label)), Modifier.testTag("jobs-group-${group.name}"), color = AutoFlowColors.Muted,
+                            type = AfType.Caption)
+                        members.forEach { row -> key(row.identity) {
+                            val key = row.tagKey
+                            val isSelected = selected?.identity == row.identity
+                            val pick = { picked = row.identity }
+                            val card: @Composable (Modifier) -> Unit = { context ->
+                                Column(Modifier.testTag("job-${row.source.name.lowercase()}")) {
+                                    JobItemCard(row, thumbSource, Modifier.testTag("job-card-$key").then(context), isSelected) {
+                                        if (!wide) buttons(row)
+                                    }
+                                }
+                            }
+                            // Desktop: a click selects (and right-click / long-press still opens the history menu).
+                            val select = if (wide) Modifier.semantics { this.selected = isSelected; onClick { pick(); true } } else Modifier
+                            if (live.canRemoveFinished(row)) CardRemoval("job-card-$key", UiText.JOB_DELETE_HISTORY,
+                                tr(UiText.JOB_DELETE_HISTORY_CONFIRM), UiText.JOB_DELETE_HISTORY_KEEPS_FILES,
+                                { { live.removeFinished(row) } }, onTap = if (wide) pick else null) { card(it.then(select)) }
+                            else card(if (wide) Modifier.pointerInput(key) { detectTapGestures(onTap = { pick() }) }.then(select) else Modifier)
+                        } }
+                    }
+                }
+            }
+        }
+        if (selected == null) list()
+        else ListDetailPane(maxWidth.value, true, list, { JobDetail(selected, thumbSource) { buttons(selected) } })
     }
 }
+
+/**
+ * The selected job on the desktop (list–detail): caption, 16:9 thumbnail (≤ [AfDesktop.DetailThumbMax]), title, kind ·
+ * detail · timing, the failure reason, status, progress and the row's buttons and feedback ([actions]).
+ */
+@Composable
+private fun JobDetail(row: JobRow, thumbSource: (suspend (String) -> MediaThumbnails.Source?)?, actions: @Composable ColumnScope.() -> Unit) {
+    val dir = row.projectDir?.takeIf { !row.projectDeleted }
+    val source by produceState<MediaThumbnails.Source?>(null, dir, thumbSource) { value = dir?.let { thumbSource?.invoke(it) } }
+    val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
+    val detail = jobDetail(row)
+    Column(Modifier.fillMaxSize().testTag("jobs-detail").paneScroll(rememberScrollState())
+        .padding(top = screenPadding, end = screenPadding, bottom = screenPadding)) {
+        AfCard(Modifier.fillMaxWidth().testTag("jobs-detail-card"), attention = row.attention) {
+            AfText(My.breakSyllables(tr(UiText.JOBS_SELECTED)), color = AutoFlowColors.Muted, type = AfType.Caption)
+            BoxWithConstraints {
+                val w = minOf(maxWidth, AfDesktop.DetailThumbMax)
+                MediaThumb(source, row.icon(), size = DpSize(w, w * 9f / 16f), durationMs = source?.durationMs)
+            }
+            AfText(My.breakSyllables(row.projectTitle ?: row.title), Modifier.testTag("jobs-detail-title"), type = AfType.CardTitle)
+            if (detail.isNotEmpty()) AfText(My.breakSyllables(detail), color = AutoFlowColors.Muted, type = AfType.Caption)
+            if (row.failed) row.detail?.let { AfText(My.breakSyllables(it), Modifier.testTag("jobs-detail-reason"), color = AutoFlowColors.Failed) }
+            StatusChip(row.status)
+            if (progress != null || row.indeterminate) AfProgress(progress?.toFloat())
+            if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %", color = AutoFlowColors.Muted, type = AfType.Caption) }
+            actions()
+        }
+    }
+}
+
+/** The key in a job's tags (`job-card-<key>`, `job-open-<key>`, …). */
+private val JobRow.tagKey: String
+    get() = aiJobId ?: jobId?.takeIf { source == JobSource.RECAP_VOICE } ?: source.name.lowercase()
+
+/** Needs you: a warning (paused) or error (failed) card. */
+private val JobRow.attention: Tone? get() = when { group != JobGroup.NEEDS_YOU -> null; failed -> Tone.Error; else -> Tone.Warning }
 
 /**
  * A job card (panel 3): Needs you = a warning (paused) or error (failed) bar with its icon tile, else the project's
@@ -352,13 +411,13 @@ fun JobsScreen(
  */
 @Composable
 private fun JobItemCard(row: JobRow, thumbSource: (suspend (String) -> MediaThumbnails.Source?)?, modifier: Modifier,
-    actions: @Composable ColumnScope.() -> Unit) {
-    val attention = when { row.group != JobGroup.NEEDS_YOU -> null; row.failed -> Tone.Error; else -> Tone.Warning }
+    selected: Boolean, actions: @Composable ColumnScope.() -> Unit) {
+    val attention = row.attention
     val dir = row.projectDir?.takeIf { !row.projectDeleted && attention == null }
     val source by produceState<MediaThumbnails.Source?>(null, dir, thumbSource) { value = dir?.let { thumbSource?.invoke(it) } }
     val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
     val detail = jobDetail(row)
-    AfCard(modifier, attention = attention) {
+    AfCard(modifier, selected = selected, attention = attention) {
         Row(horizontalArrangement = Arrangement.spacedBy(AfSpace.M), verticalAlignment = Alignment.Top) {
             if (attention != null) Box(Modifier.size(AfSize.TileSmall).clip(RoundedCornerShape(AfRadius.TileSmall)).background(attention.container),
                 contentAlignment = Alignment.Center) {

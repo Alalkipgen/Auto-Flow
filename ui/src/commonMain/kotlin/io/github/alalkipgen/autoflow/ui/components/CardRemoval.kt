@@ -36,7 +36,7 @@ internal fun CardRemoval(
         prepare()?.let { pending = RemovalIntent(it) }
         return true
     }
-    card(Modifier.pointerInput(key) {
+    card(Modifier.pointerInput(key, onTap == null) {
         detectTapGestures(onTap = if (onTap == null) null else { { tap?.invoke() } },
             onLongPress = { openMenu() })
     }.onSecondaryClick { openMenu() }.semantics {
