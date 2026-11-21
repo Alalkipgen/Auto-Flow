@@ -21,6 +21,8 @@ import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
+import io.github.alalkipgen.autoflow.core.subtitles.SubtitleOps
+import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.DesktopToolLocator
 import io.github.alalkipgen.autoflow.platform.JvmFs
@@ -51,6 +53,9 @@ import io.github.alalkipgen.autoflow.ui.recap.StudioRecapScreen
 import io.github.alalkipgen.autoflow.ui.recap.StudioThumbnailsLayoutTest
 import io.github.alalkipgen.autoflow.ui.settings.*
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest
+import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesFixture
+import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesFixture.Line
+import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Shell
 import io.github.alalkipgen.autoflow.ui.shell.ShellActions
 import io.github.alalkipgen.autoflow.ui.shell.ShellShortcut
@@ -248,6 +253,24 @@ class PrShotsTest(val width: Int, val font: Float) {
         onNodeWithTag("voice-open-0").performScrollTo().performMouseInput { click() }
         waitForIdle()
         onAllNodes(button(UiText.SPEAK_BLOCK)).fetchSemanticsNodes().firstOrNull()?.let { onNode(button(UiText.SPEAK_BLOCK)).performScrollTo() }
+    }
+
+    /** P9-12a: the Subtitles editor — one line overlapping, one not translated, Burmese view, one unsaved edit, line 3 selected. */
+    @Test fun subtitlesEditor() {
+        val f = SubtitlesFixture(listOf(Line(1_000, 3_200, "We have to leave tonight.", "ဒီည ထွက်သွားရမယ်။"),
+            Line(3_600, 6_000, "Before the rain starts.", "မိုးမရွာခင်ပေါ့။"),
+            Line(6_400, 9_000, "I will never leave you behind.", "မင်းကို ဘယ်တော့မှ ထားမသွားဘူး။"),
+            Line(9_400, 11_000, "Wait for me at the bridge.", "တံတားမှာ စောင့်နေ။"), Line(10_600, 13_000, "Where is the dragon scroll?"),
+            Line(13_500, 16_000, "Run!", "ပြေး!")), 20_000, "Dune: Part Two", scope)
+        f.editor.apply { open(); setView(TextChoice.BURMESE); edit { SubtitleOps.setTextMy(it, "c2", "မိုးမရွာခင် သွားကြစို့။") } }
+        shot("subtitles-editor", ready = {
+            onNodeWithTag("subtitles-cues").performScrollToKey("c3")
+            onNodeWithTag("subtitles-cue-c3").performMouseInput { click() }
+        }) {
+            StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
+                SubtitlesScreen(f.model, f.session, f.editor, player = f.paused, onBack = {})
+            }
+        }
     }
 
     @Test fun settings() {

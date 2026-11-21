@@ -25,6 +25,8 @@ import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
 import io.github.alalkipgen.autoflow.core.subtitles.TimeText
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
+import io.github.alalkipgen.autoflow.ui.theme.AfSpace
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlin.time.Instant
 import kotlinx.coroutines.launch
@@ -33,7 +35,8 @@ import kotlinx.coroutines.launch
  * The subtitle editor (specs/quick-tools.md §5): view and issues chips, undo/redo, Shift times, a list keyed by cue
  * id, Save · Discard while there are unsaved changes, else Export (S-4a). [header] is the screen's back row and notices. Tap a line =
  * seek + select; while the video plays the list follows the playhead unless the owner scrolled in the last 3 s.
- * Below [WIDE_DP] window width: the video above the list and the edit panel under its line. From [WIDE_DP]: the video
+ * Below [WIDE_DP] window width: the video and its cue strip pinned above the list when the list keeps its room
+ * ([AfSize.SubtitlesPinMin] × font scale; else at the top of the list), the edit panel under its line. From [WIDE_DP]: the video
  * and the edit panel on the left, the list on the right (D-22: one tree, two panes). Keys on the editor surface
  * (never inside a text field): Space play/pause, ↑/↓ previous/next line, Enter edit, Ctrl+S save, Ctrl+Z undo.
  */
@@ -90,13 +93,18 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
         onPrev = cues.getOrNull(i - 1)?.let { p -> { editing = p.id; editor.select(p.id) } },
         onNext = cues.getOrNull(i + 1)?.let { n -> { editing = n.id; editor.select(n.id) } },
         onClose = { editing = null })
-    val preview: @Composable () -> Unit = { SubtitlePreview(path, video, cues, s.view, playhead, player, if (wide) 0.45f else 0.34f) }
-    val cueList: @Composable (Modifier) -> Unit = { m ->
-        // One list: the header scrolls away with the lines, so a phone at font 2.0 still shows them (D-22).
+    val preview: @Composable () -> Unit = {
+        SubtitlePreview(path, video, cues, s.view, playhead, player, if (wide) 0.45f else 0.34f)
+        CueStrip(cues, video.durationMs, playhead.positionMs, s.selected, s.issues)
+    }
+    val cueList: @Composable (Modifier, Boolean) -> Unit = { m, withPreview ->
+        // One list: the header scrolls away with the lines, so a phone at font 2.0 still shows them (D-22) — with the video
+        // when there is no room to pin it.
         LazyColumn(m.testTag("subtitles-cues"), state = list,
             contentPadding = PaddingValues(screenPadding), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item(key = "header") {
                 Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (withPreview) preview()
                     header()
                     s.offer?.let { RestoreCard(it, editor) }
                     s.notice?.let {
@@ -144,10 +152,14 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     val i = cues.indexOfFirst { it.id == editing }
                     if (i >= 0 && idle) panel(i, cues[i])
                 }
-                cueList(Modifier.weight(0.54f).fillMaxHeight())
-            } else {
-                Box(Modifier.fillMaxWidth().padding(start = screenPadding, end = screenPadding, top = 8.dp)) { preview() }
-                cueList(Modifier.weight(1f).fillMaxWidth())
+                cueList(Modifier.weight(0.54f).fillMaxHeight(), false)
+            } else BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val pin = maxHeight >= AfSize.SubtitlesPinMin * LocalDensity.current.fontScale
+                Column(Modifier.fillMaxSize()) {
+                    if (pin) Column(Modifier.fillMaxWidth().padding(start = screenPadding, end = screenPadding, top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(AfSpace.S)) { preview() }
+                    cueList(Modifier.weight(1f).fillMaxWidth(), !pin)
+                }
             }
             if (translating != null) StickyActionBar(
                 primary = StudioAction(tr(UiText.CANCEL_JOB), { translate.cancel(translating) }, tag = "subtitles-translate-cancel"),

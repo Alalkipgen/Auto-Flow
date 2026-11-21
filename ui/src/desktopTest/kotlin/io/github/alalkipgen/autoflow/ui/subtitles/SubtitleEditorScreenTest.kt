@@ -112,13 +112,17 @@ class SubtitleEditorScreenTest {
             runDesktopComposeUiTest(width = width, height = 900) {
                 val f = Fixture()
                 show(f, width, font, language)
-                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+                // P9-12a: the video's cue strip sits under it; at font 2.0 the first line can start below the fold.
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cues").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag("subtitles-cues").performScrollToKey("c1")
                 assertTrue(io.github.alalkipgen.autoflow.core.subtitles.CueIssue.TOO_SHORT in f.editor.state.value.issues["c2"].orEmpty())
                 onNodeWithTag("subtitles-issue-c1-OVERLAP", useUnmergedTree = true).assertExists()
                 // Phase 9 buttons are 1 sp larger; at 360 dp × font 2.0 in Burmese the row starts below the fold.
                 onNodeWithTag("subtitles-cue-edit-c1").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-edit-panel").assertExists()
+                onNodeWithTag("subtitles-cues").performScrollToIndex(0) // at font 2.0 the video tops the list (P9-12a)
                 onNodeWithTag("subtitles-preview-unavailable").assertIsDisplayed()
+                onNodeWithTag("subtitles-cues").performScrollToKey("c1")
                 onNodeWithTag("subtitles-start-plus").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-save").assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("subtitles-cues").performScrollToIndex(0)
@@ -211,6 +215,7 @@ class SubtitleEditorScreenTest {
         val f = Fixture()
         show(f, 412, 1f, UiLanguage.ENGLISH, ahead)
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3") // under the video's cue strip (P9-12a)
         click("subtitles-cue-c3") // tap = seek + select
         onNodeWithTag("subtitles-playhead").assertTextEquals("0:04.0")
         onNodeWithTag("subtitles-preview-line").assertTextEquals("Third line")
