@@ -35,7 +35,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
     navigation?.handleBack?.invoke(replacing || state.transcribe.confirm != null, back)
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 1, tr(UiText.SOURCE), back,
-            options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+            steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
         state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {

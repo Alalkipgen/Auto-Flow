@@ -30,7 +30,7 @@ fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp
         navigation.handleBack(true, navigation.back)
         Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
             ProjectTopBar(open?.project?.name.orEmpty(), 5, tr(UiText.EXPORT), navigation.back,
-                options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), navigation.classic, tag = "classic-recap")))
+                steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), navigation.classic, tag = "classic-recap")))
             Box(Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp)) {

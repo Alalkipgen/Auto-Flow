@@ -34,7 +34,13 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardModel
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
+import io.github.alalkipgen.autoflow.ui.projects.OpenProject
+import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.QaRecapFixture
+import io.github.alalkipgen.autoflow.ui.recap.RecapModel
+import io.github.alalkipgen.autoflow.ui.recap.RecapNavigation
+import io.github.alalkipgen.autoflow.ui.recap.RecapStep
+import io.github.alalkipgen.autoflow.ui.recap.StudioRecapScreen
 import io.github.alalkipgen.autoflow.ui.settings.*
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Shell
@@ -121,6 +127,17 @@ class PrShotsTest(val width: Int, val font: Float) {
         shot("jobs") {
             StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
                 JobsScreen(rows, scope, {}, actions = JobsActions(scope))
+            }
+        }
+    }
+
+    /** A project editor (top bar, step bar, sticky actions): Movie Recap's Story step in the editor shell. */
+    @Test fun recapStory() {
+        val fs = JvmFs(); val current = CurrentProject().apply { set(OpenProject(fixture.dir.path, fixture.project)) }
+        val model = RecapModel(ProjectSession(fs, ProjectStore(fs), index(), current), fs, null, null, scope)
+        shot("recap-story") {
+            StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
+                StudioRecapScreen(model, RecapStep.STORY, width.toFloat(), {}, RecapNavigation({}, {}, {}))
             }
         }
     }

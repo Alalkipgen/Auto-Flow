@@ -1,7 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.components
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** UI callback, not a persisted command or engine state. */
@@ -33,42 +33,29 @@ private fun Action(action: StudioAction, primary: Boolean = false, modifier: Mod
     kind = if (primary) ButtonKind.Primary else ButtonKind.Secondary, enabled = action.enabled,
 )
 
+/**
+ * Project editor header (DESIGN.md §9.4): [AfTopBar] (back, project name, "step k/5 · label", page preview and ⋮ as
+ * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels).
+ */
 @Composable
 fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit,
     modifier: Modifier = Modifier, options: List<StudioAction> = emptyList(), saveState: StudioStatus? = null,
+    steps: List<String> = emptyList(),
 ) {
     require(step in 1..5)
-    val moreLabel = tr(UiText.V3_MORE_OPTIONS)
-    val backLabel = tr(UiText.BACK)
     var open by remember(name) { mutableStateOf(false) }
     val page = LocalProjectPreviewPage.current?.takeIf { it.available }
-    Column(modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfButton("←", onBack, Modifier.testTag("project-back").semantics { contentDescription = backLabel })
-            Column(Modifier.weight(1f)) {
-                AfText(name, bold = true)
-                AfText(My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step)), muted = true)
-            }
-            if (page != null) {
-                val pageLabel = tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW)
-                AfButton(if (page.shown) "✎" else "▶", { page.shown = !page.shown },
-                    Modifier.testTag(if (page.shown) "project-page-edit" else "project-page-preview")
-                        .semantics { contentDescription = pageLabel }, kind = if (page.shown) ButtonKind.Primary else ButtonKind.Secondary)
-            }
-            if (options.isNotEmpty()) Box(contentAlignment = Alignment.Center) {
-                AfButton("", { open = !open }, Modifier.testTag("project-overflow").semantics { contentDescription = moreLabel })
-                // Draw the standard overflow icon: the bundled Myanmar font has no U+22EE glyph.
-                Canvas(Modifier.size(4.dp, 20.dp)) {
-                    repeat(3) { n -> drawCircle(AutoFlowColors.Text, 1.5.dp.toPx(), Offset(size.width / 2, size.height * (n + 1) / 4)) }
-                }
-            }
+    Column(modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        AfTopBar(name, subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step)), onBack = onBack,
+            backModifier = Modifier.testTag("project-back")) {
+            if (page != null) AfIconButton(if (page.shown) AfIcons.Regular.Edit else AfIcons.Fill.Play,
+                tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW), { page.shown = !page.shown },
+                Modifier.testTag(if (page.shown) "project-page-edit" else "project-page-preview"), selected = page.shown)
+            if (options.isNotEmpty()) AfIconButton(AfIcons.Regular.More, tr(UiText.V3_MORE_OPTIONS), { open = !open },
+                Modifier.testTag("project-overflow"), selected = open)
         }
-        Row(Modifier.fillMaxWidth().testTag("project-progress").semantics {
-            progressBarRangeInfo = ProgressBarRangeInfo(step.toFloat(), 0f..5f, 4)
-        }, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(5) { i -> Box(Modifier.weight(1f).height(4.dp).testTag("progress-segment-$i")
-                .background(if (i < step) AutoFlowColors.Purple else AutoFlowColors.Line)) }
-        }
+        StepBar(steps, step, Modifier.padding(horizontal = 6.dp).testTag("project-progress"), count = 5)
         saveState?.let { StatusChip(it) } // callers omit this when no reliable save state exists
         if (open) WrapRow { options.forEach { action -> Action(action.copy(onClick = { open = false; action.onClick() })) } }
     }

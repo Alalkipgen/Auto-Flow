@@ -98,6 +98,7 @@ fun AfText(
     type: AfType? = null,
     maxLines: Int = Int.MAX_VALUE,
     ellipsis: Boolean = false,
+    weight: FontWeight? = null,
 ) {
     // The bundled Burmese fonts do not contain U+21BB, and a system symbol font is
     // not guaranteed. Draw that decoration only; retain the exact label/semantics and prose font.
@@ -115,7 +116,7 @@ fun AfText(
         style = afTextStyle(
             ink,
             type?.size ?: size,
-            type?.weight ?: if (bold) FontWeight.Bold else FontWeight.Normal,
+            weight ?: type?.weight ?: if (bold) FontWeight.Bold else FontWeight.Normal,
             if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
             numbers = type?.numbers == true,
         ),

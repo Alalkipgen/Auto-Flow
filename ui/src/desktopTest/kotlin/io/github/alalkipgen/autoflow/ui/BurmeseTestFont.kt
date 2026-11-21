@@ -45,6 +45,14 @@ fun syllableCuts(layout: androidx.compose.ui.text.TextLayoutResult): List<Int> {
     }
 }
 
+/** Line starts that split a Latin word or number (a word wider than its box breaks letter by letter). */
+fun wordCuts(layout: androidx.compose.ui.text.TextLayoutResult): List<Int> {
+    val text = layout.layoutInput.text.text
+    return (1 until layout.lineCount).map { layout.getLineStart(it) }.filter { o ->
+        o in 1 until text.length && text[o - 1].code < 0x1000 && text[o].code < 0x1000 && text[o - 1].isLetterOrDigit() && text[o].isLetterOrDigit()
+    }
+}
+
 /**
  * Every laid-out text on screen: inside the window, not truncated (unless the full text is its content description),
  * no Burmese line break inside a syllable. With
@@ -71,6 +79,7 @@ fun androidx.compose.ui.test.ComposeUiTest.textFitProblems(width: Int, font: Flo
                 node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription)
                     ?.contains(text) != true -> "truncated: $text"
             b.width > 0f && (b.left < -0.5f || b.right > width + 0.5f) -> "outside the window ($b): $text"
+            strict && wordCuts(layout).isNotEmpty() -> "cut inside a word at ${wordCuts(layout)}: $text"
             strict -> clipProblem(node, layout)
             else -> null
         }?.let { "$width/$font $it" }
