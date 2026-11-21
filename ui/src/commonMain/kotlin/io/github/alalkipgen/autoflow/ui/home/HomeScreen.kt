@@ -149,7 +149,7 @@ private fun SeeAll(onClick: () -> Unit, tag: String) =
 
 /**
  * The latest project: thumbnail 96 × 60 with its recorded duration, title, mode, the resume step, progress only from
- * accepted / total shots, and the round play button (Resume, tag `recent-<name>`).
+ * accepted / total shots, and the round play button (Resume, tag `recent-<name>`); a tap anywhere on the card opens it too.
  */
 @Composable
 private fun ContinueCard(entry: ProjectEntry, step: String?, onOpen: (String) -> Unit,
@@ -169,8 +169,11 @@ private fun ContinueCard(entry: ProjectEntry, step: String?, onOpen: (String) ->
             if (entry.totalShots > 0) AfProgress(entry.acceptedShots.coerceIn(0, entry.totalShots) / entry.totalShots.toFloat())
         }
     }
-    AfCard {
-        BoxWithConstraints {
+    // The whole card opens the project (a click layer under the content, so the texts stay separate nodes); the
+    // round play button is the explicit Resume.
+    Box(Modifier.fillMaxWidth()) {
+        AfCard(Modifier.matchParentSize().semantics { contentDescription = entry.name }, onClick = { onOpen(entry.path) }) {}
+        BoxWithConstraints(Modifier.padding(AfSpace.L)) {
             val gap = AfSpace.M
             // Large fonts: the thumbnail and play share the first row and the text gets the full width.
             if (maxWidth - AfSize.ThumbContinue.width - AfSize.Touch - gap * 2 >= AfSize.TileCardMin * LocalDensity.current.fontScale) {
