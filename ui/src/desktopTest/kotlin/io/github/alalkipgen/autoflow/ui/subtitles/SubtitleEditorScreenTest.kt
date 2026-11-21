@@ -129,15 +129,19 @@ class SubtitleEditorScreenTest {
                 onNodeWithTag("subtitles-change-source").assertIsNotEnabled() // first Save or Discard
                 onNodeWithTag("subtitles-shift").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-shift-p1000").performScrollTo().assertIsDisplayed()
-                assertEquals(emptyList(), textFitProblems(width, font), "shift · $width × $font × $language")
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "shift · $width × $font × $language")
                 onNodeWithTag("subtitles-cues").performScrollToKey("c1")
                 onNodeWithTag("subtitles-start-plus").performScrollTo()
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language")
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language")
                 if (font != 1.3f) {
                     val shots = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "subtitles").apply { mkdirs() }
                     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png",
                         File(shots, "03-editor-$width-$font-${language.name.lowercase()}.png"))
                 }
+                // P9-12d: the edit panel's title and its Split / Add / Play line / Done buttons carry icons.
+                assertCardIcon("subtitles-edit-panel", My.breakSyllables(UiText.SUB_EDIT_LINE.text(language)))
+                listOf("subtitles-split" to UiText.SUB_SPLIT, "subtitles-add" to UiText.SUB_ADD_AFTER, "subtitles-play-line" to UiText.SUB_PLAY_LINE,
+                    "subtitles-done" to UiText.SUB_DONE).forEach { (tag, key) -> assertIconButton(tag, key, language) }
             }
         }
     }
@@ -183,6 +187,7 @@ class SubtitleEditorScreenTest {
         onNodeWithTag("subtitles-leave").assertDoesNotExist()
         assertEquals(1, left)
         click("subtitles-back")
+        assertIconButton("subtitles-leave-save", UiText.SAVE, UiLanguage.BURMESE, scroll = false) // the editor's Save icon (P9-12d)
         click("subtitles-leave-save")
         assertEquals(2, left)
         assertNotEquals(f.first, f.saved())

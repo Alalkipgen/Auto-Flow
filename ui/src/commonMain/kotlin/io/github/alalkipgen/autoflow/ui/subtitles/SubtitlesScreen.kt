@@ -14,6 +14,7 @@ import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.theme.AfSpace
@@ -92,7 +93,8 @@ internal fun LeaveDialog(save: () -> Unit, discard: () -> Unit, stay: () -> Unit
     Dialog(onDismissRequest = stay) {
         AfCard(My.breakSyllables(tr(UiText.SUB_LEAVE)), Modifier.widthIn(max = 440.dp).testTag("subtitles-leave")) {
             WrapRow {
-                AfButton(My.breakSyllables(tr(UiText.SAVE)), save, Modifier.testTag("subtitles-leave-save"), kind = ButtonKind.Primary)
+                AfButton(My.breakSyllables(tr(UiText.SAVE)), save, Modifier.testTag("subtitles-leave-save"), kind = ButtonKind.Primary,
+                    icon = AfIcons.Regular.Check)
                 AfButton(My.breakSyllables(tr(UiText.DISCARD)), discard, Modifier.testTag("subtitles-leave-discard"), kind = ButtonKind.Danger)
                 AfButton(My.breakSyllables(tr(UiText.SUB_KEEP_EDITING)), stay, Modifier.testTag("subtitles-leave-stay"))
             }
@@ -109,7 +111,7 @@ private fun from(doc: SubtitleDoc) = when {
 
 @Composable
 private fun VideoCard(video: SourceVideo) {
-    AfCard(tr(UiText.SUBTITLES_VIDEO), Modifier.testTag("subtitles-video")) {
+    AfCard(tr(UiText.SUBTITLES_VIDEO), Modifier.testTag("subtitles-video"), icon = AfIcons.Regular.Film) {
         AfText(video.file.substringAfterLast('/'), mono = true)
         VideoFacts(video)
     }
@@ -129,7 +131,7 @@ private fun VideoFacts(video: SourceVideo) {
 private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, dir: String, hasSound: Boolean, transcribe: SubtitleTranscribeModel?,
     onCancel: (() -> Unit)?) {
     val idle = state.busy == null
-    AfCard(tr(UiText.SUB_START_HOW), Modifier.testTag("subtitles-source")) {
+    AfCard(tr(UiText.SUB_START_HOW), Modifier.testTag("subtitles-source"), icon = AfIcons.Regular.Subtitles) {
         AfText(My.breakSyllables(tr(UiText.SUB_TRACKS)), bold = true)
         val tracks = state.tracks
         when {
@@ -154,7 +156,7 @@ private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, dir: Stri
             }
         }
         AfButton(My.breakSyllables(tr(UiText.IMPORT_SUBTITLES)), { model.importSrt() }, Modifier.fillMaxWidth().testTag("subtitles-import-srt"),
-            kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle)
+            kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle, icon = AfIcons.Regular.Folder)
         if (transcribe != null) TranscribeButton(transcribe, dir, hasSound, idle)
         onCancel?.let { AfButton(tr(UiText.CANCEL), it, Modifier.testTag("subtitles-source-cancel")) }
     }

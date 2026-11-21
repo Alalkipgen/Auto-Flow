@@ -24,6 +24,7 @@ import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
@@ -154,7 +155,14 @@ class SubtitleExportTest {
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("subtitles-export-open").performMouseInput { click() }
                 onNodeWithTag("subtitles-export-srt").assertExists()
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language")
+                // P9-12d: the .srt card's icon, and the desktop's Save / Open folder and Close with theirs (Share has none).
+                assertCardIcon("subtitles-export-srt", My.breakSyllables(UiText.SUB_EXPORT_SRT.text(language)))
+                if (width >= 840) {
+                    assertIconButton("subtitles-export-save", UiText.SUB_SAVE_SRT, language)
+                    assertIconButton("subtitles-export-folder", UiText.OPEN_FOLDER, language)
+                }
+                assertIconButton("subtitles-export-close", UiText.CLOSE, language)
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language")
                 onNodeWithTag("subtitles-export-close").performScrollTo().performMouseInput { click() }
                 f.editor.shift(500)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-save").fetchSemanticsNodes().isNotEmpty() }

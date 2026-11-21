@@ -110,7 +110,8 @@ class PrShotsTest(val width: Int, val font: Float) {
             waitForIdle()
             // E.g. scroll a list row into view and wait for its real thumbnail.
             ready?.let { it(); waitForIdle() }
-            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir.apply { mkdirs() }, "$screen-$case.png"))
+            // The window's root (an open dialog is a second root drawn over it).
+            ImageIO.write(onAllNodes(isRoot())[0].captureToImage().toAwtImage(), "png", File(dir.apply { mkdirs() }, "$screen-$case.png"))
             // A second state of the same screen (e.g. a selected desktop card), written as `<screen>-selected-<case>.png`.
             after?.let {
                 it()
@@ -266,16 +267,42 @@ class PrShotsTest(val width: Int, val font: Float) {
         onNodeWithTag("subtitles-cues").performScrollToNode(hasTestTag("subtitles-view-BOTH"))
     }
 
-    private fun subtitles(screen: String, view: TextChoice, ready: ComposeUiTest.() -> Unit) {
+    /** P9-12d: line 3's edit panel — its title and Split · Add a line after · Play line · Done with their icons. */
+    @Test fun subtitlesEditLine() = subtitles("subtitles-edit-line", TextChoice.BURMESE) {
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3")
+        onNodeWithTag("subtitles-cue-edit-c3").performMouseInput { click() }
+        onNodeWithTag("subtitles-done").performScrollTo()
+    }
+
+    /** P9-12d: Choose another source — the video and source cards, Import subtitles with its icon. */
+    @Test fun subtitlesSource() = subtitles("subtitles-source", TextChoice.BURMESE, edited = false) {
+        onNodeWithTag("subtitles-change-source").performScrollTo().performMouseInput { click() }
+    }
+
+    /** P9-12d: Translate's confirm card with one name row (its remove icon), Add a name and Start. */
+    @Test fun subtitlesTranslate() = subtitles("subtitles-translate", TextChoice.BURMESE, edited = false) {
+        onNodeWithTag("subtitles-translate").performMouseInput { click() }
+        onNodeWithTag("subtitles-translate-name-add").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-translate-start").performScrollTo()
+    }
+
+    /** P9-12d: Export — the .srt card, then the video card's ‹ › line chevrons, Check one frame and Make video. */
+    @Test fun subtitlesExport() = subtitles("subtitles-export", TextChoice.BURMESE, edited = false) {
+        onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performScrollTo()
+    }
+
+    private fun subtitles(screen: String, view: TextChoice, edited: Boolean = true, ready: ComposeUiTest.() -> Unit) {
         val f = SubtitlesFixture(listOf(Line(1_000, 3_200, "We have to leave tonight.", "ဒီည ထွက်သွားရမယ်။"),
             Line(3_600, 6_000, "Before the rain starts.", "မိုးမရွာခင်ပေါ့။"),
             Line(6_400, 9_000, "I will never leave you behind.", "မင်းကို ဘယ်တော့မှ ထားမသွားဘူး။"),
             Line(9_400, 11_000, "Wait for me at the bridge.", "တံတားမှာ စောင့်နေ။"), Line(10_600, 13_000, "Where is the dragon scroll?"),
             Line(13_500, 16_000, "Run!", "ပြေး!")), 20_000, "Dune: Part Two", scope)
-        f.editor.apply { open(); setView(view); edit { SubtitleOps.setTextMy(it, "c2", "မိုးမရွာခင် သွားကြစို့။") } }
+        f.editor.apply { open(); setView(view); if (edited) edit { SubtitleOps.setTextMy(it, "c2", "မိုးမရွာခင် သွားကြစို့။") } }
         shot(screen, ready = ready) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
-                SubtitlesScreen(f.model, f.session, f.editor, player = f.paused, onBack = {})
+                SubtitlesScreen(f.model, f.session, f.editor, player = f.paused, onBack = {}, exporter = f.exporter(phone), burner = f.burner(phone),
+                    translate = f.translate)
             }
         }
     }

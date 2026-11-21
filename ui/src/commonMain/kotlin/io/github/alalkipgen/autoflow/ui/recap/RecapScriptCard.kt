@@ -158,7 +158,7 @@ internal fun SourceSummary(model: RecapModel, state: RecapUiState) {
 internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     WrapRow {
         if (recap.subtitles == null) {
-            AfButton(tr(UiText.IMPORT_SUBTITLES), { model.importSubtitles() }, enabled = !state.busy)
+            AfButton(tr(UiText.IMPORT_SUBTITLES), { model.importSubtitles() }, enabled = !state.busy, icon = AfIcons.Regular.Folder)
         } else {
             AfText(tr(UiText.SUBTITLES_PRESENT), color = AutoFlowColors.Green)
             AfButton(tr(UiText.REPLACE), { model.importSubtitles() }, enabled = !state.busy)

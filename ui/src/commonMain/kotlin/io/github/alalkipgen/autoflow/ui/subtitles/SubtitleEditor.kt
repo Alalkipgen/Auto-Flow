@@ -188,7 +188,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                 val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open") }
                 val toMy = translate?.takeIf { it.offers(draft.doc.lang) }?.let { m ->
                     StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask(); scope.launch { list.animateScrollToItem(0) } },
-                        enabled = idle, tag = "subtitles-translate")
+                        enabled = idle, tag = "subtitles-translate", icon = AfIcons.Regular.Spark)
                 }
                 if (export != null) StickyActionBar(primary = export, secondary = toMy, keys = keys)
                 else if (toMy != null) StickyActionBar(primary = toMy, keys = keys)
@@ -286,7 +286,7 @@ private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, playhead: Pla
             else editor.edit { SubtitleOps.setTimes(it, c.id, a, b) }
         }
     }
-    AfCard(My.breakSyllables(tr(UiText.SUB_EDIT_LINE)), Modifier.testTag("subtitles-edit-panel")) {
+    AfCard(My.breakSyllables(tr(UiText.SUB_EDIT_LINE)), Modifier.testTag("subtitles-edit-panel"), icon = AfIcons.Regular.Edit) {
         AfText(My.breakSyllables(tr(UiText.SUB_VIEW_ORIGINAL)), bold = true)
         AfTextField(text, { text = it }, tr(UiText.SUB_VIEW_ORIGINAL), Modifier.fillMaxWidth().testTag("subtitles-edit-text"), lines = 2, mono = false)
         AfText(My.breakSyllables(tr(UiText.SUB_VIEW_BURMESE)), bold = true)
@@ -300,17 +300,21 @@ private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, playhead: Pla
             editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, c.endMs + d) }
         }
         WrapRow {
-            AfButton(My.breakSyllables(tr(UiText.SUB_SPLIT)), { commit(); editor.splitAt(c.id, playhead.positionMs.takeIf { playhead.inside(c) }) }, Modifier.testTag("subtitles-split"))
+            AfButton(My.breakSyllables(tr(UiText.SUB_SPLIT)), { commit(); editor.splitAt(c.id, playhead.positionMs.takeIf { playhead.inside(c) }) }, Modifier.testTag("subtitles-split"),
+                icon = AfIcons.Regular.Scissors)
             AfButton(My.breakSyllables(tr(UiText.SUB_MERGE_NEXT)), { commit(); editor.edit { SubtitleOps.merge(it, c.id) } }, Modifier.testTag("subtitles-merge"))
-            AfButton(My.breakSyllables(tr(UiText.SUB_ADD_AFTER)), { commit(); editor.edit { SubtitleOps.insertAfter(it, c.id) } }, Modifier.testTag("subtitles-add"))
+            AfButton(My.breakSyllables(tr(UiText.SUB_ADD_AFTER)), { commit(); editor.edit { SubtitleOps.insertAfter(it, c.id) } }, Modifier.testTag("subtitles-add"),
+                icon = AfIcons.Regular.Plus)
             AfButton(My.breakSyllables(tr(UiText.SUB_DELETE)), { editor.edit { SubtitleOps.delete(it, c.id) }; onClose() },
                 Modifier.testTag("subtitles-delete"), kind = ButtonKind.Danger)
         }
         WrapRow {
             onPrev?.let { AfButton(My.breakSyllables(tr(UiText.SUB_PREV_LINE)), { commit(); it() }, Modifier.testTag("subtitles-prev")) }
-            AfButton(My.breakSyllables(tr(UiText.SUB_PLAY_LINE)), { playhead.playLine(c) }, Modifier.testTag("subtitles-play-line"))
+            AfButton(My.breakSyllables(tr(UiText.SUB_PLAY_LINE)), { playhead.playLine(c) }, Modifier.testTag("subtitles-play-line"),
+                icon = AfIcons.Fill.Play)
             onNext?.let { AfButton(My.breakSyllables(tr(UiText.SUB_NEXT_LINE)), { commit(); it() }, Modifier.testTag("subtitles-next")) }
-            AfButton(My.breakSyllables(tr(UiText.SUB_DONE)), { commit(); onClose() }, Modifier.testTag("subtitles-done"), kind = ButtonKind.Primary)
+            AfButton(My.breakSyllables(tr(UiText.SUB_DONE)), { commit(); onClose() }, Modifier.testTag("subtitles-done"), kind = ButtonKind.Primary,
+                icon = AfIcons.Regular.Check)
         }
     }
 }

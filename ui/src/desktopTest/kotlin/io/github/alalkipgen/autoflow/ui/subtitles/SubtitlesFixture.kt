@@ -17,11 +17,28 @@ import io.github.alalkipgen.autoflow.ui.projects.*
 import io.github.alalkipgen.autoflow.ui.settings.FakePicker
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ai.AiResult
+import io.github.alalkipgen.autoflow.ai.JsonSchema
+import io.github.alalkipgen.autoflow.ai.TextProvider
+import io.github.alalkipgen.autoflow.ai.subtitles.SubtitleTranslator
+import io.github.alalkipgen.autoflow.core.config.ToolsConfig
+import io.github.alalkipgen.autoflow.core.recap.AiJobStore
+import io.github.alalkipgen.autoflow.core.recap.RpmPacer
+import io.github.alalkipgen.autoflow.media.render.RenderJob
+import io.github.alalkipgen.autoflow.media.render.RenderQueue
+import io.github.alalkipgen.autoflow.media.render.RenderState
+import io.github.alalkipgen.autoflow.platform.FileShare
+import io.github.alalkipgen.autoflow.platform.PlatformResult
+import io.github.alalkipgen.autoflow.ui.jobs.DesktopAiJobRunner
+import io.github.alalkipgen.autoflow.ui.jobs.RecapJobProcessor
+import io.github.alalkipgen.autoflow.ui.media.MediaTasks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.serialization.json.JsonElement
 
 /** An in-memory Subtitles project named [name]: [lines] (ids c1, c2, …) over a [durationMs] video. Nothing touches the disk. */
-internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: String = "Clip", scope: CoroutineScope = MainScope()) {
+internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: String = "Clip", private val scope: CoroutineScope = MainScope()) {
     data class Line(val startMs: Long, val endMs: Long, val text: String, val my: String? = null)
 
     val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
@@ -45,5 +62,30 @@ internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: Strin
     val paused: SubtitlePlayer = { _, req, m, report ->
         LaunchedEffect(req) { report(MovieSnapshot(positionMs = req.sourceMs, durationMs = durationMs, phase = MoviePhase.PAUSED)) }
         Box(m.background(AutoFlowColors.Card))
+    }
+
+    /** Translate whose provider is never called: the confirm card sends nothing. */
+    val translate by lazy {
+        val never = object : TextProvider {
+            override suspend fun json(prompt: String, schema: JsonSchema, system: String?): AiResult<JsonElement> = error("nothing is sent")
+        }
+        val job = SubtitleTranslateJob(session, fs, SubtitleTranslator(never), ToolsConfig())
+        SubtitleTranslateModel(session, job, DesktopAiJobRunner(AiJobStore(fs, "/app/ai-jobs"), scope,
+            RecapJobProcessor({ null }, { null }, { job }), pacer = { RpmPacer(6_000) }), ToolsConfig(), scope)
+    }
+
+    /** Export and burn that write nothing: a phone shares ([phone]), the desktop saves and opens the folder. */
+    fun exporter(phone: Boolean) = SubtitleExportModel(session, fs, share(phone), scope)
+    fun burner(phone: Boolean) = SubtitleBurnModel(session, fs, MediaTasks(object : RenderQueue {
+        override fun enqueue(job: RenderJob) = "none"
+        override fun observe(id: String) = emptyFlow<RenderState>()
+        override fun cancel(id: String) {}
+    }, scope), share = share(phone))
+    private fun share(phone: Boolean) = object : FileShare {
+        override val sharesFiles = phone
+        override fun open(path: String, mime: String) = PlatformResult.Ok(Unit)
+        override fun share(path: String, mime: String, title: String) = PlatformResult.Ok(Unit)
+        override suspend fun saveToGallery(path: String, mime: String, displayName: String) = PlatformResult.Ok(displayName)
+        override fun openFolder(path: String) = PlatformResult.Ok(Unit)
     }
 }

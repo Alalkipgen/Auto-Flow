@@ -152,7 +152,8 @@ class SubtitlesRouteTest {
                     onNodeWithTag("subtitles-use-track").performScrollTo().assertIsEnabled()
                     onNodeWithTag("subtitles-transcribe-planned").performScrollTo().assertIsNotEnabled()
                 }
-                assertEquals(emptyList(), textFitProblems(width, font))
+                if (!withDoc) assertIconButton("subtitles-import-srt", UiText.IMPORT_SUBTITLES, language) // P9-12d
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true))
                 val shots = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "subtitles").apply { mkdirs() }
                 ImageIO.write(onRoot().captureToImage().toAwtImage(), "png",
                     File(shots, "02-${if (withDoc) "doc" else "source"}-$width-${language.name.lowercase()}.png"))

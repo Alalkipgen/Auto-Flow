@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
 import androidx.compose.foundation.Image
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -52,7 +52,7 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
                     }
                 }
             }
-            AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_SRT)), Modifier.testTag("subtitles-export-srt")) {
+            AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_SRT)), Modifier.testTag("subtitles-export-srt"), icon = AfIcons.Regular.Subtitles) {
                 WrapRow {
                     if (exporter.sharesFiles) {
                         AfButton(My.breakSyllables(tr(UiText.SHARE)), { exporter.share(doc, version, choice, shareTitle) },
@@ -61,9 +61,9 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
                             Modifier.testTag("subtitles-export-downloads"), enabled = !s.busy)
                     } else {
                         AfButton(My.breakSyllables(tr(UiText.SUB_SAVE_SRT)), { exporter.save(doc, version, choice) },
-                            Modifier.testTag("subtitles-export-save"), kind = ButtonKind.Primary)
+                            Modifier.testTag("subtitles-export-save"), kind = ButtonKind.Primary, icon = AfIcons.Regular.Check)
                         AfButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { exporter.openFolder(doc, version, choice) },
-                            Modifier.testTag("subtitles-export-folder"))
+                            Modifier.testTag("subtitles-export-folder"), icon = AfIcons.Regular.Folder)
                     }
                 }
                 s.notice?.let {
@@ -73,7 +73,7 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
             }
             if (burner != null) BurnCard(burner, doc, version, choice, line, preview)
             else PlannedTile(tr(UiText.SUB_EXPORT_VIDEO), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-export-video-planned"))
-            AfButton(My.breakSyllables(tr(UiText.CLOSE)), onClose, Modifier.testTag("subtitles-export-close"))
+            AfButton(My.breakSyllables(tr(UiText.CLOSE)), onClose, Modifier.testTag("subtitles-export-close"), icon = AfIcons.Regular.Close)
         }
     }
 }
@@ -95,7 +95,7 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
     val scope = rememberCoroutineScope()
     val shareTitle = tr(UiText.SUB_EXPORT_VIDEO)
     val state = run?.state
-    AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_VIDEO)), Modifier.testTag("subtitles-export-video")) {
+    AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_VIDEO)), Modifier.testTag("subtitles-export-video"), icon = AfIcons.Regular.Film) {
         if (preview != null) {
             val playhead = remember(doc) { Playhead().apply { seek(doc.cues.getOrNull(startLine ?: 0)?.startMs ?: 0) } }
             val burned = remember(doc, choice, s.look, s.size, s.fit) { burner.previewOverlays(doc, choice) }
@@ -122,7 +122,7 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
                 AfButton(My.breakSyllables(tr(UiText.CANCEL)), burner::cancel, Modifier.testTag("subtitles-burn-cancel"))
             }
             else -> AfButton(My.breakSyllables(tr(UiText.SUB_MAKE_VIDEO)), { scope.launch { burner.start(doc, version, choice) } },
-                Modifier.testTag("subtitles-burn-make"), kind = ButtonKind.Primary)
+                Modifier.testTag("subtitles-burn-make"), kind = ButtonKind.Primary, icon = AfIcons.Regular.Film)
         }
         when (state) {
             is RenderState.Done -> {
@@ -132,7 +132,8 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
                     if (burner.sharesFiles) {
                         AfButton(My.breakSyllables(tr(UiText.SHARE)), { burner.share(shareTitle) }, Modifier.testTag("subtitles-burn-share"))
                         AfButton(My.breakSyllables(tr(UiText.SAVE_GALLERY)), { scope.launch { burner.saveToGallery() } }, Modifier.testTag("subtitles-burn-gallery"))
-                    } else AfButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { burner.openFolder() }, Modifier.testTag("subtitles-burn-folder"))
+                    } else AfButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { burner.openFolder() }, Modifier.testTag("subtitles-burn-folder"),
+                        icon = AfIcons.Regular.Folder)
                 }
             }
             is RenderState.Cancelled -> AfText(My.breakSyllables(tr(UiText.SUB_BURN_CANCELLED)), Modifier.testTag("subtitles-burn-cancelled"), color = AutoFlowColors.Amber)
@@ -158,17 +159,18 @@ private fun CheckFrame(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Art
     val scope = rememberCoroutineScope()
     val last = doc.cues.size - 1
     if (last < 0) return
-    val prev = tr(UiText.SUB_PREV_LINE); val next = tr(UiText.SUB_NEXT_LINE)
     var line by remember(doc) { mutableStateOf((startLine ?: 0).coerceIn(0, last)) }
     WrapRow {
-        AfButton("‹", { line--; burner.clearFrame() }, Modifier.testTag("subtitles-check-prev").semantics { contentDescription = prev },
-            enabled = line > 0)
+        // ‹ › are the chevron icon buttons (the previous one mirrored), their labels the tooltip and the description.
+        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.SUB_PREV_LINE), { line--; burner.clearFrame() },
+            Modifier.testTag("subtitles-check-prev").graphicsLayer(scaleX = -1f), enabled = line > 0)
         AfText(My.breakSyllables(tr(UiText.SUB_CHECK_LINE, "n" to line + 1, "time" to TimeText.show(doc.cues[line].startMs))),
-            Modifier.testTag("subtitles-check-line"))
-        AfButton("›", { line++; burner.clearFrame() }, Modifier.testTag("subtitles-check-next").semantics { contentDescription = next },
+            Modifier.align(Alignment.CenterVertically).testTag("subtitles-check-line"))
+        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.SUB_NEXT_LINE), { line++; burner.clearFrame() }, Modifier.testTag("subtitles-check-next"),
             enabled = line < last)
         AfButton(My.breakSyllables(tr(if (s.checking) UiText.SUB_CHECKING else UiText.SUB_CHECK_FRAME)),
-            { scope.launch { burner.checkFrame(doc, version, choice, line) } }, Modifier.testTag("subtitles-check-frame"), enabled = !s.checking)
+            { scope.launch { burner.checkFrame(doc, version, choice, line) } }, Modifier.testTag("subtitles-check-frame"), enabled = !s.checking,
+            icon = AfIcons.Regular.Image)
     }
     s.frame?.let { f ->
         val bmp = remember(f) { decodeImage(f.bytes) }
