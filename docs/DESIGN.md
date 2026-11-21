@@ -192,6 +192,7 @@ Owner choice (chat, 2026-11-21: "nicer icons"): Phosphor Icons 2.1 (`@phosphor-i
 - **Accessibility:** icon-only buttons have EN + MY content descriptions (and a tooltip on desktop); an icon next to its label has none.
 - **Nav keys:** home → `house`, folder → `folder-simple`, book → `books`, jobs → `list-checks`, gear → `gear-six`; modes film → `film-slate`, music → `music-notes`, dub → `microphone-stage`, wave → `waveform`, cc → `subtitles`.
 They replace the text glyphs, emoji and hand-drawn Canvas marks that stand for icons today (the nav rail's 🏠 📁 📚 ⚙, ←, ▶, ✎, "+", the drawn ⋮ and ↻).
+*As implemented (P9-2a)*: `ui/icons/AfIcons.kt` is generated for home, folder, book, jobs, gear, spark, plus, film, music, dub, wave, cc (36 vectors; later PRs regenerate it with their keys); `AfIcon` (tint only, default `Muted`), `IconTile` (solid tone tile, white icon); tooltips = `TooltipHost` + `Modifier.afTooltip` — a bubble in an overlay layer of the window (no popup window), right of the anchor or below it, shown while the mouse rests on the item, hidden on press or exit. The MIT notice ships as `licenses/PHOSPHOR-ICONS.txt` in the desktop resources and the Android assets; README names it. No Gradle change. P9-2b uses them in the nav.
 
 ### 9.4 Components
 Extend what exists; keep public names, signatures in the repo style (`String` labels resolved with `tr`, `StudioAction` for actions) and every `testTag`. New names follow the bundle.
