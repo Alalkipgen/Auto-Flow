@@ -597,9 +597,9 @@ private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: 
             io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), onBack)
             projectName?.let { AfText(it, Modifier.weight(1f), bold = true) }
         }
-        io.github.alalkipgen.autoflow.ui.components.WrapRow(spacing = 6.dp) {
-            screens.forEach { s -> io.github.alalkipgen.autoflow.ui.components.AfChip(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), s == selected, onClick = { onSelect(s) }) }
-        }
+        // One scrolling row (DESIGN.md §9.2): wrapped rows plus a running job card left no room for the page at font 2.0.
+        io.github.alalkipgen.autoflow.ui.components.FilterChipRow(screens.map { io.github.alalkipgen.autoflow.ui.components.FilterChipItem(
+            io.github.alalkipgen.autoflow.ui.i18n.My.screen(it)) }, screens.indexOf(selected), { onSelect(screens[it]) })
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
     }
 }

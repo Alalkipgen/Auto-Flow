@@ -116,7 +116,7 @@ internal fun RecapThumbnail(model: RecapModel, state: RecapUiState, fromMs: Long
         }
         // Stable from first measurement: late images above a scrolled row must not push its anchor offscreen.
         // The empty slot is not a fake picture; real time/controls remain when a thumbnail is unavailable.
-        Box(Modifier.fillMaxWidth().height(72.dp).onGloballyPositioned {
+        Box(Modifier.fillMaxWidth().height(72.dp).testTag("$tag-slot").onGloballyPositioned {
             visible = it.isAttached && !it.boundsInWindow().isEmpty
         }) {
             image?.let {

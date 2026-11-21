@@ -53,6 +53,20 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import io.github.alalkipgen.autoflow.ui.theme.AfRadius
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
@@ -124,9 +138,13 @@ fun AfText(
     )
 }
 
-enum class ButtonKind { Primary, Secondary, Flow, Danger }
+enum class ButtonKind { Primary, Secondary, Flow, Danger, Text }
 
-/** Purple = primary action, cyan = Flow / external, amber outline = destructive (DESIGN.md §1). */
+/**
+ * DESIGN.md §9.4: Primary = filled purple (one per area), Secondary = outline, Text = no frame, Flow = cyan (Flow /
+ * external), Danger = error outline (destructive). 44 dp visual ([small] 36) inside a 48 dp touch target, optional
+ * 18 dp [icon]; hover / press overlay, keyboard focus ring, disabled at 40 %.
+ */
 @Composable
 fun AfButton(
     text: String,
@@ -134,43 +152,75 @@ fun AfButton(
     modifier: Modifier = Modifier,
     kind: ButtonKind = ButtonKind.Secondary,
     enabled: Boolean = true,
+    icon: ImageVector? = null,
+    small: Boolean = false,
 ) {
     val (fill, line, ink) = when (kind) {
-        ButtonKind.Primary -> Triple(AutoFlowColors.PrimaryFill, AutoFlowColors.Purple, Color.White)
+        ButtonKind.Primary -> Triple(AutoFlowColors.PrimaryFill, AutoFlowColors.PrimaryFill, Color.White)
         ButtonKind.Flow -> Triple(AutoFlowColors.Cyan, AutoFlowColors.Cyan, AutoFlowColors.Background)
-        ButtonKind.Secondary -> Triple(AutoFlowColors.Card, AutoFlowColors.Line, AutoFlowColors.Text)
-        ButtonKind.Danger -> Triple(AutoFlowColors.Card, AutoFlowColors.Amber, AutoFlowColors.Amber)
+        ButtonKind.Secondary -> Triple(Color.Transparent, AutoFlowColors.LineStrong, AutoFlowColors.Text)
+        ButtonKind.Danger -> Triple(Color.Transparent, AutoFlowColors.Failed, AutoFlowColors.Failed)
+        ButtonKind.Text -> Triple(Color.Transparent, Color.Transparent, AutoFlowColors.PrimaryText)
     }
+    val shape = RoundedCornerShape(if (small) AfRadius.ButtonSmall else AfRadius.Button)
+    val interaction = remember { MutableInteractionSource() }
     Box(
-        modifier
-            .heightIn(min = 48.dp).widthIn(min = 48.dp)
-            .clip(ControlShape)
-            .background(if (enabled) fill else AutoFlowColors.Panel)
-            .border(AutoFlowShapes.Border, if (enabled) line else AutoFlowColors.Line, ControlShape)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+        modifier.touchTarget(interaction, enabled, Role.Button, if (small) AfSize.ButtonSmall else AfSize.Button, onClick)
+            .clip(shape).background(fill).border(AutoFlowShapes.Border, line, shape)
+            .interactionOverlay(interaction, shape)
+            .padding(horizontal = if (small) 12.dp else 15.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        AfText(text, color = if (enabled) ink else AutoFlowColors.Muted, bold = kind == ButtonKind.Primary)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            if (icon != null) AfIcon(icon, tint = ink, size = AfSize.IconSmall)
+            AfText(text, color = ink, type = if (small) AfType.ButtonSmall else AfType.Button)
+        }
     }
 }
 
-/** Single-choice chip (ratio, clip length, filters). */
+/** A 48 dp touch target around a smaller [visual] control (DESIGN.md §9.2); disabled draws at 40 %. */
+internal fun Modifier.touchTarget(interaction: MutableInteractionSource, enabled: Boolean, role: Role, visual: Dp,
+    onClick: () -> Unit): Modifier =
+    heightIn(min = AfSize.Touch).widthIn(min = AfSize.Touch)
+        .clickable(interaction, indication = null, enabled = enabled, role = role, onClick = onClick)
+        .padding(vertical = (AfSize.Touch - visual) / 2).heightIn(min = visual)
+        .alpha(if (enabled) 1f else .4f)
+
+/** Hover lightens 5 %, press 8 %, keyboard focus draws a 2 dp primary ring (DESIGN.md §9.4). */
 @Composable
-fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+internal fun Modifier.interactionOverlay(interaction: InteractionSource, shape: Shape): Modifier {
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
+    val overlay = when { pressed -> .08f; hovered -> .05f; else -> 0f }
+    return drawWithContent { drawContent(); if (overlay > 0f) drawRect(Color.White.copy(alpha = overlay)) }
+        .then(if (focused) Modifier.border(2.dp, AutoFlowColors.PrimaryText, shape) else Modifier)
+}
+
+/**
+ * Filter / option chip (DESIGN.md §9.4): 34 dp pill in a 48 dp target, outline; selected = filled primary. A filter
+ * shows its [count] at 80 %.
+ */
+@Composable
+fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    count: Int? = null, icon: ImageVector? = null) {
     val shape = RoundedCornerShape(50)
+    val interaction = remember { MutableInteractionSource() }
+    val ink = if (selected) Color.White else AutoFlowColors.Text
     Box(
-        modifier
-            .heightIn(min = 48.dp).widthIn(min = 48.dp)
-            .clip(shape)
-            .background(if (selected) AutoFlowColors.Purple.copy(alpha = 0.25f) else AutoFlowColors.Card)
-            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
-            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
-            .semantics { stateDescription = if (selected) "selected" else "not selected" }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier.semantics { stateDescription = if (selected) "selected" else "not selected" }
+            .touchTarget(interaction, enabled, Role.RadioButton, AfSize.FilterChip, onClick)
+            .clip(shape).background(if (selected) AutoFlowColors.PrimaryFill else Color.Transparent)
+            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.PrimaryFill else AutoFlowColors.LineStrong, shape)
+            .interactionOverlay(interaction, shape)
+            .padding(horizontal = 13.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
-        AfText(text, color = if (selected) AutoFlowColors.Text else AutoFlowColors.Muted)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (icon != null) AfIcon(icon, tint = ink, size = AfSize.IconXs)
+            AfText(text, color = ink, type = AfType.Micro)
+            if (count != null) AfText("$count", color = ink.copy(alpha = .8f), type = AfType.Micro)
+        }
     }
 }
 
