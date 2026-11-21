@@ -115,7 +115,8 @@ class SubtitleEditorScreenTest {
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
                 assertTrue(io.github.alalkipgen.autoflow.core.subtitles.CueIssue.TOO_SHORT in f.editor.state.value.issues["c2"].orEmpty())
                 onNodeWithTag("subtitles-issue-c1-OVERLAP", useUnmergedTree = true).assertExists()
-                onNodeWithTag("subtitles-cue-edit-c1").performMouseInput { click() }
+                // Phase 9 buttons are 1 sp larger; at 360 dp × font 2.0 in Burmese the row starts below the fold.
+                onNodeWithTag("subtitles-cue-edit-c1").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-edit-panel").assertExists()
                 onNodeWithTag("subtitles-preview-unavailable").assertIsDisplayed()
                 onNodeWithTag("subtitles-start-plus").performScrollTo().performMouseInput { click() }

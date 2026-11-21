@@ -8,7 +8,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -103,6 +112,25 @@ fun OptionCard(title: String, explanation: String, selected: Boolean, onSelect: 
 @Composable
 fun OptionChips(options: List<String>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     WrapRow(modifier) { options.forEach { value -> AfChip(value, value == selected, { onSelect(value) }) } }
+}
+
+/** A filter and its item count; [count] null hides the number. */
+class FilterChipItem(val label: String, val count: Int? = null)
+
+/** Filters scroll in one row with faded edges (DESIGN.md §9.2); options wrap instead ([OptionChips]). */
+@Composable
+fun FilterChipRow(items: List<FilterChipItem>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val scroll = rememberScrollState()
+    Row(modifier.fillMaxWidth().graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+        drawContent()
+        val fade = 24.dp.toPx()
+        if (scroll.canScrollBackward) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), 0f, fade),
+            size = Size(fade, size.height), blendMode = BlendMode.DstIn)
+        if (scroll.canScrollForward) drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), size.width - fade, size.width),
+            Offset(size.width - fade, 0f), Size(fade, size.height), blendMode = BlendMode.DstIn)
+    }.horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEachIndexed { i, item -> AfChip(item.label, i == selected, { onSelect(i) }, count = item.count) }
+    }
 }
 
 @Composable
