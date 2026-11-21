@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -25,7 +27,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 
-/** P9-12a: the Subtitles editor's top bar, video and cue strip on a phone and a medium window (DESIGN.md §9.7, panel 5). */
+/** P9-12a / P9-12b: the Subtitles editor on a phone and a medium window (DESIGN.md §9.7, panel 5). */
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class SubtitleEditorLayoutTest {
     @BeforeTest fun setupDispatcher() { Dispatchers.setMain(Dispatchers.Unconfined) }
@@ -97,6 +99,55 @@ class SubtitleEditorLayoutTest {
         assertEquals(CueMark.UNTRANSLATED, cueMark(false, setOf(CueIssue.OVERLAP, CueIssue.NOT_TRANSLATED)))
         assertEquals(CueMark.SELECTED, cueMark(true, setOf(CueIssue.NOT_TRANSLATED)))
         assertEquals(CueMark.NORMAL, cueMark(false, null))
+    }
+
+    @Test fun cueCardsShowTimesChecksAndAnIconEdit() = runDesktopComposeUiTest(width = 360, height = 900) {
+        val f = fixture()
+        val language = UiLanguage.BURMESE
+        show(f, language = language)
+        ready()
+        onNode(hasText("#1") and hasAnyAncestor(hasTestTag("subtitles-cue-c1")), useUnmergedTree = true).assertExists()
+        onNode(hasText("0:01.0 → 0:03.0 · 2.0 s") and hasAnyAncestor(hasTestTag("subtitles-cue-c1")), useUnmergedTree = true).assertExists()
+        onNodeWithTag("subtitles-issue-c1-OVERLAP", useUnmergedTree = true)
+            .assert(hasAnyDescendant(hasText(My.breakSyllables(UiText.SUB_OVERLAP.text(language)))))
+        onNodeWithTag("subtitles-cue-edit-c1").assertContentDescriptionEquals(UiText.SUB_EDIT_LINE.text(language))
+            .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+        onAllNodes(hasText("✎", substring = true), useUnmergedTree = true).assertCountEquals(0)
+        click("subtitles-cue-edit-c1")
+        onNodeWithTag("subtitles-edit-panel").assertExists()
+        onNodeWithTag("subtitles-cues").performScrollToIndex(0)
+        onNodeWithTag("subtitles-view-BOTH").performMouseInput { click() }
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3")
+        onNodeWithTag("subtitles-cue-c3").assertTextContains("Third line").assertTextContains(My.breakSyllables("တတိယ စာကြောင်း"), substring = true)
+        onNodeWithTag("subtitles-cue-c1").assertTextContains(My.breakSyllables("ဒီည ထွက်သွားရမယ်"), substring = true)
+        onNodeWithTag("subtitles-issue-c2-NOT_TRANSLATED", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun viewsAreOneChoiceAndUndoRedoAreIconButtons() = runDesktopComposeUiTest(width = 412, height = 900) {
+        val f = fixture()
+        val language = UiLanguage.BURMESE
+        show(f, language = language)
+        ready()
+        onNodeWithTag("subtitles-cues").performScrollToIndex(0)
+        val radio = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
+        TextChoice.entries.forEach { onNodeWithTag("subtitles-view-${it.name}").assert(radio) }
+        onNodeWithTag("subtitles-view-ORIGINAL").assertIsSelected()
+        onNodeWithTag("subtitles-view-BURMESE").performMouseInput { click() }
+        onNodeWithTag("subtitles-view-BURMESE").assertIsSelected()
+        onNodeWithTag("subtitles-view-ORIGINAL").assertIsNotSelected()
+        assertEquals(TextChoice.BURMESE, f.editor.state.value.view)
+        onNodeWithTag("subtitles-issues").assertTextContains(My.breakSyllables(UiText.SUB_TO_CHECK.text(language, "n" to 2)))
+        for ((tag, key) in listOf("subtitles-undo" to UiText.SUB_UNDO, "subtitles-redo" to UiText.SUB_REDO)) {
+            onNodeWithTag(tag).assertContentDescriptionEquals(key.text(language)).assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+                .assertIsNotEnabled()
+            onAllNodes(hasText(My.breakSyllables(key.text(language)))).assertCountEquals(0) // icon only
+        }
+        f.editor.edit { SubtitleOps.setText(it, "c3", "Typed") }
+        waitForIdle()
+        click("subtitles-undo")
+        assertEquals("Third line", f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.text)
+        onNodeWithTag("subtitles-redo").assertIsEnabled()
+        onNode(hasTestTag("button-icon") and hasAnyAncestor(hasTestTag("subtitles-play")), useUnmergedTree = true).assertExists()
     }
 
     /** The video and its strip stay above the list only while the list keeps its room; else they top the list. */

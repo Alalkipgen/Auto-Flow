@@ -256,17 +256,24 @@ class PrShotsTest(val width: Int, val font: Float) {
     }
 
     /** P9-12a: the Subtitles editor — one line overlapping, one not translated, Burmese view, one unsaved edit, line 3 selected. */
-    @Test fun subtitlesEditor() {
+    @Test fun subtitlesEditor() = subtitles("subtitles-editor", TextChoice.BURMESE) {
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3")
+        onNodeWithTag("subtitles-cue-c3").performMouseInput { click() }
+    }
+
+    /** P9-12b: the editor's controls and the Both view, from the top of the list. */
+    @Test fun subtitlesControls() = subtitles("subtitles-controls", TextChoice.BOTH) {
+        onNodeWithTag("subtitles-cues").performScrollToNode(hasTestTag("subtitles-view-BOTH"))
+    }
+
+    private fun subtitles(screen: String, view: TextChoice, ready: ComposeUiTest.() -> Unit) {
         val f = SubtitlesFixture(listOf(Line(1_000, 3_200, "We have to leave tonight.", "ဒီည ထွက်သွားရမယ်။"),
             Line(3_600, 6_000, "Before the rain starts.", "မိုးမရွာခင်ပေါ့။"),
             Line(6_400, 9_000, "I will never leave you behind.", "မင်းကို ဘယ်တော့မှ ထားမသွားဘူး။"),
             Line(9_400, 11_000, "Wait for me at the bridge.", "တံတားမှာ စောင့်နေ။"), Line(10_600, 13_000, "Where is the dragon scroll?"),
             Line(13_500, 16_000, "Run!", "ပြေး!")), 20_000, "Dune: Part Two", scope)
-        f.editor.apply { open(); setView(TextChoice.BURMESE); edit { SubtitleOps.setTextMy(it, "c2", "မိုးမရွာခင် သွားကြစို့။") } }
-        shot("subtitles-editor", ready = {
-            onNodeWithTag("subtitles-cues").performScrollToKey("c3")
-            onNodeWithTag("subtitles-cue-c3").performMouseInput { click() }
-        }) {
+        f.editor.apply { open(); setView(view); edit { SubtitleOps.setTextMy(it, "c2", "မိုးမရွာခင် သွားကြစို့။") } }
+        shot(screen, ready = ready) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true, actions = actions) {
                 SubtitlesScreen(f.model, f.session, f.editor, player = f.paused, onBack = {})
             }
