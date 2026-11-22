@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.clickable
 import io.github.alalkipgen.autoflow.ui.components.MediumContent
+import io.github.alalkipgen.autoflow.ui.components.ambientBackground
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.runtime.Composable
@@ -109,21 +111,25 @@ fun StudioV2Shell(
     modifier: Modifier = Modifier,
     editor: Boolean = false,
     actions: ShellActions = ShellActions(),
+    ambient: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    // Glass tab screens (DESIGN.md §9.10) draw no background of their own: the ambient sits behind them (and behind
+    // the phone nav, which turns translucent); it does not scroll.
+    val behind = if (ambient) Modifier.ambientBackground() else Modifier
     TooltipHost(modifier.fillMaxSize()) {
         when (navStyle(windowWidthDp, editor)) {
-            NavStyle.BOTTOM -> Column(Modifier.fillMaxSize()) {
+            NavStyle.BOTTOM -> Column(Modifier.fillMaxSize().then(behind)) {
                 Box(Modifier.fillMaxWidth().weight(1f)) { content() }
-                V2BottomNav(selected, onSelect, jobsBadge)
+                V2BottomNav(selected, onSelect, jobsBadge, glass = ambient)
             }
             NavStyle.RAIL -> Row(Modifier.fillMaxSize()) {
                 V2NavRail(selected, onSelect, jobsBadge, actions)
-                Box(Modifier.fillMaxSize()) { MediumContent(windowWidthDp, content) }
+                Box(Modifier.fillMaxSize().then(behind)) { MediumContent(windowWidthDp, content) }
             }
             NavStyle.SIDEBAR -> Row(Modifier.fillMaxSize()) {
                 V2Sidebar(selected, onSelect, jobsBadge, actions)
-                Box(Modifier.fillMaxSize()) { content() }
+                Box(Modifier.fillMaxSize().then(behind)) { content() }
             }
         }
     }
@@ -141,11 +147,14 @@ private fun navLabel(text: String, on: Boolean, modifier: Modifier = Modifier, a
             type.size, type.weight, LocalUiFontFamily.current).copy(textAlign = align))
 }
 
-/** Phone: icon in a pill (active = primary container + Fill icon), micro label below, Jobs badge on the icon. */
+/**
+ * Phone: icon in a pill (active = primary container + Fill icon), micro label below, Jobs badge on the icon. [glass] =
+ * over the ambient background: Base .72 with a White .08 top line.
+ */
 @Composable
-private fun V2BottomNav(selected: StudioV2Dest, onSelect: (StudioV2Dest) -> Unit, jobsBadge: Int) {
-    Column(Modifier.fillMaxWidth().background(AutoFlowColors.TitleBar)) {
-        Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
+private fun V2BottomNav(selected: StudioV2Dest, onSelect: (StudioV2Dest) -> Unit, jobsBadge: Int, glass: Boolean = false) {
+    Column(Modifier.fillMaxWidth().background(if (glass) GlassColors.NavFill else AutoFlowColors.TitleBar)) {
+        Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(if (glass) GlassColors.NavLine else AutoFlowColors.Line))
         Row(Modifier.fillMaxWidth().padding(horizontal = AfSpace.Xs, vertical = 6.dp)) {
             StudioV2Dest.ALL.forEach { dest ->
                 val on = dest == selected

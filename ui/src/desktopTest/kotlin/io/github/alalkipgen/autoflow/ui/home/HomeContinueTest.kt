@@ -110,7 +110,7 @@ class HomeContinueRoutingTest {
             }
             fun home() = onNodeWithContentDescription(UiText.HOME.en).assertIsDisplayed().performMouseInput { click() }
             fun assertStep() {
-                val label = if (mode == Mode.MOVIE_RECAP) "Story · Step 2 of 5" else UiText.SHOT_SHEET.en
+                val label = if (mode == Mode.MOVIE_RECAP) "Story · Step 2/5" else UiText.SHOT_SHEET.en
                 onNodeWithTag("home-continue-step").performScrollTo().assertIsDisplayed().assertTextEquals(label)
             }
             onNodeWithTag("home-continue-step").assertDoesNotExist()
@@ -132,7 +132,7 @@ class HomeContinueRoutingTest {
                 runOnIdle { active = restarted }
                 assertStep(); continueProject()
                 assertEquals(path, restarted.koin.get<CurrentProject>().state.value?.dir)
-                if (mode == Mode.MOVIE_RECAP) onNodeWithText("Story · Step 2 of 5").assertIsDisplayed()
+                if (mode == Mode.MOVIE_RECAP) onNodeWithText("Story · Step 2/5").assertIsDisplayed()
                 else onNodeWithText(UiText.STORYBOARD_EMPTY.en).assertIsDisplayed()
                 assertContentEquals(settings, fs.read(appDirs.settings))
                 assertEquals(beforeA, tree(path), "opening and navigating do not write project A")

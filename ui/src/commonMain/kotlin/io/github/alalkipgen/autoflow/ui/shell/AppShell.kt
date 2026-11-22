@@ -533,6 +533,9 @@ private fun StudioV2App(
         // An open project editor keeps the 72 dp rail for room (DESIGN.md §9.8).
         editor = !nav.settings && nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null,
         actions = shellActions,
+        // Glass tab screens (Phase 9 group 1): Home, the Projects list and Jobs.
+        ambient = !nav.settings && (nav.dest == StudioV2Dest.HOME || nav.dest == StudioV2Dest.JOBS ||
+            nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == null),
         content = content,
     )
     // Exit confirmation dialog (D-52)

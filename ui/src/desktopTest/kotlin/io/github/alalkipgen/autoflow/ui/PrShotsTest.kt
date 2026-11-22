@@ -135,7 +135,7 @@ class PrShotsTest(val width: Int, val font: Float) {
     @Test fun home() {
         val index = index(); val rows = jobs()
         shot("home") {
-            StudioV2Shell(StudioV2Dest.HOME, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
+            StudioV2Shell(StudioV2Dest.HOME, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions, ambient = true) {
                 HomeScreen(recent = index.entries.value, jobs = rows, thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
             }
         }
@@ -160,7 +160,7 @@ class PrShotsTest(val width: Int, val font: Float) {
             mainClock.advanceTimeBy(1_000)
         })
         shot("projects", select) {
-            StudioV2Shell(StudioV2Dest.PROJECTS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
+            StudioV2Shell(StudioV2Dest.PROJECTS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions, ambient = true) {
                 DashboardScreen(model, {}, jobs = rows, thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
             }
         }
@@ -173,7 +173,7 @@ class PrShotsTest(val width: Int, val font: Float) {
             onNodeWithTag("job-card-failed").performMouseInput { click() }
         })
         shot("jobs", select) {
-            StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions) {
+            StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), width.toFloat(), actions = actions, ambient = true) {
                 JobsScreen(rows, scope, {}, actions = JobsActions(scope), thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
             }
         }

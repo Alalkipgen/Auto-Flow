@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -31,6 +33,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import io.github.alalkipgen.autoflow.ui.theme.afTextStyle
+import io.github.alalkipgen.autoflow.ui.theme.cssLinearGradient
 
 /** The app's thumbnail cache (DESIGN.md §9.5); null (tests, previews) = placeholders only. */
 val LocalMediaThumbnails = staticCompositionLocalOf<MediaThumbnails?> { null }
@@ -41,15 +44,17 @@ val LocalMediaThumbnails = staticCompositionLocalOf<MediaThumbnails?> { null }
  */
 @Composable
 fun MediaThumb(source: MediaThumbnails.Source?, icon: ImageVector, modifier: Modifier = Modifier, size: DpSize = AfSize.ThumbList,
-    durationMs: Long? = null, play: Boolean = false, contentDescription: String? = null) {
+    durationMs: Long? = null, play: Boolean = false, contentDescription: String? = null, placeholderColour: Color? = null,
+    onImage: ((ImageBitmap?) -> Unit)? = null) {
     val thumbs = LocalMediaThumbnails.current
     var visible by remember(source) { mutableStateOf(false) }
     val image by produceState<ImageBitmap?>(null, thumbs, source, visible) {
         value = null
         if (visible && thumbs != null && source != null) value = thumbs.load(source)
     }
+    if (onImage != null) LaunchedEffect(image) { onImage(image) }
     MediaThumb(image, icon, modifier.onGloballyPositioned { visible = it.isAttached && !it.boundsInWindow().isEmpty }, size, durationMs, play,
-        contentDescription)
+        contentDescription, placeholderColour)
 }
 
 /**
@@ -57,13 +62,14 @@ fun MediaThumb(source: MediaThumbnails.Source?, icon: ImageVector, modifier: Mod
  * Duotone type [icon] — never a fake picture. [durationMs] adds a bottom-right badge (pass only a real duration; the
  * badge is left out when it would not fit or would cover the play circle, e.g. large fonts on the 64 × 40 size; a
  * placeholder's icon moves up above it); [play]
- * adds the play overlay.
+ * adds the play overlay. [placeholderColour] (glass rows: the mode colour) = a 145° [placeholderColour] .35 → .08
+ * placeholder with a .35 border and the icon (≤ 26 dp) in that colour.
  * Decorative unless [contentDescription]. Tags `media-thumb`, `media-thumb-image` / `media-thumb-placeholder` (+ `media-thumb-icon`) and
  * `media-thumb-play`.
  */
 @Composable
 fun MediaThumb(image: ImageBitmap?, icon: ImageVector, modifier: Modifier = Modifier, size: DpSize = AfSize.ThumbList,
-    durationMs: Long? = null, play: Boolean = false, contentDescription: String? = null) {
+    durationMs: Long? = null, play: Boolean = false, contentDescription: String? = null, placeholderColour: Color? = null) {
     val shape = RoundedCornerShape(AfRadius.Thumb)
     val iconSize = minOf(size.height * .45f, AfSize.IconLarge)
     val playSize = minOf(size.height * .5f, 40.dp)
@@ -86,9 +92,13 @@ fun MediaThumb(image: ImageBitmap?, icon: ImageVector, modifier: Modifier = Modi
         if (contentDescription == null) Modifier else Modifier.semantics { this.contentDescription = contentDescription }),
         contentAlignment = Alignment.Center) {
         if (image != null) Image(image, null, Modifier.fillMaxSize().testTag("media-thumb-image"), contentScale = ContentScale.Crop)
-        else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(AutoFlowColors.Surface3, AutoFlowColors.Card)))
+        else Box(Modifier.fillMaxSize().then(if (placeholderColour == null) Modifier.background(Brush.linearGradient(listOf(AutoFlowColors.Surface3,
+                AutoFlowColors.Card)))
+            else Modifier.drawBehind { drawRect(cssLinearGradient(145f, this.size, 0f to placeholderColour.copy(alpha = .35f), 1f to placeholderColour.copy(alpha = .08f))) }
+                .border(1.dp, placeholderColour.copy(alpha = .35f), shape))
             .padding(bottom = lift).testTag("media-thumb-placeholder"), contentAlignment = Alignment.Center) {
-            AfIcon(icon, Modifier.testTag("media-thumb-icon"), tint = AutoFlowColors.Faint, size = iconSize)
+            AfIcon(icon, Modifier.testTag("media-thumb-icon"), tint = placeholderColour ?: AutoFlowColors.Faint,
+                size = if (placeholderColour == null) iconSize else minOf(iconSize, 26.dp))
         }
         if (play) Box(Modifier.size(playSize).clip(CircleShape).background(Scrim).testTag("media-thumb-play"), contentAlignment = Alignment.Center) {
             AfIcon(AfIcons.Fill.Play, tint = Color.White, size = minOf(size.height * .25f, AfSize.IconSmall))

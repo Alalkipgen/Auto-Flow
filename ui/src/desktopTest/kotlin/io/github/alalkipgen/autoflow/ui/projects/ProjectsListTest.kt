@@ -93,7 +93,8 @@ class ProjectsListTest(val width: Int, val font: Float, val language: UiLanguage
         inRow(recap, hasText("0:10")).performScrollTo().assertIsDisplayed()
         val thumb = inRow(recap, hasTestTag("media-thumb")).performScrollTo().fetchSemanticsNode()
         val title = inRow(recap, hasText(recap)).fetchSemanticsNode()
-        val beside = width - 2 * 14 - 2 * 12 - 100 - 48 - 24 >= 96 * font
+        // Screen 14 + card 12 padding each side, thumbnail 100, ⋮ 36 (its 48 dp target overflows), two 12 dp gaps.
+        val beside = width - 2 * 14 - 2 * 12 - 100 - 36 - 24 >= 96 * font
         if (beside) assertTrue(thumb.positionInRoot.x + thumb.size.width <= title.positionInRoot.x, "thumbnail left of the title")
         else assertTrue(thumb.positionInRoot.y + thumb.size.height <= title.positionInRoot.y, "thumbnail above the title")
         // ⋮ opens the existing options; the target is at least 48 dp.

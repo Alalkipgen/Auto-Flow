@@ -122,19 +122,26 @@ fun OptionChips(options: List<String>, selected: String, onSelect: (String) -> U
 /** A filter and its item count; [count] null hides the number. */
 class FilterChipItem(val label: String, val count: Int? = null)
 
-/** Filters scroll in one row with faded edges (DESIGN.md §9.2); options wrap instead ([OptionChips]). */
+/**
+ * Filters scroll in one row with faded edges (DESIGN.md §9.2); options wrap instead ([OptionChips]). [glass] = glass
+ * filter chips (tab screens); the row's layer then reaches 6 dp above and below so the selected chip's glow is not cut.
+ */
 @Composable
-fun FilterChipRow(items: List<FilterChipItem>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun FilterChipRow(items: List<FilterChipItem>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, glass: Boolean = false) {
     val scroll = rememberScrollState()
-    Row(modifier.fillMaxWidth().graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+    val glow = if (glass) 6.dp else 0.dp
+    Row(modifier.fillMaxWidth().touchOverflow(vertical = glow).graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
         drawContent()
         val fade = 24.dp.toPx()
         if (scroll.canScrollBackward) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), 0f, fade),
             size = Size(fade, size.height), blendMode = BlendMode.DstIn)
         if (scroll.canScrollForward) drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), size.width - fade, size.width),
             Offset(size.width - fade, 0f), Size(fade, size.height), blendMode = BlendMode.DstIn)
-    }.horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.forEachIndexed { i, item -> AfChip(item.label, i == selected, { onSelect(i) }, count = item.count) }
+    }.horizontalScroll(scroll).padding(vertical = glow), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEachIndexed { i, item ->
+            if (glass) GlassFilterChip(item.label, i == selected, { onSelect(i) }, count = item.count)
+            else AfChip(item.label, i == selected, { onSelect(i) }, count = item.count)
+        }
     }
 }
 

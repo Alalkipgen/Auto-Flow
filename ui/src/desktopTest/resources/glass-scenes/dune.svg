@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100" width="320" height="200">
+<!-- Exact UI v4 lib.js scene("dune"): a demo frame for the glass screenshots -->
+<defs><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1407"/><stop offset=".55" stop-color="#b4521c"/><stop offset=".78" stop-color="#f0a35a"/></linearGradient><radialGradient id="b"><stop offset="0" stop-color="#fff4da"/><stop offset=".3" stop-color="#ffd690"/><stop offset="1" stop-color="#ffb35c" stop-opacity="0"/></radialGradient></defs><rect width="160" height="100" fill="url(#a)"/><circle cx="112" cy="50" r="30" fill="url(#b)"/><path d="M0 68 Q40 56 82 66 T160 62 V100 H0Z" fill="#6a3212"/><path d="M0 80 Q52 66 98 78 T160 76 V100 H0Z" fill="#2e1507"/><path d="M47 79 l2.6 -15 h1.8 l2.6 15z" fill="#120803"/><circle cx="50.4" cy="61.5" r="2.4" fill="#120803"/>
+</svg>

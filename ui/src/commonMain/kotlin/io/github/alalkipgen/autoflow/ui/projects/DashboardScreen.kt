@@ -2,8 +2,6 @@ package io.github.alalkipgen.autoflow.ui.projects
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,11 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.Layout
@@ -34,8 +30,8 @@ import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
-import io.github.alalkipgen.autoflow.ui.icons.IconTile
 import io.github.alalkipgen.autoflow.ui.icons.afTooltip
 import io.github.alalkipgen.autoflow.ui.jobs.JobRow
 import io.github.alalkipgen.autoflow.ui.media.MediaThumbnails
@@ -97,21 +93,22 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     val now = clock.now()
     val openProject: (DashboardRow) -> Unit = { row -> if (model.open(row.entry.path)) onOpened() }
     val scroll = rememberScrollState()
-    BoxWithConstraints(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
+    // No background of its own: the shell's ambient shows through the glass cards (DESIGN.md §9.10).
+    BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
       val wide = maxWidth >= AfDesktop.GridWide
       val picked = if (wide) visible.firstOrNull { it.entry.path == selected && !it.missing } else null
-      val list: @Composable (Modifier) -> Unit = { listModifier -> Column(listModifier, verticalArrangement = Arrangement.spacedBy(AfSpace.L)) {
+      val list: @Composable (Modifier) -> Unit = { listModifier -> Column(listModifier, verticalArrangement = Arrangement.spacedBy(GlassShapes.SectionGap)) {
         // With a projects home (Android, D-27) every project lives there; there is no folder to open.
         val openFolder: @Composable () -> Unit = {
-            if (model.projectsHome == null) AfButton(tr(UiText.OPEN_FOLDER), { scope.launch { if (model.openFolder()) onOpened() } })
+            if (model.projectsHome == null) GlassButton(tr(UiText.OPEN_FOLDER), { scope.launch { if (model.openFolder()) onOpened() } })
         }
         val newMusicVideo: @Composable () -> Unit = {
-            AfButton(tr(UiText.NEW_MUSIC_VIDEO), { setCreating(Mode.MUSIC_VIDEO) }, kind = ButtonKind.Primary, enabled = creating == null)
+            GlassButton(tr(UiText.NEW_MUSIC_VIDEO), { setCreating(Mode.MUSIC_VIDEO) }, kind = ButtonKind.Primary, enabled = creating == null)
         }
-        val newMovieRecap: @Composable () -> Unit = { AfButton(tr(UiText.NEW_MOVIE_RECAP), { setCreating(Mode.MOVIE_RECAP) }, enabled = creating == null) }
+        val newMovieRecap: @Composable () -> Unit = { GlassButton(tr(UiText.NEW_MOVIE_RECAP), { setCreating(Mode.MOVIE_RECAP) }, enabled = creating == null) }
         ProjectsHeader(state.rows.size, showCreate = !empty, createOpen = open) { setOpen(!open) }
         // The create card: "+" opens it; with no project yet it is the first thing on the screen.
-        if (open || empty) AfCard(tr(UiText.V3_PROJECT_CREATE), Modifier.testTag("projects-create")) {
+        if (open || empty) GlassCard(tr(UiText.V3_PROJECT_CREATE), Modifier.testTag("projects-create")) {
             WrapRow {
                 if (compact) { newMusicVideo(); openFolder(); newMovieRecap() }
                 else { openFolder(); newMovieRecap(); newMusicVideo() }
@@ -126,9 +123,9 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             val chips = listOf(FilterChipItem(tr(UiText.PROJECTS_FILTER_ALL), state.rows.size)) +
                 modes.map { m -> FilterChipItem(tr(m.label()), state.rows.count { it.entry.mode == m }) }
             FilterChipRow(chips, active?.let { modes.indexOf(it) + 1 } ?: 0, { i -> filter = modes.getOrNull(i - 1) },
-                Modifier.testTag("projects-filters"))
+                Modifier.testTag("projects-filters"), glass = true)
         }
-        Column(Modifier.fillMaxWidth().testTag("projects-recent"), verticalArrangement = Arrangement.spacedBy(AfSpace.CardGap)) {
+        Column(Modifier.fillMaxWidth().testTag("projects-recent"), verticalArrangement = Arrangement.spacedBy(GlassShapes.BetweenCards)) {
             if (state.rows.isEmpty()) {
                 EmptyState(AfIcons.Duotone.Folder, My.breakSyllables(
                     if (model.projectsHome == null) tr(UiText.PROJECTS_EMPTY_DESKTOP) else tr(UiText.PROJECTS_EMPTY)), null)
@@ -147,7 +144,7 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             }
             if (active == null) state.newer.forEach { row ->
                 key("newer:" + row.path) {
-                    AfCard(row.name, Modifier.fillMaxWidth().testTag("projects-newer-${row.name}")) {
+                    GlassCard(row.name, Modifier.fillMaxWidth().testTag("projects-newer-${row.name}")) {
                         AfText(My.breakSyllables(tr(UiText.NEEDS_NEWER_APP)), muted = true)
                     }
                 }
@@ -155,20 +152,21 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
         }
         if (state.removed.isNotEmpty()) RemovedRow(state.removed.size) { showRemoved = true }
         // F-7 (D-96): a render package (or backup zip) from another phone or computer.
-        if (model.opensPackages) AfButton(My.breakSyllables(tr(UiText.PACKAGE_OPEN)), { scope.launch { if (model.openPackage()) onOpened() } },
-            Modifier.fillMaxWidth().testTag("projects-open-package"), enabled = creating == null)
+        if (model.opensPackages) GlassButton(My.breakSyllables(tr(UiText.PACKAGE_OPEN)), { scope.launch { if (model.openPackage()) onOpened() } },
+            Modifier.fillMaxWidth().testTag("projects-open-package"), enabled = creating == null, icon = AfIcons.Regular.Box)
       } }
       if (wide) Row(Modifier.fillMaxSize()) {
-          list(Modifier.weight(1f).fillMaxHeight().paneScroll(scroll).padding(screenPadding))
+          // The viewport includes the padding: glass buttons' 48 dp targets overflow into it (GlassScrollColumn).
+          Box(Modifier.weight(1f).fillMaxHeight().paneScroll(scroll)) { list(Modifier.fillMaxWidth().padding(screenPadding)) }
           picked?.let { row ->
               ProjectDetailPane(row, now, projectStatus(row.entry.path, jobs), thumbSource, onOpen = { openProject(row) },
                   onClose = { selected = null }, onRemove = { confirmFor = row }, onShowFolder = onShowFolder)
           }
-      } else list(Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().paneScroll(scroll).padding(screenPadding))
+      } else Box(Modifier.widthIn(max = AfSize.ContentMax).fillMaxSize().paneScroll(scroll)) { list(Modifier.fillMaxWidth().padding(screenPadding)) }
     }
 }
 
-/** Title + "<n> projects" and the "+" that opens / closes the create card (hidden while the list is empty). */
+/** Title + "<n> projects" and the 40 dp glass "+" that opens / closes the create card (hidden while the list is empty). */
 @Composable
 private fun ProjectsHeader(count: Int, showCreate: Boolean, createOpen: Boolean, onToggleCreate: () -> Unit) {
     Row(Modifier.fillMaxWidth().testTag("projects-header"), verticalAlignment = Alignment.Top,
@@ -178,8 +176,8 @@ private fun ProjectsHeader(count: Int, showCreate: Boolean, createOpen: Boolean,
             if (count > 0) AfText(My.breakSyllables(tr(UiText.MANY_PROJECTS, "projects" to count)), Modifier.testTag("projects-count"),
                 color = AutoFlowColors.Muted, type = AfType.Caption)
         }
-        if (showCreate) AfIconButton(AfIcons.Regular.Plus, tr(UiText.V3_PROJECT_CREATE), onToggleCreate, Modifier.testTag("projects-new"),
-            selected = createOpen)
+        if (showCreate) GlassIconButton(AfIcons.Regular.Plus, tr(UiText.V3_PROJECT_CREATE), onToggleCreate, Modifier.testTag("projects-new"),
+            size = GlassShapes.IconButtonHeader, selected = createOpen)
     }
 }
 
@@ -189,27 +187,21 @@ internal fun projectStatus(dir: String, jobs: List<JobRow>): StudioStatus? {
     return listOf(StudioStatus.RUNNING, StudioStatus.QUEUED, StudioStatus.FAILED, StudioStatus.PAUSED).firstOrNull { it in mine }
 }
 
-/** Dashed row that opens the existing removed-projects list (no retention text: nothing is purged by time). */
+/**
+ * The flat glass row that opens the existing removed-projects list: soft Redo tile, title, count and chevron (no
+ * retention text: nothing is purged by time).
+ */
 @Composable
 private fun RemovedRow(count: Int, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(AfRadius.ListCard)
-    val label = My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT))
-    Row(Modifier.fillMaxWidth().heightIn(min = AfSize.Touch).clip(shape)
-        .clickable(interaction, null, role = Role.Button, onClick = onClick)
-        .drawBehind {
-            val dash = AfSpace.S.toPx() * .75f
-            drawRoundRect(AutoFlowColors.LineStrong, cornerRadius = CornerRadius(AfRadius.ListCard.toPx()),
-                style = Stroke(AutoFlowShapes.Border.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash * .67f))))
+    GlassCard(Modifier.heightIn(min = AfSize.Touch).testTag("projects-open-removed"), onClick = onClick, flat = true) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) {
+            SoftTile(AfIcons.Fill.Redo, AutoFlowColors.PrimaryText, size = AfSize.TileSmall)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                AfText(My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT)), type = AfType.RowTitle)
+                AfText(My.breakSyllables(tr(UiText.MANY_PROJECTS, "projects" to count)), color = AutoFlowColors.Muted, type = AfType.Caption)
+            }
+            AfIcon(AfIcons.Regular.Chevron, tint = AutoFlowColors.Muted, size = 16.dp)
         }
-        .interactionOverlay(interaction, shape).padding(AfSpace.M).testTag("projects-open-removed"),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) {
-        IconTile(AfIcons.Regular.Redo, AutoFlowColors.Surface3, size = AfSize.TileSmall, radius = AfRadius.TileSmall, ink = AutoFlowColors.Text)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            AfText(label, type = AfType.RowTitle)
-            AfText(My.breakSyllables(tr(UiText.MANY_PROJECTS, "projects" to count)), color = AutoFlowColors.Muted, type = AfType.Caption)
-        }
-        RowChevron()
     }
 }
 
@@ -221,7 +213,7 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
     var rights by remember { mutableStateOf(false) }
     val home = model.projectsHome
     val recap = mode == Mode.MOVIE_RECAP
-    AfCard(if (recap) tr(UiText.NEW_MOVIE_RECAP) else tr(UiText.NEW_MUSIC_VIDEO)) {
+    GlassCard(if (recap) tr(UiText.NEW_MOVIE_RECAP) else tr(UiText.NEW_MUSIC_VIDEO)) {
         AfTextField(name, { name = it }, tr(UiText.PROJECT_NAME))
         if (recap) {
             AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
@@ -230,7 +222,7 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
         if (home == null) {
             FieldRow(
                 field = { AfTextField(parent, { parent = it }, tr(UiText.PROJECT_PARENT), it) },
-                actions = { AfButton(tr(UiText.BROWSE), { scope.launch { model.pickParent()?.let { parent = it } } }) },
+                actions = { GlassButton(tr(UiText.BROWSE), { scope.launch { model.pickParent()?.let { parent = it } } }) },
             )
         } else {
             AfText(tr(UiText.APP_STORAGE_BACKUP), muted = true, size = 12.sp)
@@ -239,11 +231,11 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
             AfText(tr(UiText.CREATES_PATH, "trimEndprojectFolder" to (joinPath(parent.trimEnd('/'), projectFolderName(name)))), muted = true, size = 12.sp, mono = true)
         }
         WrapRow {
-            AfButton(tr(UiText.CREATE), {
+            GlassButton(tr(UiText.CREATE), {
                 val ok = if (recap) model.createMovieRecap(parent, name, rights) else model.createMusicVideo(parent, name)
                 if (ok) onCreated()
             }, kind = ButtonKind.Primary, enabled = name.isNotBlank() && parent.isNotBlank() && (!recap || rights))
-            AfButton(tr(UiText.CANCEL), onCancel)
+            GlassButton(tr(UiText.CANCEL), onCancel)
         }
     }
 }
@@ -376,15 +368,15 @@ private fun ProjectFacts(row: DashboardRow, now: Instant, status: StudioStatus?,
             AfText(e.path, muted = true, size = 11.sp, mono = true)
             WrapRow {
                 AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
-                AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
+                GlassButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
             }
         } else {
             WrapRow(spacing = AfSpace.Xs + 2.dp) {
-                ModeChip(e.mode, Modifier.testTag("project-mode-${e.mode.name}"))
+                GlassModeChip(e.mode, Modifier.testTag("project-mode-${e.mode.name}"))
                 status?.let { StatusChip(it) }
             }
             val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
-            val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted
+            val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.SuccessText else AutoFlowColors.Muted
             WrapRow(spacing = AfSpace.S) {
                 AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), color = AutoFlowColors.Muted, type = AfType.Caption)
                 AfText(e.ratio.label, color = AutoFlowColors.Muted, type = AfType.Caption)
@@ -396,10 +388,11 @@ private fun ProjectFacts(row: DashboardRow, now: Instant, status: StudioStatus?,
 
 @Composable
 private fun MoreButton(name: String, onOptions: () -> Unit) =
-    AfIconButton(AfIcons.Regular.More, tr(UiText.PROJECT_ACTIONS), onOptions, Modifier.testTag("project-more-$name"))
+    GlassIconButton(AfIcons.Regular.More, tr(UiText.PROJECT_ACTIONS), onOptions, Modifier.testTag("project-more-$name"))
 
 /**
- * A project row: thumbnail 100 × 62 (the recorded duration as badge), 1-line title, mode chip + [status], relative date
+ * A project row on a glass card tinted with its own frame (no frame: the mode colour, and the placeholder in that
+ * colour): thumbnail 100 × 62 (the recorded duration as badge), 1-line title, mode chip + [status], relative date
  * · ratio · shots, and ⋮ (the existing options; long-press and right-click open them too). A tap opens the project; a
  * missing folder shows "Folder not found" with Remove from list instead. Large fonts: thumbnail and ⋮ above the text.
  */
@@ -408,14 +401,18 @@ private fun ProjectRow(row: DashboardRow, now: Instant, status: StudioStatus?, t
     onOpen: () -> Unit, onOptions: () -> Unit, onRemove: () -> Unit) {
     val e = row.entry
     val source by projectThumb(row, thumbSource)
-    val thumb = @Composable { MediaThumb(source, e.mode.icon(duotone = true), size = AfSize.ThumbList, durationMs = source?.durationMs) }
+    var art by remember(source) { mutableStateOf<ImageBitmap?>(null) }
+    val thumb = @Composable {
+        MediaThumb(source, e.mode.icon(duotone = true), Modifier.glassThumb(), size = AfSize.ThumbList, durationMs = source?.durationMs,
+            placeholderColour = e.mode.glassColour, onImage = { art = it })
+    }
     // The whole card opens the project (a click layer under the content, so the texts stay separate nodes).
     Box(Modifier.fillMaxWidth().testTag("project-row-${e.name}")) {
-        AfCard(Modifier.matchParentSize().onSecondaryClick(onOptions), onClick = if (row.missing) null else onOpen,
-            onLongClick = onOptions) {}
-        BoxWithConstraints(Modifier.padding(AfSpace.M)) {
+        GlassCard(Modifier.matchParentSize().onSecondaryClick(onOptions), onClick = if (row.missing) null else onOpen,
+            onLongClick = onOptions, tint = e.mode.glassColour, tintAlpha = GlassColors.TintProjects, thumbnail = art) {}
+        BoxWithConstraints(Modifier.padding(GlassShapes.CardPadding)) {
             val gap = AfSpace.M
-            if (maxWidth - AfSize.ThumbList.width - AfSize.Touch - gap * 2 >= AfSize.TileCardMin * LocalDensity.current.fontScale) {
+            if (maxWidth - AfSize.ThumbList.width - GlassShapes.IconButtonCard - gap * 2 >= AfSize.TileCardMin * LocalDensity.current.fontScale) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
                     thumb(); ProjectFacts(row, now, status, onRemove, Modifier.weight(1f)); MoreButton(e.name, onOptions)
                 }
@@ -471,7 +468,7 @@ private fun ProjectCardLayer(row: DashboardRow, selected: Boolean, onSelect: () 
         if (enter && !row.missing && event.type == KeyEventType.KeyDown) onOpen()
         enter && !row.missing
     }
-    AfCard(Modifier.onSecondaryClick(onOptions).semantics { this.selected = selected }.then(enterOpens)
+    GlassCard(Modifier.onSecondaryClick(onOptions).semantics { this.selected = selected }.then(enterOpens)
         .testTag("project-card-click-$name"), selected = selected,
         onClick = if (row.missing) null else onSelect, onLongClick = onOptions, onDoubleClick = if (row.missing) null else onOpen) {}
 }
@@ -483,7 +480,8 @@ private fun ProjectCardContent(row: DashboardRow, now: Instant, status: StudioSt
     val e = row.entry
     val source by projectThumb(row, thumbSource)
     Column(Modifier.testTag("project-card-${e.name}").padding(AfSpace.L), verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
-        MediaThumb(source, e.mode.icon(duotone = true), size = thumb, durationMs = source?.durationMs)
+        MediaThumb(source, e.mode.icon(duotone = true), Modifier.glassThumb(), size = thumb, durationMs = source?.durationMs,
+            placeholderColour = e.mode.glassColour)
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
             ProjectFacts(row, now, status, onRemove, Modifier.weight(1f))
             MoreButton(e.name, onOptions)

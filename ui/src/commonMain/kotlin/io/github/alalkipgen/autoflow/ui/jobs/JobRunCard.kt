@@ -21,7 +21,10 @@ internal fun JobRunCard(row: JobRow, modifier: Modifier = Modifier, headerAction
         indeterminate = row.indeterminate, headerAction = headerAction, actions = actions)
 }
 
-/** The job's second line: its kind (when the title is the project), its detail (not a failure reason) and live timing. */
+/**
+ * The job's second line: its kind (when the title is the project: [JobRow.kindLabel], else the job's own title), its
+ * detail (not the red line, not the project again) and live timing.
+ */
 @Composable
 internal fun jobDetail(row: JobRow): String {
     val timing = if (row.timedRun && row.status == StudioStatus.RUNNING) {
@@ -31,8 +34,19 @@ internal fun jobDetail(row: JobRow): String {
         val language = LocalUiLanguage.current
         remember(tick, now, language) { liveLabel(now, language) }
     } else null
-    return listOfNotNull(row.title.takeIf { row.projectTitle != null }, row.detail?.takeIf { it != row.projectTitle && !row.failed }, timing)
+    val red = row.redLine
+    return listOfNotNull((row.kindLabel ?: row.title).takeIf { row.projectTitle != null },
+        row.detail?.takeIf { it.isNotBlank() && it != row.projectTitle && it != projectName(row.projectDir) && it != red }, row.reason?.takeIf { red == null }, timing)
         .joinToString(" · ")
+}
+
+/**
+ * The red line of a job card: a failed or paused job's provider error, else a failed job's detail (a render's reason).
+ */
+internal val JobRow.redLine: String? get() = when {
+    reason != null && (failed || status == StudioStatus.PAUSED) -> reason
+    failed -> detail?.takeIf { it.isNotBlank() }
+    else -> null
 }
 
 private fun liveLabel(live: AiRunTiming.Live?, language: UiLanguage): String {
@@ -70,7 +84,7 @@ internal fun MusicGeminiJobCard(jobs: StoryboardJobs, project: OpenProject?, mod
 internal fun ToolAiJobCard(job: AiJob, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val language = LocalUiLanguage.current
     val row = remember(job, language) { jobRows(null, null, null, listOf(job), language).single() }
-    JobRunCard(row.copy(projectTitle = null, detail = null), modifier, actions = content)
+    JobRunCard(row.copy(projectTitle = null, detail = null, reason = null), modifier, actions = content)
 }
 
 /** A tool page's direct AI request with no job (Dubbing Shorten): the same card, running, with live wait time. */
