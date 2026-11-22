@@ -121,8 +121,10 @@ class StudioBrowseOnlyTreeTest {
                 UiText.V3_LIBRARY_LEXICON to "lexicon", UiText.V3_LIBRARY_MUSIC to "music",
                 UiText.V3_LIBRARY_FONTS to "fonts", UiText.V3_LIBRARY_PRESETS to "presets",
             )
+            // An empty Library has no chip row (#288 follow-up): all six sections are on the page, so only scroll.
+            val chips = onAllNodesWithTag("library-categories").fetchSemanticsNodes().isNotEmpty()
             sections.forEach { (text, tag) ->
-                click(onNode(hasText(text.en) and hasAnyAncestor(hasTestTag("library-categories"))).performScrollTo())
+                if (chips) click(onNode(hasText(text.en) and hasAnyAncestor(hasTestTag("library-categories"))).performScrollTo())
                 scroll("library-$tag"); unchanged("Library / $tag")
             }
             nav(UiText.JOBS); heading("jobs-empty", "Jobs (no jobs launched)")

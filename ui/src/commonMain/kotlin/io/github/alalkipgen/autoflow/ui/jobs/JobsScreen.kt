@@ -359,7 +359,8 @@ fun JobsScreen(
                             val select = if (wide) Modifier.semantics { this.selected = isSelected; onClick { pick(); true } } else Modifier
                             if (live.canRemoveFinished(row)) CardRemoval("job-card-$key", UiText.JOB_DELETE_HISTORY,
                                 tr(UiText.JOB_DELETE_HISTORY_CONFIRM), UiText.JOB_DELETE_HISTORY_KEEPS_FILES,
-                                { { live.removeFinished(row) } }, onTap = if (wide) pick else null) { card(it.then(select)) }
+                                { { live.removeFinished(row) } }, onTap = if (wide) pick else null, name = row.projectTitle ?: row.title,
+                                caption = jobKind(row), leading = { JobLead(row, thumbSource) }) { card(it.then(select)) }
                             else card(if (wide) Modifier.pointerInput(key) { detectTapGestures(onTap = { pick() }) }.then(select) else Modifier)
                         } }
                     }
@@ -444,6 +445,28 @@ internal fun JobItemCard(row: JobRow, thumbSource: (suspend (String) -> MediaThu
         actions()
     }
 }
+
+/** What a job does, under its name in the delete dialog: its kind ("Dub voice", "Render · Export"), else its group. */
+@Composable
+private fun jobKind(row: JobRow): String = (row.kindLabel ?: row.title).takeIf { row.projectTitle != null } ?: tr(row.group.label)
+
+/**
+ * A job in the delete dialog (Library follow-up README §3): its card's leading at 44 dp — the Needs-you tone tile, else
+ * the project's thumbnail (16:10, 70 × 44; the job's type icon until a frame is cached).
+ */
+@Composable
+private fun JobLead(row: JobRow, thumbSource: (suspend (String) -> MediaThumbnails.Source?)?) {
+    val attention = row.attention
+    if (attention != null) {
+        return SoftTile(if (row.failed) AfIcons.Fill.XCircle else AfIcons.Fill.Warn, attention.fill, size = GlassShapes.DialogTile)
+    }
+    val dir = row.projectDir?.takeIf { !row.projectDeleted }
+    val source by produceState<MediaThumbnails.Source?>(null, dir, thumbSource) { value = dir?.let { thumbSource?.invoke(it) } }
+    MediaThumb(source, row.icon(), Modifier.glassThumb(), size = DialogThumb)
+}
+
+/** The job thumbnail in the delete dialog: [AfSize.ThumbCompact] (64 × 40) at 44 dp tall. */
+private val DialogThumb = DpSize(70.dp, 44.dp)
 
 /** The tone tile of a Needs-you job card (Exact UI v4). */
 private val AttentionTile = 36.dp

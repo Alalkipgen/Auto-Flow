@@ -75,6 +75,27 @@ fun GlassDialog(onDismissRequest: () -> Unit, icon: ImageVector, tone: Color, ti
 @Composable
 fun GlassDialogSurface(icon: ImageVector, tone: Color, title: String, modifier: Modifier = Modifier, subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit) {
+    GlassDialogShell(modifier, {
+        GlassDialogHeader(title, subtitle) { SoftTile(icon, tone, Modifier.testTag("glass-dialog-tile"), size = GlassShapes.DialogTile) }
+    }, content)
+}
+
+/**
+ * The dialog surface for one item (Library follow-up README §3): header = the item's own [leading] (44 dp tall) + its
+ * [title] + optional Muted [subtitle]; no header at all when [title] is null.
+ */
+@Composable
+fun GlassDialogSurface(title: String?, modifier: Modifier = Modifier, subtitle: String? = null, leading: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit) {
+    val header: (@Composable () -> Unit)? = title?.let { t ->
+        { GlassDialogHeader(t, subtitle, leading?.let { lead -> { Box(Modifier.testTag("glass-dialog-lead")) { lead() } } }) }
+    }
+    GlassDialogShell(modifier, header, content)
+}
+
+/** The surface shell (see [GlassDialogSurface]): [header] (if any), then [content], 14 dp apart. */
+@Composable
+private fun GlassDialogShell(modifier: Modifier, header: (@Composable () -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
     val shape = GlassShapes.Dialog
     val pad = GlassShapes.DialogPadding
     val overflow = (AfSize.Touch - AfSize.Button) / 2
@@ -95,14 +116,20 @@ fun GlassDialogSurface(icon: ImageVector, tone: Color, title: String, modifier: 
         // The last button's 48 dp target overflows its 44 dp slot by 2 dp; keep that inside the scrolled content (the
         // visual padding stays 20), so a scroll-to of the last button never asks a dialog that cannot scroll to scroll.
         Column(Modifier.padding(bottom = overflow), verticalArrangement = Arrangement.spacedBy(GlassShapes.DialogGap)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SoftTile(icon, tone, Modifier.testTag("glass-dialog-tile"), size = GlassShapes.DialogTile)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    AfText(title, Modifier.testTag("glass-dialog-title"), type = AfType.CardTitle, weight = FontWeight.Bold)
-                    subtitle?.let { AfText(it, Modifier.testTag("glass-dialog-subtitle"), color = AutoFlowColors.Muted, type = AfType.Caption) }
-                }
-            }
+            header?.invoke()
             content()
+        }
+    }
+}
+
+/** A dialog header: [leading] (if any), 12 dp, then [title] (17 sp bold, wraps) over an optional Muted [subtitle]. */
+@Composable
+private fun GlassDialogHeader(title: String, subtitle: String?, leading: (@Composable () -> Unit)?) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        leading?.invoke()
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            AfText(title, Modifier.testTag("glass-dialog-title"), type = AfType.CardTitle, weight = FontWeight.Bold)
+            subtitle?.let { AfText(it, Modifier.testTag("glass-dialog-subtitle"), color = AutoFlowColors.Muted, type = AfType.Caption) }
         }
     }
 }
@@ -118,13 +145,13 @@ private fun Modifier.dialogSize(): Modifier = layout { measurable, constraints -
 }
 
 /**
- * A menu row (radius 14, min 56, White .04 fill + .09 border, padding 10 / 12): 36 dp soft tile, [title] (14.5 bold)
- * with an optional Muted [caption] and a caret; the whole row clicks. [mono] = a removed project: the name on one
- * line (the full name stays in its content description), the folder in monospace.
+ * A menu row (radius 14, min 56, White .04 fill + .09 border, padding 10 / 12): 36 dp soft tile, [title] (14.5 bold, in
+ * [titleColour] — Failed for a Danger row) with an optional Muted [caption] and a caret; the whole row clicks. [mono] =
+ * a removed project: the name on one line (the full name stays in its content description), the folder in monospace.
  */
 @Composable
 fun GlassMenuRow(icon: ImageVector, tone: Color, title: String, onClick: () -> Unit, modifier: Modifier = Modifier,
-    caption: String? = null, mono: Boolean = false, enabled: Boolean = true) {
+    caption: String? = null, mono: Boolean = false, enabled: Boolean = true, titleColour: Color = AutoFlowColors.Text) {
     val shape = GlassShapes.MenuRow
     val interaction = remember { MutableInteractionSource() }
     Row(
@@ -138,9 +165,9 @@ fun GlassMenuRow(icon: ImageVector, tone: Color, title: String, onClick: () -> U
     ) {
         SoftTile(icon, tone, size = GlassShapes.MenuTile)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (mono) AfText(title, Modifier.semantics { contentDescription = title }, type = AfType.RowTitle, weight = FontWeight.Bold,
-                maxLines = 1, ellipsis = true)
-            else AfText(title, type = AfType.RowTitle, weight = FontWeight.Bold)
+            if (mono) AfText(title, Modifier.semantics { contentDescription = title }, color = titleColour, type = AfType.RowTitle,
+                weight = FontWeight.Bold, maxLines = 1, ellipsis = true)
+            else AfText(title, color = titleColour, type = AfType.RowTitle, weight = FontWeight.Bold)
             caption?.let {
                 if (mono) MonoText(it, 11.5.sp, AutoFlowColors.Muted)
                 else AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption)

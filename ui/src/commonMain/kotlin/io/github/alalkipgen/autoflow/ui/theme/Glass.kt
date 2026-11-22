@@ -130,6 +130,10 @@ object GlassColors {
     /** Lexicon entry: White .04 row fill; the spoken form in lavender. */
     val LexiconRowFill = Color.White.copy(alpha = .04f)
     val LexiconSpoken = Color(0xFFC6B8FF)
+    /** An empty Library section's row: White .04 fill, 1 dp White .08 border; its tile at [EmptyTileAlpha]. */
+    val EmptyRowFill = Color.White.copy(alpha = .04f)
+    val EmptyRowBorder = Color.White.copy(alpha = .08f)
+    const val EmptyTileAlpha = .6f
 
     /**
      * Dialogs ([io.github.alalkipgen.autoflow.ui.components.GlassDialog], Projects dialogs README §1): scrim Base
@@ -190,6 +194,12 @@ object GlassShapes {
     val LexiconGap = 6.dp
     val LexiconRow = RoundedCornerShape(10.dp)
     val LexiconWritten = 84.dp
+    /** An empty Library section's row: radius 14, padding 12 × 10, gap 10, 28 dp tile. */
+    val EmptyRow = RoundedCornerShape(14.dp)
+    val EmptyRowPadX = 12.dp
+    val EmptyRowPadY = 10.dp
+    val EmptyRowGap = 10.dp
+    val EmptyTile = 28.dp
 
     /** Dialogs: width min(screen − 2 × margin, 400), radius 22, padding 20, gap 14, 44 dp header tile, shadow 24. */
     val Dialog = RoundedCornerShape(22.dp)

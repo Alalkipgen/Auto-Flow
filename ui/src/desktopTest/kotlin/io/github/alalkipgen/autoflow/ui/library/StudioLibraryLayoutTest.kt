@@ -8,6 +8,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -53,17 +54,22 @@ class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiL
                     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(images, "$name-$width-${language.code}-$font-$bundled.png"))
                 }
                 onNodeWithTag("library-heading").assertIsDisplayed(); capture("library-top")
-                listOf(UiText.V3_LIBRARY_KITS to UiText.LIBRARY_KITS, UiText.V3_LIBRARY_VOICES to UiText.LIBRARY_VOICES,
-                    UiText.V3_LIBRARY_LEXICON to UiText.LIBRARY_LEXICON, UiText.V3_LIBRARY_MUSIC to UiText.LIBRARY_MUSIC,
-                    UiText.V3_LIBRARY_FONTS to UiText.LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS to UiText.LIBRARY_PRESETS).forEachIndexed { i, (key, header) ->
-                    // A chip shows only its section.
+                listOf(UiText.V3_LIBRARY_KITS, UiText.V3_LIBRARY_VOICES, UiText.V3_LIBRARY_LEXICON, UiText.V3_LIBRARY_MUSIC,
+                    UiText.V3_LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS).forEachIndexed { i, key ->
+                    // A chip shows only its section — without a drawn label (the chip names it), as a TalkBack heading.
                     chip(key)
-                    onNodeWithText(My.breakSyllables(header.text(locale, "size" to if (header == UiText.LIBRARY_PRESETS) 3 else 1))).assertIsDisplayed()
+                    onNodeWithTag(tags[i]).assert(isHeading()).assertContentDescriptionEquals(key.text(locale))
+                    onNode(hasText(My.breakSyllables(key.text(locale))) and hasAnyAncestor(hasTestTag(tags[i]))).assertDoesNotExist()
                     tags.forEachIndexed { j, tag -> if (j == i) onNodeWithTag(tag).assertExists() else onNodeWithTag(tag).assertDoesNotExist() }
                     assertEquals(emptyList(), textFitProblems(width, font), key.name)
                 }
                 chip(UiText.PROJECTS_FILTER_ALL)
                 tags.forEach { onNodeWithTag(it).assertExists() }
+                // All: each section's label = the chip's name, without "(n)".
+                listOf(UiText.V3_LIBRARY_KITS, UiText.V3_LIBRARY_PRESETS).forEach { key ->
+                    onNode(hasText(My.breakSyllables(key.text(locale))) and isHeading()).performScrollTo().assertIsDisplayed()
+                }
+                onNodeWithText(My.breakSyllables(UiText.LIBRARY_PRESETS.text(locale, "size" to 3))).assertDoesNotExist()
                 // Style / export presets: a Planned chip instead of a disabled Apply.
                 onNodeWithTag("library-apply-preset-style").assertDoesNotExist()
                 onNodeWithTag("library-apply-preset-export").assertDoesNotExist()
@@ -135,6 +141,14 @@ class LibraryActionsPointerTest {
             text(UiText.LIBRARY_SAVE_PRESET)
             onNodeWithContentDescription(UiText.LIBRARY_PRESET_NAME.en).performScrollTo().performTextReplacement("QA pointer caption")
             text(UiText.SAVE); assertTrue(f.libraryStore.load().presets.any { it.name == "QA pointer caption" })
+            // Step 1 = the kit (its 44 dp swatch, name, "Brand Kits"); a tap outside closes it and deletes nothing.
+            onNodeWithText(f.kit.name).performScrollTo().performTouchInput { longClick() }
+            onNodeWithTag("glass-dialog-title").assertTextEquals(f.kit.name)
+            onNodeWithTag("glass-dialog-subtitle").assertTextEquals(UiText.V3_LIBRARY_KITS.en)
+            onNode(hasTestTag("library-kit-swatch") and hasAnyAncestor(hasTestTag("glass-dialog-lead"))).assertWidthIsEqualTo(44.dp)
+            onAllNodes(isRoot())[1].performMouseInput { click(androidx.compose.ui.geometry.Offset(5f, 5f)) }
+            onNodeWithTag("glass-dialog").assertDoesNotExist()
+            assertTrue(f.libraryStore.load().brandKits.any { it.id == "kit" })
             onNodeWithText(f.kit.name).performScrollTo().performTouchInput { longClick() }
             click("library-kit-kit-remove-menu")
             click("library-kit-kit-remove-confirm")
@@ -157,6 +171,8 @@ class LibraryActionsPointerTest {
             val action = card.fetchSemanticsNode().config[SemanticsActions.CustomActions].single()
             runOnIdle { assertTrue(action.action()) }
             fun click(tag: String) = onNodeWithTag(tag).assertIsDisplayed().performMouseInput { click() }
+            onNodeWithTag("glass-dialog-title").assertTextEquals(first.name)
+            onNodeWithTag("glass-dialog-subtitle").assertTextEquals(UiText.V3_LIBRARY_PRESETS.en)
             click("library-preset-caption-remove-menu")
             click("library-preset-caption-remove-confirm")
             onNodeWithTag("library-preset-caption").assertDoesNotExist()

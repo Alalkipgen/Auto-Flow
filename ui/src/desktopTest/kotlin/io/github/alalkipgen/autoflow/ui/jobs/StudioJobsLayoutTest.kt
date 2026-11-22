@@ -148,6 +148,10 @@ class StudioJobsLayoutTest(val width: Int, val font: Float, val language: UiLang
                 onNodeWithTag("job-resume-failed").performScrollTo().assertIsDisplayed()
                 capture("needs-you")
                 onNodeWithTag("job-card-failed").performScrollTo().performTouchInput { longClick(topCenter + androidx.compose.ui.geometry.Offset(0f, 20f)) }
+                // Step 1 = the job (its Needs-you tile, name and kind / group), then the Danger menu row.
+                onNodeWithTag("glass-dialog-lead").assertIsDisplayed()
+                onNodeWithTag("glass-dialog-title").assertIsDisplayed()
+                onNodeWithTag("glass-dialog-subtitle").assertIsDisplayed()
                 onNodeWithTag("job-card-failed-remove-menu").assertIsDisplayed().performMouseInput { click() }
                 onNodeWithTag("job-card-failed-remove-confirm").assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("job-card-failed-remove-cancel").assertIsDisplayed().performMouseInput { click() }
@@ -215,6 +219,11 @@ class StudioJobsWorkflowTest {
                     assertEquals(-2, jobsBadgeValue(runner.history.value))
                     hold("paused")
                     onNodeWithTag("job-card-paused-remove-menu").assertDoesNotExist()
+                    // A tap outside the history menu closes it; nothing is removed.
+                    hold("failed")
+                    onAllNodes(isRoot())[1].performMouseInput { click(androidx.compose.ui.geometry.Offset(5f, 5f)) }
+                    onNodeWithTag("job-card-failed-remove-menu").assertDoesNotExist()
+                    assertTrue(runner.history.value.any { it.id == "failed" })
                     hold("failed")
                     click("job-card-failed-remove-menu")
                     click("job-card-failed-remove-confirm")

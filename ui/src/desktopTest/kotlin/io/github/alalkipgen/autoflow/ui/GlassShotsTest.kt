@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -101,6 +102,8 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
         private const val SCALE = 2f
         private const val WIDTH = 360
         private const val HEIGHT = 760
+        /** The owner's Library follow-up phone screens: 360 × 780 dp. */
+        private const val FOLLOW_UP_HEIGHT = 780
     }
     private val out = System.getenv("AUTOFLOW_GLASS_SHOTS_DIR")?.let(::File)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
@@ -276,11 +279,8 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
         }
     }
 
-    /** Library: the v4 demo library (two brand kits, two voices, five lexicon entries, two tracks, one font, two presets). */
-    @Test fun library() {
-        if (out == null) return
-        val f = Fixture(); val rows = f.rows()
-        val library = Library(
+    /** The v4 demo library (two brand kits, two voices, five lexicon entries, two tracks, one font, two presets). */
+    private fun demoLibrary() = Library(
             brandKits = listOf(
                 BrandKit("kit-studio", "Auto Flow Studio", watermark = "files/logo-white.png", colours = listOf("#7C3AED", "#22D3EE", "#F59E0B"),
                     captionStyle = "{}"),
@@ -297,10 +297,112 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
             fonts = listOf(FontItem("sagar", "Myanmar Sagar", file = "files/MyanmarSagar.ttf")),
             presets = listOf(Preset("yellow", "အဝါ စာတန်း ကြီး", PresetKind.CAPTION), Preset("yt1080", "YouTube 1080p", PresetKind.EXPORT)),
         )
+    private fun libraryModel(f: Fixture, library: Library): LibraryModel {
         val store = LibraryStore(fs, File(root, "library-${System.nanoTime()}").apply { mkdirs() }.path).apply { save(library) }
-        val model = LibraryModel(store, ProjectSession(fs, f.store, f.index, CurrentProject()), scope, fs)
+        return LibraryModel(store, ProjectSession(fs, f.store, f.index, CurrentProject()), scope, fs)
+    }
+
+    /** Library: the v4 demo library. */
+    @Test fun library() {
+        if (out == null) return
+        val f = Fixture(); val rows = f.rows()
+        val model = libraryModel(f, demoLibrary())
         shot("3-library", 0) {
             StudioV2Shell(StudioV2Dest.LIBRARY, {}, jobsBadgeValue(rows), WIDTH.toFloat(), ambient = true) { LibraryScreen(model) }
+        }
+    }
+
+    /** Waits until the number of loaded thumbnails has not changed for 2 s. */
+    private fun ComposeUiTest.settle() {
+        var last = -1; var since = System.nanoTime()
+        waitUntil(timeoutMillis = 60_000) {
+            val n = onAllNodesWithTag("media-thumb-image", useUnmergedTree = true).fetchSemanticsNodes().size
+            if (n != last) { last = n; since = System.nanoTime() }
+            System.nanoTime() - since > 2_000_000_000
+        }
+        waitForIdle()
+    }
+
+    /** The context action (long-press / right-click) without a pointer: its accessibility action. */
+    private fun ComposeUiTest.contextAction(tag: String) {
+        val action = onNodeWithTag(tag).performScrollTo().fetchSemanticsNode().config[SemanticsActions.CustomActions].single()
+        runOnIdle { action.action() }
+    }
+
+    /**
+     * One phone screen of 360 × 780 dp (the owner's Library follow-up images) after [open] (a chip, a dialog step), once
+     * the frames settle; writes `<language>/<name>-<font>.png` and checks that no text is cut.
+     */
+    private fun screen(name: String, content: @Composable () -> Unit, open: ComposeUiTest.() -> Unit) {
+        val dir = out ?: return
+        runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = (FOLLOW_UP_HEIGHT * SCALE).toInt()) {
+            setContent {
+                CompositionLocalProvider(LocalCompact provides true, LocalDensity provides Density(SCALE, font), LocalUiLanguage provides language,
+                    LocalUiFontFamily provides BurmeseTestFont.family, content = content)
+            }
+            settle()
+            open()
+            settle()
+            val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+            ImageIO.write(image, "png", File(dir, "${language.code()}/$name-$font.png").apply { parentFile.mkdirs() })
+            assertEquals(emptyList(), textFitProblems((WIDTH * SCALE).toInt(), font, strict = true), "$name ${language.code()} $font")
+        }
+    }
+
+    /**
+     * Library follow-up on #288 (owner sample README §1–4): the empty Library (no chips, labelled sections with empty
+     * rows), All with Music empty (labels without "(n)"), the Brand Kits chip (no label) and the delete dialog's two steps
+     * for "Auto Flow Studio".
+     */
+    @Test fun libraryFollowUp() {
+        if (out == null) return
+        val f = Fixture(); val rows = f.rows()
+        val empty = libraryModel(f, Library())
+        shot("3-library-empty", 0) {
+            StudioV2Shell(StudioV2Dest.LIBRARY, {}, jobsBadgeValue(rows), WIDTH.toFloat(), ambient = true) { LibraryScreen(empty) }
+        }
+        val part = libraryModel(f, demoLibrary().copy(music = emptyList()))
+        val content: @Composable () -> Unit = {
+            StudioV2Shell(StudioV2Dest.LIBRARY, {}, jobsBadgeValue(rows), WIDTH.toFloat(), ambient = true) { LibraryScreen(part) }
+        }
+        shot("3-library-all", 0, content)
+        screen("3-library-kits", content) {
+            onNode(hasText(UiText.V3_LIBRARY_KITS.text(language)) and hasAnyAncestor(hasTestTag("library-categories")))
+                .performSemanticsAction(SemanticsActions.OnClick)
+        }
+        screen("3-library-delete-1", content) { contextAction("library-kit-kit-studio") }
+        screen("3-library-delete-2", content) {
+            contextAction("library-kit-kit-studio")
+            onNodeWithTag("library-kit-kit-studio-remove-menu").performSemanticsAction(SemanticsActions.OnClick)
+        }
+    }
+
+    /** Library follow-up §3 on Jobs: the delete-from-history dialog for a finished job (Interstellar's voice, its frame). */
+    @Test fun jobsDelete() {
+        if (out == null) return
+        val f = Fixture()
+        val done = AiJob("inter-voice", AiJobKind.TTS_ALL, f.dir("Interstellar"), state = AiJobState.DONE, initialItemCount = 12)
+        val runner = object : AiJobRunner {
+            override val jobs = MutableStateFlow(f.ai() + done)
+            override val supportsHistoryRemoval = true
+            override suspend fun enqueue(job: AiJob) = job.id
+            override suspend fun cancel(id: String) = Unit
+            override suspend fun refresh() = Unit
+        }
+        val rows = jobRows(null, null, null, runner.jobs.value, language, f.names)
+        val actions = JobsActions(scope, runner = runner)
+        liveTiming()
+        val content: @Composable () -> Unit = {
+            CompositionLocalProvider(LocalMediaThumbnails provides f.thumbs) {
+                StudioV2Shell(StudioV2Dest.JOBS, {}, jobsBadgeValue(rows), WIDTH.toFloat(), ambient = true) {
+                    JobsScreen(rows, scope, {}, actions = actions, thumbSource = f.thumbSource)
+                }
+            }
+        }
+        screen("4-jobs-delete-1", content) { contextAction("job-card-inter-voice") }
+        screen("4-jobs-delete-2", content) {
+            contextAction("job-card-inter-voice")
+            onNodeWithTag("job-card-inter-voice-remove-menu").performSemanticsAction(SemanticsActions.OnClick)
         }
     }
 

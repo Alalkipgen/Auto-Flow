@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.library.*
 import io.github.alalkipgen.autoflow.core.recap.LexiconEntry
@@ -105,12 +106,19 @@ class LibraryListTest(val width: Int, val font: Float, val language: UiLanguage)
                 assertTrue(a.left >= title.right - .5f || a.top >= title.bottom - .5f, "$action beside or under its title: $a / $title")
             }
             assertEquals(emptyList(), textFitProblems(width, font, strict = true), "all sections")
-            // A chip shows only its section; "All" brings every section back.
+            // All: every section is labelled with its chip's name (a heading), without "(n)" — the chips have the counts.
             val tags = LibrarySection.entries.map { it.tag }
+            LibrarySection.entries.forEach { section ->
+                onNode(hasText(My.breakSyllables(t(section.chip))) and isHeading() and hasAnyAncestor(hasTestTag(section.tag))).assertExists()
+            }
+            onNodeWithText(My.breakSyllables(t(UiText.LIBRARY_KITS, "size" to 1))).assertDoesNotExist()
+            // A chip shows only its section, without a drawn label (the selected chip names it) but as a TalkBack heading.
             listOf(UiText.V3_LIBRARY_KITS, UiText.V3_LIBRARY_VOICES, UiText.V3_LIBRARY_LEXICON, UiText.V3_LIBRARY_MUSIC,
                 UiText.V3_LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS).forEachIndexed { i, key ->
                 chip(key).performScrollTo().performMouseInput { moveTo(center); click(); exit() }
                 tags.forEachIndexed { j, tag -> if (i == j) onNodeWithTag(tag).assertExists() else onNodeWithTag(tag).assertDoesNotExist() }
+                onNodeWithTag(tags[i]).assert(isHeading()).assertContentDescriptionEquals(t(key))
+                onNode(hasText(My.breakSyllables(t(key))) and hasAnyAncestor(hasTestTag(tags[i]))).assertDoesNotExist()
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), key.name)
             }
             chip(UiText.PROJECTS_FILTER_ALL).performScrollTo().performMouseInput { moveTo(center); click(); exit() }
@@ -148,19 +156,110 @@ class LibraryEdgeCasesTest {
         scope.cancel()
     }
 
-    @Test fun emptyLibraryShowsEmptyTextsAndTheKitTextUnderItsSaveButton() = runDesktopComposeUiTest(width = 360, height = 1600) {
+    private val sections = listOf("kits", "voices", "lexicon", "music", "fonts", "presets")
+    private val empties = listOf(UiText.LIBRARY_KITS_EMPTY, UiText.LIBRARY_VOICES_EMPTY, UiText.LIBRARY_LEXICON_EMPTY, UiText.LIBRARY_MUSIC_EMPTY,
+        UiText.LIBRARY_FONTS_EMPTY, UiText.LIBRARY_PRESETS_EMPTY)
+    private val hints = listOf(UiText.V3_LIBRARY_KIT_SCOPE, UiText.LIBRARY_LEXICON_HINT, UiText.V3_LIBRARY_MUSIC_COPY_HINT, UiText.V3_LIBRARY_FONT_COPY_HINT)
+    private val phones = listOf(1f, 2f).flatMap { f -> UiLanguage.entries.map { f to it } }
+    private fun has(text: String) = hasText(text) or hasText(My.breakSyllables(text))
+    /** Unclipped bounds (the node may be scrolled out of the viewport). */
+    private fun ComposeUiTest.bounds(matcher: SemanticsMatcher) = onNode(matcher).fetchSemanticsNode().let {
+        Rect(it.positionInRoot, androidx.compose.ui.geometry.Size(it.size.width.toFloat(), it.size.height.toFloat()))
+    }.also { assertTrue(it.height > 0f, "empty bounds") }
+    private fun ComposeUiTest.show(model: LibraryModel, font: Float, language: UiLanguage, focusLexicon: Boolean = false) = setContent {
+        CompositionLocalProvider(LocalCompact provides true, LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
+            LocalUiFontFamily provides BurmeseTestFont.family) { LibraryScreen(model, focusLexicon = focusLexicon) }
+    }
+
+    /**
+     * Library follow-up README §1: an empty Library — no chips, no copy hint, no section hints; all six sections with
+     * their labels, each one small empty row; Brand Kits: label → Save → empty row ("the button above"); Presets: label
+     * → empty row → Save. Font 1.0 / 2.0 × English / Burmese at 360 dp, nothing clipped.
+     */
+    @Test fun emptyLibraryHasNoChipsNoHintsAndSixLabelledEmptyRows() = phones.forEach { (font, language) ->
+        runDesktopComposeUiTest(width = 360, height = 760) {
+            val (model, scope) = model(Library())
+            show(model, font, language)
+            fun t(key: UiText) = key.text(language, "APPLY" to UiText.APPLY.text(language))
+            onNodeWithTag("library-heading").assertIsDisplayed()
+            onNodeWithTag("library-categories").assertDoesNotExist()
+            onNode(has(t(UiText.LIBRARY_COPY_HINT))).assertDoesNotExist()
+            hints.forEach { onNode(has(t(it))).assertDoesNotExist() }
+            LibrarySection.entries.forEachIndexed { i, section ->
+                onNode(has(t(section.chip)) and isHeading() and hasAnyAncestor(hasTestTag(section.tag))).performScrollTo().assertIsDisplayed()
+                onNode(has(t(empties[i])) and hasAnyAncestor(hasTestTag("library-empty-${sections[i]}"))).performScrollTo().assertIsDisplayed()
+                onNodeWithTag("library-empty-${sections[i]}").assertHeightIsAtLeast(48.dp)
+            }
+            onNodeWithText(My.breakSyllables(UiText.LIBRARY_KITS.text(language, "size" to 0))).assertDoesNotExist()
+            onNodeWithTag("library-preset-unsupported").assertDoesNotExist()
+            val kitLabel = bounds(has(t(UiText.V3_LIBRARY_KITS)) and isHeading())
+            val kitSave = bounds(has(t(UiText.LIBRARY_SAVE_KIT)))
+            val kitEmpty = bounds(hasTestTag("library-empty-kits"))
+            assertTrue(kitLabel.bottom <= kitSave.top + .5f && kitSave.bottom <= kitEmpty.top + .5f, "kits: $kitLabel / $kitSave / $kitEmpty")
+            val presetLabel = bounds(has(t(UiText.V3_LIBRARY_PRESETS)) and isHeading())
+            val presetEmpty = bounds(hasTestTag("library-empty-presets"))
+            val presetSave = bounds(has(t(UiText.LIBRARY_SAVE_PRESET)))
+            assertTrue(presetLabel.bottom <= presetEmpty.top + .5f && presetEmpty.bottom <= presetSave.top + .5f,
+                "presets: $presetLabel / $presetEmpty / $presetSave")
+            assertEquals(emptyList(), textFitProblems(360, font, strict = true), "$font ${language.code}")
+            scope.cancel()
+        }
+    }
+
+    /** One empty section among filled ones: only its label and empty row (no hint), its chip shows 0; the others keep their hints. */
+    @Test fun oneEmptySectionAmongFilledShowsItsLabelAndEmptyRowOnly() = phones.forEach { (font, language) ->
+        runDesktopComposeUiTest(width = 360, height = 760) {
+            val (model, scope) = model(Library(brandKits = listOf(BrandKit("k", "QA kit", colours = listOf("#FF0000"))),
+                voices = listOf(SavedVoice("v", "Voice", VoiceLock("p", "m", "v", "my"))), lexicon = listOf(LexiconEntry("AI", "အေအိုင်")),
+                fonts = listOf(FontItem("f", "QA font", "files/f.ttf")), presets = listOf(Preset("c", "QA caption", PresetKind.CAPTION))))
+            show(model, font, language)
+            fun t(key: UiText) = key.text(language, "APPLY" to UiText.APPLY.text(language))
+            fun chip(key: UiText) = onNode(hasText(t(key)) and hasAnyAncestor(hasTestTag("library-categories")))
+            chip(UiText.PROJECTS_FILTER_ALL).assert(hasText("5"))
+            chip(UiText.V3_LIBRARY_MUSIC).assert(hasText("0"))
+            onNode(has(t(UiText.V3_LIBRARY_MUSIC)) and isHeading()).performScrollTo().assertIsDisplayed()
+            onNode(has(t(UiText.LIBRARY_MUSIC_EMPTY)) and hasAnyAncestor(hasTestTag("library-empty-music"))).performScrollTo().assertIsDisplayed()
+            onNode(has(t(UiText.V3_LIBRARY_MUSIC_COPY_HINT))).assertDoesNotExist()
+            listOf("kits", "voices", "lexicon", "fonts", "presets").forEach { onNodeWithTag("library-empty-$it").assertDoesNotExist() }
+            listOf(UiText.V3_LIBRARY_KIT_SCOPE, UiText.LIBRARY_LEXICON_HINT, UiText.V3_LIBRARY_FONT_COPY_HINT).forEach { onNode(has(t(it))).assertExists() }
+            onNode(has(t(UiText.LIBRARY_COPY_HINT))).assertExists()
+            assertEquals(emptyList(), textFitProblems(360, font, strict = true), "$font ${language.code}")
+            // The Music chip: no label, the empty row; a TalkBack heading names the section.
+            onNodeWithTag("library-categories").performScrollTo()
+            chip(UiText.V3_LIBRARY_MUSIC).performScrollTo().performMouseInput { moveTo(center); click(); exit() }
+            onNodeWithTag("library-music").assert(isHeading()).assertContentDescriptionEquals(t(UiText.V3_LIBRARY_MUSIC))
+            onNode(has(t(UiText.V3_LIBRARY_MUSIC)) and hasAnyAncestor(hasTestTag("library-music"))).assertDoesNotExist()
+            onNodeWithTag("library-empty-music").assertIsDisplayed()
+            assertEquals(emptyList(), textFitProblems(360, font, strict = true), "music chip $font ${language.code}")
+            scope.cancel()
+        }
+    }
+
+    /** Settings → Pronunciation on an empty Library: every section, no chips, and the Lexicon brought into view. */
+    @Test fun focusLexiconOnAnEmptyLibraryShowsAllAndBringsLexiconIntoView() = runDesktopComposeUiTest(width = 360, height = 480) {
         val (model, scope) = model(Library())
-        setContent { CompositionLocalProvider(LocalCompact provides true, LocalUiFontFamily provides BurmeseTestFont.family) { LibraryScreen(model) } }
-        listOf(UiText.LIBRARY_VOICES_EMPTY, UiText.LIBRARY_LEXICON_EMPTY, UiText.LIBRARY_MUSIC_EMPTY, UiText.LIBRARY_FONTS_EMPTY,
-            UiText.LIBRARY_PRESETS_EMPTY).forEach { onNodeWithText(it.en).assertExists() }
-        // LIBRARY_KITS_EMPTY says "Use the button above": it sits under the save action.
-        val save = onNodeWithText(UiText.LIBRARY_SAVE_KIT.en).fetchSemanticsNode().boundsInRoot
-        val empty = onNodeWithText(UiText.LIBRARY_KITS_EMPTY.en).fetchSemanticsNode().boundsInRoot
-        assertTrue(empty.top >= save.bottom - .5f, "$empty under $save")
-        assertEquals("selected", onNode(hasText(UiText.PROJECTS_FILTER_ALL.en) and hasAnyAncestor(hasTestTag("library-categories")))
-            .fetchSemanticsNode().config[SemanticsProperties.StateDescription])
-        assertEquals(emptyList(), textFitProblems(360, 1f, strict = true))
+        show(model, 2f, UiLanguage.BURMESE, focusLexicon = true)
+        waitForIdle()
+        onNodeWithTag("library-categories").assertDoesNotExist()
+        LibrarySection.entries.forEach { onNodeWithTag(it.tag).assertExists() }
+        onNodeWithTag("library-empty-lexicon").assertIsDisplayed()
+        onNodeWithTag("library-heading").assertIsNotDisplayed()
         scope.cancel()
+    }
+
+    /** Saving the first Brand Kit from an empty Library opened on the Lexicon shows All (the new kit stays in view). */
+    @Test fun savingTheFirstKitFromAnEmptyLibraryShowsAll() = runDesktopComposeUiTest(width = 360, height = 760) {
+        LibraryTestFixture().use { f ->
+            f.libraryStore.save(Library()); f.model.refresh()
+            show(f.model, 1f, UiLanguage.ENGLISH, focusLexicon = true)
+            onNodeWithText(UiText.LIBRARY_SAVE_KIT.en).performScrollTo().performMouseInput { moveTo(center); click(); exit() }
+            onNodeWithContentDescription(UiText.LIBRARY_KIT_NAME.en).performScrollTo().performTextReplacement("QA first kit")
+            onNodeWithText(UiText.SAVE.en).performScrollTo().performMouseInput { moveTo(center); click(); exit() }
+            assertEquals("selected", onNode(hasText(UiText.PROJECTS_FILTER_ALL.en) and hasAnyAncestor(hasTestTag("library-categories")))
+                .fetchSemanticsNode().config[SemanticsProperties.StateDescription])
+            LibrarySection.entries.forEach { onNodeWithTag(it.tag).assertExists() }
+            onNodeWithText("QA first kit").assertExists()
+        }
     }
 
     /** The written column: 84 dp at font 1.0; with larger text only as wide as the widest written form (at most 84 × scale). */

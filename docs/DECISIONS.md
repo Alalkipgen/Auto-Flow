@@ -254,3 +254,7 @@ The Phase 9 mockups (`docs/mockups/ui-polish/`: phone panels 1–8 at 412 dp, de
 ### D-103 — Desktop = adaptive layouts inside the one shared UI (2026-11-21; Phase 9 plan §6.7, extends D-22)
 
 The same Compose Multiplatform composables run on Android, Windows and Linux; only the layout changes by width class: compact < 600 dp (phone layouts, bottom nav), medium 600–839 dp (phone layout, content max 640 dp, 72 dp rail), expanded ≥ 840 dp (244 dp sidebar; a 72 dp rail in editors and below 1200 dp; list–detail panes for Projects, Jobs, Library, Settings and editor panes for Subtitles and Dubbing — DESIGN §9.8). This replaces the 5A-6 rail widths (rail ≥ 600 dp, 60 dp compact rail ≥ 840 dp) without changing a route. Every screen PR does the phone and the desktop layout together. No separate desktop app, no Android-only UI library in shared code, native OS title bar (Q-53). Right-click opens the existing ⋮ menu; keyboard shortcuts and drag-and-drop only trigger actions that already exist.
+
+### D-104 — Library: no desktop list–detail (owner, 2026-11-22; #288)
+
+At expanded width (≥ 840 dp) the Library keeps its centred column (≤ `AfSize.ContentMax`) instead of the list–detail pane planned in D-103 / P9-16 — a Library item has nothing to show beyond its row. Settings' list–detail (P9-17b) is unaffected.
