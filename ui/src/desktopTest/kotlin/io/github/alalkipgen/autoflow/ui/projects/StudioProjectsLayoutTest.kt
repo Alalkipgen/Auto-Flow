@@ -65,7 +65,8 @@ class StudioProjectsLayoutTest(val width: Int, val font: Float, val language: Ui
             // "+" in the header opens / closes the create card (closed while the list has projects).
             fun toggleCreate() = onNodeWithTag("projects-new").assertContentDescriptionEquals(UiText.V3_PROJECT_CREATE.text(language))
                 .performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
-            onNodeWithTag("projects-count").assertTextEquals(My.breakSyllables(UiText.MANY_PROJECTS.text(language, "projects" to 1)))
+            // One project reads "1 project" (ONE_PROJECT), not "1 projects".
+            onNodeWithTag("projects-count").assertTextEquals(My.breakSyllables(UiText.ONE_PROJECT.text(language)))
             onNodeWithText(UiText.NEW_MOVIE_RECAP.text(language)).assertDoesNotExist()
             toggleCreate()
             onNodeWithTag("projects-create").assertIsDisplayed()

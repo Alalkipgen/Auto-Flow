@@ -167,14 +167,14 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     }
 }
 
-/** Title + "<n> projects" and the 40 dp glass "+" that opens / closes the create card (hidden while the list is empty). */
+/** Title + "1 project" / "<n> projects" and the 40 dp glass "+" that opens / closes the create card (hidden while the list is empty). */
 @Composable
 private fun ProjectsHeader(count: Int, showCreate: Boolean, createOpen: Boolean, onToggleCreate: () -> Unit) {
     Row(Modifier.fillMaxWidth().testTag("projects-header"), verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(AfSpace.M)) {
         Column(Modifier.weight(1f)) {
             AfText(tr(UiText.PROJECTS), Modifier.testTag("projects-heading"), type = AfType.ScreenTitle)
-            if (count > 0) AfText(My.breakSyllables(tr(UiText.MANY_PROJECTS, "projects" to count)), Modifier.testTag("projects-count"),
+            if (count > 0) AfText(My.breakSyllables(projectCount(count)), Modifier.testTag("projects-count"),
                 color = AutoFlowColors.Muted, type = AfType.Caption)
         }
         if (showCreate) GlassIconButton(AfIcons.Regular.Plus, tr(UiText.V3_PROJECT_CREATE), onToggleCreate, Modifier.testTag("projects-new"),
@@ -206,7 +206,7 @@ private fun RemovedRow(count: Int, onClick: () -> Unit) {
     }
 }
 
-/** "1 project" / "<n> projects": ONE_PROJECT for one (the removed row and the removed-projects dialog). */
+/** "1 project" / "<n> projects": ONE_PROJECT for one (the header count, the removed row and the removed-projects dialog). */
 @Composable
 private fun projectCount(count: Int): String = if (count == 1) tr(UiText.ONE_PROJECT) else tr(UiText.MANY_PROJECTS, "projects" to count)
 

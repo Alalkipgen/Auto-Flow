@@ -153,9 +153,12 @@ class ProjectsEmptyAndRemovedTest {
         store.create("/ext/projects/A.autoflow", "A", Mode.MUSIC_VIDEO); store.create("/ext/projects/B.autoflow", "B", Mode.MOVIE_RECAP)
         setContent { CompositionLocalProvider(LocalCompact provides true) { DashboardScreen(model, {}) } }
         onNodeWithText("A").assertIsDisplayed()
+        onNodeWithTag("projects-count").assertTextEquals(UiText.MANY_PROJECTS.text(UiLanguage.ENGLISH, "projects" to 2))
         onNodeWithTag("projects-open-removed").assertDoesNotExist()
         runOnIdle { model.remove("/ext/projects/A.autoflow") }
         onNodeWithText("A").assertDoesNotExist()
+        // One project left: the header reads "1 project" (ONE_PROJECT), not "1 projects".
+        onNodeWithTag("projects-count").assertTextEquals(UiText.ONE_PROJECT.en)
         // One removed project reads "1 project" (ONE_PROJECT), not "1 projects".
         onNode(hasText(UiText.ONE_PROJECT.en) and hasAnyAncestor(hasTestTag("projects-open-removed")),
             useUnmergedTree = true).assertIsDisplayed()
