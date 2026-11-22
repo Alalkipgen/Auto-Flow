@@ -16,13 +16,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /** P9-2a (DESIGN.md §9.3): the generated Phosphor vectors build, tiles draw them, tooltips follow the mouse.
- *  P9-11b adds Search, Volume, Scissors and Image to the generated set; the glass PR adds Box (Phosphor `package`). */
+ *  P9-11b adds Search, Volume, Scissors and Image to the generated set; the glass PR adds Box (Phosphor `package`); the
+ *  Projects dialogs PR adds Trash, Drive (`hard-drives`), Archive, Info and FolderMinus (`folder-minus`). */
 @OptIn(ExperimentalTestApi::class)
 class AfIconsTest {
     @Test fun everyGeneratedIconBuildsInAllThreeWeights() {
-        val all = with(AfIcons.Regular) { listOf(Home, Folder, Book, Jobs, Gear, Spark, Plus, Film, Music, Dub, Wave, Subtitles, Search, Volume, Scissors, Image, Box) } +
-            with(AfIcons.Fill) { listOf(Home, Folder, Book, Jobs, Gear, Spark, Plus, Film, Music, Dub, Wave, Subtitles, Search, Volume, Scissors, Image, Box) } +
-            with(AfIcons.Duotone) { listOf(Home, Folder, Book, Jobs, Gear, Spark, Plus, Film, Music, Dub, Wave, Subtitles, Search, Volume, Scissors, Image, Box) }
+        val all = with(AfIcons.Regular) { listOf(Home, Folder, Book, Jobs, Gear, Spark, Plus, Film, Music, Dub, Wave, Subtitles, Search, Volume, Scissors, Image, Box, Trash, Drive, Archive, Info, FolderMinus) } +
+            with(AfIcons.Fill) { listOf(Home, Folder, Book, Jobs, Gear, Spark, Plus, Film, Music, Dub, Wave, Subtitles, Search, Volume, Scissors, Image, Box, Trash, Drive, Archive, Info, FolderMinus) } +
+            with(AfIcons.Duotone) { listOf(Home, Folder, Book, Jobs, Gear, Spark, Plus, Film, Music, Dub, Wave, Subtitles, Search, Volume, Scissors, Image, Box, Trash, Drive, Archive, Info, FolderMinus) }
         all.forEach { assertEquals(256f, it.viewportWidth, it.name); assertTrue(it.root.size > 0, it.name) }
         assertEquals(all.size, all.map { it.name }.toSet().size)
     }

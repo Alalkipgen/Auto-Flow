@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion
@@ -36,6 +35,7 @@ import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.icons.afTooltip
 import io.github.alalkipgen.autoflow.ui.jobs.JobRow
 import io.github.alalkipgen.autoflow.ui.media.MediaThumbnails
+import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.theme.*
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -83,7 +83,7 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     var confirmFor by remember { mutableStateOf<DashboardRow?>(null) }
     if (showRemoved && state.removed.isNotEmpty()) RemovedProjectsDialog(state.removed, model) { showRemoved = false }
     optionsFor?.let { row ->
-        ProjectOptionsDialog(managed = model.projectsHome != null, onRemove = { optionsFor = null; confirmFor = row }) { optionsFor = null }
+        ProjectOptionsDialog(row.entry.name, managed = model.projectsHome != null, onRemove = { optionsFor = null; confirmFor = row }) { optionsFor = null }
     }
     confirmFor?.let { row -> RemoveProjectDialog(row.entry.name, onRemove = { model.remove(row.entry.path); confirmFor = null }) { confirmFor = null } }
     LaunchedEffect(model) { model.refresh() }
@@ -199,12 +199,16 @@ private fun RemovedRow(count: Int, onClick: () -> Unit) {
             SoftTile(AfIcons.Fill.Redo, AutoFlowColors.PrimaryText, size = AfSize.TileSmall)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 AfText(My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT)), type = AfType.RowTitle)
-                AfText(My.breakSyllables(tr(UiText.MANY_PROJECTS, "projects" to count)), color = AutoFlowColors.Muted, type = AfType.Caption)
+                AfText(My.breakSyllables(projectCount(count)), color = AutoFlowColors.Muted, type = AfType.Caption)
             }
             AfIcon(AfIcons.Regular.Chevron, tint = AutoFlowColors.Muted, size = 16.dp)
         }
     }
 }
+
+/** "1 project" / "<n> projects": ONE_PROJECT for one (the removed row and the removed-projects dialog). */
+@Composable
+private fun projectCount(count: Int): String = if (count == 1) tr(UiText.ONE_PROJECT) else tr(UiText.MANY_PROJECTS, "projects" to count)
 
 @Composable
 private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Unit, onCreated: () -> Unit) {
@@ -241,6 +245,18 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
     }
 }
 
+/** A dialog text, broken into Burmese syllables so it wraps. */
+@Composable
+private fun dt(key: UiText, vararg args: Pair<String, Any?>): String = My.breakSyllables(tr(key, *args))
+
+/** A removed project's folder name: the last path segment (after `/` or `\`). */
+private fun folderName(dir: String): String = dir.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\')
+
+/**
+ * Removed projects (DESIGN.md §9.10 dialogs): the list (3) → one removed project (4: Restore / Delete permanently… when
+ * Ready) → the delete confirm (5). One glass dialog; Cancel, Back and a tap outside step back one level, never while
+ * deleting.
+ */
 @Composable
 private fun RemovedProjectsDialog(rows: List<RemovedProject>, model: DashboardModel, close: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -251,104 +267,91 @@ private fun RemovedProjectsDialog(rows: List<RemovedProject>, model: DashboardMo
     var deleting by remember { mutableStateOf(false) }
     val row = selected
     val confirm = target
+    // Reads the current step when called: the dialog window may keep an earlier reference to this function.
     fun back() {
         if (deleting) return
         error = null
         when {
-            confirm != null -> target = null
-            row != null -> selected = null
+            target != null -> target = null
+            selected != null -> selected = null
             else -> close()
         }
     }
-    Dialog(onDismissRequest = ::back) {
-        val title = when {
-            confirm != null -> tr(UiText.PROJECT_DELETE_TITLE, "name" to confirm.name)
-            row != null -> row.name
-            else -> tr(UiText.OPEN_REMOVED_PROJECT)
-        }
-        AfCard(My.breakSyllables(title)) {
-            key(row, confirm) {
-                Column(Modifier.fillMaxWidth().heightIn(max = 380.dp).paneScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    when {
-                        confirm != null -> {
-                            AfText(confirm.folder, mono = true)
-                            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_BYTES, "n" to confirm.bytes)))
-                            if (confirm.backups.isNotEmpty()) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_KEEP_BACKUPS)), muted = true)
-                            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_PERMANENT)), color = AutoFlowColors.Failed)
-                            AfButton(My.breakSyllables(tr(UiText.PROJECT_DELETE_CONFIRM)), {
-                                deleting = true
-                                scope.launch {
-                                    try {
-                                        error = model.deleteProject(confirm)
-                                        if (error == null) { target = null; selected = null; close() }
-                                    } finally { deleting = false }
-                                }
-                            }, Modifier.testTag("project-delete-confirm"), kind = ButtonKind.Danger, enabled = !deleting)
+    GlassDialog(onDismissRequest = ::back) {
+        key(row, confirm) {
+            val cancel = GlassDialogAction(dt(UiText.CANCEL_KEEP), ::back, enabled = !deleting, tag = "removed-projects-cancel")
+            val failure = error
+            when {
+                confirm != null -> GlassDialogSurface(AfIcons.Fill.Trash, AutoFlowColors.Failed, dt(UiText.PROJECT_DELETE_TITLE, "name" to confirm.name)) {
+                    GlassPathBox(confirm.folder)
+                    GlassFact(AfIcons.Regular.Drive, dt(UiText.PROJECT_DELETE_BYTES, "n" to BackupModel.fileSize(confirm.bytes)))
+                    if (confirm.backups.isNotEmpty()) GlassCallout(AfIcons.Fill.Archive, dt(UiText.PROJECT_DELETE_KEEP_BACKUPS), AutoFlowColors.Info)
+                    GlassCallout(AfIcons.Fill.Warn, dt(UiText.PROJECT_DELETE_PERMANENT), AutoFlowColors.Failed)
+                    failure?.let { GlassCallout(AfIcons.Fill.XCircle, dt(it), AutoFlowColors.Failed) }
+                    GlassDialogButtons(cancel, GlassDialogAction(dt(UiText.PROJECT_DELETE_CONFIRM), {
+                        deleting = true
+                        scope.launch {
+                            try {
+                                error = model.deleteProject(confirm)
+                                if (error == null) { target = null; selected = null; close() }
+                            } finally { deleting = false }
                         }
-                        row != null -> {
-                            AfText(row.dir, mono = true)
-                            val ready = inspection as? ProjectFolderDeletion.Result.Ready
-                            val refused = inspection as? ProjectFolderDeletion.Result.Refused
-                            refused?.let { AfText(My.breakSyllables(tr(it.reason.label())), muted = true) }
-                            AfButton(My.breakSyllables(tr(UiText.PROJECT_RESTORE)), {
-                                error = model.restoreRemoved(row)
-                                if (error == null) close()
-                            }, Modifier.testTag("project-restore"))
-                            if (ready != null) AfButton(My.breakSyllables(tr(UiText.PROJECT_DELETE_MENU)), {
-                                val latest = model.inspectDeletion(row)
-                                inspection = latest
-                                target = (latest as? ProjectFolderDeletion.Result.Ready)?.target
-                                error = null
-                            }, Modifier.testTag("project-delete-action"), kind = ButtonKind.Danger)
-                        }
-                        else -> rows.forEach { removed ->
-                            AfButton(My.breakSyllables(removed.name + " · " + removed.dir.substringAfterLast('/')), {
+                    }, ButtonKind.Danger, AfIcons.Regular.Trash, enabled = !deleting, tag = "project-delete-confirm"))
+                }
+                row != null -> GlassDialogSurface(AfIcons.Fill.Folder, GlassColors.Neutral, My.breakSyllables(row.name)) {
+                    GlassPathBox(row.dir)
+                    val ready = inspection as? ProjectFolderDeletion.Result.Ready
+                    val refused = inspection as? ProjectFolderDeletion.Result.Refused
+                    refused?.let { GlassCallout(AfIcons.Fill.Warn, dt(it.reason.label()), AutoFlowColors.Amber) }
+                    failure?.let { GlassCallout(AfIcons.Fill.XCircle, dt(it), AutoFlowColors.Failed) }
+                    val restore = GlassDialogAction(dt(UiText.PROJECT_RESTORE), {
+                        error = model.restoreRemoved(row)
+                        if (error == null) close()
+                    }, ButtonKind.Primary, AfIcons.Regular.Redo, tag = "project-restore")
+                    val delete = if (ready == null) null else GlassDialogAction(dt(UiText.PROJECT_DELETE_MENU), {
+                        val latest = model.inspectDeletion(row)
+                        inspection = latest
+                        target = (latest as? ProjectFolderDeletion.Result.Ready)?.target
+                        error = null
+                    }, ButtonKind.Danger, AfIcons.Regular.Trash, tag = "project-delete-action")
+                    GlassDialogButtons(cancel, *listOfNotNull(restore, delete).toTypedArray())
+                }
+                else -> GlassDialogSurface(AfIcons.Fill.Redo, AutoFlowColors.Info, My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT).trimEnd('…')),
+                    subtitle = My.breakSyllables(projectCount(rows.size))) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        rows.forEachIndexed { index, removed ->
+                            GlassMenuRow(AfIcons.Fill.Folder, GlassColors.Neutral, removed.name, {
                                 selected = removed
                                 inspection = model.inspectDeletion(removed)
-                            })
+                            }, Modifier.testTag("removed-project-$index"), caption = folderName(removed.dir), mono = true)
                         }
                     }
-                    error?.let { AfText(My.breakSyllables(tr(it)), color = AutoFlowColors.Failed) }
-                    AfButton(My.breakSyllables(tr(UiText.CANCEL)), ::back, Modifier.testTag("removed-projects-cancel"), enabled = !deleting)
+                    failure?.let { GlassCallout(AfIcons.Fill.XCircle, dt(it), AutoFlowColors.Failed) }
+                    GlassDialogButtons(cancel)
                 }
             }
         }
     }
 }
 
-/** The existing project options (Remove from list; deleting files stays on the removed-projects list). */
+/** Project actions (1): Remove from list (→ the remove confirm); deleting files stays on the removed-projects list. */
 @Composable
-private fun ProjectOptionsDialog(managed: Boolean, onRemove: () -> Unit, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        AfCard(tr(UiText.PROJECT_ACTIONS)) {
-            if (!managed) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_UNSUPPORTED)), muted = true)
-            WrapRow {
-                AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, Modifier.testTag("project-remove-action"))
-                AfButton(tr(UiText.CANCEL), onDismiss)
-            }
-        }
+private fun ProjectOptionsDialog(name: String, managed: Boolean, onRemove: () -> Unit, onDismiss: () -> Unit) {
+    GlassDialog(onDismiss, AfIcons.Fill.More, GlassColors.Neutral, dt(UiText.PROJECT_ACTIONS), subtitle = My.breakSyllables(name)) {
+        if (!managed) GlassCallout(AfIcons.Fill.Info, dt(UiText.PROJECT_DELETE_UNSUPPORTED), AutoFlowColors.Info)
+        GlassMenuRow(AfIcons.Fill.FolderMinus, AutoFlowColors.Amber, dt(UiText.REMOVE_FROM_LIST), onRemove, Modifier.testTag("project-remove-action"),
+            caption = dt(UiText.REMOVE_PROJECT_HINT))
+        GlassDialogButtons(GlassDialogAction(dt(UiText.CANCEL_KEEP), onDismiss, tag = "project-actions-cancel"))
     }
 }
 
+/** Remove "<name>" from the list? (2): the folder stays; Remove = [DashboardModel.remove]. */
 @Composable
 private fun RemoveProjectDialog(name: String, onRemove: () -> Unit, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth(0.85f)
-                .clip(AutoFlowShapes.Card)
-                .background(AutoFlowColors.Panel)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            AfText(tr(UiText.REMOVE_PROJECT_QUESTION, "name" to name), bold = true)
-            AfText(tr(UiText.REMOVE_PROJECT_HINT), muted = true)
-            WrapRow {
-                AfButton(tr(UiText.REMOVE), onRemove, kind = ButtonKind.Danger)
-                AfButton(tr(UiText.CANCEL), onDismiss)
-            }
-        }
+    GlassDialog(onDismiss, AfIcons.Fill.FolderMinus, AutoFlowColors.Amber, dt(UiText.REMOVE_PROJECT_QUESTION, "name" to name)) {
+        GlassFact(AfIcons.Regular.Info, dt(UiText.REMOVE_PROJECT_HINT))
+        GlassDialogButtons(GlassDialogAction(dt(UiText.CANCEL_KEEP), onDismiss, tag = "remove-project-cancel"),
+            GlassDialogAction(dt(UiText.REMOVE), onRemove, ButtonKind.Danger, AfIcons.Regular.FolderMinus, tag = "remove-project-confirm"))
     }
 }
 

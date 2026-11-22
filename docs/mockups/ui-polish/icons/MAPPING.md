@@ -43,6 +43,8 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `x` | `x-circle` | Failed status |
 | `link` | `link-simple` | Link import (only if it exists) |
 | `trash` | `trash` | Remove |
+| `folderminus` | `folder-minus` | Remove from list (Projects dialogs) |
+| `info` | `info` | Hint / info callout |
 | `folderopen` | `folder-open` | Open folder |
 | `grid` | `squares-four` | Grid view |
 | `list` | `list-bullets` | List view |

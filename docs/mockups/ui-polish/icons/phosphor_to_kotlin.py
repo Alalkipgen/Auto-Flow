@@ -12,7 +12,7 @@ if want - {k for k, _ in rows}:
     sys.exit('unknown keys: %s' % sorted(want - {k for k, _ in rows}))
 
 def camel(key):
-    return {'checkc': 'CheckCircle', 'folderopen': 'FolderOpen', 'caretdown': 'CaretDown', 'speakerlow': 'SpeakerLow',
+    return {'checkc': 'CheckCircle', 'folderopen': 'FolderOpen', 'folderminus': 'FolderMinus', 'caretdown': 'CaretDown', 'speakerlow': 'SpeakerLow',
             'speakerx': 'SpeakerMuted', 'x': 'XCircle', 'cc': 'Subtitles', 'chev': 'Chevron', 'vol': 'Volume'}.get(key, key[:1].upper() + key[1:])
 
 def layers(svg):

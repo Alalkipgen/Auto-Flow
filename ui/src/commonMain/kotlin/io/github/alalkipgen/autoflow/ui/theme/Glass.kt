@@ -118,6 +118,27 @@ object GlassColors {
     val Subtitles = Color(0xFF60A5FA)
     val Voice = Color(0xFF22D3EE)
     val Dubbing = Color(0xFFF59E0B)
+
+    /**
+     * Dialogs ([io.github.alalkipgen.autoflow.ui.components.GlassDialog], Projects dialogs README §1): scrim Base
+     * `#04060E` .66; surface `#141B33` .97 under a 160° White .07 → .02 (55 %) gradient, 1 dp White .12 border with a
+     * White .18 top highlight, black .55 shadow — opaque enough for AA over any card.
+     */
+    val DialogScrim = Color(0xFF04060E).copy(alpha = .66f)
+    val DialogFill = Color(0xFF141B33).copy(alpha = .97f)
+    val DialogTop = Color.White.copy(alpha = .07f)
+    val DialogBottom = Color.White.copy(alpha = .02f)
+    val DialogBorder = Color.White.copy(alpha = .12f)
+    val DialogHighlight = Color.White.copy(alpha = .18f)
+    val DialogShadow = Color.Black.copy(alpha = .55f)
+    /** Path box: black .22 fill, White .10 border. */
+    val PathFill = Color.Black.copy(alpha = .22f)
+    val PathBorder = Color.White.copy(alpha = .10f)
+    /** Menu row: White .04 fill, White .09 border. */
+    val MenuRowFill = Color.White.copy(alpha = .04f)
+    val MenuRowBorder = Color.White.copy(alpha = .09f)
+    /** Neutral dialog tiles (⋮, folder). */
+    val Neutral = Color(0xFF94A3B8)
 }
 
 /** Glass shapes and sizes (dp). */
@@ -144,6 +165,23 @@ object GlassShapes {
     val ThumbShadow = 4.dp
     val DividerStart = 58.dp
     val DividerEnd = 12.dp
+
+    /** Dialogs: width min(screen − 2 × margin, 400), radius 22, padding 20, gap 14, 44 dp header tile, shadow 24. */
+    val Dialog = RoundedCornerShape(22.dp)
+    val DialogMaxWidth = 400.dp
+    val DialogMargin = 16.dp
+    val DialogPadding = 20.dp
+    val DialogGap = 14.dp
+    val DialogTile = 44.dp
+    val DialogShadow = 24.dp
+    /** Dialog buttons: gap between two in a row and between stacked ones. */
+    val DialogButtonGap = 10.dp
+    /** Menu row (radius 14, min 56, 36 dp tile), path box and callout (radius 12). */
+    val MenuRow = RoundedCornerShape(14.dp)
+    val MenuRowMin = 56.dp
+    val MenuTile = 36.dp
+    val PathBox = RoundedCornerShape(12.dp)
+    val Callout = RoundedCornerShape(12.dp)
 
     /** Tab screen spacing: section gap, inside a section, between cards. */
     val SectionGap = 18.dp

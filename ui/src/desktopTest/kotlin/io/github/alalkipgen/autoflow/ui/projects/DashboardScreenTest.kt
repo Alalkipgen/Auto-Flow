@@ -119,11 +119,11 @@ class DashboardScreenTest {
         setContent { DashboardScreen(phone, onOpened = { opened++ }) }
         onNodeWithText("Grace").performScrollTo().performTouchInput { longClick() }
         onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { click() }
-        onNodeWithText("Remove").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("remove-project-confirm").assertIsDisplayed().performMouseInput { click() }
         onNodeWithText("Grace").assertDoesNotExist()
         runOnIdle { phone.refresh(); assertTrue(phone.state.value.rows.isEmpty()) }
         onNodeWithTag("projects-open-removed").performScrollTo().performMouseInput { click() }
-        onNodeWithText("Grace · Grace.autoflow").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("removed-project-0").assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("project-restore").assertIsDisplayed().performMouseInput { click() }
         runOnIdle { assertEquals(0, opened); assertEquals(dir, phone.state.value.rows.single().entry.path) }
         onNodeWithText("Grace").performScrollTo().assertIsDisplayed().performMouseInput { click() }

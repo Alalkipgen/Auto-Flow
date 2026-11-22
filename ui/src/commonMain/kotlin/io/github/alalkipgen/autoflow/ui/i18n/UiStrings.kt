@@ -35,6 +35,8 @@ enum class UiText(val en: String, val my: String?) {
     APPROVED("Approved", "အတည်ပြုပြီး"),
     ACCEPTED("Accepted", "လက်ခံပြီး"),
     CANCEL("Cancel", "ပယ်ဖျက်မယ်"),
+    /** Cancel in the Projects dialogs only: my "ပယ်ဖျက်မယ်" sits next to "ဖျက်မယ်" / "အပြီးဖျက်မယ်" and reads like delete. */
+    CANCEL_KEEP("Cancel", "မလုပ်တော့ပါ"),
     BACK("← Back", "← နောက်သို့"),
     START("Start", "စမယ်"),
     OPEN("Open", "ဖွင့်မယ်"),
@@ -1166,7 +1168,8 @@ enum class UiText(val en: String, val my: String?) {
     PROJECT_DELETE_MENU("Delete permanently…", "အပြီးဖျက်မယ်…"),
     PROJECT_DELETE_CONFIRM("Delete permanently", "အပြီးဖျက်မယ်"),
     PROJECT_DELETE_TITLE("Permanently delete \"{name}\"?", "\"{name}\" ကို အပြီးဖျက်မလား?"),
-    PROJECT_DELETE_BYTES("Project files to delete: {n} bytes", "ဖျက်မည့် ပရောဂျက်ဖိုင်များ: {n} bytes"),
+    /** {n} = BackupModel.fileSize(bytes), e.g. "184.6 MB". */
+    PROJECT_DELETE_BYTES("Project files to delete: {n}", "ဖျက်မည့် ပရောဂျက်ဖိုင်များ: {n}"),
     PROJECT_DELETE_PERMANENT("This can't be undone.", "ဖျက်ပြီးလျှင် ပြန်ယူ၍ မရပါ။"),
     PROJECT_DELETE_UNSUPPORTED("Only app-managed project folders without links or nested projects can be permanently deleted.", "လင့်ခ် သို့မဟုတ် ပရောဂျက်ခွဲ မပါသော အက်ပ်ပိုင် ပရောဂျက်ဖိုင်တွဲများကိုသာ အပြီးဖျက်နိုင်ပါသည်။"),
     PROJECT_DELETE_KEEP_BACKUPS("Existing backup files will be kept outside this project.", "ရှိပြီးသား အရန်ဖိုင်များကို ပရောဂျက်ဖိုင်တွဲ အပြင်တွင် သိမ်းထားပါမည်။"),

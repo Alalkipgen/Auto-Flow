@@ -133,8 +133,8 @@ class ProjectsDesktopTest(val width: Int, val font: Float, val language: UiLangu
         assertEquals(listOf(fixture.dir.path), shown)
         // Remove from list asks first (the existing confirm dialog); Cancel keeps the project.
         click("project-detail-remove")
-        onNodeWithText(UiText.REMOVE_PROJECT_QUESTION.text(language, "name" to recap)).assertIsDisplayed()
-        onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText(My.breakSyllables(UiText.REMOVE_PROJECT_QUESTION.text(language, "name" to recap))).assertIsDisplayed()
+        onNodeWithTag("remove-project-cancel").assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag(card(recap)).assertExists()
         // × closes the pane; selecting another card moves the pane.
         click("project-detail-close")
@@ -145,10 +145,10 @@ class ProjectsDesktopTest(val width: Int, val font: Float, val language: UiLangu
         // Right-click and ⋮ open the same options as on the phone.
         onNodeWithTag("project-card-click-Rain Song").performScrollTo().performMouseInput { rightClick() }
         onNodeWithTag("project-remove-action").assertIsDisplayed()
-        onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("project-actions-cancel").assertIsDisplayed().performMouseInput { click() }
         click("project-more-Rain Song")
         onNodeWithTag("project-remove-action").assertIsDisplayed()
-        onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("project-actions-cancel").assertIsDisplayed().performMouseInput { click() }
         assertEquals(0, opened)
         // Double-click opens a card's project; Continue editing opens the selected one.
         onNodeWithTag("project-card-click-Rain Song").performScrollTo().performMouseInput { doubleClick() }

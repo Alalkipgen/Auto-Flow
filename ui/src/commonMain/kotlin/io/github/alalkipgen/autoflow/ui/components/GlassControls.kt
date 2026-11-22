@@ -168,7 +168,7 @@ private fun drawsArt(thumbnail: ImageBitmap?) = thumbnail != null && GlassBlurSu
 fun glassCaptionColour(thumbnail: ImageBitmap?): Color = if (drawsArt(thumbnail)) GlassColors.MutedOnArt else AutoFlowColors.Muted
 
 /** 1 dp glass border with the brighter top highlight. */
-private fun DrawScope.drawGlassBorder(shape: Shape, border: Color, highlight: Color) {
+internal fun DrawScope.drawGlassBorder(shape: Shape, border: Color, highlight: Color) {
     val outline = shape.createOutline(size, layoutDirection, this)
     val stroke = 1.dp.toPx()
     val top = (3.dp.toPx() / size.height).coerceIn(0f, 1f)

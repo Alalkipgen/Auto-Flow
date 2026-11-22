@@ -102,7 +102,7 @@ class ProjectsListTest(val width: Int, val font: Float, val language: UiLanguage
         assertTrue(more.fetchSemanticsNode().size.height >= 48 && more.fetchSemanticsNode().size.width >= 48)
         more.performMouseInput { click() }
         onNodeWithTag("project-remove-action").assertIsDisplayed()
-        onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("project-actions-cancel").assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("project-remove-action").assertDoesNotExist()
         // Filters: All 3 + one chip per mode; a mode chip shows only its projects.
         chip(UiText.PROJECTS_FILTER_ALL.text(language)).performScrollTo().assertIsDisplayed()
@@ -156,12 +156,16 @@ class ProjectsEmptyAndRemovedTest {
         onNodeWithTag("projects-open-removed").assertDoesNotExist()
         runOnIdle { model.remove("/ext/projects/A.autoflow") }
         onNodeWithText("A").assertDoesNotExist()
-        onNode(hasText(UiText.MANY_PROJECTS.en.replace("{projects}", "1")) and hasAnyAncestor(hasTestTag("projects-open-removed")),
+        // One removed project reads "1 project" (ONE_PROJECT), not "1 projects".
+        onNode(hasText(UiText.ONE_PROJECT.en) and hasAnyAncestor(hasTestTag("projects-open-removed")),
             useUnmergedTree = true).assertIsDisplayed()
         val removed = onNodeWithTag("projects-open-removed").assertHasClickAction()
         assertTrue(removed.fetchSemanticsNode().size.height >= 48)
         removed.performMouseInput { click() }
-        onNodeWithText("A · A.autoflow").assertIsDisplayed()
+        onNodeWithTag("removed-project-0").assertIsDisplayed()
+        onNode(hasText("A.autoflow") and hasAnyAncestor(hasTestTag("removed-project-0")), useUnmergedTree = true).assertIsDisplayed()
+        onNodeWithTag("glass-dialog-title").assertTextEquals("Removed projects")
+        onNodeWithTag("glass-dialog-subtitle").assertTextEquals(UiText.ONE_PROJECT.en)
         assertEquals(emptyList(), textFitProblems(360, 1f, strict = true))
     }
 

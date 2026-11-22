@@ -96,13 +96,14 @@ class StudioProjectsLayoutTest(val width: Int, val font: Float, val language: Ui
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png",
                 File(images, "projects-$width-${language.code}-$font-$bundled.png"))
             row.performTouchInput { longClick() }
-            onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
-            onNodeWithText(UiText.REMOVE_PROJECT_QUESTION.text(language, "name" to f.project.name)).assertIsDisplayed()
-            onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+            // The glass dialog scrolls when it is taller than the window (font 2.0 with the system Burmese font).
+            onNodeWithTag("project-remove-action").performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+            onNodeWithText(My.breakSyllables(UiText.REMOVE_PROJECT_QUESTION.text(language, "name" to f.project.name))).assertIsDisplayed()
+            onNodeWithTag("remove-project-cancel").performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             // Right-click opens the same options.
             row.performMouseInput { rightClick() }
-            onNodeWithTag("project-remove-action").assertIsDisplayed()
-            onNodeWithText(UiText.CANCEL.text(language)).assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+            onNodeWithTag("project-remove-action").performScrollTo().assertIsDisplayed()
+            onNodeWithTag("project-actions-cancel").performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             clickText(f.project.name)
             if (wide) {
                 mainClock.advanceTimeBy(1_000)
@@ -113,8 +114,8 @@ class StudioProjectsLayoutTest(val width: Int, val font: Float, val language: Ui
             assertEquals(1, opened); assertEquals(f.dir.path, current.state.value!!.dir)
             onNodeWithTag("project-more-${f.project.name}").performScrollTo().assertIsDisplayed()
                 .performMouseInput { moveTo(center); click(); exit() }
-            onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
-            onNodeWithText(UiText.REMOVE.text(language)).assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+            onNodeWithTag("project-remove-action").performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+            onNodeWithTag("remove-project-confirm").performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
             onNodeWithText(f.project.name).assertDoesNotExist()
             assertTrue(index.entries.value.isEmpty(), "Remove changes only the rebuildable index")
             assertEquals(before, StudioThumbnailsLayoutTest.bytes(f.dir), "browse/open/cancel/remove never change project/artifacts")
