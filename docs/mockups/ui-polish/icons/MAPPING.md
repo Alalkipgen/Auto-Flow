@@ -72,3 +72,6 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `textaa` | `text-aa` | Font (Library) |
 | `palette` | `palette` | Style preset (Library) |
 | `swatches` | `swatches` | Brand Kit without colours (Library) |
+| `cpu` | `cpu` | Model config (Settings) |
+| `wrench` | `wrench` | Tools (Settings) |
+| `flask` | `flask` | Preview features (Settings) |

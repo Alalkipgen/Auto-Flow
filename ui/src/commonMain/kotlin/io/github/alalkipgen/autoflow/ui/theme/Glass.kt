@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.abs
@@ -155,6 +156,41 @@ object GlassColors {
     val MenuRowBorder = Color.White.copy(alpha = .09f)
     /** Neutral dialog tiles (⋮, folder). */
     val Neutral = Color(0xFF94A3B8)
+
+    // Settings pages (P9-17a, Settings sample src/gen9.js).
+    /** Panel top bar: vertical White .08 → .03, 1 dp White .08 line under it. */
+    val TopBarTop = Color.White.copy(alpha = .08f)
+    val TopBarBottom = Color.White.copy(alpha = .03f)
+    val TopBarLine = Color.White.copy(alpha = .08f)
+    /** Neutral (Surface3) row tile: White .08 fill, White .12 border, Text icon. */
+    val NeutralTileFill = Color.White.copy(alpha = .08f)
+    val NeutralTileBorder = Color.White.copy(alpha = .12f)
+    /** Text field: black .25 fill, White .12 border. */
+    val FieldFill = Color.Black.copy(alpha = .25f)
+    val FieldBorder = Color.White.copy(alpha = .12f)
+    /** Masked-key / version pill: black .25 fill, White .10 border. */
+    val PillFill = Color.Black.copy(alpha = .25f)
+    val PillBorder = Color.White.copy(alpha = .10f)
+    /** Two-segment control track: black .22 fill, White .10 border. */
+    val SegmentFill = Color.Black.copy(alpha = .22f)
+    val SegmentBorder = Color.White.copy(alpha = .10f)
+    /** Mono boxes: the models JSON (black .30) and one-line readouts (black .22), White .08 border. */
+    val JsonFill = Color.Black.copy(alpha = .30f)
+    val MonoFill = Color.Black.copy(alpha = .22f)
+    val MonoBorder = Color.White.copy(alpha = .08f)
+    /** Bottom fade of the JSON box while more text is below. */
+    val JsonFade = Base.copy(alpha = .70f)
+    /** Radio off ring (2 dp). */
+    val RadioOff = Color.White.copy(alpha = .25f)
+    /** Switch off track (White .14 + .12 border), its knob, and the inner collapsible row (White .04 + .09). */
+    val SwitchOffFill = Color.White.copy(alpha = .14f)
+    val SwitchOffBorder = Color.White.copy(alpha = .12f)
+    val SwitchKnobOff = AutoFlowColors.Text
+    val SwitchKnobShadow = Color.Black.copy(alpha = .35f)
+    val InnerRowFill = Color.White.copy(alpha = .04f)
+    val InnerRowBorder = Color.White.copy(alpha = .09f)
+    /** Key / font cards: their tile colour at .14 behind the glass. */
+    const val TintSettingsCard = .14f
 }
 
 /** Glass shapes and sizes (dp). */
@@ -222,6 +258,31 @@ object GlassShapes {
     val SectionGap = 18.dp
     val InSection = 8.dp
     val BetweenCards = 10.dp
+
+    // Settings pages (P9-17a): Panel bar padding 8 × 12, row min 56 (padding 8 × 12, 32 dp tile, gap 12), dividers
+    // inset 56; field 48 radius 12; pill radius 8; segment track radius 12 (padding 3) with 38 dp items radius 9;
+    // mono box radius 10, JSON box radius 12 (max 240); radio 22; switch 46 × 28; option row min 52.
+    val TopBarPadX = 12.dp
+    val TopBarPadY = 8.dp
+    val SettingsRowMin = 56.dp
+    val SettingsRowPadX = 12.dp
+    val SettingsRowPadY = 8.dp
+    val SettingsTile = 32.dp
+    val SettingsDividerStart = 56.dp
+    val Field = RoundedCornerShape(12.dp)
+    val Pill8 = RoundedCornerShape(8.dp)
+    val SegmentTrack = RoundedCornerShape(12.dp)
+    val SegmentItem = RoundedCornerShape(9.dp)
+    val SegmentItemHeight = 38.dp
+    val MonoBox = RoundedCornerShape(10.dp)
+    val JsonBox = RoundedCornerShape(12.dp)
+    val JsonMax = 240.dp
+    val Radio = 22.dp
+    val SwitchTrack = DpSize(46.dp, 28.dp)
+    val SwitchKnob = 20.dp
+    val OptionRowMin = 52.dp
+    val CardHeaderMin = 34.dp
+    val InnerRow = RoundedCornerShape(12.dp)
 }
 
 /**

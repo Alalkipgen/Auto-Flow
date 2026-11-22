@@ -228,7 +228,7 @@ enum class UiText(val en: String, val my: String?) {
     BUNDLED_CONFIG("Bundled config", "ပါရှိပြီး ဆက်တင်"),
     PREVIEW_FEATURES("Preview features", "စမ်းသပ် လုပ်ဆောင်ချက်များ"),
     PREVIEW_FEATURES_HINT("Turn features on or off. Overrides apply immediately; they are stored per-device.", "လုပ်ဆောင်ချက်များ ဖွင့်/ပိတ်နိုင်သည်။ ချက်ချင်း သက်ရောက်ပြီး ဤစက်တွင်သာ သိမ်းထားမည်။"),
-    TEST_TTS("🔊 Test Gemini TTS (S5)", "🔊 Gemini TTS စမ်းမယ် (S5)"),
+    TEST_TTS("Test Gemini TTS", "Gemini TTS စမ်းမယ်"),
     RESULT_DETAIL("{detail}", "အခြေအနေ: {detail}"),
     BACKUP_NONE("No projects to back up yet", "အရန်သိမ်းရန် ပရောဂျက် မရှိသေးပါ"),
     BACKUP_CANCELLED("Backup cancelled; nothing was saved", "အရန်သိမ်းမှု ပယ်ဖျက်ပြီး၊ ဘာမျှ မသိမ်းခဲ့ပါ"),
@@ -1570,6 +1570,14 @@ enum class UiText(val en: String, val my: String?) {
     NEXT_PAGE("Next page", "နောက် စာမျက်နှာ"),
     PROJECT_LAST_OPENED("Last opened", "နောက်ဆုံး ဖွင့်ခဲ့ချိန်"),
     PROJECT_SHOW_FOLDER("Show in folder", "ဖိုင်တွဲမှာ ပြမယ်"),
+    // P9-17a Settings (SPEC-v2 §5, owner approved): main-page groups, the key rows' short chips, the flags count.
+    SETTINGS_GENERAL("General", "အထွေထွေ"),
+    SETTINGS_EXPORT("Export", "ထုတ်ယူမှု"),
+    SETTINGS_STORAGE("Storage & checks", "သိုလှောင်မှုနှင့် စစ်ဆေးမှု"),
+    GEMINI_KEY("Gemini API key", "Gemini API key"),
+    KEY_NOT_SAVED_SHORT("Not saved", "မသိမ်းရသေး"),
+    KEY_SAVE_AGAIN("Save again", "ပြန်သိမ်းပါ"),
+    FLAGS_ON("{on} of {total} on", "{total} ခုအနက် {on} ခု ဖွင့်ထားသည်"),
     ;
     fun text(language: UiLanguage, vararg args: Pair<String, Any?>): String = resolveText(en, my, language, args.toMap())
 }

@@ -457,11 +457,12 @@ fun GlassModeChip(mode: Mode, modifier: Modifier = Modifier) {
 
 /**
  * Glass filter chip, the [AfChip] API: 34 dp pill (48 dp target overflowing into the spacing); off = White .06 fill +
- * White .12 border, label Text, count Muted; on = the primary gradient with a glow, white label, count White .75.
+ * White .12 border, label Text, count Muted; on = the primary gradient with a glow, white label, count White .75. An
+ * optional [leading] mark (e.g. a ratio shape) is drawn in the label's ink (white on, Muted off).
  */
 @Composable
 fun GlassFilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
-    count: Int? = null) {
+    count: Int? = null, leading: (@Composable (ink: Color) -> Unit)? = null) {
     val shape = GlassShapes.Pill
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -481,6 +482,7 @@ fun GlassFilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifi
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            leading?.invoke(if (selected) Color.White else AutoFlowColors.Muted)
             AfText(text, color = if (selected) Color.White else AutoFlowColors.Text, type = AfType.Micro)
             if (count != null) AfText("$count", color = if (selected) GlassColors.FilterOnCount else AutoFlowColors.Muted, type = AfType.Micro)
         }

@@ -207,9 +207,12 @@ fun GlassFact(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** A callout: [tone] .10 fill and .30 border (radius 12, padding 10 / 12), 18 dp Fill [icon] and caption text in [tone]. */
+/**
+ * A callout: [tone] .10 fill and .30 border (radius 12, padding 10 / 12), 18 dp Fill [icon] and caption text in
+ * [textColour] ([tone]; the Settings callouts use Text).
+ */
 @Composable
-fun GlassCallout(icon: ImageVector, text: String, tone: Color, modifier: Modifier = Modifier) {
+fun GlassCallout(icon: ImageVector, text: String, tone: Color, modifier: Modifier = Modifier, textColour: Color = tone) {
     val shape = GlassShapes.Callout
     Row(
         modifier.fillMaxWidth().clip(shape).background(tone.copy(alpha = .10f)).border(1.dp, tone.copy(alpha = .30f), shape)
@@ -217,17 +220,18 @@ fun GlassCallout(icon: ImageVector, text: String, tone: Color, modifier: Modifie
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AfIcon(icon, Modifier.padding(top = 2.dp), tint = tone, size = 18.dp)
-        AfText(text, Modifier.weight(1f), color = tone, type = AfType.Caption)
+        AfText(text, Modifier.weight(1f), color = textColour, type = AfType.Caption)
     }
 }
 
 /**
  * Monospace text (line height 1.55) whose Burmese runs use the UI font (the monospace fonts have no Burmese). A path
  * breaks only after "/" (a zero-width space after each separator); a piece still wider than the box (e.g.
- * "io.github.alalkipgen.autoflow/" at font 2.0) may also break after ".", "-" or "_", so no word is cut letter by letter.
+ * "io.github.alalkipgen.autoflow/" at font 2.0) may also break after ".", "-" or "_", so no word is cut letter by letter;
+ * only a part still wider than the box after that (a key or hash in the models JSON) may break between its letters.
  */
 @Composable
-private fun MonoText(text: String, size: TextUnit, colour: Color, bold: Boolean = false, modifier: Modifier = Modifier) {
+internal fun MonoText(text: String, size: TextUnit, colour: Color, bold: Boolean = false, modifier: Modifier = Modifier) {
     val ui = LocalUiFontFamily.current
     val style = afTextStyle(colour, size, if (bold) FontWeight.Bold else FontWeight.Normal, FontFamily.Monospace)
         .copy(lineHeight = size * 1.55f)
@@ -248,7 +252,8 @@ private fun MonoText(text: String, size: TextUnit, colour: Color, bold: Boolean 
             fun tooWide(piece: String) = max != Constraints.Infinity && measurer.measure(annotated(piece), style).size.width > max
             val pieces = Regex("[^/\\\\ ]*[/\\\\ ]?").findAll(text).map { it.value }.filter { it.isNotEmpty() }
             val broken = pieces.joinToString("") { piece ->
-                val soft = if (tooWide(piece)) piece.replace(Regex("([._-])(?=.)"), "$1\u200B") else piece
+                val soft = if (!tooWide(piece)) piece else piece.replace(Regex("([._-])(?=.)"), "$1\u200B").split('\u200B')
+                    .joinToString("\u200B") { part -> if (tooWide(part)) part.replace(Regex("(?<=[A-Za-z0-9])(?=[A-Za-z0-9])"), "\u200B") else part }
                 soft.replace("/", "/\u200B").replace("\\", "\\\u200B")
             }
             annotated(broken)
