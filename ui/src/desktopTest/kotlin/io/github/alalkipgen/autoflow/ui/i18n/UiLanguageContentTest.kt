@@ -82,6 +82,8 @@ class UiLanguageContentTest {
             setContent { CompositionLocalProvider(LocalCompact provides true, LocalUiFontFamily provides BurmeseTestFont.family) {
                 AppLanguage(settings.state) { StudioV2Shell(destination, { destination = it; navigations++ }, 0, 412f) { SettingsScreen(model) } }
             } }
+            // P9-17a: the language choices are on Settings → Language.
+            onNodeWithTag("settings-row-language").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             for (language in listOf(UiLanguage.BURMESE, UiLanguage.ENGLISH, UiLanguage.BURMESE)) {
                 onNodeWithTag("language-${language.code}").performScrollTo().assertIsDisplayed().performMouseInput { click() }
                 waitForIdle()

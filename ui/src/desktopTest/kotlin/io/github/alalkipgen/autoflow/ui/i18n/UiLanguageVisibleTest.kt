@@ -26,9 +26,12 @@ class UiLanguageVisibleTest {
         }
         onNodeWithText("Language").assertIsDisplayed()
         onNodeWithContentDescription("Home").assertIsDisplayed()
+        // P9-17a: the main page's Language row opens the choices; the page title follows the language.
+        onNodeWithTag("settings-row-language").performScrollTo().assertIsDisplayed().performClick()
+        waitForIdle()
         onNodeWithTag("language-my").performScrollTo().assertIsDisplayed().performClick()
         waitForIdle()
-        onNodeWithText("ဘာသာစကား").assertIsDisplayed()
+        onNodeWithText(My.breakSyllables("ဘာသာစကား")).assertIsDisplayed()
         onNodeWithContentDescription("ပင်မ").assertIsDisplayed()
         onNodeWithText("Language").assertDoesNotExist()
         assertEquals("my", store.state.value.uiLanguage)
@@ -37,7 +40,7 @@ class UiLanguageVisibleTest {
         waitForIdle()
         onNodeWithText("Language").assertIsDisplayed()
         onNodeWithContentDescription("Home").assertIsDisplayed()
-        onNodeWithText("ဘာသာစကား").assertDoesNotExist()
+        onNodeWithText(My.breakSyllables("ဘာသာစကား")).assertDoesNotExist()
         assertEquals("en", SettingsStore(fs, "/app/settings.json").state.value.uiLanguage)
     }
 }

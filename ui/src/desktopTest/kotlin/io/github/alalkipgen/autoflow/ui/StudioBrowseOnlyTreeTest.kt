@@ -96,8 +96,9 @@ class StudioBrowseOnlyTreeTest {
             setContent { KoinIsolatedContext(graph) { App() } }
             heading("home-header", "Home")
             tap("home-settings"); heading("settings-heading", "Settings")
-            click(onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.en).performScrollTo())
+            click(onNodeWithTag("settings-row-diagnostics").performScrollTo())
             scroll("diagnostics-build"); unchanged("Settings / Diagnostics")
+            tap("settings-page-back"); heading("settings-heading", "Settings main page")
             tap("subscreen-back"); heading("home-header", "return to Home")
 
             nav(UiText.PROJECTS); heading("projects-heading", "routed Projects dashboard")

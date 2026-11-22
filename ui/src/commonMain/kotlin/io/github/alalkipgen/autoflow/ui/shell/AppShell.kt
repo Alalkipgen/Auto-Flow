@@ -212,7 +212,8 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 }
                 "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
                 "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
-                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>())
+                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>(),
+                    backHandler = backHandler)
                 MORE -> MoreScreen(displayShell.locks, onSelect = { screen = it })
                 else -> ScreenPlaceholder(current)
             }
@@ -341,11 +342,10 @@ private fun StudioV2App(
 
     val content: @Composable () -> Unit = {
         if (nav.settings) {
-            Column(Modifier.fillMaxSize()) {
-                V2SubBar(tr(UiText.BACK), status) { nav = nav.copy(settings = false) }
-                Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>(),
-                    onOpenLexicon = { nav = nav.copy(settings = false, dest = StudioV2Dest.LIBRARY, libraryLexicon = true) }) }
-            }
+            // P9-17a: Settings draws its own Panel bar (back + title) and steps back from its pages first.
+            SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>(),
+                onOpenLexicon = { nav = nav.copy(settings = false, dest = StudioV2Dest.LIBRARY, libraryLexicon = true) },
+                onBack = { nav = nav.copy(settings = false) }, backHandler = backHandler)
         } else when (nav.dest) {
             StudioV2Dest.HOME -> {
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
@@ -533,9 +533,9 @@ private fun StudioV2App(
         // An open project editor keeps the 72 dp rail for room (DESIGN.md §9.8).
         editor = !nav.settings && nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null,
         actions = shellActions,
-        // Glass tab screens (Phase 9 group 1): Home, the Projects list, Library and Jobs.
-        ambient = !nav.settings && (nav.dest == StudioV2Dest.HOME || nav.dest == StudioV2Dest.LIBRARY || nav.dest == StudioV2Dest.JOBS ||
-            nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == null),
+        // Glass screens (Phase 9): Home, the Projects list, Library, Jobs and Settings.
+        ambient = nav.settings || nav.dest == StudioV2Dest.HOME || nav.dest == StudioV2Dest.LIBRARY || nav.dest == StudioV2Dest.JOBS ||
+            nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == null,
         content = content,
     )
     // Exit confirmation dialog (D-52)
@@ -606,20 +606,6 @@ private fun MvClassicSteps(go: (String) -> Unit) {
                 io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), { go(s) }, Modifier.heightIn(min = 48.dp))
             }
         }
-    }
-}
-
-/** Top bar of a Studio v2 sub-screen: a back button and [status] (AI provider) on the right. */
-@Composable
-internal fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        io.github.alalkipgen.autoflow.ui.components.AfButton("←", onBack, Modifier.testTag("subscreen-back")
-            .semantics { contentDescription = backLabel })
-        AfText(My.breakSyllables(status), Modifier.weight(1f), muted = true, size = 12.sp)
     }
 }
 

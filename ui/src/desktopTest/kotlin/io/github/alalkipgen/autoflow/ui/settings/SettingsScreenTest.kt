@@ -51,8 +51,16 @@ class SettingsScreenTest {
         { AiResult.Ok(Unit, Usage(model = "gemini-x", latencyMs = 1)) },
     )
 
-    private fun ComposeUiTest.openSection(key: UiText) {
-        onNodeWithContentDescription(key.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+    /** Main page row `settings-row-<row>` → its page (P9-17a). */
+    private fun ComposeUiTest.open(row: String) {
+        onNodeWithTag("settings-row-$row").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("settings-page-title").assertIsDisplayed()
+    }
+
+    /** The page bar's back button → the main page. */
+    private fun ComposeUiTest.back() {
+        onNodeWithTag("settings-page-back").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("settings-heading").assertIsDisplayed()
     }
 
     @Test
@@ -64,7 +72,7 @@ class SettingsScreenTest {
             testTtsCall = { ttsCalls++; awaitCancellation() })
         diag.saveKey("fixture-not-a-real-key")
         setContent { SettingsScreen(diag) }
-        openSection(UiText.V3_AI_KEYS)
+        open("gemini")
         val tag = "gemini-diagnostic-run"
         fun cancel() = onNode(hasText(UiText.CANCEL.en) and hasAnyAncestor(hasTestTag(tag)))
             .performScrollTo().assertIsDisplayed().performMouseInput { click() }
@@ -92,15 +100,19 @@ class SettingsScreenTest {
     @Test
     fun keyIsSavedMaskedTestedAndRemoved() = runComposeUiTest {
         setContent { SettingsScreen(model) }
-        openSection(UiText.V3_AI_KEYS)
-        onNodeWithText("Gemini API key: not saved").assertExists()
+        onNodeWithTag("gemini-key-chip").assertTextEquals(UiText.KEY_NOT_SAVED_SHORT.en)
+        open("gemini")
+        // The old "…: not saved" line is now the Not saved chip's description (README §2.2).
+        onNodeWithContentDescription("Gemini API key: not saved").assertExists()
         onNodeWithText("Test").assertIsNotEnabled()
         onNodeWithContentDescription("Paste a Gemini API key").performScrollTo().assertIsDisplayed().performTextInput("test-key-not-real")
         onNodeWithText("Save").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         assertEquals("test-key-not-real", secrets.values[SecretNames.GEMINI_API_KEY])
         onNodeWithText("Key saved").assertExists()
-        onNodeWithText("Gemini API key: saved ••••real").assertExists()
+        onNodeWithContentDescription("Gemini API key: saved ••••real").assertExists()
+        onNodeWithText("••••real").assertIsDisplayed()
+        onNodeWithTag("gemini-key-chip").assertTextEquals(UiText.V3_SAVED.en)
         onNodeWithText("test-key-not-real", substring = true).assertDoesNotExist()
 
         onNodeWithText("Test").assertIsEnabled().performScrollTo().assertIsDisplayed().performMouseInput { click() }
@@ -108,7 +120,9 @@ class SettingsScreenTest {
         onNodeWithText("Key works (gemini-x)").assertExists()
         onNodeWithText("Remove").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
-        onNodeWithText("Gemini API key: not saved").assertExists()
+        onNodeWithContentDescription("Gemini API key: not saved").assertExists()
+        back()
+        onNodeWithTag("gemini-key-chip").assertTextEquals(UiText.KEY_NOT_SAVED_SHORT.en)
     }
 
     /** F-4 (D-93): Chatbox AI's license key under the Gemini key; its chips choose who answers text and Transcribe. */
@@ -120,8 +134,8 @@ class SettingsScreenTest {
             { AiResult.Ok(Unit, Usage(model = "gemini-x", latencyMs = 1)) },
             testChatboxCall = { AiResult.Ok(Unit, Usage(model = "gemini-2.5-flash", latencyMs = 1)) })
         setContent { SettingsScreen(m) }
-        openSection(UiText.V3_AI_KEYS)
-        onNodeWithText(UiText.CHATBOX_KEY_NOT_SAVED.en).performScrollTo().assertIsDisplayed()
+        open("chatbox")
+        onNodeWithContentDescription(UiText.CHATBOX_KEY_NOT_SAVED.en).performScrollTo().assertIsDisplayed()
         onNodeWithTag("text-service-chatbox").assertIsNotEnabled()
         onNodeWithTag("chatbox-key-test").assertIsNotEnabled()
         onNodeWithContentDescription(UiText.CHATBOX_KEY_PASTE.en).performScrollTo().performTextInput("LIC-abcd-1234")
@@ -129,7 +143,7 @@ class SettingsScreenTest {
         waitForIdle()
         assertEquals("LIC-abcd-1234", secrets.values[SecretNames.CHATBOX_LICENSE_KEY])
         assertEquals(null, secrets.values[SecretNames.GEMINI_API_KEY])
-        onNodeWithText("Chatbox AI license key: saved ••••1234").assertExists()
+        onNodeWithContentDescription("Chatbox AI license key: saved ••••1234").assertExists()
         onNodeWithTag("chatbox-key-test").performScrollTo().assertIsEnabled().performMouseInput { click() }
         waitForIdle()
         onNodeWithText("Key works (gemini-2.5-flash)").assertExists()
@@ -143,19 +157,23 @@ class SettingsScreenTest {
         assertEquals("gemini", settings.state.value.transcribeService)
         onNodeWithTag("chatbox-key-remove").performScrollTo().performMouseInput { click() }
         waitForIdle()
-        onNodeWithText(UiText.CHATBOX_KEY_NOT_SAVED.en).assertExists()
+        onNodeWithContentDescription(UiText.CHATBOX_KEY_NOT_SAVED.en).assertExists()
         assertEquals("gemini", settings.state.value.textService)
     }
 
     @Test
     fun modeDefaultsAndToolsChangeSettings() = runComposeUiTest {
         setContent { SettingsScreen(model) }
-        openSection(UiText.V3_AI_KEYS)
-        openSection(UiText.V3_EXPORT_DEFAULTS)
-        openSection(UiText.TOOLS)
-        onNodeWithText("Use fake AI providers (offline, no key needed)").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        open("gemini")
+        onNodeWithText("Use fake AI providers (offline, no key needed)").performScrollTo().assertIsDisplayed()
+            .assertIsOn().performMouseInput { click() }
+        back()
+        open("defaults")
         onNodeWithText("16:9").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithText("10s").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        back()
+        onNodeWithText("16:9 · 10s").assertIsDisplayed()
+        open("tools")
         onNodeWithText("Detect").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         val s = settings.state.value
@@ -179,7 +197,7 @@ class SettingsScreenTest {
             { AiResult.Ok(Unit, Usage(model = "gemini-x", latencyMs = 1)) },
         )
         setContent { SettingsScreen(bundled) }
-        openSection(UiText.TOOLS)
+        open("tools")
         onNodeWithText("ffmpeg: bundled with the app.").performScrollTo().assertExists()
         onNodeWithContentDescription("Path to ffmpeg.exe").assertDoesNotExist()
         onNodeWithText("Install VLC").assertDoesNotExist()
@@ -190,13 +208,14 @@ class SettingsScreenTest {
     fun typedPathAppliesAndModelConfigIsShown() = runComposeUiTest {
         tools.vlcDirs += "D:/VLC"
         setContent { SettingsScreen(model) }
-        openSection(UiText.TOOLS)
-        openSection(UiText.MODEL_CONFIG)
+        open("tools")
         onNodeWithContentDescription("Auto-detect").performScrollTo().performTextInput("D:/VLC")
         onNodeWithText("Apply").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         assertEquals("D:/VLC", settings.state.value.vlcPath)
         onNodeWithText("Using VLC in D:/VLC").assertExists()
+        back()
+        open("models")
         onNodeWithText("In use: ${LoadedModelConfig.BUNDLED}").performScrollTo().assertExists()
     }
 
@@ -204,7 +223,6 @@ class SettingsScreenTest {
     fun aboutShowsTheVersionAndLongPressOpensTheSelfTest() = runComposeUiTest {
         var opens = 0
         setContent { SettingsScreen(model, info = AppInfo("0.1.0 (abc1234)") { opens++ }) }
-        openSection(UiText.ABOUT)
         onNodeWithText("Auto Flow 0.1.0 (abc1234)").performScrollTo().assertExists()
         onNodeWithText("Long-press the version to open the Self-test.").assertExists()
         onNodeWithTag("about-version").performScrollTo().assertIsDisplayed().performMouseInput { click() }
@@ -230,7 +248,8 @@ class SettingsScreenTest {
         val fake = FakeBackup()
         val backup = BackupModel(fake, index, fs, CoroutineScope(Dispatchers.Unconfined))
         setContent { SettingsScreen(model, backup = backup) }
-        openSection(UiText.BACKUP)
+        onNodeWithTag("settings-row-backup").assert(hasText("1 project"))
+        open("backup")
         onNodeWithText("1 project").performScrollTo().assertExists()
         onNodeWithText("Share…").assertDoesNotExist()
         onNodeWithText("Back up all projects").performScrollTo().assertIsDisplayed().performMouseInput { click() }

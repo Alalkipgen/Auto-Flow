@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
 import io.github.alalkipgen.autoflow.ui.TestApp
+import io.github.alalkipgen.autoflow.ui.TestBackDispatcher
 import androidx.compose.ui.test.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.settings.*
@@ -33,6 +34,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -99,7 +101,7 @@ class PhoneShellTest {
         MoreScreens.filter { it != "Settings" && it in ShellModel.SCREEN_STEPS }.forEach { onNodeWithText("$it $LOCK_GLYPH").assertExists() }
         onNodeWithText(UiText.SETTINGS_TITLE.text(UiLanguage.ENGLISH)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
-        onNodeWithContentDescription(UiText.V3_AI_KEYS.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("settings-row-gemini").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithText(UiText.USE_FAKE_AI.en).assertIsDisplayed()
         onNode(tab(MORE)).assertIsSelected()
     }
@@ -107,22 +109,28 @@ class PhoneShellTest {
     @Test
     fun backStepsToMoreThenProjectsThenLeaves() = runDesktopComposeUiTest(width = 412, height = 900) {
         startPhoneKoin()
-        var back: (() -> Unit)? = null
-        setContent { TestApp(backHandler = { enabled, onBack -> back = if (enabled) onBack else null }) }
-        assertNull(back, "Back on Projects leaves the app")
+        val back = TestBackDispatcher()
+        setContent { TestApp(backHandler = back.handler) }
+        waitForIdle()
+        assertFalse(back.enabled, "Back on Projects leaves the app")
         onNode(tab(MORE)).performClick()
         waitForIdle()
         onNodeWithText(UiText.SETTINGS_TITLE.text(UiLanguage.ENGLISH)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
-        onNodeWithContentDescription(UiText.V3_AI_KEYS.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("settings-row-gemini").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithText(UiText.USE_FAKE_AI.en).assertIsDisplayed()
-        assertNotNull(back).invoke()
+        // P9-17a: Back leaves a Settings page for the Settings main page first.
+        back.press()
+        waitForIdle()
+        onNodeWithTag("settings-row-gemini").assertIsDisplayed()
+        onNodeWithText(UiText.USE_FAKE_AI.en).assertDoesNotExist()
+        back.press()
         waitForIdle()
         onNodeWithText("References $LOCK_GLYPH").assertExists()
-        assertNotNull(back).invoke()
+        back.press()
         waitForIdle()
         onNode(tab("Projects")).assertIsSelected()
-        assertNull(back)
+        assertFalse(back.enabled)
     }
 
     @Test
@@ -160,6 +168,7 @@ class PhoneShellTest {
             val old = UiLanguage.fromCode(settings.state.value.uiLanguage)
             onNode(tab(My.screen(MORE, old))).assertIsDisplayed().performMouseInput { click() }
             onNodeWithText(UiText.SETTINGS_TITLE.text(old)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithTag("settings-row-language").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             onNodeWithTag("language-${language.code}").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             waitForIdle()
             assertEquals(language.code, settings.state.value.uiLanguage)

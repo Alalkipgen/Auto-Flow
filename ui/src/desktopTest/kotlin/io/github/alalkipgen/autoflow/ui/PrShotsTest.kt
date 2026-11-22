@@ -63,7 +63,6 @@ import io.github.alalkipgen.autoflow.ui.shell.ShellActions
 import io.github.alalkipgen.autoflow.ui.shell.ShellShortcut
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
-import io.github.alalkipgen.autoflow.ui.shell.V2SubBar
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -331,11 +330,8 @@ class PrShotsTest(val width: Int, val font: Float) {
             FakePicker(), { PlatformResult.Ok(Unit) }, { error("No provider call in screenshots") },
             bundledFeatures = """{"schemaVersion":1,"studioV2":true}""")
         shot("settings") {
-            StudioV2Shell(StudioV2Dest.HOME, {}, 0, width.toFloat(), actions = actions) {
-                Column(Modifier.fillMaxSize()) {
-                    V2SubBar(UiText.BACK.text(language), provider.current()) {}
-                    Box(Modifier.weight(1f)) { SettingsScreen(model, info = AppInfo("QA fixture host")) }
-                }
+            StudioV2Shell(StudioV2Dest.HOME, {}, 0, width.toFloat(), actions = actions, ambient = true) {
+                SettingsScreen(model, info = AppInfo("QA fixture host"), onBack = {})
             }
         }
     }
