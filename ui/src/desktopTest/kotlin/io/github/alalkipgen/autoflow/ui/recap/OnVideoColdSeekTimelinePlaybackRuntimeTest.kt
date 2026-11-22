@@ -66,7 +66,10 @@ class OnVideoColdSeekTimelinePlaybackRuntimeTest {
                 }
                 fun reach(tag: String) = reach(tag, preview = tag.startsWith("timeline-")) { onNodeWithTag(tag) }
                 fun click(tag: String) { reach(tag).performMouseInput { moveTo(center); click(); exit() }; mainClock.advanceTimeBy(500) }
-                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text == UiText.PAUSE.text(language) }
+                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config.let { c ->
+                    // Phone top card (Group 2 A §1): an icon button named by its content description; desktop: a text button.
+                    c.getOrElse(SemanticsProperties.Text) { emptyList() }.map { it.text } + c.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }
+                }.any { it == UiText.PAUSE.text(language) }
                 click("layer-edit-qa-image")
                 await { onAllNodesWithTag("layer-move-handle").fetchSemanticsNodes().size == 1 && model.previewSource.currentPosition() == 1500L }
                 assertFalse(playing()); reach("timeline-video")

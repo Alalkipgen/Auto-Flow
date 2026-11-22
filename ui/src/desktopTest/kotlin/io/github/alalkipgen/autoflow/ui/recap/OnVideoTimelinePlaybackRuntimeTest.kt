@@ -70,7 +70,13 @@ class OnVideoTimelinePlaybackRuntimeTest {
                 }
                 fun reach(tag: String) = reach(tag, preview = tag.startsWith("timeline-")) { onNodeWithTag(tag) }
                 fun click(tag: String) { reach(tag).performMouseInput { moveTo(center); click(); exit() }; mainClock.advanceTimeBy(500) }
-                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text == UiText.PAUSE.text(language) }
+                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config.let { c ->
+                    // Phone top card (Group 2 A §1): an icon button named by its content description; desktop: a text button.
+                    c.getOrElse(SemanticsProperties.Text) { emptyList() }.map { it.text } + c.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }
+                }.any { it == UiText.PAUSE.text(language) }
+                // Phone (Group 2 A §1): Exact frame is the top card's frame button (described "Exact frame", like the still).
+                val phone = width < 840
+                fun exactButton() = if (phone) onNodeWithTag("timeline-exact") else onNode(hasText(UiText.EXACT_FRAME.text(language)) and hasClickAction())
                 val before = h.bytes()
                 click("layer-edit-qa-image")
                 await("paused layer handle at output 1500") { onAllNodesWithTag("layer-move-handle").fetchSemanticsNodes().size == 1 && model.previewSource.currentPosition() == 1500L }
@@ -90,14 +96,15 @@ class OnVideoTimelinePlaybackRuntimeTest {
                 val draft = model.layerEditor.value()!!
                 assertTrue(abs(draft.rect[0] - old[0] + .05f) < .01f); assertEquals(before, h.bytes())
                 ImageIO.write(onNodeWithTag("timeline-video").captureToImage().toAwtImage(), "png", File(evidence, "live-unsaved.png"))
-                onNode(hasText(UiText.EXACT_FRAME.text(language)) and hasClickAction()).assertIsNotEnabled()
+                exactButton().assertIsNotEnabled()
                 click("layer-save"); await("saved draft at output 1500") { model.layerEditor.state.value.draft == null && model.previewSource.currentPosition() == 1500L }
                 assertEquals(draft, h.session.open!!.project.recap!!.layers.single { it.id == draft.id }); assertFalse(playing())
                 reach("timeline-video"); await("green source 3500 after Save") { greenSourceFrame() }; onNodeWithTag("layer-move-handle").assertDoesNotExist()
                 ImageIO.write(onNodeWithTag("timeline-video").captureToImage().toAwtImage(), "png", File(evidence, "live-saved-1500.png"))
-                val exact = onNode(hasText(UiText.EXACT_FRAME.text(language)) and hasClickAction())
-                reach("Exact frame", preview = true) { exact }.assertIsEnabled().performMouseInput { moveTo(center); click(); exit() }
-                await("saved Exact frame") { onAllNodesWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)).fetchSemanticsNodes().size == 1 }
+                reach("Exact frame", preview = true) { exactButton() }.assertIsEnabled().performMouseInput { moveTo(center); click(); exit() }
+                val still = if (phone) hasContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)) and hasAnyAncestor(hasTestTag("recap-top-preview")) and !hasClickAction()
+                    else hasContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language))
+                await("saved Exact frame") { onAllNodes(still).fetchSemanticsNodes().size == 1 }
                 assertEquals(1500L, model.previewSource.currentPosition())
                 val savedBytes = h.bytes(); click("layer-edit-qa-image"); await("reopened layer draft") { model.layerEditor.value() != null }
                 click("layer-cancel"); assertEquals(savedBytes, h.bytes(), "Discard cannot write project/artifact/output bytes")
