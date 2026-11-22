@@ -139,7 +139,7 @@ private val Saturate = ColorFilter.colorMatrix(ColorMatrix().apply { setToSatura
 
 /**
  * The card's own frame behind its content: cropped into a box 120 % × 180 % of the card, scaled 1.1, blurred 26 dp,
- * at alpha .42 under a Base .15 → .55 horizontal overlay.
+ * at alpha .42 under a Base .15 → .65 horizontal overlay (.55 in the spec; raised on #286).
  */
 @Composable
 private fun GlassArt(image: ImageBitmap, modifier: Modifier) {
@@ -157,6 +157,15 @@ private fun GlassArt(image: ImageBitmap, modifier: Modifier) {
         Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(GlassColors.ThumbOverlayStart, GlassColors.ThumbOverlayEnd))))
     }
 }
+
+/** True when a [GlassCard] given [thumbnail] draws it as its art (Android 12+ and desktop; else the colour tint). */
+private fun drawsArt(thumbnail: ImageBitmap?) = thumbnail != null && GlassBlurSupported
+
+/**
+ * The Muted (caption) colour for text on a [GlassCard] given the same [thumbnail]: [GlassColors.MutedOnArt] when the
+ * card draws that frame, else [AutoFlowColors.Muted].
+ */
+fun glassCaptionColour(thumbnail: ImageBitmap?): Color = if (drawsArt(thumbnail)) GlassColors.MutedOnArt else AutoFlowColors.Muted
 
 /** 1 dp glass border with the brighter top highlight. */
 private fun DrawScope.drawGlassBorder(shape: Shape, border: Color, highlight: Color) {
@@ -200,7 +209,7 @@ fun GlassCard(
 ) {
     val shape = GlassShapes.Card
     val interaction = remember { MutableInteractionSource() }
-    val art = thumbnail != null && GlassBlurSupported
+    val art = drawsArt(thumbnail)
     Box(
         modifier
             .fillMaxWidth()

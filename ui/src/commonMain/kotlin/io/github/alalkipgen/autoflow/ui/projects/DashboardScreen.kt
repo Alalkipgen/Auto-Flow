@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -360,7 +361,8 @@ private fun projectThumb(row: DashboardRow, thumbSource: (suspend (String) -> Me
 
 /** Title, mode chip + [status], relative date · ratio · shots; a missing folder: its path, "Folder not found", Remove. */
 @Composable
-private fun ProjectFacts(row: DashboardRow, now: Instant, status: StudioStatus?, onRemove: () -> Unit, modifier: Modifier) {
+private fun ProjectFacts(row: DashboardRow, now: Instant, status: StudioStatus?, onRemove: () -> Unit, modifier: Modifier,
+    caption: Color = AutoFlowColors.Muted) {
     val e = row.entry
     Column(modifier, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
         AfText(e.name, Modifier.semantics { contentDescription = e.name }, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
@@ -376,10 +378,10 @@ private fun ProjectFacts(row: DashboardRow, now: Instant, status: StudioStatus?,
                 status?.let { StatusChip(it) }
             }
             val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
-            val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.SuccessText else AutoFlowColors.Muted
+            val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.SuccessText else caption
             WrapRow(spacing = AfSpace.S) {
-                AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), color = AutoFlowColors.Muted, type = AfType.Caption)
-                AfText(e.ratio.label, color = AutoFlowColors.Muted, type = AfType.Caption)
+                AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), color = caption, type = AfType.Caption)
+                AfText(e.ratio.label, color = caption, type = AfType.Caption)
                 if (e.mode.hasShots()) AfText(My.breakSyllables(shots), color = shotsColor, type = AfType.Caption)
             }
         }
@@ -414,13 +416,13 @@ private fun ProjectRow(row: DashboardRow, now: Instant, status: StudioStatus?, t
             val gap = AfSpace.M
             if (maxWidth - AfSize.ThumbList.width - GlassShapes.IconButtonCard - gap * 2 >= AfSize.TileCardMin * LocalDensity.current.fontScale) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    thumb(); ProjectFacts(row, now, status, onRemove, Modifier.weight(1f)); MoreButton(e.name, onOptions)
+                    thumb(); ProjectFacts(row, now, status, onRemove, Modifier.weight(1f), glassCaptionColour(art)); MoreButton(e.name, onOptions)
                 }
             } else Column(verticalArrangement = Arrangement.spacedBy(gap)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     thumb(); MoreButton(e.name, onOptions)
                 }
-                ProjectFacts(row, now, status, onRemove, Modifier.fillMaxWidth())
+                ProjectFacts(row, now, status, onRemove, Modifier.fillMaxWidth(), glassCaptionColour(art))
             }
         }
     }

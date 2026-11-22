@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.text.TextLayoutResult
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import java.awt.image.BufferedImage
 
 /** The owner's demo frame [name] (Exact UI v4 `lib.js` scene, kept as SVG text) drawn 320 × 200 by Skia into a PNG. */
@@ -24,7 +25,8 @@ internal fun glassScenePng(name: String): ByteArray {
 internal val GlassScenes = listOf("dune", "kfp", "inter", "lesson", "bagan")
 
 /**
- * Every Muted text on screen against the real pixels around it: a 3 px ring just outside the text's bounds, whose
+ * Every Muted text on screen ([AutoFlowColors.Muted], and [GlassColors.MutedOnArt] on cards drawn with their frame,
+ * listed as "[on art] text") against the real pixels around it: a 3 px ring just outside the text's bounds, whose
  * 95th-percentile luminance stands for the lightest background behind the text (WCAG). (ratio, text) per Muted text.
  */
 @OptIn(ExperimentalTestApi::class)
@@ -33,7 +35,8 @@ internal fun ComposeUiTest.mutedTextContrast(image: BufferedImage): List<Pair<Do
         .fetchSemanticsNodes().mapNotNull { node ->
             val layout = mutableListOf<TextLayoutResult>().also { node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(it) }
                 .firstOrNull() ?: return@mapNotNull null
-            if (layout.layoutInput.style.color != AutoFlowColors.Muted) return@mapNotNull null
+            val colour = layout.layoutInput.style.color.takeIf { it == AutoFlowColors.Muted || it == GlassColors.MutedOnArt }
+                ?: return@mapNotNull null
             val b = node.boundsInRoot
             val x0 = b.left.toInt(); val x1 = b.right.toInt() - 1; val y0 = b.top.toInt(); val y1 = b.bottom.toInt() - 1
             val ring = buildList {
@@ -45,5 +48,6 @@ internal fun ComposeUiTest.mutedTextContrast(image: BufferedImage): List<Pair<Do
                 .map { (x, y) -> Color(image.getRGB(x, y)).luminance() }.sorted()
             if (ring.isEmpty()) return@mapNotNull null
             val background = ring[(ring.size * .95).toInt().coerceAtMost(ring.size - 1)]
-            (AutoFlowColors.Muted.luminance() + .05) / (background + .05) to layout.layoutInput.text.text
+            (colour.luminance() + .05) / (background + .05) to
+                (if (colour == GlassColors.MutedOnArt) "[on art] " else "") + layout.layoutInput.text.text
         }

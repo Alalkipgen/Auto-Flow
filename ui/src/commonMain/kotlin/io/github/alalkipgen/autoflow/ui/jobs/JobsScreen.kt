@@ -425,20 +425,22 @@ internal fun JobItemCard(row: JobRow, thumbSource: (suspend (String) -> MediaThu
     var art by remember(source) { mutableStateOf<ImageBitmap?>(null) }
     val progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }
     val detail = jobDetail(row)
+    val thumbnail = art.takeIf { attention == null }
+    val caption = glassCaptionColour(thumbnail)
     GlassCard(modifier, selected = selected, attention = attention, tint = attention?.fill, tintAlpha = GlassColors.TintJobs,
-        thumbnail = art.takeIf { attention == null }, gap = GlassShapes.JobCardGap) {
+        thumbnail = thumbnail, gap = GlassShapes.JobCardGap) {
         Row(horizontalArrangement = Arrangement.spacedBy(AfSpace.M), verticalAlignment = Alignment.Top) {
             if (attention != null) SoftTile(if (row.failed) AfIcons.Fill.XCircle else AfIcons.Fill.Warn, attention.fill, size = AttentionTile)
             else MediaThumb(source, row.icon(), Modifier.glassThumb(), size = AfSize.ThumbCompact, onImage = { art = it })
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 AfText(row.projectTitle ?: row.title, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
-                if (detail.isNotEmpty()) AfText(My.breakSyllables(detail), color = AutoFlowColors.Muted, type = AfType.Caption)
+                if (detail.isNotEmpty()) AfText(My.breakSyllables(detail), color = caption, type = AfType.Caption)
                 row.redLine?.let { AfText(My.breakSyllables(it), color = AutoFlowColors.Failed, type = AfType.Caption) }
                 StatusChip(row.status, Modifier.padding(top = 2.dp))
             }
         }
         if (progress != null || row.indeterminate) GlassProgress(progress?.toFloat())
-        if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %", color = AutoFlowColors.Muted, type = AfType.Caption) }
+        if (!row.timedRun) progress?.let { AfText("${(it * 100).toInt()} %", color = caption, type = AfType.Caption) }
         actions()
     }
 }

@@ -2,8 +2,13 @@ package io.github.alalkipgen.autoflow.ui.projects
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import io.github.alalkipgen.autoflow.core.CoreResult
@@ -21,6 +26,8 @@ import io.github.alalkipgen.autoflow.ui.settings.FakePicker
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Shell
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -31,7 +38,8 @@ import kotlin.test.assertEquals
 
 /**
  * P9-G1a (#286): a project card draws its thumbnail's frame as the card art (DESIGN.md §9.10) also when the frame is
- * already in memory — coming back to Projects showed the frames in the thumbnails but left most cards untinted.
+ * already in memory — coming back to Projects showed the frames in the thumbnails but left most cards untinted. Its
+ * captions are then MutedOnArt; a card without a frame keeps Muted.
  */
 @OptIn(ExperimentalTestApi::class)
 class ProjectCardArtTest {
@@ -41,6 +49,9 @@ class ProjectCardArtTest {
     private val projects = colours.indices.map { i ->
         val dir = File(root, "p$i.autoflow").path
         dir to (ProjectStore(fs).create(dir, "Project $i", Mode.SUBTITLES) as CoreResult.Ok).value
+    }
+    private val plain = File(root, "plain.autoflow").path.let { dir ->
+        dir to (ProjectStore(fs).create(dir, "Plain", Mode.SUBTITLES) as CoreResult.Ok).value
     }
     private val sources = projects.associate { (dir, _) ->
         dir to MediaThumbnails.Source(dir, File(dir, "cover.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }.path)
@@ -61,11 +72,11 @@ class ProjectCardArtTest {
 
     @Test fun everyCardWithAFrameDrawsItAsArtAlsoWhenTheFrameIsAlreadyInMemory() {
         val index = ProjectIndex(fs, File(root, "index.json").path)
-        projects.forEach { (dir, project) -> index.record(dir, project) }
+        (listOf(plain) + projects).forEach { (dir, project) -> index.record(dir, project) }
         val model = DashboardModel(fs, ProjectStore(fs), index, SettingsStore(fs, File(root, "settings.json").path), FakePicker(), CurrentProject())
         // The first screen makes the frames; the second (a new screen, as after a tab switch) gets them from memory.
         listOf("made", "from memory").forEach { pass ->
-            runDesktopComposeUiTest(width = 720, height = 1520) {
+            runDesktopComposeUiTest(width = 720, height = 2000) {
                 setContent {
                     CompositionLocalProvider(LocalCompact provides true, LocalDensity provides Density(2f, 1f),
                         LocalMediaThumbnails provides thumbs) {
@@ -79,6 +90,13 @@ class ProjectCardArtTest {
                 }
                 waitForIdle()
                 assertEquals(projects.size, onAllNodesWithTag("glass-art", useUnmergedTree = true).fetchSemanticsNodes().size, pass)
+                fun captions(name: String) = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and
+                    hasAnyAncestor(hasTestTag("project-row-$name")), useUnmergedTree = true).fetchSemanticsNodes().mapNotNull { node ->
+                    mutableListOf<TextLayoutResult>().also { node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(it) }
+                        .firstOrNull()?.layoutInput?.style?.color?.takeIf { it == AutoFlowColors.Muted || it == GlassColors.MutedOnArt }
+                }
+                projects.forEach { (_, project) -> assertEquals(setOf(GlassColors.MutedOnArt), captions(project.name).toSet(), "${project.name} $pass") }
+                assertEquals(setOf(AutoFlowColors.Muted), captions("Plain").toSet(), "Plain $pass")
             }
         }
     }

@@ -47,10 +47,17 @@ object GlassColors {
     val FlatFill = Color.White.copy(alpha = .03f)
     val FlatBorder = Color.White.copy(alpha = .14f)
 
-    // Thumbnail tint: the card's own frame, blurred, at .42 under a Base .15 → .55 horizontal overlay.
+    // Thumbnail tint: the card's own frame, blurred, at .42 under a Base .15 → .65 horizontal overlay (the end was .55;
+    // raised on #286, as the owner asked, so MutedOnArt captions keep 4.5:1 over a near-white frame).
     const val ThumbAlpha = .42f
     val ThumbOverlayStart = Base.copy(alpha = .15f)
-    val ThumbOverlayEnd = Base.copy(alpha = .55f)
+    val ThumbOverlayEnd = Base.copy(alpha = .65f)
+
+    /**
+     * Muted (caption) text on a card drawn with its thumbnail's frame (owner decision on #286, option b): the frame can
+     * be bright, so these captions are lighter than [AutoFlowColors.Muted], which stays everywhere else.
+     */
+    val MutedOnArt = Color(0xFFC4CBDD)
 
     /** Colour tint alphas per surface. */
     const val TintProjects = .25f

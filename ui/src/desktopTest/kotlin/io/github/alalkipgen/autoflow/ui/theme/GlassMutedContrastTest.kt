@@ -28,6 +28,7 @@ import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.GlassScenes
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.GlassCard
+import io.github.alalkipgen.autoflow.ui.components.glassCaptionColour
 import io.github.alalkipgen.autoflow.ui.components.glassColour
 import io.github.alalkipgen.autoflow.ui.glassScenePng
 import io.github.alalkipgen.autoflow.ui.mutedTextContrast
@@ -36,9 +37,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Owner decision for #286: Muted = `#A9B2CB` on every screen. Muted captions on glass cards, measured on the real
- * pixels (360 dp phone, density 2, font 1.0 and 2.0) with the caption where the screens put it — beside the leading
- * tile or thumbnail, under the title. AA = 4.5:1; at font 2.0 a 12.5 sp caption is 25 px, WCAG "large text" (3:1).
+ * Owner decisions for #286: Muted = `#A9B2CB` on every screen; on a card drawn with its thumbnail's frame the captions
+ * are [GlassColors.MutedOnArt] `#C4CBDD` ([glassCaptionColour]). Captions on glass cards, measured on the real pixels
+ * (360 dp phone, density 2, font 1.0 and 2.0) with the caption where the screens put it — beside the leading tile or
+ * thumbnail, under the title. AA = 4.5:1; at font 2.0 a 12.5 sp caption is 25 px, WCAG "large text" (3:1).
  */
 @OptIn(ExperimentalTestApi::class)
 class GlassMutedContrastTest {
@@ -48,7 +50,7 @@ class GlassMutedContrastTest {
 
     /** A card like a Projects row: leading box (40 dp tile or 100 × 62 thumbnail), title, chip-row gap, Muted caption. */
     @Composable
-    private fun CaptionCard(font: Float, lead: Boolean, card: @Composable (@Composable () -> Unit) -> Unit) =
+    private fun CaptionCard(font: Float, lead: Boolean, caption: Color, card: @Composable (@Composable () -> Unit) -> Unit) =
         CompositionLocalProvider(LocalDensity provides Density(2f, font), LocalUiFontFamily provides BurmeseTestFont.family) {
             Box(Modifier.fillMaxSize().background(GlassColors.Base).padding(12.dp)) {
                 card {
@@ -56,7 +58,7 @@ class GlassMutedContrastTest {
                         Column {
                             AfText("Bagan Vlog", type = AfType.CardTitle)
                             Spacer(Modifier.height(36.dp))
-                            AfText("5 h ago · 16:9", color = AutoFlowColors.Muted, type = AfType.Caption)
+                            AfText("5 h ago · 16:9", color = caption, type = AfType.Caption)
                         }
                     }
                     if (font > 1f) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { Box(Modifier.size(100.dp, if (lead) 62.dp else 40.dp)); text() }
@@ -65,10 +67,11 @@ class GlassMutedContrastTest {
             }
         }
 
-    private fun measure(font: Float, lead: Boolean, card: @Composable (@Composable () -> Unit) -> Unit): Double {
+    private fun measure(font: Float, lead: Boolean, caption: Color = AutoFlowColors.Muted,
+        card: @Composable (@Composable () -> Unit) -> Unit): Double {
         var ratio = 0.0
         runDesktopComposeUiTest(width = 720, height = 640) {
-            setContent { CaptionCard(font, lead, card) }
+            setContent { CaptionCard(font, lead, caption, card) }
             waitForIdle()
             val found = mutedTextContrast(onAllNodes(isRoot())[0].captureToImage().toAwtImage())
             assertEquals(1, found.size, "one Muted caption")
@@ -78,6 +81,11 @@ class GlassMutedContrastTest {
     }
 
     private fun scene(name: String): ImageBitmap = org.jetbrains.skia.Image.makeFromEncoded(glassScenePng(name)).toComposeImageBitmap()
+
+    /** The worst case: a near-white frame (#F5F5F5). */
+    private fun nearWhite(): ImageBitmap = java.awt.image.BufferedImage(320, 200, java.awt.image.BufferedImage.TYPE_INT_RGB).apply {
+        createGraphics().apply { color = java.awt.Color(0xF5F5F5); fillRect(0, 0, 320, 200); dispose() }
+    }.toComposeImageBitmap()
 
     @Test fun mutedCaptionIsAaOnPlainAndEveryTintedGlassCard() = listOf(1f, 2f).forEach { font ->
         val plain = measure(font, lead = false) { content -> GlassCard { content() } }
@@ -91,16 +99,23 @@ class GlassMutedContrastTest {
     }
 
     /**
-     * Thumbnail-tinted cards (the card's own frame, blurred, at .42 — kept as the owner asked): the five demo frames.
-     * Large text (font 2.0) must keep 3:1; normal text is reported against 4.5:1 (bright frames stay below — owner
-     * decision pending in #286).
+     * Cards drawn with their thumbnail's frame (blurred, at .42 under the Base overlay) use [glassCaptionColour] =
+     * MutedOnArt: ≥ 4.5:1 at font 1.0 over the five demo frames (Bagan is the brightest) and a near-white frame; at
+     * font 2.0 (large text, the caption under the thumbnail at the card's lighter start) ≥ 3:1.
      */
-    @Test fun mutedCaptionOnThumbnailTintedCards() {
-        val rows = GlassScenes.flatMap { name ->
-            val art = scene(name)
-            listOf(1f, 2f).map { font -> Triple(name, font, measure(font, lead = true) { content -> GlassCard(thumbnail = art) { content() } }) }
+    @Test fun captionOnThumbnailCardsIsAaAtFontOne() {
+        val frames = GlassScenes.map { it to scene(it) } + ("near-white" to nearWhite())
+        val rows = frames.flatMap { (name, art) ->
+            assertEquals(GlassColors.MutedOnArt, glassCaptionColour(art))
+            listOf(1f, 2f).map { font ->
+                Triple(name, font, measure(font, lead = true, caption = glassCaptionColour(art)) { content -> GlassCard(thumbnail = art) { content() } })
+            }
         }
         println(rows.joinToString("\n") { (n, f, r) -> "thumbnail $n font $f: ${"%.2f".format(r)}:1" })
-        rows.filter { it.second > 1f }.forEach { (n, _, r) -> assertTrue(r >= 3.0, "thumbnail $n, font 2.0 (large text): ${"%.2f".format(r)}:1") }
+        rows.forEach { (n, f, r) ->
+            val need = if (f > 1f) 3.0 else 4.5
+            assertTrue(r >= need, "thumbnail $n, font $f: ${"%.2f".format(r)}:1 (needs $need)")
+        }
+        assertEquals(AutoFlowColors.Muted, glassCaptionColour(null))
     }
 }

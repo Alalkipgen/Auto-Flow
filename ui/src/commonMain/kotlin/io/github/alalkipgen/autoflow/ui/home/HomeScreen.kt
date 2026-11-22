@@ -202,7 +202,7 @@ private fun ContinueCard(entry: ProjectEntry, step: String?, onOpen: (String) ->
         Column(m, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
             AfText(entry.name, Modifier.semantics { contentDescription = entry.name }, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
             GlassModeChip(entry.mode, Modifier.testTag("home-mode-${entry.mode.name}"))
-            step?.let { AfText(My.breakSyllables(it), Modifier.testTag("home-continue-step"), color = AutoFlowColors.Muted, type = AfType.Caption) }
+            step?.let { AfText(My.breakSyllables(it), Modifier.testTag("home-continue-step"), color = glassCaptionColour(art), type = AfType.Caption) }
             if (entry.totalShots > 0) GlassProgress(entry.acceptedShots.coerceIn(0, entry.totalShots) / entry.totalShots.toFloat())
         }
     }
@@ -258,7 +258,7 @@ private fun ContinueRow(entries: List<ProjectEntry>, step: String?, onOpen: (Str
                         AfText(entry.name, Modifier.semantics { contentDescription = entry.name }, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
                         GlassModeChip(entry.mode, if (i == 0) Modifier.testTag("home-mode-${entry.mode.name}") else Modifier)
                         if (i == 0) step?.let {
-                            AfText(My.breakSyllables(it), Modifier.testTag("home-continue-step"), color = AutoFlowColors.Muted, type = AfType.Caption)
+                            AfText(My.breakSyllables(it), Modifier.testTag("home-continue-step"), color = glassCaptionColour(art), type = AfType.Caption)
                         }
                         if (entry.totalShots > 0) GlassProgress(entry.acceptedShots.coerceIn(0, entry.totalShots) / entry.totalShots.toFloat())
                     }
