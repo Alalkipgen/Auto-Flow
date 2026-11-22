@@ -6,8 +6,9 @@ import kotlin.test.assertEquals
 
 /** DESIGN.md §9.1 rule 6: app colours live in the theme; `Color(0x…)` elsewhere only on the allow-list below. */
 class ColourLiteralScanTest {
-    /** These turn a user's `#RRGGBB` caption/layer colour into a Color; they hold no app colour. */
+    /** These turn a user's `#RRGGBB` caption/layer/Brand Kit colour into a Color; they hold no app colour. */
     private val allowed = setOf(
+        "ui/src/commonMain/kotlin/io/github/alalkipgen/autoflow/ui/library/LibraryScreen.kt",
         "ui/src/commonMain/kotlin/io/github/alalkipgen/autoflow/ui/recap/NativeFramePainter.kt",
         "ui/src/commonMain/kotlin/io/github/alalkipgen/autoflow/ui/recap/RecapPictureControls.kt",
     )

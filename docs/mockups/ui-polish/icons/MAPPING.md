@@ -68,3 +68,7 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `speakerx` | `speaker-slash` | Muted |
 | `archive` | `archive` | Backup, archive |
 | `user` | `user` | Voice gender / speaker (no account UI, D-06) |
+| `usersound` | `user-sound` | Saved voice (Library) |
+| `textaa` | `text-aa` | Font (Library) |
+| `palette` | `palette` | Style preset (Library) |
+| `swatches` | `swatches` | Brand Kit without colours (Library) |

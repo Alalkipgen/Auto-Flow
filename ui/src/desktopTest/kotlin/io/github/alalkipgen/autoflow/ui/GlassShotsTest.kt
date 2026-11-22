@@ -17,6 +17,16 @@ import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.AiRunTiming
+import io.github.alalkipgen.autoflow.core.recap.LexiconEntry
+import io.github.alalkipgen.autoflow.core.recap.VoiceLock
+import io.github.alalkipgen.autoflow.core.library.BrandKit
+import io.github.alalkipgen.autoflow.core.library.FontItem
+import io.github.alalkipgen.autoflow.core.library.Library
+import io.github.alalkipgen.autoflow.core.library.LibraryStore
+import io.github.alalkipgen.autoflow.core.library.MusicItem
+import io.github.alalkipgen.autoflow.core.library.Preset
+import io.github.alalkipgen.autoflow.core.library.PresetKind
+import io.github.alalkipgen.autoflow.core.library.SavedVoice
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderState
@@ -41,12 +51,15 @@ import io.github.alalkipgen.autoflow.ui.jobs.JobsActions
 import io.github.alalkipgen.autoflow.ui.jobs.JobsScreen
 import io.github.alalkipgen.autoflow.ui.jobs.jobRows
 import io.github.alalkipgen.autoflow.ui.jobs.jobsBadgeValue
+import io.github.alalkipgen.autoflow.ui.library.LibraryModel
+import io.github.alalkipgen.autoflow.ui.library.LibraryScreen
 import io.github.alalkipgen.autoflow.ui.media.MediaThumbnails
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardModel
 import io.github.alalkipgen.autoflow.ui.projects.DashboardScreen
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
+import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.settings.FakePicker
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest
@@ -260,6 +273,34 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
                     DashboardScreen(model, {}, clock = clock, jobs = rows, thumbSource = f.thumbSource)
                 }
             }
+        }
+    }
+
+    /** Library: the v4 demo library (two brand kits, two voices, five lexicon entries, two tracks, one font, two presets). */
+    @Test fun library() {
+        if (out == null) return
+        val f = Fixture(); val rows = f.rows()
+        val library = Library(
+            brandKits = listOf(
+                BrandKit("kit-studio", "Auto Flow Studio", watermark = "files/logo-white.png", colours = listOf("#7C3AED", "#22D3EE", "#F59E0B"),
+                    captionStyle = "{}"),
+                BrandKit("kit-own", "ကိုယ်ပိုင် Brand Kit", colours = listOf("#E11D48", "#FFFFFF"), captionStyle = "{}"),
+            ),
+            voices = listOf(
+                SavedVoice("kore", "Kore", VoiceLock("gemini", "gemini-2.5-flash-preview-tts", "Kore", "my")),
+                SavedVoice("thiha", "Thiha", VoiceLock("edge", "edge-tts", "my-MM-ThihaNeural", "my")),
+            ),
+            lexicon = listOf("AI" to "အေအိုင်", "Gemini" to "ဂျယ်မီနိုင်", "Netflix" to "နက်ဖလစ်", "km" to "ကီလိုမီတာ", "Dr." to "ဒေါက်တာ")
+                .map { (w, s) -> LexiconEntry(w, s) },
+            music = listOf(MusicItem("lofi", "Lo-fi Rain", file = "files/lofi-rain.m4a", durationMs = 134_000),
+                MusicItem("epic", "Epic Trailer Rise", file = "files/epic-trailer-rise.m4a", durationMs = 108_000)),
+            fonts = listOf(FontItem("sagar", "Myanmar Sagar", file = "files/MyanmarSagar.ttf")),
+            presets = listOf(Preset("yellow", "အဝါ စာတန်း ကြီး", PresetKind.CAPTION), Preset("yt1080", "YouTube 1080p", PresetKind.EXPORT)),
+        )
+        val store = LibraryStore(fs, File(root, "library-${System.nanoTime()}").apply { mkdirs() }.path).apply { save(library) }
+        val model = LibraryModel(store, ProjectSession(fs, f.store, f.index, CurrentProject()), scope, fs)
+        shot("3-library", 0) {
+            StudioV2Shell(StudioV2Dest.LIBRARY, {}, jobsBadgeValue(rows), WIDTH.toFloat(), ambient = true) { LibraryScreen(model) }
         }
     }
 

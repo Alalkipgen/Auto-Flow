@@ -25,7 +25,7 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiLanguage, val bundled: Boolean) {
     companion object { @JvmStatic @Parameterized.Parameters(name = "{0}px/{1}/{2}/bundled={3}") fun cases() = StudioVoiceLayoutTest.cases() }
-    @Test fun sectionJumpsDraftsVisibleActionsConfirmCancelCopyAndLocaleNoticesRetainProjectBytes() =
+    @Test fun sectionFiltersDraftsVisibleActionsConfirmCancelCopyAndLocaleNoticesRetainProjectBytes() =
         runDesktopComposeUiTest(width = width, height = if (width == 1440) 900 else 760) {
             LibraryTestFixture().use { f ->
                 val before = LibraryTestFixture.bytes(File(f.a.dir)); val bBefore = LibraryTestFixture.bytes(File(f.b.dir))
@@ -41,8 +41,12 @@ class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiL
                     .performMouseInput { moveTo(center); click(); exit() }
                 fun text(key: UiText) = onNodeWithText(key.text(locale)).performScrollTo().assertIsDisplayed()
                 fun clickText(key: UiText) = text(key).performMouseInput { moveTo(center); click(); exit() }
-                fun collapseKits() = onNodeWithContentDescription(UiText.LIBRARY_KITS.text(locale, "size" to 1))
-                    .performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+                // performScrollTo scrolls only the nearest scroller (the chip row): bring the row into view first.
+                fun chip(key: UiText) = onNodeWithTag("library-categories").performScrollTo().let {
+                    onNode(hasText(key.text(locale)) and hasAnyAncestor(hasTestTag("library-categories")))
+                        .performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+                }
+                val tags = listOf("library-kits", "library-voices", "library-lexicon", "library-music", "library-fonts", "library-presets")
                 val images = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "library").apply { mkdirs() }
                 fun capture(name: String) {
                     assertEquals(emptyList(), textFitProblems(width, font))
@@ -51,13 +55,21 @@ class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiL
                 onNodeWithTag("library-heading").assertIsDisplayed(); capture("library-top")
                 listOf(UiText.V3_LIBRARY_KITS to UiText.LIBRARY_KITS, UiText.V3_LIBRARY_VOICES to UiText.LIBRARY_VOICES,
                     UiText.V3_LIBRARY_LEXICON to UiText.LIBRARY_LEXICON, UiText.V3_LIBRARY_MUSIC to UiText.LIBRARY_MUSIC,
-                    UiText.V3_LIBRARY_FONTS to UiText.LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS to UiText.LIBRARY_PRESETS).forEach { (chip, header) ->
-                    clickText(chip)
-                    onNodeWithText(header.text(locale, "size" to if (header == UiText.LIBRARY_PRESETS) 3 else 1)).assertIsDisplayed()
-                    assertEquals(emptyList(), textFitProblems(width, font), chip.name)
+                    UiText.V3_LIBRARY_FONTS to UiText.LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS to UiText.LIBRARY_PRESETS).forEachIndexed { i, (key, header) ->
+                    // A chip shows only its section.
+                    chip(key)
+                    onNodeWithText(My.breakSyllables(header.text(locale, "size" to if (header == UiText.LIBRARY_PRESETS) 3 else 1))).assertIsDisplayed()
+                    tags.forEachIndexed { j, tag -> if (j == i) onNodeWithTag(tag).assertExists() else onNodeWithTag(tag).assertDoesNotExist() }
+                    assertEquals(emptyList(), textFitProblems(width, font), key.name)
                 }
-                onNodeWithTag("library-apply-preset-style").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
-                onNodeWithTag("library-apply-preset-export").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+                chip(UiText.PROJECTS_FILTER_ALL)
+                tags.forEach { onNodeWithTag(it).assertExists() }
+                // Style / export presets: a Planned chip instead of a disabled Apply.
+                onNodeWithTag("library-apply-preset-style").assertDoesNotExist()
+                onNodeWithTag("library-apply-preset-export").assertDoesNotExist()
+                listOf("style", "export").forEach { id ->
+                    onNode(hasTestTag("status-PLANNED") and hasAnyAncestor(hasTestTag("library-preset-$id"))).performScrollTo().assertIsDisplayed()
+                }
                 onNodeWithTag("library-apply-preset-caption").performScrollTo().assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("library-apply-voice-voice").performScrollTo().assertIsDisplayed().assertIsEnabled()
                 clickText(UiText.LIBRARY_SAVE_KIT)
@@ -66,7 +78,8 @@ class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiL
                 onNodeWithContentDescription(name).assertExists()
                 text(UiText.SAVE).assertIsNotEnabled()
                 onNodeWithContentDescription(name).performScrollTo().performTextInput("QA retained draft")
-                collapseKits(); collapseKits()
+                // Showing another section and then all of them keeps the draft.
+                chip(UiText.V3_LIBRARY_VOICES); onNodeWithContentDescription(name).assertDoesNotExist(); chip(UiText.PROJECTS_FILTER_ALL)
                 onNodeWithContentDescription(name).performScrollTo().assertTextContains("QA retained draft")
                 clickText(UiText.CANCEL)
                 val card = onNodeWithTag("library-kit-kit")

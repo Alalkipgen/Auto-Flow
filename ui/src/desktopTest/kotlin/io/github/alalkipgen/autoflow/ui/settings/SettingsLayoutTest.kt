@@ -99,7 +99,7 @@ class SettingsLayoutTest(val width: Int, val font: Float, val language: UiLangua
             capture("10-settings")
             onNodeWithTag("settings-lexicon").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             waitForIdle()
-            onNodeWithText(UiText.LIBRARY_LEXICON.text(language, "size" to 0)).assertIsDisplayed()
+            onNodeWithText(My.breakSyllables(UiText.LIBRARY_LEXICON.text(language, "size" to 0))).assertIsDisplayed()
             assertContentEquals(before, File(fixture.dir, "project.json").readBytes(), "Settings/Library browse must not save project")
         } finally { scope.cancel() }
     }

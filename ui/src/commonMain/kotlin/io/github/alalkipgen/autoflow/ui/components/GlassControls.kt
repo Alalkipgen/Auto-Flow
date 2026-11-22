@@ -533,3 +533,79 @@ fun Modifier.glassThumb(): Modifier {
     return shadow(GlassShapes.ThumbShadow, shape, ambientColor = GlassColors.ThumbShadow, spotColor = GlassColors.ThumbShadow)
         .border(1.dp, GlassColors.ThumbBorder, shape)
 }
+
+/** 1 dp White .08 divider between glass list rows, inset 58 at the start (past the row tile) and 12 at the end. */
+@Composable
+fun GlassListDivider() {
+    Box(Modifier.padding(start = GlassShapes.DividerStart, end = GlassShapes.DividerEnd).fillMaxWidth().height(1.dp).background(GlassColors.Divider))
+}
+
+/**
+ * A glass list (Library sections): one glass card (padding 4 × 0, gap 0) tinted with [tint] at [tintAlpha], its
+ * [items] as rows separated by [GlassListDivider]s; [id] keys each row.
+ */
+@Composable
+fun <T> GlassList(items: List<T>, tint: Color, id: (T) -> Any, modifier: Modifier = Modifier, tintAlpha: Float = GlassColors.TintLibrary,
+    row: @Composable (T) -> Unit) {
+    GlassCard(modifier, tint = tint, tintAlpha = tintAlpha, padding = PaddingValues(vertical = GlassShapes.ListPaddingY), gap = 0.dp) {
+        items.forEachIndexed { i, item ->
+            androidx.compose.runtime.key(id(item)) {
+                if (i > 0) GlassListDivider()
+                row(item)
+            }
+        }
+    }
+}
+
+/**
+ * A glass list row (min 52, padding 12 × 6, gap 12): [leading] (a 34 dp tile), the [title] on one line (ellipsized,
+ * the full title as its description) over an optional [subtitle] caption that wraps, then [trailing] (a small button
+ * or chip). The trailing control moves under the text when the text beside it would be narrower than
+ * [AfSize.TileCardMin] × the font scale (font 2.0, long Burmese labels), so nothing is squeezed or clipped.
+ */
+@Composable
+fun GlassListRow(title: String, modifier: Modifier = Modifier, subtitle: String? = null, leading: @Composable () -> Unit,
+    trailing: (@Composable () -> Unit)? = null) {
+    val minText = AfSize.TileCardMin * LocalDensity.current.fontScale
+    Layout(
+        contents = listOf(leading, {
+            Column {
+                AfText(title, Modifier.semantics { contentDescription = title }, type = AfType.RowTitle, maxLines = 1, ellipsis = true)
+                subtitle?.let { AfText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(it), color = AutoFlowColors.Muted, type = AfType.Caption) }
+            }
+        }, trailing ?: {}),
+        modifier = modifier.fillMaxWidth().heightIn(min = GlassShapes.ListRowMin)
+            .padding(horizontal = GlassShapes.ListRowPadX, vertical = GlassShapes.ListRowPadY),
+    ) { (leadM, textM, trailM), constraints ->
+        val gap = GlassShapes.ListRowGap.roundToPx()
+        val width = constraints.maxWidth
+        val lead = leadM.map { it.measure(Constraints(maxWidth = width)) }
+        val leadW = lead.maxOfOrNull { it.width } ?: 0
+        val textMax = (width - leadW - gap).coerceAtLeast(0)
+        val trailWant = trailM.maxOfOrNull { it.maxIntrinsicWidth(Constraints.Infinity) } ?: 0
+        val beside = trailM.isEmpty() || textMax - gap - trailWant >= minText.roundToPx()
+        val trail = trailM.map { it.measure(Constraints(maxWidth = if (beside) trailWant.coerceAtMost(textMax) else textMax)) }
+        val trailW = trail.maxOfOrNull { it.width } ?: 0
+        val textW = if (beside && trail.isNotEmpty()) (textMax - gap - trailW).coerceAtLeast(0) else textMax
+        val text = textM.map { it.measure(Constraints(minWidth = textW, maxWidth = textW)) }
+        val leadH = lead.maxOfOrNull { it.height } ?: 0
+        val textH = text.maxOfOrNull { it.height } ?: 0
+        val trailH = trail.maxOfOrNull { it.height } ?: 0
+        val under = AfSpace.S.roundToPx()
+        val contentH = if (beside) maxOf(leadH, textH, trailH) else maxOf(leadH, textH + under + trailH)
+        val height = contentH.coerceIn(constraints.minHeight, constraints.maxHeight)
+        layout(width, height) {
+            val textX = leadW + gap
+            if (beside) {
+                lead.forEach { it.place(0, (height - it.height) / 2) }
+                text.forEach { it.place(textX, (height - it.height) / 2) }
+                trail.forEach { it.place(width - it.width, (height - it.height) / 2) }
+            } else {
+                val top = (height - contentH) / 2
+                lead.forEach { it.place(0, top) }
+                text.forEach { it.place(textX, top) }
+                trail.forEach { it.place(textX, top + textH + under) }
+            }
+        }
+    }
+}

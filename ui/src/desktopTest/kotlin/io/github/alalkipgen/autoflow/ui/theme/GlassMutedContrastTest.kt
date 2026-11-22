@@ -44,9 +44,11 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalTestApi::class)
 class GlassMutedContrastTest {
-    /** Every card tint at its strongest alpha: the mode colours (Projects .25; tiles, Library, Lexicon are weaker) and the job attention tones (.22). */
+    /** Every card tint at its strongest alpha: the mode colours (Projects .25; tiles and Lexicon are weaker), the job attention tones (.22) and the Library list tints (.18). */
     private val tints: List<Pair<Color, Float>> = Mode.entries.map { it.glassColour to GlassColors.TintProjects } +
-        listOf(Tone.Warning, Tone.Error, Tone.Info, Tone.Running, Tone.Success, Tone.Primary).map { it.fill to GlassColors.TintJobs }
+        listOf(Tone.Warning, Tone.Error, Tone.Info, Tone.Running, Tone.Success, Tone.Primary).map { it.fill to GlassColors.TintJobs } +
+        listOf(GlassColors.LibraryKits, GlassColors.LibraryVoices, GlassColors.LibraryMusic, GlassColors.LibraryFonts,
+            GlassColors.LibraryPresets).map { it to GlassColors.TintLibrary }
 
     /** A card like a Projects row: leading box (40 dp tile or 100 × 62 thumbnail), title, chip-row gap, Muted caption. */
     @Composable

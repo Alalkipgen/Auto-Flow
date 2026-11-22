@@ -114,7 +114,7 @@ enum class UiText(val en: String, val my: String?) {
     STYLE_COMMENTARY("Commentary", "မှတ်ချက်ပေး"),
     LIBRARY_COPY_HINT("{APPLY} copies into the current project. Projects never depend on the original Library file.", "{APPLY} = လက်ရှိ project ထဲကို ကူးထည့်တယ်။ Project တွေက စာကြည့်တိုက်ထဲက ဖိုင်ကို တိုက်ရိုက် မသုံးပါ။"),
     LIBRARY_KITS("Brand Kits ({size})", "Brand Kit များ ({size})"),
-    LIBRARY_SAVE_KIT("💼 Save current project as Brand Kit…", "💼 လက်ရှိ project ကို Brand Kit အဖြစ် သိမ်းမယ်…"),
+    LIBRARY_SAVE_KIT("Save current project as Brand Kit…", "လက်ရှိ project ကို Brand Kit အဖြစ် သိမ်းမယ်…"),
     LIBRARY_KIT_NAME("Brand Kit name", "Brand Kit အမည်"),
     LIBRARY_KITS_EMPTY("No Brand Kits saved. Use the button above to save the current project settings.", "Brand Kit မသိမ်းရသေးပါ။ အပေါ်က ခလုတ်နဲ့ လက်ရှိ project ရဲ့ ဆက်တင်တွေကို သိမ်းပါ။"),
     LIBRARY_DELETE_KIT("Delete \"{name}\"?", "\"{name}\" ကို ဖျက်မလား?"),

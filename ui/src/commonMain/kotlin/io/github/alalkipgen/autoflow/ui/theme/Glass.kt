@@ -119,6 +119,18 @@ object GlassColors {
     val Voice = Color(0xFF22D3EE)
     val Dubbing = Color(0xFFF59E0B)
 
+    // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
+    val LibraryKits = Color(0xFF8B5CF6)
+    val LibraryVoices = Color(0xFFA78BFA)
+    val LibraryMusic = Color(0xFF2DD4BF)
+    val LibraryFonts = Color(0xFFF59E0B)
+    val LibraryPresets = Color(0xFF22D3EE)
+    /** A Brand Kit swatch's 1 dp border. */
+    val SwatchBorder = Color.White.copy(alpha = .18f)
+    /** Lexicon entry: White .04 row fill; the spoken form in lavender. */
+    val LexiconRowFill = Color.White.copy(alpha = .04f)
+    val LexiconSpoken = Color(0xFFC6B8FF)
+
     /**
      * Dialogs ([io.github.alalkipgen.autoflow.ui.components.GlassDialog], Projects dialogs README §1): scrim Base
      * `#04060E` .66; surface `#141B33` .97 under a 160° White .07 → .02 (55 %) gradient, 1 dp White .12 border with a
@@ -165,6 +177,19 @@ object GlassShapes {
     val ThumbShadow = 4.dp
     val DividerStart = 58.dp
     val DividerEnd = 12.dp
+
+    /** Glass list (Library): card padding 4 × 0; rows min 52, padding 12 × 6, gap 12, 34 dp leading tile. */
+    val ListPaddingY = 4.dp
+    val ListRowMin = 52.dp
+    val ListRowPadX = 12.dp
+    val ListRowPadY = 6.dp
+    val ListRowGap = 12.dp
+    val ListTile = 34.dp
+    /** Lexicon card padding 10, entries gap 6; entry radius 10, padding 6 × 4, written column 84 (× font scale). */
+    val LexiconPadding = 10.dp
+    val LexiconGap = 6.dp
+    val LexiconRow = RoundedCornerShape(10.dp)
+    val LexiconWritten = 84.dp
 
     /** Dialogs: width min(screen − 2 × margin, 400), radius 22, padding 20, gap 14, 44 dp header tile, shadow 24. */
     val Dialog = RoundedCornerShape(22.dp)
