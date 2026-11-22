@@ -131,8 +131,8 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
         }
         val index = ProjectIndex(fs, indexPath, clock)
         val scenes = File(root, "scenes").apply { mkdirs() }.also { dir ->
-            listOf("dune", "kfp", "inter", "lesson", "bagan").forEach { k ->
-                File(dir, "$k.png").writeBytes(scenePng(k))
+            GlassScenes.forEach { k ->
+                File(dir, "$k.png").writeBytes(glassScenePng(k))
             }
         }
         val settings = SettingsStore(fs, File(root, "settings.json").path)
@@ -181,8 +181,9 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
     }
 
     /**
-     * Two passes: the first measures the screen's scroll range at 760 dp, the second draws it at the full height, waits
-     * for [frames] real thumbnails and writes the PNG.
+     * Three passes: the first measures the screen's scroll range at 760 dp, the second draws it at the full height, waits
+     * for [frames] real thumbnails and writes the PNG (and its Muted-text contrast report), the third writes one phone
+     * screen.
      */
     private fun shot(name: String, frames: Int, content: @Composable () -> Unit) {
         val dir = out ?: return
@@ -203,8 +204,26 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
             waitUntil(timeoutMillis = 60_000) { onAllNodesWithTag("media-thumb-image", useUnmergedTree = true).fetchSemanticsNodes().size >= frames }
             waitForIdle()
             val file = File(dir, "${language.code()}/$name-$font.png").apply { parentFile.mkdirs() }
-            ImageIO.write(onAllNodes(isRoot())[0].captureToImage().toAwtImage(), "png", file)
+            val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+            ImageIO.write(image, "png", file)
+            File(dir, "${language.code()}/$name-$font-muted.txt").writeText(
+                mutedTextContrast(image).sortedBy { it.first }.joinToString("\n") { "%.2f  %s".format(it.first, it.second) })
             assertEquals(emptyList(), textFitProblems((WIDTH * SCALE).toInt(), font, strict = true), "$name ${language.code()} $font")
+        }
+        // Third pass: one phone screen (360 × 760 dp, nav at the bottom), once the visible frames are loaded.
+        runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = (HEIGHT * SCALE).toInt()) {
+            setContent { provide(content) }
+            var last = -1; var since = System.nanoTime()
+            waitUntil(timeoutMillis = 60_000) {
+                val n = onAllNodesWithTag("media-thumb-image", useUnmergedTree = true).fetchSemanticsNodes().size
+                if (n != last) { last = n; since = System.nanoTime() }
+                System.nanoTime() - since > 3_000_000_000 // no change for 3 s (a screen may show no frame at all)
+            }
+            waitForIdle()
+            val phone = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+            ImageIO.write(phone, "png", File(dir, "${language.code()}/$name-$font-phone.png"))
+            File(dir, "${language.code()}/$name-$font-phone-muted.txt").writeText(
+                mutedTextContrast(phone).sortedBy { it.first }.joinToString("\n") { "%.2f  %s".format(it.first, it.second) })
         }
     }
     private fun UiLanguage.code() = if (this == UiLanguage.BURMESE) "my" else "en"
@@ -271,14 +290,4 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
             }
         }
     }
-}
-
-/** The owner's demo frame [name] (Exact UI v4 `lib.js` scene, kept as SVG text) drawn 320 × 200 by Skia into a PNG. */
-private fun scenePng(name: String): ByteArray {
-    val svg = org.jetbrains.skia.svg.SVGDOM(org.jetbrains.skia.Data.makeFromBytes(
-        GlassShotsTest::class.java.getResourceAsStream("/glass-scenes/$name.svg")!!.readBytes()))
-    svg.setContainerSize(320f, 200f)
-    val surface = org.jetbrains.skia.Surface.makeRasterN32Premul(320, 200)
-    svg.render(surface.canvas)
-    return surface.makeImageSnapshot().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes
 }

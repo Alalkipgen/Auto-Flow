@@ -11,7 +11,8 @@ object AutoFlowColors {
     val Card = Color(0xFF1A2340)
     val Line = Color(0xFF263153)
     val Text = Color(0xFFE6EAF5)
-    val Muted = Color(0xFF8A94B3)
+    /** Secondary text and icons. Owner decision on #286: lighter for the glass cards (was #8A94B3); 8.16:1 on [Panel]. */
+    val Muted = Color(0xFFA9B2CB)
 
     /** Primary actions. */
     val Purple = Color(0xFF8B5CF6)

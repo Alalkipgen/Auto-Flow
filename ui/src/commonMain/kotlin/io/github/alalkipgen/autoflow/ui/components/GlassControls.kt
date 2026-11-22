@@ -228,7 +228,7 @@ fun GlassCard(
             }
             .interactionOverlay(interaction, shape),
     ) {
-        if (art) GlassArt(thumbnail!!, Modifier.matchParentSize())
+        if (art) GlassArt(thumbnail!!, Modifier.matchParentSize().testTag("glass-art"))
         Column(Modifier.fillMaxWidth().then(if (centred) Modifier.fillMaxHeight() else Modifier).padding(padding),
             verticalArrangement = Arrangement.spacedBy(gap, if (centred) Alignment.CenterVertically else Alignment.Top), content = content)
     }

@@ -40,7 +40,8 @@ val LocalMediaThumbnails = staticCompositionLocalOf<MediaThumbnails?> { null }
 
 /**
  * [source]'s real frame once the thumbnail is on screen (made off the main thread by [LocalMediaThumbnails]; released
- * off screen), else the placeholder — see the other overload.
+ * off screen), else the placeholder — see the other overload. [onImage] gets the current frame (or null) after every
+ * composition, so a glass card can draw it as its art.
  */
 @Composable
 fun MediaThumb(source: MediaThumbnails.Source?, icon: ImageVector, modifier: Modifier = Modifier, size: DpSize = AfSize.ThumbList,
@@ -52,7 +53,9 @@ fun MediaThumb(source: MediaThumbnails.Source?, icon: ImageVector, modifier: Mod
         value = null
         if (visible && thumbs != null && source != null) value = thumbs.load(source)
     }
-    if (onImage != null) LaunchedEffect(image) { onImage(image) }
+    // Reported after every composition (not from a keyed effect): a frame already in memory can arrive before the
+    // card's own state is (re)made, and a keyed effect then never reports it again — the card would stay untinted.
+    if (onImage != null) SideEffect { onImage(image) }
     MediaThumb(image, icon, modifier.onGloballyPositioned { visible = it.isAttached && !it.boundsInWindow().isEmpty }, size, durationMs, play,
         contentDescription, placeholderColour)
 }
