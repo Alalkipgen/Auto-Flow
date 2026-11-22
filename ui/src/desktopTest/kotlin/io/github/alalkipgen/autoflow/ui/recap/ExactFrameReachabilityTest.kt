@@ -76,7 +76,10 @@ class ExactFrameReachabilityTest(
             // performScrollTo traverses the real production scroll ancestors. No callback, semantics OnClick,
             // hidden-node action or oversized test viewport: the pointer must hit a displayed button.
             if (!classic) onNodeWithTag("block-select-0").performScrollTo().assertIsDisplayed().performMouseInput { click() }
-            onNodeWithText(UiText.EXACT_FRAME.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            // Group 2 A §1: on a phone the Exact frame is the top preview card's frame button (labelled for TalkBack).
+            (if (!classic && width < 840) onNodeWithTag("timeline-exact").assert(hasContentDescription(UiText.EXACT_FRAME.text(language)))
+                else onNodeWithText(UiText.EXACT_FRAME.text(language)))
+                .performScrollTo().assertIsDisplayed().performMouseInput { click() }
             val failure = onNodeWithText("ffmpeg was not found", substring = true)
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("ffmpeg was not found", substring = true).fetchSemanticsNodes().isNotEmpty() }
             failure.performScrollTo().assertIsDisplayed()

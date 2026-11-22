@@ -58,11 +58,27 @@ class StudioPreviewLayoutTest(val width: Int, val font: Float, val language: UiL
                     "pointer scrub requested=$ms actual=${model.previewSource.currentPosition()} width=$w bounds=${node.fetchSemanticsNode().boundsInRoot}")
             }
             scrub(500)
-            onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
-            onNodeWithTag("timeline-caption").performScrollTo().assertIsDisplayed().assertTextEquals("FIRST")
-            scrub(4500)
-            onNodeWithTag("timeline-caption").performScrollTo().assertIsDisplayed().assertTextEquals("SECOND")
-            onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.text(language)).performScrollTo().performMouseInput { click() }
+            if (width >= 840) {
+                onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+                onNodeWithTag("timeline-caption").performScrollTo().assertIsDisplayed().assertTextEquals("FIRST")
+                scrub(4500)
+                onNodeWithTag("timeline-caption").performScrollTo().assertIsDisplayed().assertTextEquals("SECOND")
+                onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.text(language)).performScrollTo().performMouseInput { click() }
+            } else {
+                // Group 2 D §2.2: on a phone the readouts open from ⋮ Diagnostics in a glass dialog, closed by its Close button.
+                fun diagnostics(caption: String) {
+                    onNodeWithTag("project-overflow").assertIsDisplayed().performMouseInput { click() }
+                    onNodeWithTag("recap-diagnostics").assertIsDisplayed().assertIsEnabled().performMouseInput { click() }
+                    onNodeWithTag("timeline-diagnostics").assertIsDisplayed()
+                    onNodeWithTag("timeline-caption").performScrollTo().assertIsDisplayed().assertTextEquals(caption)
+                    onNodeWithTag("recap-diagnostics-close").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+                    waitForIdle(); onNodeWithTag("timeline-diagnostics").assertDoesNotExist()
+                }
+                diagnostics("FIRST")
+                scrub(4500)
+                diagnostics("SECOND")
+                onNodeWithTag("timeline-diagnostics").assertDoesNotExist()
+            }
             onNodeWithTag("timeline-position").assertDoesNotExist()
             onNodeWithTag("timeline-play").performScrollTo().assertIsDisplayed()
             assertEquals(emptyList(), textFitProblems(width, font))
@@ -70,7 +86,10 @@ class StudioPreviewLayoutTest(val width: Int, val font: Float, val language: UiL
             onNodeWithTag("timeline-scrubber").assertIsDisplayed()
             val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "preview-controls").apply { mkdirs() }
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "04-preview-$width-${language.code}-$font-$bundled.png"))
-            onNodeWithText(UiText.EXACT_FRAME.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            // Group 2 A §1: on a phone the Exact frame is the top card's frame button.
+            (if (width >= 840) onNodeWithText(UiText.EXACT_FRAME.text(language))
+                else onNodeWithTag("timeline-exact").assert(hasContentDescription(UiText.EXACT_FRAME.text(language))))
+                .performScrollTo().assertIsDisplayed().performMouseInput { click() }
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("ffmpeg was not found", substring = true).fetchSemanticsNodes().isNotEmpty() }
             onNodeWithText("ffmpeg was not found", substring = true).performScrollTo().assertIsDisplayed()
             assertContentEquals(before, File(fixture.dir, "project.json").readBytes())

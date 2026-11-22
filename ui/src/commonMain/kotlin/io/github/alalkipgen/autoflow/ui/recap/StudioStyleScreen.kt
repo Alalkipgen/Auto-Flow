@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -44,10 +45,14 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
         RecapTimelinePreview(model, studio = true, editLayers = true)
         ExactFrameCard(model, enabled = !draft)
     }
+    val wide = windowWidthDp >= 840f
+    val diagnostics = remember(state.projectDir) { mutableStateOf(false) }
+    val diagnosticsAction = diagnosticsAction(model, state, diagnostics)
     key(state.projectDir) {
         Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
             navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 4, tr(UiText.STYLE), back,
-                steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, !draft, "classic-recap"))) }
+                steps = recapStepLabels(), options = listOfNotNull(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, !draft, "classic-recap", AfIcons.Regular.Swap),
+                    diagnosticsAction.takeIf { !wide })) }
             Box(Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("style-list"),
@@ -55,11 +60,13 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                 }, editor = {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(14.dp).testTag("style-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Phone / narrow window: the top preview (A §1) edits layers on the picture; Exact frame waits for Save.
+                        if (!wide) RecapTopPreview(model, diagnostics, editLayers = true, exactEnabled = !draft)
                         if (state.busy) StatusChip(StudioStatus.RUNNING)
                         state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
                         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
                             color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
-                        if (windowWidthDp < 840f) { preview(); sections() }
+                        if (!wide) sections()
                         if (draft) AfText(tr(UiText.V3_UNSAVED), color = AutoFlowColors.Amber)
                         if (!ready.allowed) ready.blockers.forEach { AfText(it.text(LocalUiLanguage.current), muted = true) }
                         else when (section) {
@@ -97,7 +104,7 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                 }, preview = {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("style-preview"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) { preview() }
-                })
+                }, previewPage = false)
             }
             StickyActionBar(StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.EXPORT)), onExport,
                 idle && render.allowed && !draft, "recap-next"),

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -55,9 +56,12 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
             }
         } }
     }
+    val diagnostics = remember(state.projectDir) { mutableStateOf(false) }
+    val diagnosticsAction = diagnosticsAction(model, state, diagnostics)
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 2, tr(UiText.STORY), back,
-            steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+            steps = recapStepLabels(), options = listOfNotNull(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap",
+                icon = AfIcons.Regular.Swap), diagnosticsAction.takeIf { !wide })) }
         RecapForegroundCards(model, state)
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
@@ -67,6 +71,8 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                 val scroll = key(state.projectDir, detail?.block?.id) { rememberScrollState() }
                 Column(Modifier.fillMaxSize().paneScroll(scroll).padding(14.dp).testTag("story-content"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Phone / narrow window: the top preview (A §1), at the open block, instead of a ▶ preview page.
+                    if (!wide) RecapTopPreview(model, diagnostics, blockId = detail?.block?.id)
                     if (state.job != null && state.scriptRunId == null) {
                         StatusChip(StudioStatus.RUNNING)
                         state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
@@ -82,7 +88,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                         }
                     } else key(detail.block.id) {
                         if (navigation == null) AfButton(tr(UiText.BACK), back)
-                        StudioVoiceDetail(model, state, detail, rows, false, showPreview = !wide) { selectedId = it }
+                        StudioVoiceDetail(model, state, detail, rows, false, showPreview = false) { selectedId = it }
                         StudioBlockVoiceAction(model, state, detail, inline = true)
                     }
                 }
@@ -93,7 +99,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                     ExactFrameCard(model)
                     AfText(My.breakSyllables(tr(UiText.V3_SHORTCUTS_HINT)), Modifier.testTag("shortcuts-hint"), muted = true)
                 }
-            })
+            }, previewPage = false)
         }
         StickyActionBar(
             if (approved && navigation != null) StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.VOICE)),

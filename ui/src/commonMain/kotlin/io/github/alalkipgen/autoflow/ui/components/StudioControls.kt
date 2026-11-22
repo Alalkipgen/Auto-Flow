@@ -72,7 +72,11 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
         }
         StepBar(steps, step, Modifier.padding(horizontal = 6.dp).testTag("project-progress"), count = 5, onSelect = onStep, tags = stepTags)
         saveState?.let { StatusChip(it) } // callers omit this when no reliable save state exists
-        if (open) WrapRow { options.forEach { action -> Action(action.copy(onClick = { open = false; action.onClick() })) } }
+        // ⋮ actions (Group 2 D 25a): small glass buttons with their icons, inline under the step bar.
+        if (open) WrapRow(Modifier.padding(horizontal = 6.dp), spacing = 8.dp) { options.forEach { action ->
+            GlassButton(action.label, { open = false; action.onClick() }, action.tag?.let { Modifier.testTag(it) } ?: Modifier,
+                enabled = action.enabled, icon = action.icon, small = true)
+        } }
     }
 }
 

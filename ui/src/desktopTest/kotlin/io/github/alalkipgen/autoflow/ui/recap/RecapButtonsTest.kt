@@ -86,6 +86,14 @@ class RecapButtonsTest(val width: Int, val font: Float, val language: UiLanguage
         assertTrue(icons.single().right <= text.left, "$key: icon before the label")
     }
 
+    /** The icon-only button [tag]: labelled [key] for TalkBack / tooltips, no text (so no glyph), ≥ 48 × 48. */
+    private fun ComposeUiTest.iconOnly(key: UiText, tag: String) {
+        val node = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
+        assertEquals(listOf(key.text(language)), node.config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }, "$key label")
+        assertTrue(node.config.getOrElse(SemanticsProperties.Text) { emptyList() }.isEmpty(), "$key: icon only, no glyph text")
+        assertTrue(node.boundsInRoot.width >= 48f && node.boundsInRoot.height >= 48f, "$key: 48 dp target ${node.boundsInRoot}")
+    }
+
     /** The card titled [key] (inside the [card] tag when the word also names a tab): an 18 dp icon right before the title. */
     private fun ComposeUiTest.iconCard(key: UiText, card: String? = null) {
         val title = onAllNodes(hasText(key.text(language)) and (card?.let { hasAnyAncestor(hasTestTag(it)) } ?: hasText(key.text(language))),
@@ -143,9 +151,17 @@ class RecapButtonsTest(val width: Int, val font: Float, val language: UiLanguage
 
             // Style: the preview's Play (fill play) and Close (x), the exact-frame card and the picture cards.
             step = RecapStep.STYLE; waitForIdle()
-            iconButton(UiText.PLAY, "timeline-play")
-            iconButton(UiText.CLOSE_PLAYER, "timeline-close")
-            iconButton(UiText.EXACT_FRAME)
+            if (width >= 840) {
+                iconButton(UiText.PLAY, "timeline-play")
+                iconButton(UiText.CLOSE_PLAYER, "timeline-close")
+                iconButton(UiText.EXACT_FRAME)
+            } else {
+                // Group 2 A §1: the phone top card's controls are labelled icon buttons; Close player leaves the phone card.
+                iconOnly(UiText.PLAY, "timeline-play")
+                iconOnly(UiText.EXACT_FRAME, "timeline-exact")
+                iconOnly(UiText.PREVIEW_FULLSCREEN, "timeline-fullscreen")
+                onNodeWithTag("timeline-close").assertDoesNotExist()
+            }
             onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasAnyAncestor(hasTestTag("style-layer-options")))
                 .performScrollTo().performMouseInput { click() }
             listOf(UiText.OUTPUT_CARD, UiText.HIDE_THINGS_CARD, UiText.BACKGROUND_CARD, UiText.WATERMARK_CARD).forEach { iconCard(it) }

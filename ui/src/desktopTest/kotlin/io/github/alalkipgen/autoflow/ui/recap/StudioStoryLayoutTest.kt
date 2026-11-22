@@ -65,12 +65,20 @@ class StudioStoryLayoutTest(val width: Int, val font: Float, val language: UiLan
                 onNodeWithTag("recap-next").assertIsDisplayed().assertIsEnabled()
                 repeat(5) { onNodeWithTag("progress-segment-$it").assertExists() }
                 onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
-                val title = onNodeWithText(UiText.V3_BLOCK.text(language, "n" to 1), useUnmergedTree = true)
+                // The block card's title, not the top preview's current-block chip (Group 2 A §1).
+                val title = onNode(hasText(UiText.V3_BLOCK.text(language, "n" to 1)) and !hasAnyAncestor(hasTestTag("recap-top-preview")),
+                    useUnmergedTree = true)
+                if (width < 840) {
+                    // Phone: the top preview is the page's first item and scrolls with it; the first block follows it.
+                    val card = onNodeWithTag("recap-top-preview").assertIsDisplayed().getUnclippedBoundsInRoot()
+                    assertTrue(card.bottom <= title.getUnclippedBoundsInRoot().top, "top preview above the first block")
+                    title.performScrollTo()
+                }
                 title.assertIsDisplayed()
                 val titleBounds = title.getUnclippedBoundsInRoot()
                 val listBounds = onNodeWithTag(if (width >= 840) "story-list" else "story-content").getUnclippedBoundsInRoot()
                 assertTrue(titleBounds.top >= listBounds.top && titleBounds.bottom <= listBounds.bottom,
-                    "first block title must fit before any scroll, including OS fallback/font2")
+                    "first block title must fit (desktop: before any scroll), including OS fallback/font2")
                 capture("list")
                 onNodeWithContentDescription(My.breakSyllables(UiText.V3_STORY_OPTIONS.text(language))).performScrollTo().assertIsDisplayed().performMouseInput { click() }
                 onNodeWithText(My.breakSyllables(UiText.V3_STORY_WRITING_HINT.text(language))).performScrollTo().assertIsDisplayed()

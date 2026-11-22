@@ -115,10 +115,13 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
             }
         }
     }
+    val diagnostics = remember(state.projectDir) { mutableStateOf(false) }
+    val diagnosticsAction = diagnosticsAction(model, state, diagnostics)
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
         navigation?.let {
-            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, steps = recapStepLabels(), options = listOf(
-                StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap")))
+            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, steps = recapStepLabels(), options = listOfNotNull(
+                StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap", icon = AfIcons.Regular.Swap),
+                diagnosticsAction.takeIf { !wide }))
         }
         RecapForegroundCards(model, state)
         job?.takeIf { it.active }?.let { RecapSpeakAllCard(model, it, pin = true) }
@@ -151,6 +154,8 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
             })
         } else Column(Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth().paneScroll(scroll).padding(14.dp)
             .testTag("voice-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Phone / narrow window: the top preview (A §1), at the open block; Voice had no phone preview before.
+            RecapTopPreview(model, diagnostics, blockId = detail?.block?.id)
             status()
             if (detail == null) {
                 lockCard()
@@ -158,7 +163,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
             } else {
                 if (navigation == null) AfButton(tr(UiText.BACK), back)
                 key(detail.block.id) {
-                    StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true) {
+                    StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true, showPreview = false) {
                         selected = VoiceSelection(it)
                     }
                 }

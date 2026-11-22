@@ -75,3 +75,11 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `cpu` | `cpu` | Model config (Settings) |
 | `wrench` | `wrench` | Tools (Settings) |
 | `flask` | `flask` | Preview features (Settings) |
+| `monitorplay` | `monitor-play` | Preview card (Movie Recap top preview) |
+| `caretup` | `caret-up` | Collapse |
+| `clockccw` | `clock-counter-clockwise` | Back 5 seconds |
+| `clockcw` | `clock-clockwise` | Forward 5 seconds |
+| `cornersout` | `corners-out` | Fullscreen |
+| `cornersin` | `corners-in` | Exit fullscreen |
+| `swap` | `swap` | Classic Recap (⋮ action) |
+| `crosshair` | `crosshair-simple` | Seek to time (Diagnostics) |

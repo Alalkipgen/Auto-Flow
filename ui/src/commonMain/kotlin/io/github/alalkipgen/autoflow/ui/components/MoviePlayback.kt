@@ -24,3 +24,28 @@ expect fun MoviePlayback(
     onFrame: ((androidx.compose.ui.graphics.ImageBitmap) -> Unit)? = null,
     onSnapshot: (MovieSnapshot) -> Unit = {},
 )
+
+/**
+ * Test seam for the screenshot tests: a stand-in decoder with the [MoviePlayback] contract (the same requests, snapshots
+ * and frames) and its own "open on the first frame" behaviour. Null (always in the app) = the platform decoder.
+ */
+internal class PreviewPlayer(
+    val atOnce: Boolean,
+    val content: @Composable (path: String, request: MovieRequest, modifier: Modifier,
+        onFrame: ((androidx.compose.ui.graphics.ImageBitmap) -> Unit)?, onSnapshot: (MovieSnapshot) -> Unit) -> Unit,
+)
+
+internal val LocalPreviewPlayer = androidx.compose.runtime.staticCompositionLocalOf<PreviewPlayer?> { null }
+
+/** [MoviePlayback], or the [LocalPreviewPlayer] stand-in when one is provided. */
+@Composable
+internal fun PreviewMoviePlayback(path: String, request: MovieRequest, modifier: Modifier = Modifier, vlcDir: String? = null,
+    frameSize: androidx.compose.ui.unit.IntSize? = null, onFrame: ((androidx.compose.ui.graphics.ImageBitmap) -> Unit)? = null,
+    onSnapshot: (MovieSnapshot) -> Unit = {}) {
+    val stand = LocalPreviewPlayer.current
+    if (stand != null) stand.content(path, request, modifier, onFrame, onSnapshot)
+    else MoviePlayback(path, request, modifier, vlcDir, frameSize, onFrame, onSnapshot)
+}
+
+/** [moviePreviewAtOnce], or the [LocalPreviewPlayer] stand-in's. */
+internal val previewAtOnce: Boolean @Composable get() = LocalPreviewPlayer.current?.atOnce ?: moviePreviewAtOnce

@@ -41,7 +41,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
     navigation?.handleBack?.invoke(replacing || state.transcribe.confirm != null, back)
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 1, tr(UiText.SOURCE), back,
-            steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+            steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap", icon = AfIcons.Regular.Swap))) }
         state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
@@ -51,6 +51,8 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                 key(state.projectDir) {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(14.dp).testTag("source-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Phone / narrow window: the top preview (A §1) instead of a ▶ preview page.
+                        if (!wide) RecapTopPreview(model, null)
                         if (state.runnerJobId == null) state.job?.let {
                             StatusChip(StudioStatus.RUNNING)
                             AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: it}" +
@@ -108,7 +110,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                     RecapTimelinePreview(model, studio = true)
                     ExactFrameCard(model)
                 }
-            })
+            }, previewPage = false)
         }
         if (recap.movie == null) StickyActionBar(StudioAction(tr(UiText.IMPORT_MOVIE), { model.importMovie() },
             idle && RecapRulesV2.canImportMovie(recap).allowed, "source-import", AfIcons.Regular.Film))
