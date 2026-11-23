@@ -125,3 +125,4 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `magicWand` | `magic-wand` | Look card (Style) |
 | `stamp` | `stamp` | Watermark card (Style) |
 | `musicNote` | `music-note` | Background music file, Add music (Style) |
+| `copy` | `copy` | Copy title / chapters / description / hashtags (Publish Kit) |

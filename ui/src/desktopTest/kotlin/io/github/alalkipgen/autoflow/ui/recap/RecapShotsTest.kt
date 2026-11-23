@@ -45,6 +45,7 @@ import io.github.alalkipgen.autoflow.ui.export.RenderCard
 import io.github.alalkipgen.autoflow.ui.export.ExportPreviewCard
 import io.github.alalkipgen.autoflow.ui.export.PreflightCard
 import io.github.alalkipgen.autoflow.ui.export.ExactFramesCard
+import io.github.alalkipgen.autoflow.ui.export.ExportInnerStates
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ambientBackground
 import io.github.alalkipgen.autoflow.ui.theme.AfType
@@ -675,6 +676,54 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
                 write("5-export-states", image.getSubimage(0, 0, image.width, box.bottom.toInt().coerceAtMost(image.height)))
                 assertEquals(null, s.export.state.value.thumbs?.failed)
                 assertEquals(emptyList(), textFitProblems((WIDTH * SCALE).toInt(), font, strict = true, minNodes = 3), "5-export-states ${language.code()} $font")
+            }
+        }
+    }
+
+    /** The tall states sheet (`states`) from the top of the window to its end; fails when the window cut it or a text is cut. */
+    private fun ComposeUiTest.sheet(name: String) {
+        val box = onNodeWithTag("states").fetchSemanticsNode().boundsInRoot
+        val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+        write(name, image.getSubimage(0, 0, image.width, box.bottom.toInt().coerceAtMost(image.height)))
+        assertTrue(box.bottom <= image.height, "$name is cut: ${box.bottom} > ${image.height}")
+        assertEquals(emptyList(), textFitProblems((WIDTH * SCALE).toInt(), font, strict = true, minNodes = 3), "$name ${language.code()} $font")
+    }
+
+    /**
+     * D 23 / 24 (PR 12): the Export step's inner cards in their states ([ExportInnerStates]) — the Publish Kit with the
+     * sample's kit, the demo's chapters and its real thumbnail (made by the export pipeline at 57.8 s), the Render package,
+     * and the Render card (queued · failed + log · cancelled · last renders · not available here).
+     */
+    @Test fun exportInnerStates() {
+        if (out == null) return
+        @Composable fun label(text: String) = AfText(text, color = AutoFlowColors.PrimaryText, type = AfType.Caption)
+        @Composable fun page(content: @Composable () -> Unit) =
+            CompositionLocalProvider(LocalCompact provides true, LocalDensity provides Density(SCALE, font), LocalUiLanguage provides language,
+                LocalUiFontFamily provides BurmeseTestFont.family, LocalPreviewPlayer provides player) {
+                Column(Modifier.fillMaxWidth().ambientBackground().padding(12.dp).testTag("states"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    content()
+                }
+            }
+        runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = ((if (font > 1.5f) 12000 else 5600) * SCALE).toInt()) {
+            Shots(Ratio.R16_9).use { s ->
+                s.export.refresh()
+                s.export.setPublishKit(ExportInnerStates.KIT)
+                s.export.makePublishThumbnail(57_800)
+                waitUntil(timeoutMillis = 240_000) { s.export.state.value.publishThumb?.working == false }
+                val state = s.export.state.value
+                val thumb = state.publishThumb!!
+                assertEquals(null, thumb.failed)
+                val recap = state.recap!!
+                setContent { page { ExportInnerStates.PublishSheet(s.export, recap.publishKit, recap.chapters, thumb, s.fixture.dir.path) { label(it) } } }
+                waitForIdle()
+                sheet("23-export-publish-kit")
+            }
+        }
+        runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = ((if (font > 1.5f) 3800 else 1900) * SCALE).toInt()) {
+            Shots(Ratio.R16_9).use { s ->
+                setContent { page { ExportInnerStates.RenderSheet(s.export, s.fixture.dir.path) { label(it) } } }
+                waitForIdle()
+                sheet("24-export-states")
             }
         }
     }

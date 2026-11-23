@@ -72,6 +72,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 const val PREVIEW_BUTTON = "နမူနာ 540p"
 const val EXPORT_BUTTON = "ထုတ်ယူမယ် 1080p"
@@ -269,7 +271,11 @@ private fun GlassRecapSummary(recap: RecapExport, font: String?, model: ExportMo
 @Composable
 internal fun RenderCard(state: ExportUiState, model: ExportModel, studio: Boolean) {
     ExportCard(tr(UiText.RENDER_HEADING), ExportTiles.Render, glass = studio) {
-        state.unavailable?.let { AfText(if (it == ExportModel.NO_QUEUE) tr(UiText.EXPORT_NO_QUEUE) else tr(UiText.RESULT_DETAIL, "detail" to it), color = AutoFlowColors.Amber) }
+        state.unavailable?.let {
+            val why = if (it == ExportModel.NO_QUEUE) tr(UiText.EXPORT_NO_QUEUE) else tr(UiText.RESULT_DETAIL, "detail" to it)
+            // Group 2 D (24 · 5): an amber callout on the Movie Recap step.
+            if (studio) GlassCallout(AfIcons.Fill.Warn, why, AutoFlowColors.Amber) else AfText(why, color = AutoFlowColors.Amber)
+        }
         if (state.lowBattery) {
             if (studio) GlassCallout(AfIcons.Fill.BatteryWarning, tr(UiText.LOW_BATTERY_EXPORT), AutoFlowColors.Amber)
             else AfText(tr(UiText.LOW_BATTERY_EXPORT), color = AutoFlowColors.Amber)
@@ -281,7 +287,10 @@ internal fun RenderCard(state: ExportUiState, model: ExportModel, studio: Boolea
         }
         if (!studio) AfText(tr(UiText.RENDER_BACKGROUND_HINT), muted = true)
         state.run?.let { RunStatus(it, model, state.savingToGallery, glass = studio) }
-        if (state.run == null) state.lastRenders.forEach { LastRenderStatus(it, model) }
+        if (state.run == null) state.lastRenders.forEachIndexed { i, last ->
+            if (studio && i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(GlassColors.Divider))
+            LastRenderStatus(last, model, glass = studio)
+        }
         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
     }
 }
@@ -295,15 +304,26 @@ internal fun loudnessLine(l: RenderState.Loudness, language: UiLanguage = UiLang
 private fun outputLabel(quality: Quality, language: UiLanguage): String =
     if (quality == Quality.EXPORT) UiText.EXPORT.text(language) else ExportModel.label(quality, language)
 
-/** A finished render read back from its `exports/<name>.result.json` (5B-4), e.g. after the app restarted. */
+/**
+ * A finished render read back from its `exports/<name>.result.json` (5B-4), e.g. after the app restarted. [glass] = the
+ * Movie Recap step (Group 2 D, 24 · 4): a green check-circle row, the file on a mono row, the loudness as a Muted caption,
+ * small Open / Share.
+ */
 @Composable
-private fun LastRenderStatus(last: LastRender, model: ExportModel) {
+private fun LastRenderStatus(last: LastRender, model: ExportModel, glass: Boolean = false) {
     val r = last.result
-    AfText(
-        tr(UiText.LAST_RENDER, "quality" to (outputLabel(last.quality, LocalUiLanguage.current)), "durationMs" to (InputModel.formatDuration(r.durationMs)), "wallMs1000" to (r.wallMs / 1000)),
-        Modifier.testTag("export-last"),
-        color = AutoFlowColors.Green,
-    )
+    val done = tr(UiText.LAST_RENDER, "quality" to (outputLabel(last.quality, LocalUiLanguage.current)), "durationMs" to (InputModel.formatDuration(r.durationMs)), "wallMs1000" to (r.wallMs / 1000))
+    if (glass) {
+        GlassFact(AfIcons.Fill.CheckCircle, done, colour = AutoFlowColors.Green, iconColour = AutoFlowColors.Green, textModifier = Modifier.testTag("export-last"))
+        MonoFact(AfIcons.Regular.FileVideo, "exports/${r.output}")
+        r.loudness?.let { AfText(loudnessLine(it, LocalUiLanguage.current), Modifier.testTag("export-last-loudness"), muted = true, type = AfType.Caption) }
+        WrapRow {
+            GlassButton(tr(UiText.OPEN), { model.openLast(last) }, icon = AfIcons.Regular.ArrowSquareOut, small = true)
+            GlassButton(tr(UiText.SHARE), { model.shareLast(last) }, icon = AfIcons.Regular.Share, small = true)
+        }
+        return
+    }
+    AfText(done, Modifier.testTag("export-last"), color = AutoFlowColors.Green)
     AfText("exports/${r.output}", muted = true, mono = true)
     r.loudness?.let { AfText(loudnessLine(it, LocalUiLanguage.current), Modifier.testTag("export-last-loudness"), muted = true, size = 11.sp) }
     WrapRow {
@@ -373,10 +393,30 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean, glass
             }
         }
         is RenderState.Failed -> {
-            AfText(tr(UiText.RENDER_FAILED, "what" to (what), "reason" to (s.reason)), Modifier.testTag("export-status"), color = AutoFlowColors.Failed)
+            val failed = tr(UiText.RENDER_FAILED, "what" to (what), "reason" to (s.reason))
+            // Group 2 D (24 · 2): the reason as a red x-circle row, the log's last lines in a dark mono box.
+            if (glass) {
+                GlassFact(AfIcons.Fill.XCircle, failed, colour = AutoFlowColors.Failed, iconColour = AutoFlowColors.Failed,
+                    textModifier = Modifier.testTag("export-status"))
+                if (s.tail.isNotEmpty()) LogBox(s.tail.takeLast(6))
+                return
+            }
+            AfText(failed, Modifier.testTag("export-status"), color = AutoFlowColors.Failed)
             if (s.tail.isNotEmpty()) AfText(s.tail.takeLast(6).joinToString("\n"), muted = true, mono = true, size = 11.sp)
         }
         RenderState.Cancelled -> AfText(tr(UiText.RENDER_CANCELLED, "what" to (what)), Modifier.testTag("export-status"), muted = true)
+    }
+}
+
+/**
+ * A failed render's log tail (Group 2 D, 24 · 2): a dark box (radius 12, black .22, 1 dp White .10), one mono Muted line
+ * each, wrapping at spaces and separators (never inside a word).
+ */
+@Composable
+private fun LogBox(lines: List<String>) {
+    Column(Modifier.fillMaxWidth().clip(VideoShape).background(GlassColors.PathFill).border(1.dp, GlassColors.PathBorder, VideoShape)
+        .padding(horizontal = 12.dp, vertical = 10.dp)) {
+        lines.forEach { MonoText(it, 11.sp, AutoFlowColors.Muted) }
     }
 }
 
@@ -444,14 +484,51 @@ internal fun ExactFramesCard(thumbs: ExportThumbs?, canMake: Boolean, model: Exp
  * Publish Kit (5B-10, studio-v2 §9): edit title / description / hashtags, copy each item, share the full text file;
  * chapters come from the story blocks' start times when the kit has none of its own; the thumbnail
  * (`exports/export.thumb.jpg`) is an export-size Exact frame with the saved title as a TEXT layer.
+ * [studio] = the glass card of the Movie Recap step (Group 2 D, 23 · 1–4): glass fields in the prose font, small Copy
+ * buttons, the chapters in a dark inner box (one line each), Save / Discard / Share file with icons, a divider before the
+ * thumbnail.
  */
 @Composable
-private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter>, thumb: PublishThumb?, model: ExportModel, studio: Boolean) {
+internal fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter>, thumb: PublishThumb?, model: ExportModel, studio: Boolean,
+    initiallyExpanded: Boolean = !studio) {
     val scope = rememberCoroutineScope()
     var title by remember(kit.title) { mutableStateOf(kit.title) }
     var description by remember(kit.description) { mutableStateOf(kit.description) }
     var hashtags by remember(kit.hashtags) { mutableStateOf(kit.hashtags.joinToString(" ")) }
-    SectionCard("Publish Kit", Modifier.testTag("publish-kit"), initiallyExpanded = !studio, tile = if (studio) ExportTiles.PublishKit else null) {
+    SectionCard("Publish Kit", Modifier.testTag("publish-kit"), initiallyExpanded = initiallyExpanded, tile = if (studio) ExportTiles.PublishKit else null) {
+        if (studio) {
+            val copy: @Composable (UiText, String, () -> Unit) -> Unit = { label, tag, onClick ->
+                GlassButton(tr(label), onClick, Modifier.testTag(tag), icon = AfIcons.Regular.Copy, small = true)
+            }
+            AfText(tr(UiText.TITLE), muted = true, type = AfType.Caption)
+            AfTextField(title, { title = it }, tr(UiText.VIDEO_TITLE_MY), Modifier.fillMaxWidth().testTag("publish-title"), mono = false, glass = true)
+            copy(UiText.COPY_TITLE, "publish-copy-title") { model.copyPublishText(title, "title") }
+            AfText(tr(UiText.DESCRIPTION), muted = true, type = AfType.Caption)
+            val posted = PublishKitText.withChapters(kit, chapters)
+            val chapterLines = PublishKitText.chapterLines(posted.chapters)
+            if (chapterLines.isEmpty()) AfText(tr(UiText.CHAPTERS_EMPTY), Modifier.testTag("publish-chapters"), muted = true, type = AfType.Caption)
+            else ChapterBox(tr(UiText.CHAPTERS_FROM_SCRIPT).trim(), chapterLines, Modifier.testTag("publish-chapters"))
+            copy(UiText.V3_COPY_CHAPTERS, "publish-copy-chapters") { model.copyPublishText(chapterLines.joinToString("\n"), "chapters") }
+            AfTextField(description, { description = it }, tr(UiText.DESCRIPTION_MY), Modifier.fillMaxWidth(), lines = 4, mono = false, glass = true)
+            copy(UiText.COPY_DESCRIPTION, "publish-copy-description") {
+                model.copyPublishText(PublishKitText.description(posted.copy(description = description)), "description")
+            }
+            AfText(tr(UiText.HASHTAGS_HINT), muted = true, type = AfType.Caption)
+            AfTextField(hashtags, { hashtags = it }, "#မြန်မာ #movie", Modifier.fillMaxWidth(), mono = false, glass = true)
+            copy(UiText.V3_COPY_HASHTAGS, "publish-copy-hashtags") { model.copyPublishText(hashtags, "hashtags") }
+            WrapRow {
+                GlassButton(tr(UiText.SAVE), {
+                    val parsedHashtags = hashtags.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                    model.setPublishKit(kit.copy(title = title, description = description, hashtags = parsedHashtags))
+                }, Modifier.testTag("publish-save"), kind = ButtonKind.Primary, icon = AfIcons.Regular.Check, small = true)
+                GlassButton(tr(UiText.DISCARD), { title = kit.title; description = kit.description; hashtags = kit.hashtags.joinToString(" ") },
+                    Modifier.testTag("publish-discard"), icon = AfIcons.Regular.ArrowCounterClockwise, small = true)
+                GlassButton(tr(UiText.SHARE_FILE), { scope.launch { model.sharePublishFile("export") } }, icon = AfIcons.Regular.Share, small = true)
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(GlassColors.Divider))
+            GlassPublishThumb(kit, thumb, model)
+            return@SectionCard
+        }
         AfText(tr(UiText.TITLE), muted = true, size = 12.sp)
         AfTextField(title, { title = it }, tr(UiText.VIDEO_TITLE_MY), Modifier.fillMaxWidth().testTag("publish-title"))
         AfButton(tr(UiText.COPY_TITLE), { model.copyPublishText(title, "title") }, Modifier.testTag("publish-copy-title"))
@@ -481,6 +558,61 @@ private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.
             AfButton(tr(UiText.SHARE_FILE), { scope.launch { model.sharePublishFile("export") } })
         }
         PublishThumbSection(kit, thumb, model)
+    }
+}
+
+/**
+ * The chapters on the Movie Recap step (Group 2 D, 23 · 1): a dark inner box (radius 12, black .22, 1 dp White .10) with
+ * [heading] and one Muted caption line per chapter, cut with … when it does not fit (the whole line is its description).
+ */
+@Composable
+private fun ChapterBox(heading: String, lines: List<String>, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().clip(VideoShape).background(GlassColors.PathFill).border(1.dp, GlassColors.PathBorder, VideoShape)
+        .padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        AfText(heading, muted = true, type = AfType.Caption)
+        lines.forEach { line ->
+            AfText(line, Modifier.semantics { contentDescription = line }, muted = true, type = AfType.Caption, maxLines = 1, ellipsis = true)
+        }
+    }
+}
+
+/**
+ * The thumbnail on the Movie Recap step (Group 2 D, 23 · 1–4): small Make (`image`; Remake / Making `arrow-clockwise` once
+ * there is one) and Share buttons, the title hint as a Muted info row, the image (radius 12 + shadow), failed / stale as
+ * amber warning rows.
+ */
+@Composable
+internal fun GlassPublishThumb(kit: PublishKit, thumb: PublishThumb?, model: ExportModel) {
+    AfText(tr(UiText.THUMBNAIL_TITLE), muted = true, type = AfType.Caption)
+    val working = thumb?.working == true
+    val made = thumb?.frame != null
+    WrapRow {
+        GlassButton(
+            if (working) tr(UiText.THUMBNAIL_WORKING) else if (!made) tr(UiText.MAKE_THUMBNAIL) else tr(UiText.REMAKE_THUMBNAIL),
+            { model.makePublishThumbnail() }, Modifier.testTag("publish-thumb-make"), enabled = !working && kit.title.isNotBlank(),
+            icon = if (made) AfIcons.Regular.Redo else AfIcons.Regular.Image, small = true,
+        )
+        GlassButton(tr(UiText.SHARE_THUMBNAIL), { model.sharePublishThumbnail() }, Modifier.testTag("publish-thumb-share"), enabled = !working && made,
+            icon = AfIcons.Regular.Share, small = true)
+    }
+    if (kit.title.isBlank()) GlassFact(AfIcons.Regular.Info, tr(UiText.THUMBNAIL_TITLE_HINT, "SAVE" to (tr(UiText.SAVE))), colour = AutoFlowColors.Muted, caption = true)
+    thumb ?: return
+    thumb.failed?.let { GlassFact(AfIcons.Fill.Warn, it, colour = AutoFlowColors.Amber, iconColour = AutoFlowColors.Amber, caption = true,
+        textModifier = Modifier.testTag("publish-thumb-failed")) }
+    thumb.frame?.let { f ->
+        val bmp = remember(f) { decodeImage(f.bytes) }
+        if (bmp != null) {
+            Image(bmp, tr(UiText.THUMBNAIL), Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height)
+                .shadow(8.dp, VideoShape).clip(VideoShape).testTag("publish-thumb-image"))
+        }
+        AfText(
+            "${PublishKitText.thumbPath(ExportModel.EXPORT_NAME)} · ${bmp?.let { "${it.width}×${it.height} · " }.orEmpty()}frame at ${RecapModel.seconds(thumb.atMs)}",
+            Modifier.testTag("publish-thumb-info"), muted = true, type = AfType.Caption,
+        )
+        if (thumb.stale && !working) {
+            GlassFact(AfIcons.Fill.Warn, tr(UiText.THUMBNAIL_STALE, "STALE" to (tr(UiText.STALE))), colour = AutoFlowColors.Amber,
+                iconColour = AutoFlowColors.Amber, caption = true, textModifier = Modifier.testTag("publish-thumb-stale"))
+        }
     }
 }
 
