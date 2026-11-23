@@ -100,7 +100,8 @@ internal class RecapThumbnails(private val fs: FileSystem, private val media: Me
 
 /** The clipped viewport, not composition/pagination alone, starts IO. Offscreen bitmaps are released. */
 @Composable
-internal fun RecapThumbnail(model: RecapModel, state: RecapUiState, fromMs: Long, toMs: Long, tag: String) {
+internal fun RecapThumbnail(model: RecapModel, state: RecapUiState, fromMs: Long, toMs: Long, tag: String,
+    size: androidx.compose.ui.unit.DpSize = AfSize.ThumbScene) {
     if (!model.sceneThumbnails.enabled) return
     val source = model.thumbnailSource(state) ?: return
     key(source, fromMs, toMs) {
@@ -114,11 +115,11 @@ internal fun RecapThumbnail(model: RecapModel, state: RecapUiState, fromMs: Long
         // Stable from first measurement (a fixed 128 × 72 slot): late images above a scrolled row must not push its anchor
         // offscreen. Until the real frame loads the slot shows the film placeholder (never a fake picture); real
         // time/controls remain when a thumbnail is unavailable.
-        Box(Modifier.size(AfSize.ThumbScene).testTag("$tag-slot").onGloballyPositioned {
+        Box(Modifier.size(size).testTag("$tag-slot").onGloballyPositioned {
             visible = it.isAttached && !it.boundsInWindow().isEmpty
         }) {
             // Decorative: the parent already announces the scene/block number, real time and actions.
-            Box(if (image != null) Modifier.testTag(tag) else Modifier) { MediaThumb(image, AfIcons.Duotone.Film, size = AfSize.ThumbScene) }
+            Box(if (image != null) Modifier.testTag(tag) else Modifier) { MediaThumb(image, AfIcons.Duotone.Film, size = size) }
         }
     }
 }

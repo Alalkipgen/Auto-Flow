@@ -179,7 +179,8 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
     private fun ComposeUiTest.thumbnails() {
         fun count(slot: Boolean) = onAllNodes(SemanticsMatcher("thumbnail") { n ->
             n.config.getOrNull(SemanticsProperties.TestTag)?.let { t ->
-                (t.startsWith("block-thumbnail-") || t.startsWith("scene-thumbnail-")) && t.endsWith("-slot") == slot
+                (t.startsWith("block-thumbnail-") || t.startsWith("scene-thumbnail-") || t.startsWith("recap-mini-bar-thumbnail")) &&
+                    t.endsWith("-slot") == slot
             } == true && !n.boundsInWindow.isEmpty
         }, useUnmergedTree = true).fetchSemanticsNodes().size
         runCatching { waitUntil(timeoutMillis = 20_000) { count(false) >= count(true) } }
@@ -256,6 +257,20 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
             click("style-section-LAYERS"); click("layer-edit-text-2"); ready()
         }
         shot("0-state-7-9x16", RecapStep.STORY, Ratio.R9_16, full = false, crop = card) { seek(70_000) }
+    }
+
+    /**
+     * PR 2 (A §1 "Mini bar", "Sync with the lists"): 0-preview-states 4 = playing, scrolled down → the mini bar under the top
+     * bar; Story with block 3 playing from its thumbnail (Cyan outline + Pause badge); Source with the scene badges.
+     */
+    @Test fun miniBarAndThumbnails() {
+        shot("0-state-4-mini-bar", RecapStep.STORY, full = false) {
+            seek(52_000); play()
+            onNodeWithTag("story-content").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 700f * SCALE) }
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("recap-mini-bar").fetchSemanticsNodes().isNotEmpty() }
+            thumbnails()
+        }
+        shot("2-story-playing", RecapStep.STORY) { click("block-preview-2"); ready() }
     }
 
     /** D 25a ⋮ open on Story (playing at 0:48) · 25b Diagnostics · 25c Fullscreen portrait · 25d landscape. */

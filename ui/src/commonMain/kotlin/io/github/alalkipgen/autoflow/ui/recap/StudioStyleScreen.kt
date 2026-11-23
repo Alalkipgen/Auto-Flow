@@ -53,7 +53,7 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
             navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 4, tr(UiText.STYLE), back,
                 steps = recapStepLabels(), options = listOfNotNull(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, !draft, "classic-recap", AfIcons.Regular.Swap),
                     diagnosticsAction.takeIf { !wide })) }
-            Box(Modifier.weight(1f)) {
+            TopPreviewHost(model, state, !wide, Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("style-list"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) { sections() }

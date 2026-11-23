@@ -41,14 +41,15 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
     val blocks: @Composable () -> Unit = {
         AfText(tr(UiText.BLOCKS), bold = true)
         if (rows.isEmpty()) AfText(tr(UiText.WRITE_STORY_FIRST), muted = true)
+        val link = LocalTopPreviewLink.current
         rows.forEach { row -> key(row.block.id) {
             BlockCard(row.index + 1, row.block.clips.joinToString(" · ") {
                 "${RecapModel.clock(it.inMs)}–${RecapModel.clock(it.outMs)}"
             }, row.block.textMy, row.status, { selectedId = row.block.id },
                 Modifier.testTag("block-select-${row.index}"), selected = detail?.block?.id == row.block.id, deltaMs = row.deltaMs,
                 thumbnail = { row.block.clips.firstOrNull()?.let {
-                    RecapThumbnail(model, state, it.inMs, it.outMs, "block-thumbnail-${row.block.id}")
-                } }) {
+                    BlockPreviewThumb(model, state, row.index, row.block.id, it.inMs, it.outMs)
+                } }, playing = link?.attached == true && link.playing && link.blockId == row.block.id) {
                 TakeVoiceLabel(recap.takeFor(row.block.id), recap.voiceLock)
                 state.takeFiles[row.index]?.takeIf { row.voiced }?.let { file ->
                     AudioPlayButton(file, playing == row.block.id, { playing = if (playing == row.block.id) null else row.block.id })
@@ -63,7 +64,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
             steps = recapStepLabels(), options = listOfNotNull(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap",
                 icon = AfIcons.Regular.Swap), diagnosticsAction.takeIf { !wide })) }
         RecapForegroundCards(model, state)
-        Box(Modifier.weight(1f)) {
+        TopPreviewHost(model, state, !wide, Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
                 Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("story-list"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { blocks() }

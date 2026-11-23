@@ -91,6 +91,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
         OptionChips(labels, labels[filter], { filter = labels.indexOf(it) })
         gate.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), muted = true) }
         if (rows.isEmpty()) AfText(tr(UiText.WRITE_STORY_FIRST), muted = true)
+        val link = LocalTopPreviewLink.current
         rows.filter { filter == 0 || (filter == 1 && it.attention) || (filter == 2 && it.voiced) }.forEach { row ->
             key(row.block.id) {
                 BlockCard(row.index + 1,
@@ -98,8 +99,8 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                     row.block.textMy, row.status, { selected = VoiceSelection(row.block.id) },
                     Modifier.fillMaxWidth().testTag("block-select-${row.index}"), selected = wide && detail?.block?.id == row.block.id,
                     deltaMs = row.deltaMs, thumbnail = { row.block.clips.firstOrNull()?.let {
-                        RecapThumbnail(model, state, it.inMs, it.outMs, "block-thumbnail-${row.block.id}")
-                    } }) {
+                        BlockPreviewThumb(model, state, row.index, row.block.id, it.inMs, it.outMs)
+                    } }, playing = link?.attached == true && link.playing && link.blockId == row.block.id) {
                     TakeVoiceLabel(recap.takeFor(row.block.id), recap.voiceLock)
                     WrapRow {
                         state.takeFiles[row.index]?.takeIf { row.voiced }?.let { file ->
@@ -152,19 +153,21 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                     AfText(My.breakSyllables(tr(UiText.V3_SHORTCUTS_HINT)), Modifier.testTag("shortcuts-hint"), muted = true)
                 }
             })
-        } else Column(Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth().paneScroll(scroll).padding(14.dp)
-            .testTag("voice-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Phone / narrow window: the top preview (A §1), at the open block; Voice had no phone preview before.
-            RecapTopPreview(model, diagnostics, blockId = detail?.block?.id)
-            status()
-            if (detail == null) {
-                lockCard()
-                blockList()
-            } else {
-                if (navigation == null) AfButton(tr(UiText.BACK), back)
-                key(detail.block.id) {
-                    StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true, showPreview = false) {
-                        selected = VoiceSelection(it)
+        } else TopPreviewHost(model, state, true, Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().paneScroll(scroll).padding(14.dp).testTag("voice-content"),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Phone / narrow window: the top preview (A §1), at the open block; Voice had no phone preview before.
+                RecapTopPreview(model, diagnostics, blockId = detail?.block?.id)
+                status()
+                if (detail == null) {
+                    lockCard()
+                    blockList()
+                } else {
+                    if (navigation == null) AfButton(tr(UiText.BACK), back)
+                    key(detail.block.id) {
+                        StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true, showPreview = false) {
+                            selected = VoiceSelection(it)
+                        }
                     }
                 }
             }

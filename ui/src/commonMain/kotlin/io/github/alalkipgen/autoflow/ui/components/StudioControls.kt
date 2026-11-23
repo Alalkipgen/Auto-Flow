@@ -166,9 +166,10 @@ fun PlannedTile(title: String, explanation: String? = null, modifier: Modifier =
 @Composable
 fun BlockCard(number: Int, time: String, script: String, status: StudioStatus, onOpen: () -> Unit,
     modifier: Modifier = Modifier, selected: Boolean = false, deltaMs: Long? = null,
-    onPlay: (() -> Unit)? = null, thumbnail: (@Composable () -> Unit)? = null, actions: @Composable ColumnScope.() -> Unit = {},
+    onPlay: (() -> Unit)? = null, thumbnail: (@Composable () -> Unit)? = null, playing: Boolean = false,
+    actions: @Composable ColumnScope.() -> Unit = {},
 ) {
-    AfCard(modifier.clickable(role = Role.Button, onClick = onOpen), selected) {
+    AfCard(modifier.clickable(role = Role.Button, onClick = onOpen), selected, outline = if (playing) AutoFlowColors.Cyan else null) {
         val facts = @Composable { m: Modifier ->
             Column(m, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
                 AfText(tr(UiText.V3_BLOCK, "n" to number), type = AfType.RowTitle)

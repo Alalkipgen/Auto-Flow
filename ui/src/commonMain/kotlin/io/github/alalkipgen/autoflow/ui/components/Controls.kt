@@ -335,7 +335,8 @@ fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = fal
  */
 @Composable
 fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: Tone? = null, onClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null, onDoubleClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    onLongClick: (() -> Unit)? = null, onDoubleClick: (() -> Unit)? = null, outline: Color? = null,
+    content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(AfRadius.Card)
     val interaction = remember { MutableInteractionSource() }
     Column(
@@ -350,7 +351,8 @@ fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: 
             })
             .background(AutoFlowColors.Panel)
             .drawBehind { attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) } }
-            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
+            // [outline] (the Recap block playing in the top preview): 1.5 dp in that colour instead of the 1 dp edge.
+            .border(if (outline != null) 1.5.dp else AutoFlowShapes.Border, outline ?: if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
             .interactionOverlay(interaction, shape)
             .padding(start = if (attention != null) 20.dp else 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),

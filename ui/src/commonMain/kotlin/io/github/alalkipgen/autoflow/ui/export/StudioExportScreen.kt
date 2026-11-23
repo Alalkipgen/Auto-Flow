@@ -36,7 +36,7 @@ fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp
             ProjectTopBar(open?.project?.name.orEmpty(), 5, tr(UiText.EXPORT), navigation.back,
                 steps = recapStepLabels(), options = listOfNotNull(StudioAction(tr(UiText.CLASSIC_RECAP), navigation.classic, tag = "classic-recap",
                     icon = AfIcons.Regular.Swap), diagnosticsAction.takeIf { !wide }))
-            Box(Modifier.weight(1f)) {
+            io.github.alalkipgen.autoflow.ui.recap.TopPreviewHost(recapModel, recapState, !wide, Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(8.dp)) {
                         AfText(tr(UiText.EXPORT), bold = true)

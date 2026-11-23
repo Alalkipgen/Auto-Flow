@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -19,7 +20,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
@@ -103,7 +106,21 @@ internal fun TopPreview(
     }
     val title = tr(UiText.PROJECT_PAGE_PREVIEW)
     val folded = collapsed.value
-    GlassCard(Modifier.testTag("recap-top-preview"), tint = AutoFlowColors.Cyan, tintAlpha = .14f, gap = 0.dp,
+    // PR 2 (A §1): the step's mini bar and list thumbnails follow this card and seek / play it.
+    val link = LocalTopPreviewLink.current
+    if (link != null) {
+        val toggle by rememberUpdatedState(togglePlay)
+        val seek by rememberUpdatedState(seekTo)
+        DisposableEffect(link, source.timeline) {
+            link.attach(source.timeline, { clock.playing }, { toggle() }, { seek(it) })
+            onDispose { link.detach() }
+        }
+        SideEffect { link.report(playing, outputMs, duration, blockId, blockNumber, clock.clip?.sourceAt(outputMs)) }
+    }
+    val follow = if (link == null) Modifier else Modifier.bringIntoViewRequester(link.requester).onGloballyPositioned {
+        link.cardHidden = it.boundsInWindow().height < it.size.height * .25f
+    }
+    GlassCard(Modifier.testTag("recap-top-preview").then(follow), tint = AutoFlowColors.Cyan, tintAlpha = .14f, gap = 0.dp,
         padding = if (folded) PaddingValues(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp)
         else PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp)) {
         val foldState = if (folded) tr(UiText.V3_COLLAPSED) else tr(UiText.V3_EXPANDED)

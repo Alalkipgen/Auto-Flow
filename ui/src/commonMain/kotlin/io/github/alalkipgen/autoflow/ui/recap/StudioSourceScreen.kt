@@ -43,7 +43,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 1, tr(UiText.SOURCE), back,
             steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap", icon = AfIcons.Regular.Swap))) }
         state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
-        Box(Modifier.weight(1f)) {
+        TopPreviewHost(model, state, !wide, Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
                 Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("source-picks"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { SourcePicks(model, state, recap) }
@@ -154,7 +154,7 @@ private fun SourcePicks(model: RecapModel, state: RecapUiState, recap: RecapV2) 
             AfCard(Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .testTag("scene-pick-$index").toggleable(scene.picked, enabled = idle, role = Role.Checkbox) { model.togglePick(index) },
                 selected = scene.picked) {
-                ThumbBeside(AfSize.ThumbScene.width, { RecapThumbnail(model, state, scene.startMs, scene.endMs, "scene-thumbnail-$index") }, { m ->
+                ThumbBeside(AfSize.ThumbScene.width, { ScenePreviewThumb(model, state, index, scene.startMs, scene.endMs) }, { m ->
                     Column(m, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
                         AfText("#${index + 1}", type = AfType.RowTitle)
                         AfText("${RecapModel.clock(scene.startMs)}–${RecapModel.clock(scene.endMs)}", muted = true, type = AfType.Numbers)
