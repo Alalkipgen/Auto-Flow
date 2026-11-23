@@ -129,12 +129,12 @@ fun SectionCard(title: String, modifier: Modifier = Modifier, initiallyExpanded:
 
 /**
  * Glass card with a header (Group 2 A §2): 30 dp soft [tile] · [title] (14 sp bold) · optional [action]; the card is
- * tinted with the tile colour (.16, from the top start). Padding 12, gap 10.
+ * tinted with the tile colour (.16, from the top start). Padding 12, gap 10; [selected] = the primary border (the layer being edited).
  */
 @Composable
 fun TileCard(title: String, tile: CardTile, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit) {
-    GlassCard(modifier, tint = tile.colour, tintAlpha = .16f, gap = 10.dp) {
+    selected: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    GlassCard(modifier, selected = selected, tint = tile.colour, tintAlpha = .16f, gap = 10.dp) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SoftTile(tile.icon, tile.colour, size = 30.dp)

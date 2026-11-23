@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.uiLabel
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
@@ -321,6 +322,34 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
         }
         shot("13d-dialog-revoice-block", RecapStep.VOICE, full = false) { openBlock(2); click("voice-block-request") }
         shot("13e-dialog-voice-remaining", RecapStep.VOICE, full = false) { click("voice-remaining") }
+    }
+
+    /**
+     * C 14 / 17 · 4–7 (PR 8): Style · Layers with the Text layer open (unsaved, Next disabled), its More options open (exact
+     * numbers + placement box), a new Image layer, a new Blur layer with an invalid number, a new Background layer in Colour mode.
+     */
+    @Test fun styleLayers() {
+        val layers: ComposeUiTest.() -> Unit = { click("style-section-LAYERS") }
+        shot("14-style-layer-edit", RecapStep.STYLE) { layers(); click("layer-edit-text-2") }
+        val exact: ComposeUiTest.() -> Unit = {
+            onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasAnyAncestor(hasTestTag("layer-exact-options")))
+                .performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+        }
+        shot("17-4-layer-exact-options", RecapStep.STYLE, crop = "native-layers") { layers(); click("layer-edit-text-2"); exact() }
+        shot("17-5-image-layer-new", RecapStep.STYLE, crop = "native-layers") { layers(); click("layer-add-IMAGE") }
+        shot("17-6-blur-invalid", RecapStep.STYLE, crop = "native-layers") {
+            layers(); click("layer-add-BLUR"); exact()
+            onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("layer-field-from"))).performScrollTo().performTextReplacement("-")
+            exact()
+        }
+        shot("17-7-background-colour", RecapStep.STYLE, crop = "native-layers") {
+            layers(); click("layer-add-BACKGROUND")
+            val colour = io.github.alalkipgen.autoflow.core.recap.BackgroundMode.COLOUR.uiLabel(language)
+            onNode((hasText(colour) or hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(colour))) and hasClickAction())
+                .performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+        }
     }
 
     private fun ComposeUiTest.openBlock(index: Int) {

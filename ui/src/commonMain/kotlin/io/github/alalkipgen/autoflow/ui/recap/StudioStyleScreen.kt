@@ -69,7 +69,8 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
                             color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
                         if (!wide) sections()
-                        if (draft) AfText(tr(UiText.V3_UNSAVED), color = AutoFlowColors.Amber)
+                        // Group 2 C 14: the unsaved note = an amber warning row.
+                        if (draft) GlassFact(AfIcons.Fill.Warn, tr(UiText.V3_UNSAVED), colour = AutoFlowColors.Amber, iconColour = AutoFlowColors.Amber)
                         if (!ready.allowed) ready.blockers.forEach { AfText(it.text(LocalUiLanguage.current), muted = true) }
                         else when (section) {
                             StyleSection.LAYERS -> {

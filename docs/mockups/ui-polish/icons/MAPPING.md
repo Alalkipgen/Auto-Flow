@@ -114,3 +114,4 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `arrowsMerge` | `arrows-merge` | Join next range (clips dialog) |
 | `arrowUp` | `arrow-up` | Earlier (clips dialog) |
 | `arrowDown` | `arrow-down` | Later (clips dialog) |
+| `handTap` | `hand-tap` | Layer placement gesture hint |
