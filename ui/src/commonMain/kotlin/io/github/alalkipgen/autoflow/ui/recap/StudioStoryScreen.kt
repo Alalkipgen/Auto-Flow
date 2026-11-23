@@ -71,8 +71,9 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { blocks() }
             }, editor = {
                 val scroll = key(state.projectDir, detail?.block?.id) { rememberScrollState() }
-                Column(Modifier.fillMaxSize().paneScroll(scroll).padding(14.dp).testTag("story-content"),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // The padding inside the scroll viewport (GlassScrollColumn): the inline glass Re-voice button ends the
+                // page, and its 48 dp target must count as on screen or "scroll to" it never finishes.
+                GlassScrollColumn(Modifier.fillMaxSize().testTag("story-content"), PaddingValues(14.dp), Arrangement.spacedBy(12.dp), scroll) {
                     // Phone / narrow window: the top preview (A §1), at the open block, instead of a ▶ preview page.
                     if (!wide) RecapTopPreview(model, diagnostics, blockId = detail?.block?.id)
                     if (state.job != null && state.scriptRunId == null) {
@@ -89,7 +90,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                             if (rows.isNotEmpty()) ScriptCard(model, state, recap, studioOptions = true, pinnedRun = true)
                         }
                     } else key(detail.block.id) {
-                        if (navigation == null) AfButton(tr(UiText.BACK), back)
+                        if (navigation == null) AfButton(tr(UiText.BACK), back, icon = AfIcons.Regular.Back)
                         StudioVoiceDetail(model, state, detail, rows, false, showPreview = false) { selectedId = it }
                         StudioBlockVoiceAction(model, state, detail, inline = true)
                     }

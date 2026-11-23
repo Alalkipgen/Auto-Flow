@@ -236,7 +236,8 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
      * node's bounds.
      */
     private fun shot(name: String, step: RecapStep, ratio: Ratio = Ratio.R16_9, full: Boolean = true, width: Int = WIDTH, height: Int = HEIGHT,
-        crop: String? = null, prepare: (Shots) -> Unit = {}, open: ComposeUiTest.() -> Unit = {}) {
+        crop: String? = null, prepare: (Shots) -> Unit = {}, area: (ComposeUiTest.() -> androidx.compose.ui.geometry.Rect)? = null,
+        open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         var extra = 0
         if (full) runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt()) {
@@ -252,7 +253,7 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
                 prepare(s)
                 setContent(content(s, step, width)); waitForIdle(); ready(); open(); waitForIdle(); thumbnails()
                 val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
-                val box = crop?.let { onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
+                val box = crop?.let { onNodeWithTag(it).fetchSemanticsNode().boundsInRoot } ?: area?.invoke(this)
                 write(name, if (box == null) image else image.getSubimage(box.left.toInt(), box.top.toInt(), box.width.toInt(), box.height.toInt()))
                 assertEquals(emptyList(), textFitProblems((width * SCALE).toInt(), font, strict = true, minNodes = 3), "$name ${language.code()} $font")
             }
@@ -270,6 +271,48 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
             thumbnails()
         }
     }
+    /**
+     * C 11 (PR 6): the Voice step with block 3 open (header card · Script · Clips · Voice · Fix timing · Takes · Block tools ·
+     * sticky Re-voice). C 12: the Block voice tools card in its states (Record tab of block 4 — its take is stale —, Clean,
+     * Speak · More options open · caption timing editing) and the Story step's detail bottom (Back · Approve story).
+     */
+    @Test fun voiceDetail() {
+        shot("11-voice-block-detail", RecapStep.VOICE) { openBlock(2) }
+        val tools: ComposeUiTest.() -> androidx.compose.ui.geometry.Rect = {
+            val top = onAllNodesWithText(UiText.V3_BLOCK_TOOLS.text(language)).fetchSemanticsNodes().first().boundsInRoot.top - 24 * SCALE
+            val bottom = onNodeWithTag("sticky-action-bar").fetchSemanticsNode().boundsInRoot.top
+            androidx.compose.ui.geometry.Rect(0f, top, WIDTH * SCALE, bottom)
+        }
+        shot("12-1-record-stale", RecapStep.VOICE, area = tools) { openBlock(3); tab(UiText.VOICE_TAB_RECORD) }
+        shot("12-3-clean", RecapStep.VOICE, area = tools) { openBlock(2); tab(UiText.VOICE_TAB_CLEAN) }
+        shot("12-4-more-options", RecapStep.VOICE, area = tools) {
+            openBlock(2); onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasStateDescription(UiText.V3_COLLAPSED.text(language))).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+        }
+        shot("12-5-caption-timing-editing", RecapStep.VOICE, area = tools) {
+            openBlock(2); onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasStateDescription(UiText.V3_COLLAPSED.text(language))).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle(); onNodeWithText(UiText.EDIT_CAPTION_TIMING.text(language)).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+        }
+        shot("12-8-story-detail-bottom", RecapStep.STORY, full = false) {
+            click("block-select-2")
+            onNodeWithTag("story-content").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
+            waitForIdle()
+        }
+    }
+
+    private fun ComposeUiTest.openBlock(index: Int) {
+        onNodeWithTag("voice-open-$index").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        waitForIdle()
+        waitUntil(timeoutMillis = 30_000) { onAllNodesWithText(UiText.V3_LOADING_TAKES.text(language)).fetchSemanticsNodes().isEmpty() }
+        waitForIdle()
+    }
+
+    private fun ComposeUiTest.tab(text: UiText) {
+        onNode(hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(text.text(language))) and hasClickAction()).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        waitForIdle()
+    }
+
     @Test fun story() = shot("2-story", RecapStep.STORY)
     @Test fun voice() = shot("3-voice", RecapStep.VOICE)
     @Test fun style() = shot("4-style", RecapStep.STYLE)

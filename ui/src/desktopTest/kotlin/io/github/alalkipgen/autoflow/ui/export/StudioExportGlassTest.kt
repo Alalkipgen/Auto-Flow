@@ -56,8 +56,7 @@ class StudioExportGlassTest {
                         .config[SemanticsProperties.Text].joinToString("") { it.text }
                     assertEquals(preflightMessage(item, language), shown.replace("\u200B", ""), "item $index has no text prefix")
                 }
-                // BACK ("← Back") is the shared back label; it loses its arrow in PR 6 (C §3), not in this PR.
-                val found = texts().filter { text -> text != UiText.BACK.text(language) && symbols.any { it in text } }
+                val found = texts().filter { text -> symbols.any { it in text } }
                 assertEquals(emptyList(), found, "${language.code} labels with symbols")
                 assertEquals(emptyList(), textFitProblems(360, font))
 

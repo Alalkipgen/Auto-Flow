@@ -370,7 +370,7 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepBySt
                 }
                 WrapRow {
                     AfButton("${tr(UiText.START)} →", { step = WizardStep.CONFIRM }, Modifier.testTag("quick-confirm"), kind = ButtonKind.Primary)
-                    AfButton(tr(UiText.BACK), { step = WizardStep.LENGTH })
+                    AfButton(tr(UiText.BACK), { step = WizardStep.LENGTH }, icon = AfIcons.Regular.Back)
                 }
             }
             WizardStep.CONFIRM -> {
@@ -384,7 +384,7 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepBySt
                         onStart(targetMs, style)
                         step = WizardStep.IDLE
                     }, Modifier.testTag("quick-create"), kind = ButtonKind.Primary)
-                    AfButton(tr(UiText.BACK), { step = WizardStep.STYLE })
+                    AfButton(tr(UiText.BACK), { step = WizardStep.STYLE }, icon = AfIcons.Regular.Back)
                 }
             }
         }

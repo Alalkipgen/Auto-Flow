@@ -107,14 +107,17 @@ internal fun FitCard(model: RecapModel, state: RecapUiState, recap: RecapV2, onG
 
 /** The existing Smart Fit choices, also reached from a Voice block; policy remains in the engine. */
 @Composable
-internal fun SmartFitChoices(model: RecapModel, recap: RecapV2, block: String, row: FitRow, enabled: Boolean = true, showOverrunHint: Boolean = true) {
+internal fun SmartFitChoices(model: RecapModel, recap: RecapV2, block: String, row: FitRow, enabled: Boolean = true, showOverrunHint: Boolean = true,
+    glass: Boolean = false) {
     val current = recap.fitChoice(block) ?: FitChoice.EXTEND
     if (showOverrunHint) AfText(tr(UiText.FIT_ACTIONS, "overMs" to seconds(row.overMs)), muted = true, size = 11.sp)
     WrapRow {
         listOf(FitChoice.EXTEND to UiText.FIT_EXTEND, FitChoice.NEXT_RANGE to UiText.FIT_NEXT_RANGE,
             FitChoice.SPEED to UiText.FIT_SPEED, FitChoice.SLOW_VIDEO to UiText.FIT_SLOW_VIDEO,
             FitChoice.FREEZE to UiText.FIT_FREEZE).forEach { (choice, text) ->
-            AfChip(tr(text), current == choice, onClick = { model.setFitChoice(block, choice) }, enabled = enabled)
+            // [glass] (block detail, Group 2 C 11): glass filter chips.
+            if (glass) RecapChip(tr(text), current == choice, { model.setFitChoice(block, choice) }, enabled = enabled)
+            else AfChip(tr(text), current == choice, onClick = { model.setFitChoice(block, choice) }, enabled = enabled)
         }
     }
 }

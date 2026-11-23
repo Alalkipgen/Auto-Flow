@@ -57,7 +57,7 @@ internal fun LyricSyncCard(model: InputModel, songFile: String, locked: Boolean,
             AfText(tr(UiText.SUGGEST_TIMINGS_CONFIRM), muted = true)
             WrapRow {
                 AfButton(tr(UiText.SEND), { confirming = false; scope.launch { model.suggestTimings() } }, kind = ButtonKind.Primary)
-                AfButton(tr(UiText.BACK), { confirming = false })
+                AfButton(tr(UiText.BACK), { confirming = false }, icon = AfIcons.Regular.Back)
             }
         } else if (sync == null) {
             AfText(statusText(state, LocalUiLanguage.current), color = if (state.status == TimingStatus.OUTDATED) AutoFlowColors.Amber else null, muted = state.status == TimingStatus.NONE)

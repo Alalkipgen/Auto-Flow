@@ -119,7 +119,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
                     confirming = null
                     if (gemini) model.writeScript() else model.writeManually()
                 }, kind = ButtonKind.Primary)
-                AfButton(tr(UiText.BACK), { confirming = null })
+                AfButton(tr(UiText.BACK), { confirming = null }, icon = AfIcons.Regular.Back)
             }
         } else {
             val gate = RecapRulesV2.canGenerateScript(recap, state.summary, if (recap.subtitles != null || state.transcribe.lines > 0) "srt" else "")
@@ -240,7 +240,7 @@ internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Re
             )
             WrapRow {
                 AfButton(tr(UiText.START), { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
-                AfButton(tr(UiText.BACK), { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
+                AfButton(tr(UiText.BACK), { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"), icon = AfIcons.Regular.Back)
             }
         }
         job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -286,12 +286,12 @@ private fun SegmentRow(model: RecapModel, state: RecapUiState, index: Int, seg: 
                     model.saveSegmentTiming(index, s, e).also { if (it) editTiming = false }
                 }
             }
-            AfButton(tr(UiText.BACK), { editTiming = false })
+            AfButton(tr(UiText.BACK), { editTiming = false }, icon = AfIcons.Regular.Back)
         } else if (editing) {
             AfTextField(draft, { draft = it }, tr(UiText.NARRATION_FOR_SCENE, "index1" to (index + 1)), Modifier.fillMaxWidth(), lines = 3, mono = false)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfButton(tr(UiText.SAVE), { if (model.saveSegment(index, draft)) editing = false }, kind = ButtonKind.Primary)
-                AfButton(tr(UiText.BACK), { editing = false; draft = seg.textMy })
+                AfButton(tr(UiText.BACK), { editing = false; draft = seg.textMy }, icon = AfIcons.Regular.Back)
             }
         } else {
             AfText(seg.textMy.ifBlank { tr(UiText.EMPTY_SCRIPT_EDIT) }, muted = seg.textMy.isBlank())

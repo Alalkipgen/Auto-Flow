@@ -49,7 +49,7 @@ internal fun TranscribePanel(model: SubtitleTranscribeModel, dir: String) {
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("subtitles-transcribe-start"), kind = ButtonKind.Primary,
                     icon = AfIcons.Fill.Play)
-                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("subtitles-transcribe-back"))
+                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("subtitles-transcribe-back"), icon = AfIcons.Regular.Back)
             }
         }
         job != null -> JobCard(model, job)

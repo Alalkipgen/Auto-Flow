@@ -26,6 +26,12 @@ internal object RecapTiles {
     val Layers get() = CardTile(AfIcons.Fill.Stack, GlassColors.RecapLavender)
     val MoreOptions get() = CardTile(AfIcons.Fill.SlidersHorizontal, GlassColors.Neutral)
     val WritingOptions get() = CardTile(AfIcons.Fill.Spark, GlassColors.RecapLavender)
+    // Block detail (Group 2 C 11).
+    val Script get() = CardTile(AfIcons.Fill.NotePencil, GlassColors.RecapLavender)
+    val Clips get() = CardTile(AfIcons.Fill.Scissors, GlassColors.RecapSplit)
+    val FixTiming get() = CardTile(AfIcons.Fill.Wrench, AutoFlowColors.Amber)
+    val Takes get() = CardTile(AfIcons.Fill.Wave, AutoFlowColors.Purple)
+    val BlockTools get() = CardTile(AfIcons.Fill.Dub, GlassColors.RecapTeal)
 }
 
 /** A Style layer's tile: Image · Text · Border · Blur · Background (Group 2 A §2). */

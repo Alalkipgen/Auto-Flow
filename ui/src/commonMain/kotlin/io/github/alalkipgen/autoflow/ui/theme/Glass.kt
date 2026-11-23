@@ -165,6 +165,7 @@ object GlassColors {
     val RecapSubtitles = Subtitles
     val RecapLavender = LibraryVoices
     val RecapScenes = AutoFlowColors.Amber
+    val RecapTeal = MusicVideo
     val LayerImage = Subtitles
     val LayerText = RecapPink
     val LayerBorder = AutoFlowColors.Amber

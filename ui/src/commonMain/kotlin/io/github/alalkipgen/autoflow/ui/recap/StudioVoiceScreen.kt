@@ -148,7 +148,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                         lockCard()
                         AfText(tr(UiText.V3_SELECT_BLOCK), muted = true)
                     } else key(detail.block.id) {
-                        if (navigation == null) AfButton(tr(UiText.BACK), back)
+                        if (navigation == null) AfButton(tr(UiText.BACK), back, icon = AfIcons.Regular.Back)
                         StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true, showPreview = false) {
                             selected = VoiceSelection(it)
                         }
@@ -172,7 +172,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                     lockCard()
                     blockList()
                 } else {
-                    if (navigation == null) AfButton(tr(UiText.BACK), back)
+                    if (navigation == null) AfButton(tr(UiText.BACK), back, icon = AfIcons.Regular.Back)
                     key(detail.block.id) {
                         StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true, showPreview = false) {
                             selected = VoiceSelection(it)

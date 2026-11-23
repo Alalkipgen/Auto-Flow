@@ -114,7 +114,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
                         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("block-select-$i"),
                         kind = if (i == selectedIndex) ButtonKind.Primary else ButtonKind.Secondary)
                     TakeVoiceLabel(recap.takeFor(b.id), recap.voiceLock)
-                    if (state.isStale(i)) AfText("⚠ ${tr(UiText.STALE)}", color = AutoFlowColors.Amber)
+                    if (state.isStale(i)) GlassFact(AfIcons.Fill.Warn, tr(UiText.STALE), colour = AutoFlowColors.Amber, iconColour = AutoFlowColors.Amber)
                     else if (state.currentTake(i) == null) AfText(tr(UiText.NO_VOICE), muted = true)
                 }
             }

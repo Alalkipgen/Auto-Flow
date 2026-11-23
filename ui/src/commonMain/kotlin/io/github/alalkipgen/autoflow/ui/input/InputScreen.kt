@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.border
@@ -196,7 +198,7 @@ private fun GenerateCard(state: InputUiState, job: JobState, jobs: StoryboardJob
                 AfText(confirmText(state, LocalUiLanguage.current), muted = true)
                 WrapRow {
                     AfButton(tr(UiText.GENERATE), { confirming = false; onStart() }, kind = ButtonKind.Primary)
-                    AfButton(tr(UiText.BACK), { confirming = false })
+                    AfButton(tr(UiText.BACK), { confirming = false }, icon = AfIcons.Regular.Back)
                 }
             }
         } else {

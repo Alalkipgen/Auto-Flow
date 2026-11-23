@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.shots
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -78,7 +80,7 @@ fun ShotsScreen(model: ShotsModel, modifier: Modifier = Modifier) {
         ) {
             state.actionError?.let { AfText(it, color = AutoFlowColors.Amber) }
             ShotDetailPanel(state.detail!!, model)
-            AfButton(tr(UiText.BACK), { model.select(null) })
+            AfButton(tr(UiText.BACK), { model.select(null) }, icon = AfIcons.Regular.Back)
         }
         return
     }

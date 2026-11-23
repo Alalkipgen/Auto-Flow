@@ -107,3 +107,6 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `framecorners` | `frame-corners` | Exact frames card |
 | `megaphone` | `megaphone` | Publish Kit card |
 | `arrowsquareout` | `arrow-square-out` | Open a render |
+| `arrowCounterClockwise` | `arrow-counter-clockwise` | Automatic (reset caption timing) |
+| `broom` | `broom` | Clean tab |
+| `stop` | `stop` | Stop recording |

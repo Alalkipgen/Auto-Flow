@@ -12,10 +12,12 @@ import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
  * plays (none on desktop: [rememberSongPlayer] is null).
  */
 @Composable
-fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit, glass: Boolean = false) {
+fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit, glass: Boolean = false,
+    glassIcon: androidx.compose.ui.graphics.vector.ImageVector = AfIcons.Fill.Volume) {
     if (!playing) {
-        // Glass (Movie Recap block cards, Group 2 A §2): a 40 dp speaker, so it is not taken for the picture's Play.
-        if (glass) GlassIconButton(AfIcons.Fill.Volume, tr(UiText.AUDIO_PLAY), onToggle, size = GlassShapes.IconButtonHeader)
+        // Glass (Movie Recap block cards, Group 2 A §2): a 40 dp speaker, so it is not taken for the picture's Play;
+        // the take rows of a block (Group 2 C 11) pass [glassIcon] = play.
+        if (glass) GlassIconButton(glassIcon, tr(UiText.AUDIO_PLAY), onToggle, size = GlassShapes.IconButtonHeader)
         else AfIconButton(AfIcons.Fill.Play, tr(UiText.AUDIO_PLAY), onToggle)
         return
     }

@@ -11,6 +11,9 @@ import io.github.alalkipgen.autoflow.core.recap.RecapBlock
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import androidx.compose.ui.Alignment
 
 /** Source cuts are edited independently from voice/caption timing. Nothing is persisted until Save. */
 @Composable
@@ -19,10 +22,16 @@ internal fun BlockClipsCard(model: RecapModel, state: RecapUiState, block: Recap
     val edit by editor.state.collectAsState()
     val idle = !state.busy && state.recording == null
     DisposableEffect(state.projectDir, block.id) { onDispose { editor.cancel() } }
-    AfCard(tr(UiText.V3_CLIPS)) {
-        block.clips.forEach { AfText("${ClipRangeInput.seconds(it.inMs)}–${ClipRangeInput.seconds(it.outMs)} s", mono = true) }
-        AfButton(tr(UiText.V3_EDIT_CLIPS), { editor.edit(block.id, clips = true) },
-            Modifier.testTag("block-clips-edit"), enabled = idle && state.recap?.movie != null)
+    // Group 2 C 11: scissors tile, each range a film-strip row in mono (never broken), Edit = glass pencil button.
+    TileCard(tr(UiText.V3_CLIPS), RecapTiles.Clips) {
+        block.clips.forEach {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfIcon(AfIcons.Regular.FilmStrip, tint = AutoFlowColors.Muted, size = 17.dp)
+                AfText("${ClipRangeInput.seconds(it.inMs)}–${ClipRangeInput.seconds(it.outMs)} s", mono = true, maxLines = 1, muted = true)
+            }
+        }
+        WrapRow { GlassButton(tr(UiText.V3_EDIT_CLIPS), { editor.edit(block.id, clips = true) },
+            Modifier.testTag("block-clips-edit"), enabled = idle && state.recap?.movie != null, icon = AfIcons.Regular.Edit) }
     }
     val draft = edit.draft?.takeIf { edit.editingClips && it.block.id == block.id } ?: return
     key(draft.token) {
