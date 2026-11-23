@@ -51,6 +51,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.audio.LoudnessMeasurement
 import io.github.alalkipgen.autoflow.core.recap.PreflightCheck
+import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -250,13 +251,13 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
      */
     private fun shot(name: String, step: RecapStep, ratio: Ratio = Ratio.R16_9, full: Boolean = true, width: Int = WIDTH, height: Int = HEIGHT,
         crop: String? = null, prepare: (Shots) -> Unit = {}, area: (ComposeUiTest.() -> androidx.compose.ui.geometry.Rect)? = null,
-        recorder: Boolean = false, history: Boolean = false, open: ComposeUiTest.() -> Unit = {}) {
+        recorder: Boolean = false, history: Boolean = false, preview: Boolean = true, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         var extra = 0
         if (full) runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt()) {
             Shots(ratio, recorder, history).use { s ->
                 prepare(s)
-                setContent(content(s, step, width)); waitForIdle(); ready(); open(); waitForIdle()
+                setContent(content(s, step, width)); waitForIdle(); if (preview) ready(); open(); waitForIdle()
                 extra = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)).fetchSemanticsNodes()
                     .maxByOrNull { it.boundsInRoot.height }?.config?.get(SemanticsProperties.VerticalScrollAxisRange)?.maxValue()?.toInt() ?: 0
             }
@@ -264,7 +265,7 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
         runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt() + extra) {
             Shots(ratio, recorder, history).use { s ->
                 prepare(s)
-                setContent(content(s, step, width)); waitForIdle(); ready(); open(); waitForIdle(); thumbnails()
+                setContent(content(s, step, width)); waitForIdle(); if (preview) ready(); open(); waitForIdle(); thumbnails()
                 val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
                 val box = crop?.let { onNodeWithTag(it).fetchSemanticsNode().boundsInRoot } ?: area?.invoke(this)
                 write(name, if (box == null) image else image.getSubimage(box.left.toInt(), box.top.toInt(), box.width.toInt(), box.height.toInt()))
@@ -284,6 +285,41 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
             thumbnails()
         }
     }
+    /**
+     * D 18–20 (PR 10): the Source step with no movie yet (no top preview: nothing to play) · the Source states sheet
+     * (SourceStatesGlassTest.SourceStates, 12 labelled states) · Replace movie as a glass dialog over the Source step.
+     */
+    @Test fun sourceStates() {
+        shot("18-source-no-movie", RecapStep.SOURCE, full = false, preview = false, prepare = { s ->
+            val saved = (ProjectStore(s.fs).save(s.fixture.dir.path, s.fixture.project.copy(recap = RecapV2(rightsConfirmed = true)))
+                as io.github.alalkipgen.autoflow.core.CoreResult.Ok).value
+            s.current.set(OpenProject(s.fixture.dir.path, saved)); s.recap.refresh()
+        }) { waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("source-import").fetchSemanticsNodes().isNotEmpty() } }
+        if (out != null) {
+            val tall = if (font > 1.5f) 10500 else 5400 // font 2.0: the twelve states in one column
+            runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = (tall * SCALE).toInt()) {
+                Shots(Ratio.R16_9).use { s ->
+                    s.recap.refresh()
+                    val base = s.recap.state.value
+                    setContent {
+                        CompositionLocalProvider(LocalCompact provides true, LocalDensity provides Density(SCALE, font), LocalUiLanguage provides language,
+                            LocalUiFontFamily provides BurmeseTestFont.family, LocalPreviewPlayer provides player) {
+                            Column(Modifier.fillMaxWidth().ambientBackground().padding(12.dp).testTag("states"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                SourceStates.Sheet(s.recap, base) { AfText(it, color = AutoFlowColors.PrimaryText, type = AfType.Caption) }
+                            }
+                        }
+                    }
+                    waitForIdle()
+                    val box = onNodeWithTag("states").fetchSemanticsNode().boundsInRoot
+                    val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+                    write("19-source-states", image.getSubimage(0, 0, image.width, box.bottom.toInt().coerceAtMost(image.height)))
+                    assertEquals(emptyList(), textFitProblems((WIDTH * SCALE).toInt(), font, strict = true, minNodes = 3), "19-source-states ${language.code()} $font")
+                }
+            }
+        }
+        shot("20-dialog-replace-movie", RecapStep.SOURCE, full = false) { onNodeWithTag("source-replace").performScrollTo(); click("source-replace") }
+    }
+
     /**
      * C 11 (PR 6): the Voice step with block 3 open (header card · Script · Clips · Voice · Fix timing · Takes · Block tools ·
      * sticky Re-voice). C 12: the Block voice tools card in its states (Record tab of block 4 — its take is stale —, Clean,

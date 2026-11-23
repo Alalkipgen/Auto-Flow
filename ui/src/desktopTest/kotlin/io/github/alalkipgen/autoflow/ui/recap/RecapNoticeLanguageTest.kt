@@ -61,7 +61,8 @@ class RecapNoticeLanguageTest {
             assertEquals(UiText.SCENES_FINDING.en, model.state.value.job)
             settings.update { it.copy(uiLanguage = "my") }
             waitForIdle()
-            onNodeWithText("⏳ ${UiText.SCENES_FINDING.text(UiLanguage.BURMESE)}", substring = true).performScrollTo().assertIsDisplayed()
+            // Studio: the busy strip (no "⏳ ", Group 2 D 19 · 1–3); Classic keeps its line.
+            onNodeWithText((if (studio) "" else "⏳ ") + UiText.SCENES_FINDING.text(UiLanguage.BURMESE), substring = true).performScrollTo().assertIsDisplayed()
             onNodeWithText(UiText.SCENES_FINDING.en, substring = true).assertDoesNotExist()
             assertEquals(UiText.SCENES_FINDING.en, model.state.value.job, "business identity stays English while the label changes")
             runOnIdle { release.complete(Unit) }

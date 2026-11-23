@@ -179,7 +179,7 @@ private fun TopPreviewCard(ui: TopPreviewUi, scope: String, collapsed: MutableSt
 
 /**
  * Immutable render inputs of one recomposition (the clock itself is a non-Compose controller). Source card ([SourceTopPreview]):
- * [shortTime] "m:ss / m:ss", [sceneChip] "#n · movie time" (film-strip), no [exactButton], no [idle] line (it names Exact frame).
+ * [shortTime] "m:ss / m:ss", [sceneChip] "#n · scene start" (film-strip), no [exactButton], no [idle] line (it names Exact frame).
  */
 private class TopPreviewUi(
     val aspect: Float, val outputMs: Long, val durationMs: Long, val playing: Boolean, val enabled: Boolean, val problem: String?,
@@ -436,7 +436,7 @@ internal fun diagnosticsAction(model: RecapModel, state: RecapUiState, open: Mut
 /**
  * Group 2 A §1 (PR 3): the Source step's phone top card. Before a story there is no output timeline, so it plays the picked
  * scenes in order straight from the movie, with the movie's own sound ([PickedScenes] clock, one plain decoder: no output
- * frame, captions, layers, voice or music). Time "m:ss / m:ss", chip "#n · movie time", no Exact frame. No movie → no card.
+ * frame, captions, layers, voice or music). Time "m:ss / m:ss", chip "#n · scene start" (D1), no Exact frame. No movie → no card.
  * Watching never writes the project.
  */
 @Composable
@@ -470,7 +470,9 @@ internal fun SourceTopPreview(model: RecapModel) {
         val scene = clip?.let(PickedScenes::index)
         val movieMs = clip?.sourceAt(outputMs)
         SideEffect { movieMs?.let { lastMovieMs[0] = it } }
-        val chip = if (scene != null && movieMs != null) "#${scene + 1} · ${RecapModel.clock(movieMs)}" else null
+        // The scene chip names the scene and its start time, as its row does (owner decision D1); the scrubber shows the playing time.
+        val sceneStart = scene?.let { recap.scenes.getOrNull(it)?.startMs ?: clip.sourceFromMs }
+        val chip = if (scene != null && sceneStart != null) "#${scene + 1} · ${RecapModel.clock(sceneStart)}" else null
         val ticks = remember(source.timeline) {
             source.timeline.clips.filter { PickedScenes.index(it) != null }.map { it.outputFromMs.toFloat() / (duration - 1).coerceAtLeast(1) }
         }

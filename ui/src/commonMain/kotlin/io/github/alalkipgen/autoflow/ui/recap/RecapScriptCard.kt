@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.GlassButton
 import io.github.alalkipgen.autoflow.ui.components.GlassFact
+import io.github.alalkipgen.autoflow.ui.components.GlassCallout
+import io.github.alalkipgen.autoflow.ui.components.GlassFilterChip
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfChip
@@ -160,7 +162,8 @@ internal fun SourceSummary(model: RecapModel, state: RecapUiState) {
 
 /**
  * Subtitles present = file-text · subtitles.srt · check (icons instead of "📄 … ✓", Group 2 A §2); [glass] = the Studio
- * Source card's small glass buttons with icons.
+ * Source card's small glass buttons with icons, the movie's tracks as glass filter chips and the hints as Muted info rows
+ * (Group 2 D 19 · 5–7).
  */
 @Composable
 internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: RecapV2, glass: Boolean = false) {
@@ -186,7 +189,7 @@ internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: Reca
         val movieTracks = state.movieSubtitleTracks
         if (!state.movieSubtitleTracksRead) {
             SourceButton(glass, tr(UiText.V3_READ_TRACKS), { model.readMovieSubtitleTracks() }, Modifier.testTag("source-read-tracks"),
-                enabled = !state.busy, icon = if (glass) AfIcons.Regular.Subtitles else null)
+                enabled = !state.busy, icon = if (glass) AfIcons.Regular.Search else null)
         } else if (movieTracks.isNotEmpty()) {
             AfText(tr(UiText.EXTRACT_FROM_MOVIE), muted = true)
             WrapRow {
@@ -197,20 +200,23 @@ internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: Reca
                         track.title?.let { append(" — $it") }
                         append(if (track.isText) "" else tr(UiText.IMAGE_TRACK_SUFFIX))
                     }
-                    AfChip(label, recap.sources.subtitleTrack == track.index, {
-                        if (track.isText) model.extractSubtitleTrack(track) else model.setSubtitleTrack(track.index)
-                    }, Modifier.testTag("source-track-${track.index}"), enabled = !state.busy)
+                    val pick: () -> Unit = { if (track.isText) model.extractSubtitleTrack(track) else model.setSubtitleTrack(track.index) }
+                    val selected = recap.sources.subtitleTrack == track.index
+                    if (glass) GlassFilterChip(label, selected, pick, Modifier.testTag("source-track-${track.index}"), enabled = !state.busy)
+                    else AfChip(label, selected, pick, Modifier.testTag("source-track-${track.index}"), enabled = !state.busy)
                 }
             }
-            if (movieTracks.any { !it.isText }) AfText(tr(UiText.IMAGE_TRACK_HINT), muted = true)
-        } else AfText(tr(UiText.NO_EMBEDDED_SUBS), muted = true)
+            if (movieTracks.any { !it.isText }) SourceHint(glass, tr(UiText.IMAGE_TRACK_HINT))
+        } else SourceHint(glass, tr(UiText.NO_EMBEDDED_SUBS))
     }
 }
 
 /**
  * "Transcribe picked scenes" (5B-1, D-44): offered for picked scenes without `.srt` lines; a confirm card (scenes,
  * requests, today's usage) before anything is sent; progress with Cancel; Retry for a paused or failed job (only the
- * requests left are sent).
+ * requests left are sent). [glass] (Studio, Group 2 D 19 · 8–11): the confirm / paused / failed text as amber callouts
+ * (warning; pause when paused), Start / Resume / Retry primary with play / arrow-clockwise, Back arrow-left, Cancel job
+ * danger x, and the job as the glass job card.
  */
 @Composable
 internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2, pinnedRun: Boolean = false, glass: Boolean = false) {
@@ -229,31 +235,36 @@ internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Re
     when {
         running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: state.job.orEmpty(), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
-            AfButton(tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+            SourceButton(glass, tr(UiText.CANCEL), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger,
+                icon = if (glass) AfIcons.Regular.Close else null, small = glass)
         }
-        confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            AfText(
-                transcribeConfirmText(confirm.scenes, confirm.requests, LocalUiLanguage.current) + tr(UiText.TRANSCRIBE_AUDIO_DURATION, "audioMs" to (clock(confirm.audioMs))) +
-                    tr(UiText.TRANSCRIBE_PRIVACY) +
-                    tr(UiText.TRANSCRIBE_USED_TODAY, "toString" to (confirm.usedToday?.toString() ?: "…")),
-                Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber,
-            )
+        confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(if (glass) 10.dp else 6.dp)) {
+            val text = transcribeConfirmText(confirm.scenes, confirm.requests, LocalUiLanguage.current) + tr(UiText.TRANSCRIBE_AUDIO_DURATION, "audioMs" to (clock(confirm.audioMs))) +
+                tr(UiText.TRANSCRIBE_PRIVACY) +
+                tr(UiText.TRANSCRIBE_USED_TODAY, "toString" to (confirm.usedToday?.toString() ?: "…"))
+            if (glass) GlassCallout(AfIcons.Fill.Warn, text, AutoFlowColors.Amber, textModifier = Modifier.testTag("transcribe-confirm"))
+            else AfText(text, Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber)
             WrapRow {
-                AfButton(tr(UiText.START), { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
-                AfButton(tr(UiText.BACK), { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"), icon = AfIcons.Regular.Back)
+                SourceButton(glass, tr(UiText.START), { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"),
+                    kind = ButtonKind.Primary, icon = if (glass) AfIcons.Fill.Play else null)
+                SourceButton(glass, tr(UiText.BACK), { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"), icon = AfIcons.Regular.Back)
             }
         }
-        job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            AfText(
-                (job.error ?: tr(UiText.TRANSCRIBE_STOPPED)) + tr(UiText.TRANSCRIBE_REQUESTS_LEFT, "size" to (job.items.size)),
-                Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
-            )
+        job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(if (glass) 10.dp else 6.dp)) {
+            val paused = job.state == AiJobState.PAUSED
+            val text = (job.error ?: tr(UiText.TRANSCRIBE_STOPPED)) + tr(UiText.TRANSCRIBE_REQUESTS_LEFT, "size" to (job.items.size))
+            if (glass) GlassCallout(if (paused) AfIcons.Fill.Pause else AfIcons.Fill.Warn, text, AutoFlowColors.Amber,
+                textModifier = Modifier.testTag("transcribe-failed"))
+            else AfText(text, Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber)
             WrapRow {
-                AfButton(if (job.state == AiJobState.PAUSED) tr(UiText.V3_RESUME_REMAINING, "n" to job.items.size) else tr(UiText.RETRY), { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
-                AfButton(tr(UiText.CANCEL_JOB), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+                SourceButton(glass, if (paused) tr(UiText.V3_RESUME_REMAINING, "n" to job.items.size) else tr(UiText.RETRY), { model.retryTranscribe() },
+                    Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy,
+                    icon = if (!glass) null else if (paused) AfIcons.Fill.Play else AfIcons.Regular.Redo)
+                SourceButton(glass, tr(UiText.CANCEL_JOB), { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger,
+                    icon = if (glass) AfIcons.Regular.Close else null)
             }
         }
-        job != null -> if (!pinnedRun) RecapTranscribeRun(model, job)
+        job != null -> if (!pinnedRun) RecapTranscribeRun(model, job, glass = glass)
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(tr(UiText.TRANSCRIBE_OFFER, "todoScenes" to (t.todoScenes)), muted = true, size = 12.sp)
             SourceButton(glass, tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy,
@@ -310,6 +321,13 @@ internal fun transcriptSummary(lines: Int, scenes: Int, language: UiLanguage = U
 /** First sentence of the Transcribe confirm card: picked scenes without subtitles and the Gemini requests. */
 internal fun transcribeConfirmText(scenes: Int, requests: Int, language: UiLanguage = UiLanguage.ENGLISH): String =
     UiText.TRANSCRIBE_CONFIRM.text(language, "scenes" to (scenes), "requests" to (requests))
+
+/** A Source card's hint: a Muted info row (Studio, Group 2 D 19 · 6–7) or the Muted text (Classic). */
+@Composable
+private fun SourceHint(glass: Boolean, text: String) {
+    if (glass) GlassFact(AfIcons.Fill.Info, My.breakSyllables(text), colour = AutoFlowColors.Muted, caption = true)
+    else AfText(text, muted = true)
+}
 
 /** A Source card's button: glass (Studio, Group 2 A §2) or the app button (Classic). */
 @Composable

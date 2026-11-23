@@ -76,12 +76,11 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                 GlassScrollColumn(Modifier.fillMaxSize().testTag("story-content"), PaddingValues(14.dp), Arrangement.spacedBy(12.dp), scroll) {
                     // Phone / narrow window: the top preview (A §1), at the open block, instead of a ▶ preview page.
                     if (!wide) RecapTopPreview(model, diagnostics, blockId = detail?.block?.id)
-                    if (state.job != null && state.scriptRunId == null) {
-                        StatusChip(StudioStatus.RUNNING)
-                        state.job?.let { AfText(state.jobNotice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Cyan) }
+                    // The busy strip and the message callout, as on Source (Group 2 D 19 · 1–3).
+                    if (state.job != null && state.scriptRunId == null) state.job?.let {
+                        RecapBusyStrip(state.jobNotice?.text(LocalUiLanguage.current) ?: it, state.progress)
                     }
-                    state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
-                        color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
+                    state.message?.let { RecapMessage(state.notice?.text(LocalUiLanguage.current) ?: it, state.messageOk) }
                     gate.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), muted = true) }
                     if (wide || (detail == null && rows.isEmpty())) ScriptCard(model, state, recap, studioOptions = true, pinnedRun = true)
                     if (detail == null) {

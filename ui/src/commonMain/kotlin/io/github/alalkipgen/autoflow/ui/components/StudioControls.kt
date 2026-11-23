@@ -286,12 +286,22 @@ fun CheckMark(checked: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * A job's card: title (+ [headerAction], e.g. Cancel), status chip, progress bar while it runs, Muted [detail], [actions].
+ * [tile] = the glass job card of Group 2 D §1 (Movie Recap steps): the card's soft tile · title · small Cancel header,
+ * the cyan → purple bar (indeterminate = the moving segment) and a Muted caption.
+ */
 @Composable
 fun JobCard(title: String, status: StudioStatus, detail: String, modifier: Modifier = Modifier,
     progress: Float? = null, indeterminate: Boolean = false, headerAction: (@Composable () -> Unit)? = null,
-    actions: @Composable ColumnScope.() -> Unit = {},
+    tile: CardTile? = null, actions: @Composable ColumnScope.() -> Unit = {},
 ) {
-    AfCard(title, modifier, headerAction = headerAction) {
+    if (tile != null) TileCard(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(title), tile, modifier, action = headerAction) {
+        StatusChip(status)
+        if (progress != null || indeterminate) GlassProgress(progress)
+        AfText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(detail), muted = true, type = AfType.Caption)
+        actions()
+    } else AfCard(title, modifier, headerAction = headerAction) {
         StatusChip(status)
         if (progress != null || indeterminate) AfProgress(progress)
         AfText(detail, muted = true)

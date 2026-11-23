@@ -43,6 +43,14 @@ import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.text.style.TextAlign
+import io.github.alalkipgen.autoflow.ui.components.GlassCallout
+import io.github.alalkipgen.autoflow.ui.components.GlassCard
+import io.github.alalkipgen.autoflow.ui.components.GlassProgress
+import io.github.alalkipgen.autoflow.ui.components.StatusChip
+import io.github.alalkipgen.autoflow.ui.components.StudioStatus
+import io.github.alalkipgen.autoflow.ui.i18n.My
 
 /** The Movie Recap step cards' header tiles (Group 2 A §2): Fill icon · colour (also the card's tint). */
 internal object RecapTiles {
@@ -149,5 +157,43 @@ internal fun RecapSwitch(label: String, checked: Boolean, onChange: (Boolean) ->
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         AfText(label, Modifier.weight(1f), type = AfType.Body)
         GlassSwitch(checked)
+    }
+}
+
+/**
+ * The busy line as one small glass strip (Group 2 D 19 · 1–3): the Running chip and the job's [text] in cyan (no "⏳ ": the
+ * chip says it), then the job's bar when it reports [progress] (the same value as its "n %"; no bar when it reports none).
+ */
+@Composable
+internal fun RecapBusyStrip(text: String, progress: Double?, modifier: Modifier = Modifier) {
+    GlassCard(modifier, padding = PaddingValues(horizontal = 12.dp, vertical = 10.dp), gap = 10.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatusChip(StudioStatus.RUNNING)
+            AfText(text, Modifier.weight(1f), color = AutoFlowColors.Cyan)
+        }
+        progress?.takeIf { it.isFinite() }?.let { GlassProgress(it.toFloat().coerceIn(0f, 1f)) }
+    }
+}
+
+/** A step's last message (Group 2 D 19 · 2): done = the green check-circle callout, else the amber warning one. */
+@Composable
+internal fun RecapMessage(text: String, ok: Boolean, modifier: Modifier = Modifier) {
+    if (ok) GlassCallout(AfIcons.Fill.CheckCircle, text, AutoFlowColors.Green, modifier)
+    else GlassCallout(AfIcons.Fill.Warn, text, AutoFlowColors.Amber, modifier)
+}
+
+/**
+ * An empty card's body (Group 2 D §1, 18): a framed box (radius 12, black .22, 1 dp White .10) with the [size] Duotone
+ * [icon] in [tint] and the centred Muted [text].
+ */
+@Composable
+internal fun RecapEmptyBox(icon: ImageVector, tint: Color, text: String, modifier: Modifier = Modifier, size: Dp = 32.dp,
+    textModifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(modifier.fillMaxWidth().clip(shape).background(GlassColors.PathFill).border(1.dp, GlassColors.PathBorder, shape)
+        .padding(horizontal = 14.dp, vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AfIcon(icon, tint = tint, size = size)
+        AfText(My.breakSyllables(text), textModifier, muted = true, type = AfType.Caption, textAlign = TextAlign.Center)
     }
 }

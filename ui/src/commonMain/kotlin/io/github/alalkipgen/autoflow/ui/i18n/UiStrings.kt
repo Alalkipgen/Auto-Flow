@@ -140,7 +140,7 @@ enum class UiText(val en: String, val my: String?) {
     LIBRARY_PRESET_NAME("Preset name", "Preset အမည်"),
     LIBRARY_PRESETS_EMPTY("No saved presets.", "Preset မသိမ်းရသေးပါ။"),
     JOB_ALREADY_RUNNING("Already running", "လုပ်ဆောင်နေပြီးသားပါ"),
-    TRANSCRIPT_PREVIOUS("Transcript ✓ (previous)", "အသံမှတ်တမ်း ✓ (ယခင်)"),
+    TRANSCRIPT_PREVIOUS("Previous", "ယခင်"),
     TRANSCRIBING_NEW_RUN("Transcribing… (new run)", "အသံကို စာပြောင်းနေသည်… (အလုပ်အသစ်)"),
     JOB_PREVIEW("Preview 540p", "နမူနာ 540p"),
     JOB_RENDER_QUEUED("Render — {kind} (queued)", "Render — {kind} (စောင့်နေသည်)"),

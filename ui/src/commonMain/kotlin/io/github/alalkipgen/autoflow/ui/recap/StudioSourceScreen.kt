@@ -14,7 +14,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -47,7 +46,7 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 1, tr(UiText.SOURCE), back,
             steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap", icon = AfIcons.Regular.Swap))) }
-        state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
+        state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true, glass = true) }
         TopPreviewHost(model, state, !wide, Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
                 Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("source-picks"),
@@ -59,62 +58,13 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                         // Phone / narrow window: the top preview (A §1) instead of a ▶ preview page — the picked scenes
                         // with the movie's own sound (PR 3; there is no output timeline before a story).
                         if (!wide) SourceTopPreview(model)
-                        if (state.runnerJobId == null) state.job?.let {
-                            StatusChip(StudioStatus.RUNNING)
-                            AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: it}" +
-                                (state.progress?.let { p -> " ${(p * 100).toInt()} %" } ?: ""), color = AutoFlowColors.Cyan)
-                        }
-                        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it,
-                            color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
-                        SectionCard(tr(UiText.V3_MOVIE), tile = RecapTiles.Movie) {
-                            RecapRulesV2.canImportMovie(recap).blockers.firstOrNull()?.let {
-                                GlassFact(AfIcons.Fill.Warn, it.text(LocalUiLanguage.current), colour = AutoFlowColors.WarningText,
-                                    iconColour = AutoFlowColors.Amber)
-                            }
-                            val movie = recap.movie
-                            if (movie == null) AfText(tr(UiText.RECAP_MOVIE_IMPORT_HINT), muted = true) else {
-                                // File icon · name; the facts (length · size, sound) as icon lines (Group 2 A §2).
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    AfIcon(AfIcons.Regular.FileVideo, tint = AutoFlowColors.Muted, size = 18.dp)
-                                    AfText(state.movieName ?: movie.file.substringAfterLast('/'), Modifier.weight(1f).testTag("source-movie-name"), size = 14.sp, bold = true)
-                                }
-                                GlassFact(AfIcons.Regular.Clock, listOfNotNull(RecapModel.clock(movie.durationMs),
-                                    "${movie.width}×${movie.height}".takeIf { movie.width > 0 && movie.height > 0 })
-                                    .joinToString(" · "), textModifier = Modifier.testTag("source-movie-metadata"))
-                                if (movie.hasAudio) GlassFact(AfIcons.Regular.Volume, tr(UiText.V3_AUDIO_FOUND), colour = AutoFlowColors.SuccessText,
-                                    iconColour = AutoFlowColors.Green)
-                                else GlassFact(AfIcons.Regular.Volume, tr(UiText.NO_SOUND_SUFFIX).trim(' ', '·'), colour = AutoFlowColors.WarningText,
-                                    iconColour = AutoFlowColors.Amber)
-                                GlassButton(tr(UiText.REPLACE_MOVIE), { replacing = true }, Modifier.testTag("source-replace"),
-                                    enabled = idle && RecapRulesV2.canImportMovie(recap).allowed, icon = AfIcons.Regular.ArrowsClockwise, small = true)
-                            }
-                        }
+                        SourceBusy(state)
+                        SourceMovieCard(state, recap, idle) { replacing = true }
                         if (recap.movie != null) {
-                            SectionCard(My.breakSyllables(tr(UiText.V3_SPLIT_MOVIE)), tile = RecapTiles.Split) {
-                                listOf(Triple(Scenes.THRESHOLD_FEWER, UiText.FEWER_SCENES, UiText.V3_DENSITY_FEWER),
-                                    Triple(Scenes.THRESHOLD_NORMAL, UiText.NORMAL, UiText.V3_DENSITY_NORMAL),
-                                    Triple(Scenes.THRESHOLD_MORE, UiText.MORE_SCENES, UiText.V3_DENSITY_MORE)).forEach { (value, title, hint) ->
-                                    OptionCard(tr(title), My.breakSyllables(tr(hint)), threshold == value, { threshold = value },
-                                        Modifier.fillMaxWidth().testTag("source-density-$value"),
-                                        recommended = value == Scenes.THRESHOLD_NORMAL, enabled = idle, radio = true)
-                                }
-                                GlassFact(AfIcons.Fill.Info, My.breakSyllables(tr(UiText.V3_SCAN_HINT)), colour = AutoFlowColors.Muted, caption = true)
-                                GlassButton(tr(if (recap.scenes.isEmpty()) UiText.FIND_SCENES else UiText.FIND_SCENES_AGAIN),
-                                    { model.findScenes(threshold) }, Modifier.testTag("source-scan"), enabled = idle && RecapRulesV2.canFindScenes(recap).allowed,
-                                    icon = AfIcons.Regular.Search)
-                            }
-                            SectionCard(tr(UiText.V3_SCAN_RESULT, "n" to recap.scenes.size), tile = RecapTiles.ScanResult) {
-                                if (recap.scenes.isEmpty()) AfText(My.breakSyllables(tr(UiText.V3_NO_SCENES)), muted = true)
-                                else GlassFact(AfIcons.Fill.CheckCircle, tr(UiText.SCENES_PICKED, "size" to recap.picked.size,
-                                    "pickedMs" to RecapModel.clock(recap.pickedMs), "targetMs" to RecapModel.clock(recap.targetMs)),
-                                    iconColour = AutoFlowColors.Green)
-                            }
+                            SourceSplitCards(model, recap, idle, threshold) { threshold = it }
                             SectionCard(tr(UiText.V3_SUBTITLES), tile = RecapTiles.Subtitles) { SourceSubtitles(model, state, recap, glass = true) }
                             SectionCard(tr(UiText.SUMMARY), tile = RecapTiles.Summary) { SourceSummary(model, state) }
-                            if (state.transcribe.available) SectionCard(tr(UiText.TRANSCRIBE_SCENES), tile = RecapTiles.Transcribe) {
-                                if (recap.movie?.hasAudio != true) AfText(tr(UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE), muted = true)
-                                else TranscribeSection(model, state, recap, pinnedRun = true, glass = true)
-                            }
+                            SourceTranscribeCard(model, state, recap)
                             if (!wide) SourcePicks(model, state, recap)
                         }
                         GlassCallout(AfIcons.Fill.Warn, tr(UiText.RIGHTS_NOTICE), AutoFlowColors.Amber)
@@ -132,22 +82,102 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
         else navigation?.let { StickyActionBar(StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.STORY)),
             it.next, idle, "recap-next", trailingIcon = AfIcons.Regular.ArrowRight), glass = true) }
     }
-    if (replacing) Dialog(onDismissRequest = { replacing = false }) {
-        AfCard(tr(UiText.REPLACE_MOVIE), Modifier.fillMaxWidth().widthIn(max = 560.dp)) {
-            Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState())) {
-                AfText(My.breakSyllables(tr(UiText.V3_REPLACE_MOVIE_CONFIRM)), Modifier.testTag("source-replace-warning"))
-            }
-            StickyActionBar(StudioAction(tr(UiText.REPLACE_MOVIE), { replacing = false; model.importMovie() }, idle, "source-replace-confirm"),
-                StudioAction(tr(UiText.CANCEL), { replacing = false }, tag = "source-replace-cancel"))
+    // Replace movie (Group 2 D 20): the glass dialog — arrows-clockwise tile (amber), the warning as an amber callout, then
+    // Replace movie (primary) and Cancel (stacked when the row does not fit).
+    if (replacing) GlassDialog({ replacing = false }, AfIcons.Fill.ArrowsClockwise, AutoFlowColors.Amber, tr(UiText.REPLACE_MOVIE)) {
+        GlassCallout(AfIcons.Fill.Warn, My.breakSyllables(tr(UiText.V3_REPLACE_MOVIE_CONFIRM)), AutoFlowColors.Amber,
+            textModifier = Modifier.testTag("source-replace-warning"))
+        GlassDialogButtons(GlassDialogAction(tr(UiText.CANCEL), { replacing = false }, tag = "source-replace-cancel"),
+            GlassDialogAction(tr(UiText.REPLACE_MOVIE), { replacing = false; model.importMovie() }, ButtonKind.Primary,
+                AfIcons.Regular.ArrowsClockwise, idle, "source-replace-confirm"))
+    }
+}
+
+/**
+ * The busy line and the last message (Group 2 D 19 · 1–3): the glass busy strip (Running chip · the job's text and "n %" ·
+ * its bar) while a job that is not a runner job works; the message as the green done / amber warning callout.
+ */
+@Composable
+internal fun SourceBusy(state: RecapUiState) {
+    val language = LocalUiLanguage.current
+    if (state.runnerJobId == null) state.job?.let {
+        RecapBusyStrip((state.jobNotice?.text(language) ?: it) + (state.progress?.let { p -> " ${(p * 100).toInt()} %" } ?: ""), state.progress)
+    }
+    state.message?.let { RecapMessage(state.notice?.text(language) ?: it, state.messageOk) }
+}
+
+/** The Movie card (Group 2 A §2 / D 18, 19 · 2, 12): the empty box, else file · facts · sound · Replace movie ([onReplace]). */
+@Composable
+internal fun SourceMovieCard(state: RecapUiState, recap: RecapV2, idle: Boolean, onReplace: () -> Unit) {
+    SectionCard(tr(UiText.V3_MOVIE), tile = RecapTiles.Movie) {
+        RecapRulesV2.canImportMovie(recap).blockers.firstOrNull()?.let {
+            GlassFact(AfIcons.Fill.Warn, it.text(LocalUiLanguage.current), colour = AutoFlowColors.WarningText,
+                iconColour = AutoFlowColors.Amber)
         }
+        val movie = recap.movie
+        // No movie yet: the empty box (32 dp Duotone file-video and the centred hint, Group 2 D 18).
+        if (movie == null) RecapEmptyBox(AfIcons.Duotone.FileVideo, GlassColors.RecapLavender, tr(UiText.RECAP_MOVIE_IMPORT_HINT)) else {
+            // File icon · name; the facts (length · size, sound) as icon lines (Group 2 A §2).
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfIcon(AfIcons.Regular.FileVideo, tint = AutoFlowColors.Muted, size = 18.dp)
+                AfText(state.movieName ?: movie.file.substringAfterLast('/'), Modifier.weight(1f).testTag("source-movie-name"), size = 14.sp, bold = true)
+            }
+            GlassFact(AfIcons.Regular.Clock, listOfNotNull(RecapModel.clock(movie.durationMs),
+                "${movie.width}×${movie.height}".takeIf { movie.width > 0 && movie.height > 0 })
+                .joinToString(" · "), textModifier = Modifier.testTag("source-movie-metadata"))
+            if (movie.hasAudio) GlassFact(AfIcons.Regular.Volume, tr(UiText.V3_AUDIO_FOUND), colour = AutoFlowColors.SuccessText,
+                iconColour = AutoFlowColors.Green)
+            // No sound: the amber speaker-slash row (Group 2 D 19 · 12).
+            else GlassFact(AfIcons.Regular.SpeakerMuted, tr(UiText.NO_SOUND_SUFFIX).trim(' ', '·'), colour = AutoFlowColors.WarningText,
+                iconColour = AutoFlowColors.Amber)
+            GlassButton(tr(UiText.REPLACE_MOVIE), onReplace, Modifier.testTag("source-replace"),
+                enabled = idle && RecapRulesV2.canImportMovie(recap).allowed, icon = AfIcons.Regular.ArrowsClockwise, small = true)
+        }
+    }
+}
+
+/** Split (density options, scan hint, Find scenes) and Scan result (Group 2 A §2 / D 19 · 3–4); [threshold] is the picked density. */
+@Composable
+internal fun SourceSplitCards(model: RecapModel, recap: RecapV2, idle: Boolean, threshold: Int, onThreshold: (Int) -> Unit) {
+    SectionCard(My.breakSyllables(tr(UiText.V3_SPLIT_MOVIE)), tile = RecapTiles.Split) {
+        listOf(Triple(Scenes.THRESHOLD_FEWER, UiText.FEWER_SCENES, UiText.V3_DENSITY_FEWER),
+            Triple(Scenes.THRESHOLD_NORMAL, UiText.NORMAL, UiText.V3_DENSITY_NORMAL),
+            Triple(Scenes.THRESHOLD_MORE, UiText.MORE_SCENES, UiText.V3_DENSITY_MORE)).forEach { (value, title, hint) ->
+            OptionCard(tr(title), My.breakSyllables(tr(hint)), threshold == value, { onThreshold(value) },
+                Modifier.fillMaxWidth().testTag("source-density-$value"),
+                recommended = value == Scenes.THRESHOLD_NORMAL, enabled = idle, radio = true)
+        }
+        GlassFact(AfIcons.Fill.Info, My.breakSyllables(tr(UiText.V3_SCAN_HINT)), colour = AutoFlowColors.Muted, caption = true)
+        GlassButton(tr(if (recap.scenes.isEmpty()) UiText.FIND_SCENES else UiText.FIND_SCENES_AGAIN),
+            { model.findScenes(threshold) }, Modifier.testTag("source-scan"), enabled = idle && RecapRulesV2.canFindScenes(recap).allowed,
+            icon = AfIcons.Regular.Search)
+    }
+    SectionCard(tr(UiText.V3_SCAN_RESULT, "n" to recap.scenes.size), tile = RecapTiles.ScanResult) {
+        if (recap.scenes.isEmpty()) GlassFact(AfIcons.Fill.Info, My.breakSyllables(tr(UiText.V3_NO_SCENES)), colour = AutoFlowColors.Muted, caption = true)
+        else GlassFact(AfIcons.Fill.CheckCircle, tr(UiText.SCENES_PICKED, "size" to recap.picked.size,
+            "pickedMs" to RecapModel.clock(recap.pickedMs), "targetMs" to RecapModel.clock(recap.targetMs)),
+            iconColour = AutoFlowColors.Green)
+    }
+}
+
+/** Transcribe picked scenes (Group 2 D 19 · 8–12): the glass Transcribe section, or the no-sound row for a movie without sound. */
+@Composable
+internal fun SourceTranscribeCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+    if (state.transcribe.available) SectionCard(tr(UiText.TRANSCRIBE_SCENES), tile = RecapTiles.Transcribe) {
+        // A movie without sound: the Muted speaker-slash row (Group 2 D 19 · 12).
+        if (recap.movie?.hasAudio != true) GlassFact(AfIcons.Regular.SpeakerMuted, tr(UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE), colour = AutoFlowColors.Muted)
+        else TranscribeSection(model, state, recap, pinnedRun = true, glass = true)
     }
 }
 
 /** Actual scene times/picks remain authoritative; missing thumbnails leave the time-only fallback. */
 @Composable
-private fun SourcePicks(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun SourcePicks(model: RecapModel, state: RecapUiState, recap: RecapV2) {
     SectionCard(tr(UiText.SCENES), tile = RecapTiles.Scenes) {
-        if (recap.scenes.isEmpty()) { AfText(My.breakSyllables(tr(UiText.V3_NO_SCENES)), muted = true); return@SectionCard }
+        if (recap.scenes.isEmpty()) {
+            GlassFact(AfIcons.Fill.Info, My.breakSyllables(tr(UiText.V3_NO_SCENES)), colour = AutoFlowColors.Muted, caption = true)
+            return@SectionCard
+        }
         val idle = !state.busy && state.recording == null
         AfText(tr(UiText.TARGET_LENGTH), size = 14.sp, bold = true)
         WrapRow { Recap.TARGETS_MS.forEach { target ->

@@ -65,7 +65,7 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `filter` | `funnel-simple` | Filter |
 | `caretdown` | `caret-down` | Dropdown |
 | `speakerlow` | `speaker-low` | Low volume |
-| `speakerx` | `speaker-slash` | Muted |
+| `speakerx` | `speaker-slash` | Muted; movie without sound (Source) |
 | `archive` | `archive` | Backup, archive |
 | `user` | `user` | Voice gender / speaker (no account UI, D-06) |
 | `usersound` | `user-sound` | Saved voice (Library) |

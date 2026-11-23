@@ -55,8 +55,9 @@ internal fun RecapSpeakAllCard(model: RecapModel, job: AiJob, pin: Boolean) {
         (if (pin) pinned else Modifier).testTag("recap-speak-all-run"), onResume = { model.resumeVoiceRun(job.id) })
 }
 
+/** The Transcribe job's card; [glass] = the Studio glass job card with the Transcribe tile (Group 2 D 19 · 9). */
 @Composable
-internal fun RecapTranscribeRun(model: RecapModel, job: AiJob, pin: Boolean = false) {
+internal fun RecapTranscribeRun(model: RecapModel, job: AiJob, pin: Boolean = false, glass: Boolean = false) {
     ProjectAiJobCard(job, { model.cancelTranscribeRun(job.id) }, (if (pin) pinned else Modifier).testTag("transcribe-progress"),
-        Modifier.testTag("transcribe-cancel"))
+        Modifier.testTag("transcribe-cancel"), tile = if (glass) RecapTiles.Transcribe else null)
 }
