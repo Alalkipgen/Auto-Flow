@@ -1,7 +1,9 @@
 package io.github.alalkipgen.autoflow.core.recap
 
+import io.github.alalkipgen.autoflow.core.text.BurmeseSyllables
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** Publish Kit text (5B-10, studio-v2 §9). */
 class PublishKitTest {
@@ -67,5 +69,52 @@ class PublishKitTest {
         assertEquals("short", PublishKitText.chapterTitle("short"))
         assertEquals("", PublishKitText.chapterTitle("   "))
         assertEquals("exports/export.thumb.jpg", PublishKitText.thumbPath("export"))
+    }
+
+    @Test
+    fun chapterTitlesDoNotStopAtAbbreviations() {
+        // P9-G2-13 (Group 2 D §5): "Dr. Mann …" used to become the chapter "Dr".
+        assertEquals("Dr. Mann lies about the ice planet", PublishKitText.chapterTitle("Dr. Mann lies about the ice planet. Then he runs."))
+        assertEquals("Mr. Brand stays behind", PublishKitText.chapterTitle("Mr. Brand stays behind! Cooper leaves."))
+        assertEquals("Mrs. Cooper meets Ms. Brand", PublishKitText.chapterTitle("Mrs. Cooper meets Ms. Brand. The end."))
+        assertEquals("No. 5 vs. the Jr. team", PublishKitText.chapterTitle("No. 5 vs. the Jr. team. Later"))
+        assertEquals("St. Louis and Sr. Cruz", PublishKitText.chapterTitle("St. Louis and Sr. Cruz. Next"))
+        assertEquals("J. Smith and the U.S. team", PublishKitText.chapterTitle("J. Smith and the U.S. team. Next"))
+        // A "." inside a number or a word is not a sentence end; "..." still is, and so are "။", "?" and "!".
+        assertEquals("Version 2.0 is out", PublishKitText.chapterTitle("Version 2.0 is out. Next"))
+        assertEquals("Wait", PublishKitText.chapterTitle("Wait... what? Yes"))
+        assertEquals("Why", PublishKitText.chapterTitle("Why? Because."))
+        assertEquals("Dr. Mann ရဲ့ ရေခဲဂြိုဟ်", PublishKitText.chapterTitle("Dr. Mann ရဲ့ ရေခဲဂြိုဟ်။ ပြီးတော့"))
+        // Today's cases are unchanged.
+        assertEquals("She wakes up", PublishKitText.chapterTitle("She wakes up. Then she runs!"))
+        assertEquals("ကောင်လေး ရထားပေါ်တက်တယ်", PublishKitText.chapterTitle("ကောင်လေး ရထားပေါ်တက်တယ်။ ပြီးတော့ အိပ်ပျော်သွားတယ်။"))
+        assertEquals("a".repeat(40) + "…", PublishKitText.chapterTitle("a".repeat(60)))
+    }
+
+    @Test
+    fun longChapterTitlesAreCutBetweenWordsAndSyllables() {
+        // The demo story's block (Group 2 D 23 · 1): whole sentence, cut at a syllable start within 40.
+        assertEquals("Dr. Mann ရဲ့ ရေခဲဂြိုဟ်က သူတို့ မျှော်…",
+            PublishKitText.chapterTitle("Dr. Mann ရဲ့ ရေခဲဂြိုဟ်က သူတို့ မျှော်လင့်ထားသလို မဟုတ်ခဲ့ဘူး။"))
+        // Today: "… ကယ်တင်ဖို…" (the dot below of ဖို့ cut off) and "… စောင့်နေဆဲ ဖ…" (ဖြစ် cut after its consonant).
+        assertEquals("ကမ္ဘာမြေအစာငတ်ဘေးကနေလူသားတွေကိုကယ်တင်…",
+            PublishKitText.chapterTitle("ကမ္ဘာမြေအစာငတ်ဘေးကနေလူသားတွေကိုကယ်တင်ဖို့အာကာသခရီးကိုစတင်ခဲ့ကြတယ်။"))
+        assertEquals("ကမ္ဘာမြေမှာ Murph က အဖေ့ကို စောင့်နေဆဲ…",
+            PublishKitText.chapterTitle("ကမ္ဘာမြေမှာ Murph က အဖေ့ကို စောင့်နေဆဲ ဖြစ်ပြီး နာရီကို ကြည့်နေတယ်။"))
+        // Burmese then Latin: the cut falls where the script changes, not inside "Cooper".
+        assertEquals("ကမ္ဘာမြေအစာငတ်ဘေးကနေလူသားတွေကိုကယ်ဖို့…",
+            PublishKitText.chapterTitle("ကမ္ဘာမြေအစာငတ်ဘေးကနေလူသားတွေကိုကယ်ဖို့Cooperရဲ့အာကာသခရီးစတင်ခဲ့တယ်။"))
+        // English: at the last space within 40, not inside "wormhole".
+        assertEquals("Endurance passes Saturn and enters the…", PublishKitText.chapterTitle("Endurance passes Saturn and enters the wormhole"))
+        // Every cut keeps whole syllables: the next character starts one (or is a space).
+        val long = "ရေခဲဂြိုဟ်ပေါ်မှာ အမှန်တရားကို ဖုံးကွယ်ထားခဲ့တယ်လို့ Brand က သိသွားတော့ အရမ်းစိတ်ဆိုးသွားတယ်"
+        for (max in 10..60) {
+            val cut = PublishKitText.chapterTitle(long, max)
+            if (!cut.endsWith("…")) continue
+            val kept = cut.removeSuffix("…")
+            assertTrue(kept.length <= max && long.startsWith(kept), "$max: $cut")
+            val next = long.substring(kept.length).first()
+            assertTrue(next.isWhitespace() || BurmeseSyllables.startsAt(long, kept.length) || !BurmeseSyllables.isBurmese(next), "$max: $cut")
+        }
     }
 }
