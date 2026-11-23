@@ -14,7 +14,7 @@ if want - {k for k, _ in rows}:
 def camel(key):
     return {'checkc': 'CheckCircle', 'folderopen': 'FolderOpen', 'folderminus': 'FolderMinus', 'usersound': 'UserSound', 'textaa': 'TextAa', 'caretdown': 'CaretDown', 'speakerlow': 'SpeakerLow',
             'speakerx': 'SpeakerMuted', 'monitorplay': 'MonitorPlay', 'caretup': 'CaretUp', 'clockccw': 'ClockCounterClockwise', 'clockcw': 'ClockClockwise',
-            'cornersout': 'CornersOut', 'cornersin': 'CornersIn', 'x': 'XCircle', 'cc': 'Subtitles', 'chev': 'Chevron', 'vol': 'Volume'}.get(key, key[:1].upper() + key[1:])
+            'cornersout': 'CornersOut', 'cornersin': 'CornersIn', 'x': 'XCircle', 'cc': 'Subtitles', 'chev': 'Chevron', 'vol': 'Volume', 'filmstrip': 'FilmStrip'}.get(key, key[:1].upper() + key[1:])
 
 def layers(svg):
     out = []

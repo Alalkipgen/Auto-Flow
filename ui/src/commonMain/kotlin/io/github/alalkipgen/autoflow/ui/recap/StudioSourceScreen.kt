@@ -51,8 +51,9 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                 key(state.projectDir) {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(14.dp).testTag("source-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        // Phone / narrow window: the top preview (A §1) instead of a ▶ preview page.
-                        if (!wide) RecapTopPreview(model, null)
+                        // Phone / narrow window: the top preview (A §1) instead of a ▶ preview page — the picked scenes
+                        // with the movie's own sound (PR 3; there is no output timeline before a story).
+                        if (!wide) SourceTopPreview(model)
                         if (state.runnerJobId == null) state.job?.let {
                             StatusChip(StudioStatus.RUNNING)
                             AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: it}" +

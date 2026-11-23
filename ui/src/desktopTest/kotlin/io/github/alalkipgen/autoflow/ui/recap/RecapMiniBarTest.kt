@@ -144,7 +144,7 @@ class RecapMiniBarTest(val width: Int, val font: Float, val language: UiLanguage
 
     @Test fun sceneBadgeSeeksTheCardWithoutTogglingThePick() = runDesktopComposeUiTest(width = width, height = if (phone) 760 else 900) {
         ExportHarness().use { h ->
-            // Three scenes: only 2–4 s is on the story's timeline (blocks use 2–4, 6–8 and 4–5.5 s of the movie).
+            // Three scenes, only 2–4 s picked: the Source card (PR 3) plays the picks, so only that row has a badge.
             val project = (h.store.open(h.fixture.dir.path) as CoreResult.Ok).value
             val saved = (h.store.save(h.fixture.dir.path, project.copy(recap = project.recap!!.copy(scenes = listOf(
                 RecapScene(0, 1_500), RecapScene(2_000, 4_000, picked = true), RecapScene(8_500, 10_000))))) as CoreResult.Ok).value

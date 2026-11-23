@@ -1,9 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.platform.LocalDensity
@@ -75,25 +77,31 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
         private const val SCALE = 2f
         private const val WIDTH = 360
         private const val HEIGHT = 780
+        /** The Source card's length: the demo's 14 picked scenes end to end. */
+        private const val SOURCE_MS = 250_600L
         private val pictures = HashMap<String, ImageBitmap>()
         private fun picture(ms: Long) = InterstellarFixture.sceneAt(ms).let { scene ->
             synchronized(pictures) { pictures.getOrPut(scene) { org.jetbrains.skia.Image.makeFromEncoded(InterstellarFixture.picture(scene)).toComposeImageBitmap() } }
         }
-        /** Decoder stand-in: after each seek or Play/Pause it reports the requested time (40 ms on while playing) and its picture. */
+        /**
+         * Decoder stand-in: after each seek or Play/Pause it reports the requested time (40 ms on while playing) and its picture
+         * (to the frame feed, or — no feed, the Source card's plain decoder — drawn by itself).
+         */
         private val player = PreviewPlayer(atOnce = true) { _, request, modifier, onFrame, onSnapshot ->
             val frame by rememberUpdatedState(onFrame)
             val snapshot by rememberUpdatedState(onSnapshot)
             val at = remember { longArrayOf(-1, 0) }
+            var shown by remember { mutableStateOf<ImageBitmap?>(null) }
             LaunchedEffect(request.seekRevision, request.playing) {
                 if (at[0] != request.seekRevision) { at[0] = request.seekRevision; at[1] = request.sourceMs }
                 repeat(2) {
                     val ms = if (request.playing) at[1] + 40 else at[1]
                     snapshot(MovieSnapshot(ms, InterstellarFixture.MOVIE_MS, if (request.playing) MoviePhase.PLAYING else MoviePhase.PAUSED))
-                    frame?.invoke(picture(ms))
+                    frame?.invoke(picture(ms)) ?: run { shown = picture(ms) }
                     delay(40)
                 }
             }
-            Box(modifier)
+            Box(modifier) { shown?.let { androidx.compose.foundation.Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) } }
         }
         private val pyidaungsu: File by lazy {
             val dir = generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "fonts") }.first { File(it, "Pyidaungsu-Regular.ttf.b64").isFile }
@@ -163,9 +171,9 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
         waitForIdle()
     }
 
-    /** Output time [ms] through the scrubber (the owner's drag), then the picture. */
-    private fun ComposeUiTest.seek(ms: Long) {
-        val last = (252_000L - 1).toFloat()
+    /** Output time [ms] of a [durationMs] card through the scrubber (the owner's drag), then the picture. */
+    private fun ComposeUiTest.seek(ms: Long, durationMs: Long = 252_000L) {
+        val last = (durationMs - 1).toFloat()
         onNodeWithTag("timeline-scrubber").performSemanticsAction(SemanticsActions.SetProgress) { it((ms + .5f) / last) }
         waitForIdle(); ready()
     }
@@ -229,7 +237,17 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
         }
     }
 
-    @Test fun source() = shot("1-source", RecapStep.SOURCE)
+    /** A 1-source: the Source card (PR 3) plays the picked scenes (the demo's 14 picks, 4:10) — paused at 0:36, in scene #4. */
+    @Test fun source() {
+        shot("1-source", RecapStep.SOURCE) { seek(36_000, SOURCE_MS) }
+        shot("1-source-card", RecapStep.SOURCE, crop = "recap-top-preview") { seek(36_000, SOURCE_MS) }
+        shot("1-source-playing-mini-bar", RecapStep.SOURCE, full = false) {
+            seek(36_000, SOURCE_MS); play()
+            onNodeWithTag("source-content").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 900f * SCALE) }
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("recap-mini-bar").fetchSemanticsNodes().isNotEmpty() }
+            thumbnails()
+        }
+    }
     @Test fun story() = shot("2-story", RecapStep.STORY)
     @Test fun voice() = shot("3-voice", RecapStep.VOICE)
     @Test fun style() = shot("4-style", RecapStep.STYLE)

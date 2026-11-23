@@ -42,7 +42,10 @@ internal class TopPreviewLink {
     var outputMs by mutableLongStateOf(0L); private set
     var durationMs by mutableLongStateOf(0L); private set
     var blockId by mutableStateOf<String?>(null); private set
-    var blockNumber by mutableStateOf<Int?>(null); private set
+    /** The mini bar's line: "Block n" (output card), "#n · movie time" (Source card), or null between clips. */
+    var title by mutableStateOf<String?>(null); private set
+    /** Movie range of the mini bar thumbnail (the Source card's scene); null = the playing block's first clip. */
+    var thumb by mutableStateOf<Pair<Long, Long>?>(null); private set
     /** Movie time under the card's output time (scene rows), or null between clips. */
     var movieMs by mutableStateOf<Long?>(null); private set
     /** Less than a quarter of the card is inside the page's viewport (it is scrolled away above). */
@@ -56,15 +59,16 @@ internal class TopPreviewLink {
         control = Control(timeline, isPlaying, togglePlay, seek); attached = true
     }
     internal fun detach() { control = null; attached = false; playing = false; cardHidden = false }
-    internal fun report(playing: Boolean, outputMs: Long, durationMs: Long, blockId: String?, blockNumber: Int?, movieMs: Long?) {
+    internal fun report(playing: Boolean, outputMs: Long, durationMs: Long, blockId: String?, title: String?, movieMs: Long?,
+        thumb: Pair<Long, Long>? = null) {
         this.playing = playing; this.outputMs = outputMs; this.durationMs = durationMs
-        this.blockId = blockId; this.blockNumber = blockNumber; this.movieMs = movieMs
+        this.blockId = blockId; this.title = title; this.movieMs = movieMs; this.thumb = thumb
     }
 
     /** Output start of [id] on the card's timeline, or null when the block has no clip there. */
     fun blockStart(id: String): Long? = control?.timeline?.clips?.firstOrNull { it.blockId == id }?.outputFromMs
 
-    /** The first output time that shows movie time [fromMs]–[toMs] (a picked scene), or null when no clip uses it. */
+    /** The first output time that shows movie time [fromMs]–[toMs] (a scene), or null when no clip of the card uses it. */
     fun movieStart(fromMs: Long, toMs: Long): Long? = control?.timeline?.clips?.firstNotNullOfOrNull { c ->
         val end = c.sourceFromMs + (c.durationMs * c.sourceRate).toLong()
         if (c.sourceFromMs < toMs && end > fromMs) c.outputAt(maxOf(fromMs, c.sourceFromMs)) else null
@@ -100,23 +104,25 @@ internal fun TopPreviewHost(model: RecapModel, state: RecapUiState, phone: Boole
 }
 
 /**
- * A §1 mini bar (0-preview-states 4): 72 dp thumbnail of the playing block · Block n · mono time · Pause · caret-up back to
- * the card; a 3 dp progress line at the bottom. Shown only while playing with the card out of view.
+ * A §1 mini bar (0-preview-states 4): 72 dp thumbnail of the playing block (Source: scene) · Block n (Source: "#n · movie
+ * time") · mono time · Pause · caret-up back to the card; a 3 dp progress line at the bottom. Shown only while playing with
+ * the card out of view.
  */
 @Composable
 internal fun RecapMiniBar(model: RecapModel, state: RecapUiState, link: TopPreviewLink, modifier: Modifier = Modifier) {
     if (!(link.attached && link.playing && link.cardHidden)) return
     val scope = rememberCoroutineScope()
-    val clip = link.blockId?.let { id -> state.story?.blocks?.firstOrNull { it.id == id }?.clips?.firstOrNull() }
+    val range = link.thumb ?: link.blockId?.let { id -> state.story?.blocks?.firstOrNull { it.id == id }?.clips?.firstOrNull() }
+        ?.let { it.inMs to it.outMs }
     // Opaque, and a tap on its empty part stays on the bar (never opens the block card under it).
     Column(modifier.fillMaxWidth().testTag("recap-mini-bar").background(AutoFlowColors.Panel).pointerInput(Unit) {}) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.size(MiniThumb).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).background(Color.Black)) {
-                clip?.let { RecapThumbnail(model, state, it.inMs, it.outMs, "recap-mini-bar-thumbnail", size = MiniThumb) }
+                range?.let { RecapThumbnail(model, state, it.first, it.second, "recap-mini-bar-thumbnail", size = MiniThumb) }
             }
             Column(Modifier.weight(1f)) {
-                link.blockNumber?.let { AfText(tr(UiText.V3_BLOCK, "n" to it), type = GlassSectionType, weight = FontWeight.Bold) }
+                link.title?.let { AfText(it, type = GlassSectionType, weight = FontWeight.Bold) }
                 AfText("${RecapModel.clock(link.outputMs)} / ${RecapModel.clock(link.durationMs)}", mono = true, size = 12.sp,
                     color = AutoFlowColors.Muted)
             }
@@ -157,7 +163,8 @@ internal fun BlockPreviewThumb(model: RecapModel, state: RecapUiState, index: In
 
 /**
  * A Source scene row's thumbnail: the play badge is its own 32 dp target (`scene-preview-n`) that seeks the top card to
- * the scene; the rest of the row still toggles the pick. No badge when the card's timeline does not show this scene.
+ * the scene; the rest of the row still toggles the pick. No badge when the card does not play this scene (the Source card
+ * plays the picked scenes only, [SourceTopPreview]).
  */
 @Composable
 internal fun ScenePreviewThumb(model: RecapModel, state: RecapUiState, index: Int, fromMs: Long, toMs: Long) {

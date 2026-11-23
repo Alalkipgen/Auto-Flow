@@ -1519,6 +1519,7 @@ enum class UiText(val en: String, val my: String?) {
         "Play နှိပ်ရင် Render မလုပ်ခင် ရုပ်နဲ့အတူ အသံ (voice) နဲ့ သီချင်းကို ဖွင့်ပြမယ်။ ရုပ်ရှင်မူရင်းအသံ၊ အသံသန့်စင်ခြင်းနဲ့ ducking ကို Render မှာ ထည့်မယ်။"),
     PROJECT_PAGE_PREVIEW("Preview", "ကြိုကြည့်"),
     V3_PREVIEW_SCOPE("Before render · picture + voice + music", "Render မလုပ်ခင် · ရုပ် + အသံ + သီချင်း"),
+    V3_SOURCE_PREVIEW_SCOPE("Picked scenes · movie sound", "ရွေးထားတဲ့ ပြကွက်များ · ရုပ်ရှင်အသံ"),
     MV_PREVIEW_HINT("Preview before render (no render): the accepted clips in shot order, pending shots as cards, the song and the lyrics as they will be burned. Fix a shot or a lyric and play again.",
         "Render မလုပ်ခင် ကြိုကြည့်ခြင်း (Render မလုပ်ပါ)။ လက်ခံထားတဲ့ Clip တွေကို Shot အစဉ်အတိုင်း၊ မရသေးတဲ့ Shot တွေကို ကတ်အဖြစ်၊ သီချင်းနဲ့ ထည့်မယ့် စာသားတွေကို ပြထားတယ်။ Shot ဒါမှမဟုတ် စာသား ပြင်ပြီး ပြန်ဖွင့်ကြည့်ပါ။"),
     MV_PREVIEW_EMPTY("No shot has a length yet — make the shot sheet first.", "အရှည်ပါတဲ့ Shot မရှိသေးပါ — Shot စာရွက် အရင်လုပ်ပါ။"),

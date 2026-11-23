@@ -83,3 +83,4 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `cornersin` | `corners-in` | Exit fullscreen |
 | `swap` | `swap` | Classic Recap (⋮ action) |
 | `crosshair` | `crosshair-simple` | Seek to time (Diagnostics) |
+| `filmstrip` | `film-strip` | Source preview scene chip (picked scenes · movie time) |

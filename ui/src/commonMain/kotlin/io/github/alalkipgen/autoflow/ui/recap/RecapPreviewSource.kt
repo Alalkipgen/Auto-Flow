@@ -6,6 +6,7 @@ import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.render.RecapRender
 import io.github.alalkipgen.autoflow.media.render.RecapTimeline
+import io.github.alalkipgen.autoflow.media.render.RecapTimelineClip
 import io.github.alalkipgen.autoflow.media.render.RenderPresets
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
@@ -50,4 +51,46 @@ class RecapPreviewSource(private val session: ProjectSession, private val fs: Fi
             ?.let { Music(it, recap.audio.bgmVolume.toFloat()) }
         return Source("${open.dir}:${open.project.id}:${open.project.updatedAt}", joinPath(open.dir, movie.file), timeline, media?.vlcDir(), open.dir, music)
     }
+
+    /**
+     * Group 2 A §1 (PR 3): the Source step's top card — the movie itself on [PickedScenes.timeline] (no story needed, no voice
+     * or music: the movie plays with its own sound). Null without a movie, or when [state] is not the open project.
+     */
+    fun scenes(state: RecapUiState): Source? {
+        val open = session.open ?: return null
+        if (open.dir != state.projectDir || open.project.recap != state.recap) return null
+        val recap = open.project.recap ?: return null
+        val movie = recap.movie ?: return null
+        val timeline = PickedScenes.timeline(recap)
+        if (timeline.clips.isEmpty()) return null
+        return Source("${open.dir}:${open.project.id}:${open.project.updatedAt}", joinPath(open.dir, movie.file), timeline, media?.vlcDir(), open.dir)
+    }
+}
+
+/**
+ * The Source card's scene clock (as `MusicPreviewClock`): the picked scenes in order laid end to end, each at its own
+ * speed from its own start; nothing picked yet = the whole movie as one interval. Clip ids are `scene-<index in scenes>`.
+ */
+internal object PickedScenes {
+    private const val PREFIX = "scene-"
+    const val MOVIE = "movie"
+
+    fun timeline(recap: io.github.alalkipgen.autoflow.core.recap.RecapV2): RecapTimeline {
+        val movie = recap.movie ?: return RecapTimeline(emptyList(), emptyList())
+        val length = movie.durationMs.takeIf { it > 0 } ?: recap.scenes.maxOfOrNull { it.endMs } ?: 0L
+        val picks = recap.scenes.withIndex().filter { it.value.picked && it.value.endMs > it.value.startMs }
+        if (picks.isEmpty()) return RecapTimeline(if (length > 0) listOf(RecapTimelineClip(MOVIE, 0, 0, length, 0, 1f, length)) else emptyList(), emptyList())
+        var at = 0L
+        return RecapTimeline(picks.map { (index, scene) ->
+            RecapTimelineClip("$PREFIX$index", 0, at, at + (scene.endMs - scene.startMs), scene.startMs, 1f, length).also { at = it.outputToMs }
+        }, emptyList())
+    }
+
+    /** The scene (index in `recap.scenes`) a [timeline] clip plays, or null for the whole-movie interval. */
+    fun index(clip: RecapTimelineClip): Int? = clip.blockId.takeIf { it.startsWith(PREFIX) }?.removePrefix(PREFIX)?.toIntOrNull()
+
+    /** The output time that shows movie time [movieMs] on [timeline], or null when no clip plays it. */
+    fun outputAt(timeline: RecapTimeline, movieMs: Long): Long? = timeline.clips.firstOrNull { c ->
+        movieMs >= c.sourceFromMs && movieMs < c.sourceFromMs + c.durationMs
+    }?.outputAt(movieMs)
 }

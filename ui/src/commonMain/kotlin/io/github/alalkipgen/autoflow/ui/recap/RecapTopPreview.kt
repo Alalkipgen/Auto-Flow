@@ -11,6 +11,7 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,7 +70,6 @@ internal fun TopPreview(
     val aspect = output.width.toFloat() / output.height
     val duration = source.timeline.durationMs
     val scope = rememberCoroutineScope()
-    var fullscreen by remember { mutableStateOf(false) }
     if (enabled && problem == null) RecapPreviewSound(source.timeline, source.music, outputMs, playing)
     val ticks = remember(source.timeline) {
         val starts = linkedMapOf<String, Long>()
@@ -104,10 +104,9 @@ internal fun TopPreview(
             still?.let { Image(it, tr(UiText.EXACT_FRAME_DESCRIPTION), Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
         }
     }
-    val title = tr(UiText.PROJECT_PAGE_PREVIEW)
-    val folded = collapsed.value
     // PR 2 (A §1): the step's mini bar and list thumbnails follow this card and seek / play it.
     val link = LocalTopPreviewLink.current
+    val blockTitle = blockNumber?.let { tr(UiText.V3_BLOCK, "n" to it) }
     if (link != null) {
         val toggle by rememberUpdatedState(togglePlay)
         val seek by rememberUpdatedState(seekTo)
@@ -115,8 +114,24 @@ internal fun TopPreview(
             link.attach(source.timeline, { clock.playing }, { toggle() }, { seek(it) })
             onDispose { link.detach() }
         }
-        SideEffect { link.report(playing, outputMs, duration, blockId, blockNumber, clock.clip?.sourceAt(outputMs)) }
+        SideEffect { link.report(playing, outputMs, duration, blockId, blockTitle, clock.clip?.sourceAt(outputMs)) }
     }
+    TopPreviewCard(ui, tr(UiText.V3_PREVIEW_SCOPE), collapsed, listOfNotNull(ui.exactFailed, problem), reopen, picture)
+    if (diagnostics?.value == true) DiagnosticsDialog(recap, source, clock, outputMs, captions, seekTo) { diagnostics.value = false }
+}
+
+/**
+ * The card both top previews share (output: [TopPreview]; Source: [SourceTopPreview]): header (tile, title, [scope] caption,
+ * collapse), the picture, the [notes] (amber), scrubber, time + chip and the controls; Fullscreen opens as a dialog and
+ * [reopen] moves the decoder there and back. Collapsed = one row (tile, title, mono time, Play) that keeps the decoder running.
+ */
+@Composable
+private fun TopPreviewCard(ui: TopPreviewUi, scope: String, collapsed: MutableState<Boolean>, notes: List<String>, reopen: () -> Unit,
+    picture: @Composable (Modifier, Boolean) -> Unit) {
+    var fullscreen by remember { mutableStateOf(false) }
+    val title = tr(UiText.PROJECT_PAGE_PREVIEW)
+    val folded = collapsed.value
+    val link = LocalTopPreviewLink.current
     val follow = if (link == null) Modifier else Modifier.bringIntoViewRequester(link.requester).onGloballyPositioned {
         link.cardHidden = it.boundsInWindow().height < it.size.height * .25f
     }
@@ -131,14 +146,14 @@ internal fun TopPreview(
                 AfText(title, type = GlassSectionType, weight = FontWeight.Bold)
                 TimeText(ui, Modifier.testTag("timeline-time"), size = 12.sp, colour = AutoFlowColors.Muted)
             }
-            GlassIconButton(if (playing) AfIcons.Fill.Pause else AfIcons.Fill.Play, tr(if (playing) UiText.PAUSE else UiText.PLAY), togglePlay,
-                Modifier.testTag("timeline-play"), size = GlassShapes.IconButtonHeader)
+            GlassIconButton(if (ui.playing) AfIcons.Fill.Pause else AfIcons.Fill.Play, tr(if (ui.playing) UiText.PAUSE else UiText.PLAY),
+                ui.togglePlay, Modifier.testTag("timeline-play"), size = GlassShapes.IconButtonHeader)
             GlassIconButton(AfIcons.Regular.CaretDown, title, { collapsed.value = false }, collapse)
         } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SoftTile(AfIcons.Fill.MonitorPlay, AutoFlowColors.Cyan, size = 30.dp)
             Column(Modifier.weight(1f)) {
                 AfText(title, type = GlassSectionType, weight = FontWeight.Bold)
-                AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_SCOPE)), muted = true, type = AfType.Caption)
+                AfText(My.breakSyllables(scope), muted = true, type = AfType.Caption)
             }
             GlassIconButton(AfIcons.Regular.CaretUp, title, { collapsed.value = true }, collapse)
         }
@@ -146,8 +161,7 @@ internal fun TopPreview(
         // One call site in both states: collapsed keeps the decoder (and so the clock, voice and music) running unseen.
         PictureSlot(ui, folded, !fullscreen, picture)
         if (!folded) {
-            ui.exactFailed?.let { AfText(it, Modifier.padding(top = 6.dp), color = AutoFlowColors.Amber, size = 12.sp) }
-            problem?.let { AfText(it, Modifier.padding(top = 6.dp), color = AutoFlowColors.Amber, size = 12.sp) }
+            notes.forEach { AfText(it, Modifier.padding(top = 6.dp), color = AutoFlowColors.Amber, size = 12.sp) }
             Spacer(Modifier.height(2.dp))
             Scrubber(ui)
             TimeRow(ui, Modifier.testTag("timeline-time"))
@@ -160,14 +174,17 @@ internal fun TopPreview(
         }
     }
     if (fullscreen) FullscreenPreview(ui, { fullscreen = false; reopen() }, picture)
-    if (diagnostics?.value == true) DiagnosticsDialog(recap, source, clock, outputMs, captions, seekTo) { diagnostics.value = false }
 }
 
-/** Immutable render inputs of one recomposition (the clock itself is a non-Compose controller). */
+/**
+ * Immutable render inputs of one recomposition (the clock itself is a non-Compose controller). Source card ([SourceTopPreview]):
+ * [shortTime] "m:ss / m:ss", [sceneChip] "#n · movie time" (film-strip), no [exactButton], no [idle] line (it names Exact frame).
+ */
 private class TopPreviewUi(
     val aspect: Float, val outputMs: Long, val durationMs: Long, val playing: Boolean, val enabled: Boolean, val problem: String?,
     val block: Int?, val ticks: List<Float>, val exactAtMs: Long?, val exactFailed: String?, val exactBusy: Boolean,
     val exactEnabled: Boolean, val bigPlay: Boolean, val togglePlay: () -> Unit, val seekTo: (Long) -> Unit, val onExact: () -> Unit,
+    val shortTime: Boolean = false, val sceneChip: String? = null, val exactButton: Boolean = true, val idle: Boolean = true,
 )
 
 /** Collapsed: a 0 × 0 slot that still composes the 1 px decoder surface; else the picture at the output ratio. */
@@ -198,7 +215,7 @@ private fun PictureFrame(ui: TopPreviewUi, modifier: Modifier, overlays: Boolean
         .then(if (overlays) Modifier.border(1.dp, Color.White.copy(alpha = .08f), shape) else Modifier), contentAlignment = Alignment.Center) {
         if (here) picture(Modifier.fillMaxSize(), ui.enabled && ui.problem == null)
         if (overlays) {
-            if (!ui.enabled) AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_IDLE)), Modifier.align(Alignment.BottomCenter).padding(10.dp),
+            if (!ui.enabled && ui.idle) AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_IDLE)), Modifier.align(Alignment.BottomCenter).padding(10.dp),
                 muted = true, type = AfType.Caption, textAlign = TextAlign.Center)
             if (ui.bigPlay && here) BigPlay(ui.togglePlay)
         }
@@ -229,7 +246,7 @@ private fun TimeText(ui: TopPreviewUi, modifier: Modifier = Modifier, short: Boo
     colour: Color = AutoFlowColors.Text) {
     val position = RecapModel.clock(ui.outputMs)
     val total = RecapModel.clock(ui.durationMs)
-    AfText(if (short) "$position / $total" else tr(UiText.V3_OUTPUT_POSITION, "position" to position, "duration" to total),
+    AfText(if (short || ui.shortTime) "$position / $total" else tr(UiText.V3_OUTPUT_POSITION, "position" to position, "duration" to total),
         modifier, mono = true, size = size, color = colour)
 }
 
@@ -244,7 +261,7 @@ private fun TimeRow(ui: TopPreviewUi, time: Modifier = Modifier) {
     }
 }
 
-/** The current block (primary), or the shown Exact frame's time (info, image icon), or Rendering…. */
+/** The current block (primary; Source: "#n · movie time" with film-strip), or the shown Exact frame's time (info, image icon), or Rendering…. */
 @Composable
 private fun StateChip(ui: TopPreviewUi) {
     when {
@@ -252,10 +269,11 @@ private fun StateChip(ui: TopPreviewUi) {
         ui.exactAtMs != null -> ToneChip(tr(UiText.EXACT_FRAME_AT, "atMs" to PublishKitText.timestamp(ui.exactAtMs)), Tone.Info,
             Modifier.testTag("timeline-chip"), AfIcons.Fill.Image)
         ui.block != null -> ToneChip(tr(UiText.V3_BLOCK, "n" to ui.block), Tone.Primary, Modifier.testTag("timeline-chip"))
+        ui.sceneChip != null -> ToneChip(ui.sceneChip, Tone.Primary, Modifier.testTag("timeline-chip"), AfIcons.Regular.FilmStrip)
     }
 }
 
-/** −5 s · Play/Pause (48 dp primary circle) · +5 s · spacer · Exact frame (x = back to live) · [last] (Fullscreen / exit). */
+/** −5 s · Play/Pause (48 dp primary circle) · +5 s · spacer · Exact frame (x = back to live; not on Source) · [last] (Fullscreen / exit). */
 @Composable
 private fun Controls(ui: TopPreviewUi, modifier: Modifier = Modifier, middle: (@Composable RowScope.() -> Unit)? = null,
     last: @Composable () -> Unit) {
@@ -267,8 +285,8 @@ private fun Controls(ui: TopPreviewUi, modifier: Modifier = Modifier, middle: (@
             Modifier.testTag("timeline-forward"), size = GlassShapes.IconButtonHeader)
         if (middle != null) middle() else Spacer(Modifier.weight(1f))
         val live = ui.exactAtMs != null || ui.exactFailed != null
-        GlassIconButton(if (live) AfIcons.Regular.Close else AfIcons.Regular.Image, tr(if (live) UiText.CLOSE else UiText.EXACT_FRAME), ui.onExact,
-            Modifier.testTag("timeline-exact"), size = GlassShapes.IconButtonHeader, enabled = live || (ui.exactEnabled && !ui.exactBusy))
+        if (ui.exactButton) GlassIconButton(if (live) AfIcons.Regular.Close else AfIcons.Regular.Image, tr(if (live) UiText.CLOSE else UiText.EXACT_FRAME),
+            ui.onExact, Modifier.testTag("timeline-exact"), size = GlassShapes.IconButtonHeader, enabled = live || (ui.exactEnabled && !ui.exactBusy))
         last()
     }
 }
@@ -334,7 +352,7 @@ private fun FullscreenPreview(ui: TopPreviewUi, onExit: () -> Unit, picture: @Co
 private fun FullPicture(ui: TopPreviewUi, modifier: Modifier, picture: @Composable (Modifier, Boolean) -> Unit) {
     Box(modifier, contentAlignment = Alignment.Center) {
         picture(Modifier.fillMaxSize(), ui.enabled && ui.problem == null)
-        if (!ui.enabled) AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_IDLE)), Modifier.align(Alignment.BottomCenter).padding(10.dp),
+        if (!ui.enabled && ui.idle) AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_IDLE)), Modifier.align(Alignment.BottomCenter).padding(10.dp),
             muted = true, type = AfType.Caption, textAlign = TextAlign.Center)
         if (ui.bigPlay) BigPlay(ui.togglePlay)
     }
@@ -393,4 +411,80 @@ internal fun diagnosticsAction(model: RecapModel, state: RecapUiState, open: Mut
     val projects by model.previewSource.projects.collectAsState()
     val available = remember(state, projects) { model.previewSource.resolve(state) != null }
     return StudioAction(tr(UiText.V3_DIAGNOSTICS), { open.value = true }, available, "recap-diagnostics", AfIcons.Fill.Shield)
+}
+
+/**
+ * Group 2 A §1 (PR 3): the Source step's phone top card. Before a story there is no output timeline, so it plays the picked
+ * scenes in order straight from the movie, with the movie's own sound ([PickedScenes] clock, one plain decoder: no output
+ * frame, captions, layers, voice or music). Time "m:ss / m:ss", chip "#n · movie time", no Exact frame. No movie → no card.
+ * Watching never writes the project.
+ */
+@Composable
+internal fun SourceTopPreview(model: RecapModel) {
+    val state by model.state.collectAsState()
+    val open by model.previewSource.projects.collectAsState()
+    val source = remember(state, open) { model.previewSource.scenes(state) } ?: return
+    val recap = state.recap ?: return
+    val movie = recap.movie ?: return
+    val aspect = if (movie.width > 0 && movie.height > 0) movie.width.toFloat() / movie.height else 16f / 9
+    val collapsed = rememberSaveable(source.projectDir) { mutableStateOf(false) }
+    // A pick change makes a new clock: it goes on paused at the same movie time when that scene is still picked.
+    val lastMovieMs = remember(source.projectDir) { longArrayOf(-1) }
+    val atOnce = previewAtOnce
+    val scope = tr(UiText.V3_SOURCE_PREVIEW_SCOPE)
+    key(source.projectDir, source.path, source.timeline) {
+        val clock = remember {
+            RecapPlaybackClock(source.timeline).apply {
+                lastMovieMs[0].takeIf { it >= 0 }?.let { PickedScenes.outputAt(source.timeline, it) }?.let { seek(it) }
+            }
+        }
+        var refresh by remember { mutableLongStateOf(0) }
+        var enabled by remember { mutableStateOf(atOnce) }
+        var lastPoll by remember { mutableStateOf<kotlin.time.TimeMark?>(null) }
+        val command = remember(refresh) { clock.request.copy(muted = false) }
+        val outputMs = clock.positionMs
+        val playing = clock.playing
+        val problem = clock.problem
+        val duration = source.timeline.durationMs
+        val clip = clock.clip
+        val scene = clip?.let(PickedScenes::index)
+        val movieMs = clip?.sourceAt(outputMs)
+        SideEffect { movieMs?.let { lastMovieMs[0] = it } }
+        val chip = if (scene != null && movieMs != null) "#${scene + 1} · ${RecapModel.clock(movieMs)}" else null
+        val ticks = remember(source.timeline) {
+            source.timeline.clips.filter { PickedScenes.index(it) != null }.map { it.outputFromMs.toFloat() / (duration - 1).coerceAtLeast(1) }
+        }
+        val togglePlay: () -> Unit = { enabled = true; if (clock.problem != null) clock.seek(clock.positionMs); clock.setPlaying(!clock.playing); refresh++ }
+        val seekTo: (Long) -> Unit = { clock.seek(it); refresh++ }
+        PlayPauseShortcut(togglePlay)
+        val link = LocalTopPreviewLink.current
+        if (link != null) {
+            val toggle by rememberUpdatedState(togglePlay)
+            val seek by rememberUpdatedState(seekTo)
+            DisposableEffect(link, source.timeline) {
+                link.attach(source.timeline, { clock.playing }, { toggle() }, { seek(it) })
+                onDispose { link.detach() }
+            }
+            val range = scene?.let { recap.scenes.getOrNull(it) }?.let { it.startMs to it.endMs }
+            SideEffect { link.report(playing, outputMs, duration, clip?.blockId, chip, movieMs, range) }
+        }
+        val player: @Composable (Modifier) -> Unit = { modifier ->
+            Box(modifier.testTag("timeline-video").semantics { contentDescription = scope }) {
+                PreviewMoviePlayback(source.path, command, Modifier.fillMaxSize(), source.vlcDir) { snapshot ->
+                    val now = kotlin.time.TimeSource.Monotonic.markNow()
+                    val elapsed = lastPoll?.elapsedNow()?.inWholeMilliseconds ?: 0
+                    lastPoll = now
+                    clock.observe(snapshot, elapsed)
+                    refresh++
+                }
+            }
+        }
+        val ui = TopPreviewUi(aspect, outputMs, duration, playing, enabled, problem, null, ticks, null, null, false, false, !playing,
+            togglePlay, seekTo, {}, shortTime = true, sceneChip = chip, exactButton = false, idle = false)
+        TopPreviewCard(ui, scope, collapsed, listOfNotNull(problem), reopen = {
+            // Fullscreen moves the picture into its own window: a new decoder at the same time.
+            if (enabled) clock.seek(clock.positionMs)
+            refresh++
+        }) { modifier, live -> Box(modifier) { if (live) player(Modifier.fillMaxSize()) } }
+    }
 }

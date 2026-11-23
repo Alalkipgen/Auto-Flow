@@ -85,7 +85,10 @@ class RecapTopPreviewTest(val width: Int, val font: Float, val language: UiLangu
                 if (phone) {
                     cardIsFirst(s)
                     onNodeWithTag("timeline-play").assertExists(); onNodeWithTag("timeline-scrubber").assertExists()
-                    onNodeWithTag("timeline-exact").assertExists(); onNodeWithTag("timeline-fullscreen").assertExists()
+                    // Source (PR 3) plays the picked scenes from the movie: no Exact frame of an output there.
+                    if (s == RecapStep.SOURCE) onNodeWithTag("timeline-exact").assertDoesNotExist()
+                    else onNodeWithTag("timeline-exact").assertExists()
+                    onNodeWithTag("timeline-fullscreen").assertExists()
                     // Off the phone card (A §1): Close player, the long sound hint and the Diagnostics card.
                     listOf("timeline-close", "timeline-sound-hint").forEach { onNodeWithTag(it).assertDoesNotExist() }
                     onNode(hasTestTag("timeline-diagnostics")).assertDoesNotExist()
