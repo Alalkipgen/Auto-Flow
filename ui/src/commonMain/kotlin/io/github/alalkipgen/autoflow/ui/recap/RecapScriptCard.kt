@@ -50,13 +50,21 @@ const val WRITE_SCRIPT = "✨ Write script (Gemini)"
 const val WRITE_MYSELF = "✎ Write it myself"
 const val APPROVE_SCRIPT = "✓ Approve script"
 
-/** Card 3 · Script (docs/specs/recap.md §4): summary, subtitles, style, Gemini or manual script, edit, approve. */
+/**
+ * Card 3 · Script (docs/specs/recap.md §4): summary, subtitles, style, Gemini or manual script, edit, approve.
+ * [studioOptions] = Studio Story's Writing options in the glass look (Group 2 D 21 / 22): glass filter chips, glass credit
+ * field (prose font) + small Save credit (check), confirms as amber callouts with Write (sparkle) / Start (pencil) and Back (arrow-left),
+ * blockers as Muted info rows, Write script (sparkle, primary) / Write it myself (pencil). Classic keeps its look.
+ */
 @Composable
 internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null,
     studioOptions: Boolean = false, pinnedRun: Boolean = false) {
+    val glass = studioOptions
+    @Composable fun Chip(text: String, selected: Boolean, onClick: () -> Unit) =
+        if (glass) RecapChip(text, selected, onClick) else AfChip(text, selected, onClick = onClick)
     val content: @Composable ColumnScope.() -> Unit = content@{
         RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let {
-            AfText(it.text(LocalUiLanguage.current), muted = true)
+            SourceHint(glass, it.text(LocalUiLanguage.current))
             return@content
         }
         var style by remember(state.projectDir, state.story?.style) { mutableStateOf(state.story?.style ?: recap.style) }
@@ -69,16 +77,16 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
             SourceSubtitles(model, state, recap)
             TranscribeSection(model, state, recap, pinnedRun = pinnedRun)
         }
-        if (studioOptions) AfText(My.breakSyllables(tr(UiText.V3_STORY_WRITING_HINT)), muted = true)
+        if (studioOptions) SourceHint(true, tr(UiText.V3_STORY_WRITING_HINT))
         AfText(tr(UiText.STYLE), muted = true, size = 12.sp)
         WrapRow {
-            AfChip(tr(UiText.STYLE_PLAIN), (if (studioOptions) style else recap.style) == RecapStyle.PLAIN, onClick = { style = RecapStyle.PLAIN; model.setStyle(style) })
-            AfChip(tr(UiText.STYLE_COMMENTARY), (if (studioOptions) style else recap.style) == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY; model.setStyle(style) })
+            Chip(tr(UiText.STYLE_PLAIN), (if (studioOptions) style else recap.style) == RecapStyle.PLAIN) { style = RecapStyle.PLAIN; model.setStyle(style) }
+            Chip(tr(UiText.STYLE_COMMENTARY), (if (studioOptions) style else recap.style) == RecapStyle.COMMENTARY) { style = RecapStyle.COMMENTARY; model.setStyle(style) }
         }
         AfText(tr(UiText.BURMESE_REGISTER), muted = true, size = 12.sp)
         WrapRow {
-            AfChip(tr(UiText.REGISTER_SPOKEN), (if (studioOptions) register else recap.register) == RecapRegister.SPOKEN, onClick = { register = RecapRegister.SPOKEN; model.setRegister(register) })
-            AfChip(tr(UiText.REGISTER_WRITTEN), (if (studioOptions) register else recap.register) == RecapRegister.WRITTEN, onClick = { register = RecapRegister.WRITTEN; model.setRegister(register) })
+            Chip(tr(UiText.REGISTER_SPOKEN), (if (studioOptions) register else recap.register) == RecapRegister.SPOKEN) { register = RecapRegister.SPOKEN; model.setRegister(register) }
+            Chip(tr(UiText.REGISTER_WRITTEN), (if (studioOptions) register else recap.register) == RecapRegister.WRITTEN) { register = RecapRegister.WRITTEN; model.setRegister(register) }
         }
         // Hook style (5B-7): opening tone for segment 1
         AfText(tr(UiText.OPENING_HOOK), muted = true, size = 12.sp)
@@ -90,7 +98,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
                     io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.QUOTE -> tr(UiText.HOOK_QUOTE)
                     io.github.alalkipgen.autoflow.core.recap.RecapHookStyle.ACTION -> tr(UiText.HOOK_ACTION)
                 }
-                AfChip(label, recap.hookStyle == hook, onClick = { model.setHookStyle(hook) })
+                Chip(label, recap.hookStyle == hook) { model.setHookStyle(hook) }
             }
         }
         // Credit line (5B-7)
@@ -98,10 +106,11 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         var creditDraft by remember(state.projectDir, recap.creditLine) { mutableStateOf(recap.creditLine) }
         io.github.alalkipgen.autoflow.ui.components.AfTextField(
             creditDraft, { creditDraft = it }, tr(UiText.CREDIT_EXAMPLE),
-            Modifier.fillMaxWidth(), enabled = !state.busy,
+            Modifier.fillMaxWidth(), mono = !glass, enabled = !state.busy, glass = glass,
         )
         if (creditDraft != recap.creditLine) {
-            AfButton(tr(UiText.SAVE_CREDIT), { model.setCreditLine(creditDraft) })
+            SourceButton(glass, tr(UiText.SAVE_CREDIT), { model.setCreditLine(creditDraft) }, icon = if (glass) AfIcons.Regular.Check else null,
+                small = glass)
         }
         val script = state.script
         var confirming by remember(state.projectDir) { mutableStateOf<String?>(null) }
@@ -110,26 +119,27 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
             if (!pinnedRun) AfButton(tr(UiText.CANCEL), { model.cancelScript() }, kind = ButtonKind.Danger)
         } else if (confirming != null) {
             val gemini = confirming == WRITE_SCRIPT
-            AfText(
-                if (gemini) tr(UiText.SCRIPT_GENERATE_CONFIRM, "size" to (recap.picked.size)) +
-                    (if (script != null) tr(UiText.SCRIPT_REPLACE_HINT) else "")
-                else tr(UiText.SCRIPT_MANUAL_CONFIRM),
-                color = AutoFlowColors.Amber,
-            )
+            val text = if (gemini) tr(UiText.SCRIPT_GENERATE_CONFIRM, "size" to (recap.picked.size)) +
+                (if (script != null) tr(UiText.SCRIPT_REPLACE_HINT) else "")
+                else tr(UiText.SCRIPT_MANUAL_CONFIRM)
+            if (glass) GlassCallout(AfIcons.Fill.Warn, text, AutoFlowColors.Amber) else AfText(text, color = AutoFlowColors.Amber)
             WrapRow {
-                AfButton(if (gemini) tr(UiText.WRITE) else tr(UiText.START), {
+                SourceButton(glass, if (gemini) tr(UiText.WRITE) else tr(UiText.START), {
                     confirming = null
                     if (gemini) model.writeScript() else model.writeManually()
-                }, kind = ButtonKind.Primary)
-                AfButton(tr(UiText.BACK), { confirming = null }, icon = AfIcons.Regular.Back)
+                }, kind = ButtonKind.Primary, icon = if (!glass) null else if (gemini) AfIcons.Regular.Spark else AfIcons.Regular.Edit)
+                SourceButton(glass, tr(UiText.BACK), { confirming = null }, icon = AfIcons.Regular.Back)
             }
         } else {
             val gate = RecapRulesV2.canGenerateScript(recap, state.summary, if (recap.subtitles != null || state.transcribe.lines > 0) "srt" else "")
-            if (!gate.allowed) AfText(gate.blockers.first().text(LocalUiLanguage.current), muted = true, size = 12.sp)
+            if (!gate.allowed) {
+                if (glass) SourceHint(true, gate.blockers.first().text(LocalUiLanguage.current))
+                else AfText(gate.blockers.first().text(LocalUiLanguage.current), muted = true, size = 12.sp)
+            }
             WrapRow {
-                AfButton(tr(UiText.WRITE_SCRIPT), { if (script == null && !studioOptions) model.writeScript() else confirming = WRITE_SCRIPT },
+                SourceButton(glass, tr(UiText.WRITE_SCRIPT), { if (script == null && !studioOptions) model.writeScript() else confirming = WRITE_SCRIPT },
                     kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy, icon = AfIcons.Regular.Spark)
-                AfButton(tr(UiText.WRITE_MYSELF), { if (script == null) model.writeManually() else confirming = WRITE_MYSELF }, enabled = !state.busy,
+                SourceButton(glass, tr(UiText.WRITE_MYSELF), { if (script == null) model.writeManually() else confirming = WRITE_MYSELF }, enabled = !state.busy,
                     icon = AfIcons.Regular.Edit)
             }
         }

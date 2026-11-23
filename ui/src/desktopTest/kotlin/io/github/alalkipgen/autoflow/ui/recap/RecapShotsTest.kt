@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.toAwtImage
@@ -82,6 +83,7 @@ import java.util.Base64
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Group 2 PR 1 screenshots (plan README-FIRST §3): steps 1–5 with the phone top preview, A `0-preview-states` and
@@ -318,6 +320,53 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
             }
         }
         shot("20-dialog-replace-movie", RecapStep.SOURCE, full = false) { onNodeWithTag("source-replace").performScrollTo(); click("source-replace") }
+    }
+
+    /**
+     * D 21–22 (PR 11): the Story step with no story yet (Writing options open first, Blocks' empty box, no gate line §2.1;
+     * no top preview: no story to play) · the Story states sheet (StoryStatesGlassTest.StoryStates, 8 labelled states).
+     */
+    @Test fun storyStates() {
+        shot("21-story-writing", RecapStep.STORY, preview = false, prepare = { s ->
+            val project = s.fixture.project
+            val saved = (ProjectStore(s.fs).save(s.fixture.dir.path, project.copy(recap = project.recap!!.copy(story = null, storyApproved = false)))
+                as io.github.alalkipgen.autoflow.core.CoreResult.Ok).value
+            s.current.set(OpenProject(s.fixture.dir.path, saved)); s.recap.refresh()
+            s.recap.setSummary(StoryStates.SUMMARY) // something to write from (the demo has no subtitles), as in the sample
+        }) { waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("story-approve").fetchSemanticsNodes().isNotEmpty() } }
+        if (out == null) return
+        val tall = if (font > 1.5f) 10000 else 4800 // font 2.0: the eight states in one column
+        try {
+            // Few frames: every frame redraws the whole tall sheet (font 2.0: 20 000 px, ~1.5 s) and the test must end within
+            // its 1 min, so while the sheet is opened its animations end in one frame.
+            val motion = object : MotionDurationScale { var scale = 0f; override val scaleFactor get() = scale }
+            runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = (tall * SCALE).toInt(), effectContext = motion) {
+                Shots(Ratio.R16_9).use { s ->
+                    s.recap.refresh()
+                    val base = s.recap.state.value
+                    StoryStates.timing()
+                    setContent {
+                        CompositionLocalProvider(LocalCompact provides true, LocalDensity provides Density(SCALE, font), LocalUiLanguage provides language,
+                            LocalUiFontFamily provides BurmeseTestFont.family, LocalPreviewPlayer provides player) {
+                            Column(Modifier.fillMaxWidth().ambientBackground().padding(12.dp).testTag("states"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                StoryStates.Sheet(s.recap, base) { AfText(it, color = AutoFlowColors.PrimaryText, type = AfType.Caption) }
+                            }
+                        }
+                    }
+                    waitForIdle()
+                    with(StoryStates) { open(language) }
+                    // The bars' moving segment mid-way in three frames (each redraws the sheet): hold the clock, restart the two
+                    // job cards (frame 1 composes, frame 2 starts the bar), then one 16 ms frame = 550 ms of the bar.
+                    mainClock.autoAdvance = false; motion.scale = 16f / 550f; runOnIdle { StoryStates.bars.intValue++ }
+                    repeat(3) { mainClock.advanceTimeByFrame() }
+                    val box = onNodeWithTag("states").fetchSemanticsNode().boundsInRoot
+                    val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+                    write("22-story-states", image.getSubimage(0, 0, image.width, box.bottom.toInt().coerceAtMost(image.height)))
+                    assertTrue(box.bottom <= image.height, "22-story-states is cut: ${box.bottom} > ${image.height}")
+                    assertEquals(emptyList(), textFitProblems((WIDTH * SCALE).toInt(), font, strict = true, minNodes = 3), "22-story-states ${language.code()} $font")
+                }
+            }
+        } finally { StoryStates.clear() }
     }
 
     /**

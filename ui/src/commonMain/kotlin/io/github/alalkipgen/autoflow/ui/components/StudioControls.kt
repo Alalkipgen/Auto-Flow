@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -138,10 +139,47 @@ fun TileCard(title: String, tile: CardTile, modifier: Modifier = Modifier, actio
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SoftTile(tile.icon, tile.colour, Modifier.testTag("card-tile"), size = 30.dp)
-            AfText(title, Modifier.weight(1f), type = GlassSectionType, weight = androidx.compose.ui.text.font.FontWeight.Bold)
-            action?.invoke()
+            if (action == null) AfText(title, Modifier.weight(1f), type = GlassSectionType, weight = androidx.compose.ui.text.font.FontWeight.Bold)
+            else TitleAndAction({ AfText(title, type = GlassSectionType, weight = androidx.compose.ui.text.font.FontWeight.Bold) }, action, Modifier.weight(1f))
         }
         content()
+    }
+}
+
+/**
+ * A card header's title and [action]: side by side (gap 10, both centred) while the title's widest syllable fits beside
+ * the action, else the action on its own line under the title, at the end (a wide Burmese button at font 2.0), so a word is
+ * never cut inside a syllable.
+ */
+@Composable
+private fun TitleAndAction(title: @Composable () -> Unit, action: @Composable () -> Unit, modifier: Modifier = Modifier) {
+    androidx.compose.ui.layout.Layout(contents = listOf(title, action), modifier) { (titleM, actionM), constraints ->
+        val gap = 10.dp.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val end = actionM.map { it.measure(loose) }
+        val actionW = end.sumOf { it.width }
+        val actionH = end.maxOfOrNull { it.height } ?: 0
+        val text = titleM.first()
+        val beside = if (end.isEmpty()) 0 else actionW + gap
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else text.maxIntrinsicWidth(Constraints.Infinity) + beside
+        val stack = end.isNotEmpty() && text.minIntrinsicWidth(Constraints.Infinity) > width - beside
+        if (stack) {
+            val t = text.measure(loose.copy(minWidth = width, maxWidth = width))
+            layout(width, t.height + gap / 2 + actionH) {
+                t.place(0, 0)
+                var x = width - actionW
+                end.forEach { it.place(x, t.height + gap / 2); x += it.width }
+            }
+        } else {
+            val w = (width - beside).coerceAtLeast(0)
+            val t = text.measure(loose.copy(minWidth = w, maxWidth = w))
+            val h = maxOf(t.height, actionH)
+            layout(width, h) {
+                t.place(0, (h - t.height) / 2)
+                var x = width - actionW
+                end.forEach { it.place(x, (h - it.height) / 2); x += it.width }
+            }
+        }
     }
 }
 

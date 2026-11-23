@@ -12,6 +12,8 @@ import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.GlassButton
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -24,14 +26,19 @@ import io.github.alalkipgen.autoflow.ui.jobs.recapVoiceRow
 internal val AiJob.active get() = state == AiJobState.QUEUED || state == AiJobState.RUNNING
 private val pinned @Composable get() = Modifier.fillMaxWidth().padding(horizontal = screenPadding)
 
+/**
+ * The pinned foreground runs under the top bar: the Script run and a block's voice run. [glass] (Studio Story, Group 2 D
+ * 22 · 1–2) = the Script run as the glass job card (Writing options tile, small danger Cancel with x).
+ */
 @Composable
-internal fun RecapForegroundCards(model: RecapModel, state: RecapUiState) {
+internal fun RecapForegroundCards(model: RecapModel, state: RecapUiState, glass: Boolean = false) {
     val language = LocalUiLanguage.current
     state.scriptRunId?.let { id ->
         jobRows(state, null, null, emptyList(), language).firstOrNull { it.jobId == id }?.let { row ->
             JobRunCard(row.copy(projectTitle = null, detail = null), pinned.testTag("recap-script-run"), headerAction = {
-                AfButton(tr(UiText.CANCEL), { model.cancelScriptRun(id) }, kind = ButtonKind.Danger)
-            })
+                if (glass) GlassButton(tr(UiText.CANCEL), { model.cancelScriptRun(id) }, kind = ButtonKind.Danger, icon = AfIcons.Regular.Close, small = true)
+                else AfButton(tr(UiText.CANCEL), { model.cancelScriptRun(id) }, kind = ButtonKind.Danger)
+            }, tile = if (glass) RecapTiles.WritingOptions else null)
         }
     }
     state.voiceRun?.let { run ->

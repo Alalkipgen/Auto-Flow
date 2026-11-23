@@ -10,10 +10,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
+import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 
 /** Story uses the same native block inspector as Voice; only its route/actions differ. */
 @Composable
@@ -41,7 +43,8 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
     )
     val blocks: @Composable () -> Unit = {
         AfText(tr(UiText.BLOCKS), size = 14.sp, bold = true)
-        if (rows.isEmpty()) AfText(tr(UiText.WRITE_STORY_FIRST), muted = true)
+        // No blocks yet: the 30 dp duotone note-pencil box with the hint (Group 2 D 21).
+        if (rows.isEmpty()) RecapEmptyBox(AfIcons.Duotone.NotePencil, GlassColors.RecapLavender, tr(UiText.WRITE_STORY_FIRST), size = 30.dp)
         val link = LocalTopPreviewLink.current
         rows.forEach { row -> key(row.block.id) {
             BlockCard(row.index + 1, row.block.clips.joinToString(" · ") {
@@ -64,7 +67,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 2, tr(UiText.STORY), back,
             steps = recapStepLabels(), options = listOfNotNull(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap",
                 icon = AfIcons.Regular.Swap), diagnosticsAction.takeIf { !wide })) }
-        RecapForegroundCards(model, state)
+        RecapForegroundCards(model, state, glass = true)
         TopPreviewHost(model, state, !wide, Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
                 Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("story-list"),
@@ -81,7 +84,11 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                         RecapBusyStrip(state.jobNotice?.text(LocalUiLanguage.current) ?: it, state.progress)
                     }
                     state.message?.let { RecapMessage(state.notice?.text(LocalUiLanguage.current) ?: it, state.messageOk) }
-                    gate.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), muted = true) }
+                    // The approve gate as a Muted info row; not while Blocks is empty and it would only repeat "Write the
+                    // story first" (Group 2 D §2.1) — every other blocker still shows.
+                    gate.blockers.firstOrNull()?.takeUnless { rows.isEmpty() && it == Blocker.NO_SCRIPT }?.let {
+                        GlassFact(AfIcons.Fill.Info, My.breakSyllables(it.text(LocalUiLanguage.current)), colour = AutoFlowColors.Muted, caption = true)
+                    }
                     if (wide || (detail == null && rows.isEmpty())) ScriptCard(model, state, recap, studioOptions = true, pinnedRun = true)
                     if (detail == null) {
                         if (wide) AfText(tr(UiText.V3_SELECT_BLOCK), muted = true) else {
