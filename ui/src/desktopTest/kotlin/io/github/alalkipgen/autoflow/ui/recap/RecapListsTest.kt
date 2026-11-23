@@ -128,7 +128,9 @@ class RecapListsTest(val width: Int, val font: Float, val language: UiLanguage) 
             onNodeWithTag("recap-next").assertIsDisplayed().performMouseInput { click() }
             val voiced = frame("block-select-0", "block-thumbnail-stable-a")
             layout(voiced, bounds(hasText(title) and hasAnyAncestor(hasTestTag("block-select-0"))))
-            val play = hasContentDescription(UiText.AUDIO_PLAY.text(language)) and hasAnyAncestor(hasTestTag("block-select-0"))
+            // (Not the thumbnail's own "Play" badge `block-preview-0`, PR 2: that one plays the picture in the top card.)
+            val play = hasContentDescription(UiText.AUDIO_PLAY.text(language)) and hasAnyAncestor(hasTestTag("block-select-0")) and
+                !hasTestTag("block-preview-0")
             onNode(play, useUnmergedTree = true).performScrollTo()
             val button = bounds(play)
             assertTrue(button.width >= 48f && button.height >= 48f, "play target $button")
