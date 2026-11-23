@@ -16,6 +16,18 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.theme.AfType
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.media.render.RenderPresets
@@ -66,16 +78,35 @@ internal fun RecapLayerControls(recap: RecapV2, idle: Boolean, model: RecapModel
     val state by editor.state.collectAsState()
     val project by model.state.collectAsState()
     DisposableEffect(project.projectDir) { onDispose { editor.cancel() } }
-    AfCard(tr(UiText.NATIVE_LAYERS_CARD), Modifier.testTag("native-layers")) {
-        AfText(tr(UiText.LAYER_ORDER_HINT), muted = true)
+    val card: @Composable (@Composable ColumnScope.() -> Unit) -> Unit = { body ->
+        if (studio) TileCard(tr(UiText.NATIVE_LAYERS_CARD), RecapTiles.Layers, Modifier.testTag("native-layers"), content = body)
+        else AfCard(tr(UiText.NATIVE_LAYERS_CARD), Modifier.testTag("native-layers"), content = body)
+    }
+    card {
+        AfText(tr(UiText.LAYER_ORDER_HINT), muted = true, type = if (studio) AfType.Caption else null)
+        // Studio (Group 2 A §2): small glass buttons with a plus icon (not "+ " in the label); rows = type tile · "n · type" · pencil.
         if (state.draft == null) WrapRow {
             LayerType.entries.forEach { type ->
-                AfButton("+ ${type.labelMy(LocalUiLanguage.current)}", { editor.add(type) }, Modifier.testTag("layer-add-${type.name}"), enabled = idle)
+                if (studio) GlassButton(type.labelMy(LocalUiLanguage.current), { editor.add(type) }, Modifier.testTag("layer-add-${type.name}"),
+                    enabled = idle, icon = AfIcons.Regular.Plus, small = true)
+                else AfButton("+ ${type.labelMy(LocalUiLanguage.current)}", { editor.add(type) }, Modifier.testTag("layer-add-${type.name}"), enabled = idle)
             }
         }
         recap.layers.forEachIndexed { index, layer ->
-            AfButton("${index + 1} · ${layer.type.labelMy(LocalUiLanguage.current)}${if (studio) "" else " · ${layer.id}"}", { editor.edit(layer.id) },
-                Modifier.fillMaxWidth().testTag("layer-edit-${layer.id}"), enabled = idle && state.draft == null)
+            val enabled = idle && state.draft == null
+            if (studio) {
+                val shape = GlassShapes.MenuRow
+                val tile = layer.type.tile()
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).alpha(if (enabled) 1f else .5f).clip(shape).background(GlassColors.RowFill)
+                    .border(1.dp, GlassColors.RowBorder, shape).testTag("layer-edit-${layer.id}")
+                    .clickable(enabled = enabled, role = Role.Button) { editor.edit(layer.id) }.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SoftTile(tile.icon, tile.colour, size = 30.dp)
+                    AfText("${index + 1} · ${layer.type.labelMy(LocalUiLanguage.current)}", Modifier.weight(1f), size = 14.sp, bold = true)
+                    AfIcon(AfIcons.Regular.Edit, Modifier.padding(end = 6.dp), tint = AutoFlowColors.Muted, size = 18.dp)
+                }
+            } else AfButton("${index + 1} · ${layer.type.labelMy(LocalUiLanguage.current)} · ${layer.id}", { editor.edit(layer.id) },
+                Modifier.fillMaxWidth().testTag("layer-edit-${layer.id}"), enabled = enabled)
         }
         state.problem?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
         val d = state.draft

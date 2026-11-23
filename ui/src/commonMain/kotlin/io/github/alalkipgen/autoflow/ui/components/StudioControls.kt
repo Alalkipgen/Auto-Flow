@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
@@ -34,16 +35,21 @@ import io.github.alalkipgen.autoflow.ui.theme.AfSpace
 import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
+import io.github.alalkipgen.autoflow.ui.theme.Tone
 
-/** UI callback, not a persisted command or engine state. */
+/** UI callback, not a persisted command or engine state. [trailingIcon] = after the label (glass bars: Next →). */
 data class StudioAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val tag: String? = null,
-    val icon: ImageVector? = null)
+    val icon: ImageVector? = null, val trailingIcon: ImageVector? = null)
 
 @Composable
-private fun Action(action: StudioAction, primary: Boolean = false, modifier: Modifier = Modifier) = AfButton(
-    action.label, action.onClick, modifier.then(action.tag?.let { Modifier.testTag(it) } ?: Modifier),
-    kind = if (primary) ButtonKind.Primary else ButtonKind.Secondary, enabled = action.enabled, icon = action.icon,
-)
+private fun Action(action: StudioAction, primary: Boolean = false, modifier: Modifier = Modifier, glass: Boolean = false) {
+    val m = modifier.then(action.tag?.let { Modifier.testTag(it) } ?: Modifier)
+    val kind = if (primary) ButtonKind.Primary else ButtonKind.Secondary
+    if (glass) GlassButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon)
+    else AfButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon)
+}
 
 /**
  * Project editor header (DESIGN.md §9.4): [AfTopBar] (back, project name, "step k/5 · label", page preview and ⋮ as
@@ -84,34 +90,90 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
  * A measured sibling of the scrolling content, not an overlay with a guessed bottom spacer: bar colour with a top
  * divider, above the keyboard. [caption] is the hint (centred below on a phone, left on the desktop); [leading] is an
  * optional control before the buttons; [keys] = desktop keyboard hints above the caption (DESIGN.md §9.4, §9.8).
+ * [glass] = glass buttons with their icons (Movie Recap steps, Group 2 A §2).
  */
 @Composable
 fun StickyActionBar(primary: StudioAction, secondary: StudioAction? = null, caption: String? = null, modifier: Modifier = Modifier,
-    leading: (@Composable () -> Unit)? = null, keys: (@Composable () -> Unit)? = null) {
+    leading: (@Composable () -> Unit)? = null, keys: (@Composable () -> Unit)? = null, glass: Boolean = false) {
     Column(modifier.fillMaxWidth().background(AutoFlowColors.TitleBar).imePadding().testTag("sticky-action-bar")) {
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
         Box(Modifier.padding(horizontal = if (LocalCompact.current) 12.dp else 16.dp, vertical = 12.dp)) {
-            StickyActions({ Action(primary, true, it) }, secondary?.let { s -> { Action(s, modifier = it) } }, caption, leading, keys)
+            StickyActions({ Action(primary, true, it, glass) }, secondary?.let { s -> { Action(s, modifier = it, glass = glass) } }, caption, leading, keys)
         }
     }
 }
 
+/** A glass card's header tile: the Fill [icon] in a 30 dp soft tile of [colour], which also tints the card (Group 2 A §2). */
+class CardTile(val icon: ImageVector, val colour: Color)
+
+/**
+ * A titled card whose body folds with the header button (+ / −, or with a [tile] the glass card of Group 2 A §2:
+ * tile · title · caret-up / caret-down); the button's description is the [title] and its state the fold.
+ */
 @Composable
-fun SectionCard(title: String, modifier: Modifier = Modifier, initiallyExpanded: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
+fun SectionCard(title: String, modifier: Modifier = Modifier, initiallyExpanded: Boolean = true, tile: CardTile? = null,
+    content: @Composable ColumnScope.() -> Unit) {
     var expanded by remember(title) { mutableStateOf(initiallyExpanded) }
     val expansionLabel = tr(if (expanded) UiText.V3_EXPANDED else UiText.V3_COLLAPSED)
-    AfCard(title, modifier, headerAction = {
-        AfButton(if (expanded) "−" else "+", { expanded = !expanded }, Modifier.semantics {
-            contentDescription = title
-            stateDescription = expansionLabel
-        })
+    val fold = Modifier.semantics {
+        contentDescription = title
+        stateDescription = expansionLabel
+    }
+    if (tile != null) TileCard(title, tile, modifier, action = {
+        GlassIconButton(if (expanded) AfIcons.Regular.CaretUp else AfIcons.Regular.CaretDown, title, { expanded = !expanded }, fold)
+    }) { if (expanded) content() }
+    else AfCard(title, modifier, headerAction = {
+        AfButton(if (expanded) "−" else "+", { expanded = !expanded }, fold)
     }) { if (expanded) content() }
 }
 
+/**
+ * Glass card with a header (Group 2 A §2): 30 dp soft [tile] · [title] (14 sp bold) · optional [action]; the card is
+ * tinted with the tile colour (.16, from the top start). Padding 12, gap 10.
+ */
+@Composable
+fun TileCard(title: String, tile: CardTile, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit) {
+    GlassCard(modifier, tint = tile.colour, tintAlpha = .16f, gap = 10.dp) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SoftTile(tile.icon, tile.colour, size = 30.dp)
+            AfText(title, Modifier.weight(1f), type = GlassSectionType, weight = androidx.compose.ui.text.font.FontWeight.Bold)
+            action?.invoke()
+        }
+        content()
+    }
+}
+
+/**
+ * One choice of a set: a card with the [title] and its [explanation] (+ "Recommended"); [radio] = the glass radio row
+ * of Group 2 A §2 (22 dp radio-button / circle, title + cyan Recommended chip, caption; selected = primary .14 fill with
+ * a 1.5 dp purple ring).
+ */
 @Composable
 fun OptionCard(title: String, explanation: String, selected: Boolean, onSelect: () -> Unit,
-    modifier: Modifier = Modifier, recommended: Boolean = false, enabled: Boolean = true,
+    modifier: Modifier = Modifier, recommended: Boolean = false, enabled: Boolean = true, radio: Boolean = false,
 ) {
+    if (radio) {
+        val shape = GlassShapes.MenuRow
+        Row(modifier.fillMaxWidth().clip(shape).clickable(enabled = enabled, role = Role.RadioButton, onClick = onSelect)
+            .semantics { this.selected = selected }
+            .background(if (selected) GlassColors.OptionOnFill else GlassColors.OptionFill)
+            .border(if (selected) 1.5.dp else 1.dp, if (selected) AutoFlowColors.Purple else GlassColors.OptionBorder, shape)
+            .padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AfIcon(if (selected) AfIcons.Fill.RadioButton else AfIcons.Regular.Circle, Modifier.padding(top = 1.dp),
+                tint = if (selected) GlassColors.RecapLavender else AutoFlowColors.Muted, size = 22.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                WrapRow(spacing = 6.dp) {
+                    AfText(title, Modifier.align(Alignment.CenterVertically), type = GlassSectionType,
+                        weight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    if (recommended) ToneChip(tr(UiText.V3_RECOMMENDED), Tone.Running, Modifier.align(Alignment.CenterVertically), AfIcons.Fill.Spark)
+                }
+                AfText(explanation, muted = true, type = AfType.Caption)
+            }
+        }
+        return
+    }
     AfCard(title, modifier.clickable(enabled = enabled, role = Role.RadioButton, onClick = onSelect).semantics { this.selected = selected }, selected) {
         AfText(explanation, muted = true)
         if (recommended) AfText(tr(UiText.V3_RECOMMENDED), color = AutoFlowColors.Cyan)
@@ -159,9 +221,10 @@ fun PlannedTile(title: String, explanation: String? = null, modifier: Modifier =
 }
 
 /**
- * A recap block row (P9-11): [thumbnail] (the 128 × 72 scene frame) beside "Block n" and its real [time] — above them
- * when the text column would be narrower than [AfSize.TileCardMin] × the font scale — then the [status] chip, the
- * script's first line (two lines at most; the full line stays its description and is in the editor), play and [actions].
+ * A recap block row (P9-11; glass card, Group 2 A §2): [thumbnail] (the 128 × 72 scene frame) beside "Block n" and its
+ * real [time] in mono (a clip range never breaks; ranges wrap at " · ") — above them when the text column would be
+ * narrower than [AfSize.TileCardMin] × the font scale — then the [status] chip, the script's first line (two lines at
+ * most; the full line stays its description and is in the editor), play and [actions]. [playing] = 1.5 dp Cyan outline.
  */
 @Composable
 fun BlockCard(number: Int, time: String, script: String, status: StudioStatus, onOpen: () -> Unit,
@@ -169,21 +232,25 @@ fun BlockCard(number: Int, time: String, script: String, status: StudioStatus, o
     onPlay: (() -> Unit)? = null, thumbnail: (@Composable () -> Unit)? = null, playing: Boolean = false,
     actions: @Composable ColumnScope.() -> Unit = {},
 ) {
-    AfCard(modifier.clickable(role = Role.Button, onClick = onOpen), selected, outline = if (playing) AutoFlowColors.Cyan else null) {
+    GlassCard(modifier.clickable(role = Role.Button, onClick = onOpen), selected, gap = 10.dp,
+        outline = if (playing) GlassColors.PlayingOutline else null) {
         val facts = @Composable { m: Modifier ->
             Column(m, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
                 AfText(tr(UiText.V3_BLOCK, "n" to number), type = AfType.RowTitle)
-                AfText(time, muted = true, type = AfType.Numbers)
+                AfText(unbrokenRanges(time), muted = true, mono = true, size = 12.sp)
             }
         }
         if (thumbnail == null) facts(Modifier.fillMaxWidth()) else ThumbBeside(AfSize.ThumbScene.width, thumbnail, facts)
         StatusChip(status, deltaMs = deltaMs)
         val line = script.lineSequence().firstOrNull().orEmpty()
         if (line.isNotBlank()) AfText(line, Modifier.semantics { contentDescription = line }, type = AfType.Body, maxLines = 2, ellipsis = true)
-        onPlay?.let { AfIconButton(AfIcons.Fill.Play, tr(UiText.AUDIO_PLAY), it) }
+        onPlay?.let { GlassIconButton(AfIcons.Fill.Volume, tr(UiText.AUDIO_PLAY), it, size = GlassShapes.IconButtonHeader) }
         actions()
     }
 }
+
+/** "0:42–1:05 · 3:10–3:31" with a word joiner after each en dash: a line breaks only between ranges. */
+fun unbrokenRanges(time: String): String = time.replace("–", "–\u2060")
 
 /**
  * [leading] · [thumb] ([thumbWidth] wide) · [facts], or the facts (after [leading]) above the thumbnail when their column
@@ -191,10 +258,9 @@ fun BlockCard(number: Int, time: String, script: String, status: StudioStatus, o
  */
 @Composable
 internal fun ThumbBeside(thumbWidth: Dp, thumb: @Composable () -> Unit, facts: @Composable (Modifier) -> Unit,
-    leading: (@Composable () -> Unit)? = null, factsMin: Dp = AfSize.TileCardMin) {
+    leading: (@Composable () -> Unit)? = null, factsMin: Dp = AfSize.TileCardMin, gap: Dp = AfSpace.M, leadingWidth: Dp = AfSize.Icon) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val gap = AfSpace.M
-        val lead = if (leading != null) AfSize.Icon + gap else 0.dp
+        val lead = if (leading != null) leadingWidth + gap else 0.dp
         if (maxWidth - lead - thumbWidth - gap >= factsMin * LocalDensity.current.fontScale) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
                 leading?.invoke(); thumb(); facts(Modifier.weight(1f))

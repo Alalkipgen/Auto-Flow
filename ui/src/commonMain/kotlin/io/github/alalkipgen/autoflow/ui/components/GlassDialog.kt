@@ -198,12 +198,13 @@ fun GlassPathBox(path: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** A fact line: 17 dp Muted icon (Regular) + 13 sp text. */
+/** A fact line: 17 dp [iconColour] icon (Muted, Regular) + 13 sp text in [colour] ([caption] = 12 sp); [textModifier] on the text. */
 @Composable
-fun GlassFact(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+fun GlassFact(icon: ImageVector, text: String, modifier: Modifier = Modifier, colour: Color = AutoFlowColors.Text,
+    iconColour: Color = AutoFlowColors.Muted, caption: Boolean = false, textModifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AfIcon(icon, Modifier.padding(top = 2.dp), tint = AutoFlowColors.Muted, size = 17.dp)
-        AfText(text, Modifier.weight(1f))
+        AfIcon(icon, Modifier.padding(top = 2.dp), tint = iconColour, size = 17.dp)
+        AfText(text, textModifier.weight(1f), color = colour, type = if (caption) AfType.Caption else null)
     }
 }
 

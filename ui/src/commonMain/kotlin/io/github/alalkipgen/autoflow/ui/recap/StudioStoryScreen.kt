@@ -8,6 +8,7 @@ import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -39,7 +40,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
             ?.let { n -> { selectedId = n.block.id } },
     )
     val blocks: @Composable () -> Unit = {
-        AfText(tr(UiText.BLOCKS), bold = true)
+        AfText(tr(UiText.BLOCKS), size = 14.sp, bold = true)
         if (rows.isEmpty()) AfText(tr(UiText.WRITE_STORY_FIRST), muted = true)
         val link = LocalTopPreviewLink.current
         rows.forEach { row -> key(row.block.id) {
@@ -50,9 +51,9 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                 thumbnail = { row.block.clips.firstOrNull()?.let {
                     BlockPreviewThumb(model, state, row.index, row.block.id, it.inMs, it.outMs)
                 } }, playing = link?.attached == true && link.playing && link.blockId == row.block.id) {
-                TakeVoiceLabel(recap.takeFor(row.block.id), recap.voiceLock)
+                TakeVoiceLabel(recap.takeFor(row.block.id), recap.voiceLock, glass = true)
                 state.takeFiles[row.index]?.takeIf { row.voiced }?.let { file ->
-                    AudioPlayButton(file, playing == row.block.id, { playing = if (playing == row.block.id) null else row.block.id })
+                    AudioPlayButton(file, playing == row.block.id, { playing = if (playing == row.block.id) null else row.block.id }, glass = true)
                 }
             }
         } }
@@ -104,10 +105,11 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
         }
         StickyActionBar(
             if (approved && navigation != null) StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.VOICE)),
-                navigation.next, idle, "recap-next")
+                navigation.next, idle, "recap-next", trailingIcon = AfIcons.Regular.ArrowRight)
             else StudioAction(tr(UiText.V3_APPROVE_STORY), { model.approveScript() },
-                idle && gate.allowed && !approved, "story-approve"),
-            navigation?.let { StudioAction(tr(if (detail != null) UiText.BACK else UiText.PREVIOUS_STEP), back, idle, "recap-back") },
-            if (approved) tr(UiText.APPROVED) else null)
+                idle && gate.allowed && !approved, "story-approve", AfIcons.Regular.Check),
+            navigation?.let { StudioAction(tr(if (detail != null) UiText.BACK else UiText.PREVIOUS_STEP), back, idle, "recap-back",
+                AfIcons.Regular.Back) },
+            if (approved) tr(UiText.APPROVED) else null, glass = true)
     }
 }

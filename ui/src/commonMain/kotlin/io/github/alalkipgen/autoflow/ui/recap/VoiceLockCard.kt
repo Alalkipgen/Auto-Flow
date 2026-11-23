@@ -26,17 +26,25 @@ import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.GlassButton
+import io.github.alalkipgen.autoflow.ui.components.GlassFact
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Explicit lock changes, never a chip that silently changes the voice of future blocks (D-35). */
 @Composable
-internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: RecapV2, idle: Boolean, compact: Boolean = false) {
+internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: RecapV2, idle: Boolean, compact: Boolean = false,
+    glass: Boolean = false) {
     val controls = model.voiceSettings
     var draft by remember(state.projectDir) { mutableStateOf<VoiceChangeDraft?>(null) }
     val lock = recap.voiceLock
-    AfText(lock?.let { tr(UiText.VOICE_LOCK_STATUS, "provider" to (it.provider), "ifBlankconfigureddef" to (it.model.ifBlank { tr(UiText.VOICE_CONFIG_DEFAULT) }), "voice" to (it.voice)) }
-        ?: tr(UiText.VOICE_NOT_LOCKED))
-    AfButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, enabled = idle, modifier = Modifier.testTag("change-voice"))
+    val status = lock?.let { tr(UiText.VOICE_LOCK_STATUS, "provider" to (it.provider), "ifBlankconfigureddef" to (it.model.ifBlank { tr(UiText.VOICE_CONFIG_DEFAULT) }), "voice" to (it.voice)) }
+        ?: tr(UiText.VOICE_NOT_LOCKED)
+    // The lock icon instead of 🔒 (Group 2 A §2); [glass] (Studio Voice): Change voice is a small glass button.
+    GlassFact(if (lock != null) AfIcons.Regular.Lock else AfIcons.Regular.Info, status)
+    if (glass) WrapRow { GlassButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, Modifier.testTag("change-voice"), enabled = idle,
+        icon = AfIcons.Regular.UserSound, small = true) }
+    else AfButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, enabled = idle, modifier = Modifier.testTag("change-voice"))
     if (!compact) AfText(tr(UiText.VOICE_LOCK_POLICY), muted = true)
     val captured = draft ?: return
     Dialog(onDismissRequest = { draft = null }) {
@@ -77,12 +85,15 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
 }
 
 @Composable
-internal fun TakeVoiceLabel(take: io.github.alalkipgen.autoflow.core.recap.BlockTake?, lock: VoiceLock?) {
-    when (take?.voiceStatus(lock)) {
-        TakeVoiceStatus.DIFFERENT -> AfText(tr(UiText.DIFFERENT_VOICE), color = AutoFlowColors.Amber)
-        TakeVoiceStatus.UNKNOWN -> AfText(tr(UiText.VOICE_UNKNOWN), color = AutoFlowColors.Amber)
-        else -> Unit
+internal fun TakeVoiceLabel(take: io.github.alalkipgen.autoflow.core.recap.BlockTake?, lock: VoiceLock?, glass: Boolean = false) {
+    val text = when (take?.voiceStatus(lock)) {
+        TakeVoiceStatus.DIFFERENT -> tr(UiText.DIFFERENT_VOICE)
+        TakeVoiceStatus.UNKNOWN -> tr(UiText.VOICE_UNKNOWN)
+        else -> return
     }
+    // Glass block cards (Group 2 A §2): a warning icon line.
+    if (glass) GlassFact(AfIcons.Fill.Warn, text, colour = AutoFlowColors.WarningText, iconColour = AutoFlowColors.Amber)
+    else AfText(text, color = AutoFlowColors.Amber)
 }
 
 /** A take spoken with another voice than the lock (DESIGN.md §7 "Different voice" chip). */

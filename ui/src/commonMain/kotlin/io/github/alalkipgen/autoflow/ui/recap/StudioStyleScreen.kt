@@ -12,6 +12,7 @@ import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.storyboard.text
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 private enum class StyleSection(val label: UiText) {
@@ -37,7 +38,7 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
     DisposableEffect(state.projectDir) { onDispose { model.layerEditor.cancel() } }
     val sections: @Composable () -> Unit = {
         WrapRow(Modifier.testTag("style-sections")) { StyleSection.entries.forEach { item ->
-            AfChip(tr(item.label), section == item, { section = item },
+            RecapChip(tr(item.label), section == item, { section = item },
                 Modifier.testTag("style-section-${item.name}"), enabled = !draft)
         } }
     }
@@ -55,8 +56,9 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                     diagnosticsAction.takeIf { !wide })) }
             TopPreviewHost(model, state, !wide, Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
-                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("style-list"),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) { sections() }
+                    // The glass chips' 48 dp targets overflow their 34 dp pill: the padding sits inside the scroll viewport.
+                    GlassScrollColumn(Modifier.fillMaxSize().testTag("style-list"), PaddingValues(vertical = (AfSize.Touch - AfSize.FilterChip) / 2),
+                        Arrangement.spacedBy(12.dp)) { sections() }
                 }, editor = {
                     Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(14.dp).testTag("style-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -72,7 +74,8 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                         else when (section) {
                             StyleSection.LAYERS -> {
                                 RecapLayerControls(recap, idle, model, studio = true)
-                                if (!draft) SectionCard(tr(UiText.V3_MORE_OPTIONS), Modifier.testTag("style-layer-options"), initiallyExpanded = false) {
+                                if (!draft) SectionCard(tr(UiText.V3_MORE_OPTIONS), Modifier.testTag("style-layer-options"), initiallyExpanded = false,
+                                    tile = RecapTiles.MoreOptions) {
                                     RecapPictureControls(recap, idle, model, PictureSection.LAYERS)
                                     SaveBrandKitControls(recap, idle && !draft, model, state.projectDir)
                                     StyleTimingControls(model, state, recap, idle && !draft)
@@ -107,8 +110,9 @@ internal fun StudioStyleScreen(model: RecapModel, windowWidthDp: Float, navigati
                 }, previewPage = false)
             }
             StickyActionBar(StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.EXPORT)), onExport,
-                idle && render.allowed && !draft, "recap-next"),
-                navigation?.let { StudioAction(tr(if (draft) UiText.DISCARD else UiText.PREVIOUS_STEP), back, tag = "recap-back") })
+                idle && render.allowed && !draft, "recap-next", trailingIcon = AfIcons.Regular.ArrowRight),
+                navigation?.let { StudioAction(tr(if (draft) UiText.DISCARD else UiText.PREVIOUS_STEP), back, tag = "recap-back",
+                    icon = if (draft) AfIcons.Regular.Close else AfIcons.Regular.Back) }, glass = true)
         }
     }
 }

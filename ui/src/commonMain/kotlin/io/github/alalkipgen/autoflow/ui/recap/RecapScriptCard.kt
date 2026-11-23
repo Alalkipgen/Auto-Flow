@@ -29,7 +29,11 @@ import io.github.alalkipgen.autoflow.core.recap.RecapRegister
 import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
+import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.GlassButton
+import io.github.alalkipgen.autoflow.ui.components.GlassFact
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
@@ -143,7 +147,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         }
     }
     if (studioOptions) io.github.alalkipgen.autoflow.ui.components.SectionCard(My.breakSyllables(tr(UiText.V3_STORY_OPTIONS)),
-        initiallyExpanded = state.story == null, content = content)
+        initiallyExpanded = state.story == null, tile = RecapTiles.WritingOptions, content = content)
     else AfCard(tr(UiText.RECAP_SCRIPT_CARD), content = content)
 }
 
@@ -154,21 +158,35 @@ internal fun SourceSummary(model: RecapModel, state: RecapUiState) {
     AfTextField(state.summary, { model.setSummary(it) }, tr(UiText.SUMMARY), Modifier.fillMaxWidth().testTag("source-summary"), lines = 5, mono = false, enabled = !state.busy)
 }
 
+/**
+ * Subtitles present = file-text · subtitles.srt · check (icons instead of "📄 … ✓", Group 2 A §2); [glass] = the Studio
+ * Source card's small glass buttons with icons.
+ */
 @Composable
-internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: RecapV2, glass: Boolean = false) {
+    if (recap.subtitles != null) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfIcon(AfIcons.Fill.FileText, tint = AutoFlowColors.Green, size = 18.dp)
+            AfText(tr(UiText.SUBTITLES_PRESENT), Modifier.weight(1f, fill = false),
+                size = 14.sp, bold = true, color = AutoFlowColors.SuccessText)
+            AfIcon(AfIcons.Regular.Check, tint = AutoFlowColors.Green, size = 16.dp)
+        }
+    }
     WrapRow {
         if (recap.subtitles == null) {
-            AfButton(tr(UiText.IMPORT_SUBTITLES), { model.importSubtitles() }, enabled = !state.busy, icon = AfIcons.Regular.Folder)
+            SourceButton(glass, tr(UiText.IMPORT_SUBTITLES), { model.importSubtitles() }, enabled = !state.busy, icon = AfIcons.Regular.Folder)
         } else {
-            AfText(tr(UiText.SUBTITLES_PRESENT), color = AutoFlowColors.Green)
-            AfButton(tr(UiText.REPLACE), { model.importSubtitles() }, enabled = !state.busy)
-            AfButton(tr(UiText.REMOVE), { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy)
+            SourceButton(glass, tr(UiText.REPLACE), { model.importSubtitles() }, enabled = !state.busy,
+                icon = if (glass) AfIcons.Regular.ArrowsClockwise else null, small = glass)
+            SourceButton(glass, tr(UiText.REMOVE), { model.removeSubtitles() }, kind = ButtonKind.Danger, enabled = !state.busy,
+                icon = if (glass) AfIcons.Regular.Close else null, small = glass)
         }
     }
     if (recap.movie != null && recap.subtitles == null) {
         val movieTracks = state.movieSubtitleTracks
         if (!state.movieSubtitleTracksRead) {
-            AfButton(tr(UiText.V3_READ_TRACKS), { model.readMovieSubtitleTracks() }, Modifier.testTag("source-read-tracks"), enabled = !state.busy)
+            SourceButton(glass, tr(UiText.V3_READ_TRACKS), { model.readMovieSubtitleTracks() }, Modifier.testTag("source-read-tracks"),
+                enabled = !state.busy, icon = if (glass) AfIcons.Regular.Subtitles else null)
         } else if (movieTracks.isNotEmpty()) {
             AfText(tr(UiText.EXTRACT_FROM_MOVIE), muted = true)
             WrapRow {
@@ -195,12 +213,15 @@ internal fun SourceSubtitles(model: RecapModel, state: RecapUiState, recap: Reca
  * requests left are sent).
  */
 @Composable
-internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2, pinnedRun: Boolean = false) {
+internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2, pinnedRun: Boolean = false, glass: Boolean = false) {
     val t = state.transcribe
     if (!t.available || recap.movie == null) return
     val active = t.job?.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING)
     if (t.lines > 0 || t.transcribedScenes > 0) {
-        AfText((if (active) tr(UiText.TRANSCRIPT_PREVIOUS) + " · " else "") + transcriptSummary(t.lines, t.transcribedScenes, LocalUiLanguage.current), Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
+        val summary = (if (active) tr(UiText.TRANSCRIPT_PREVIOUS) + " · " else "") + transcriptSummary(t.lines, t.transcribedScenes, LocalUiLanguage.current)
+        // The microphone icon line instead of "🎙 … ✓" (Group 2 A §2).
+        GlassFact(AfIcons.Regular.Microphone, summary, colour = AutoFlowColors.SuccessText, iconColour = AutoFlowColors.Green,
+            textModifier = Modifier.testTag("transcribe-summary"))
     }
     val running = state.runnerJobId == null && state.job?.startsWith("Transcribing") == true
     val confirm = t.confirm
@@ -235,7 +256,7 @@ internal fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: Re
         job != null -> if (!pinnedRun) RecapTranscribeRun(model, job)
         t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(tr(UiText.TRANSCRIBE_OFFER, "todoScenes" to (t.todoScenes)), muted = true, size = 12.sp)
-            AfButton(tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy,
+            SourceButton(glass, tr(UiText.TRANSCRIBE_SCENES), { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy,
                 icon = AfIcons.Regular.Wave)
         }
     }
@@ -289,3 +310,11 @@ internal fun transcriptSummary(lines: Int, scenes: Int, language: UiLanguage = U
 /** First sentence of the Transcribe confirm card: picked scenes without subtitles and the Gemini requests. */
 internal fun transcribeConfirmText(scenes: Int, requests: Int, language: UiLanguage = UiLanguage.ENGLISH): String =
     UiText.TRANSCRIBE_CONFIRM.text(language, "scenes" to (scenes), "requests" to (requests))
+
+/** A Source card's button: glass (Studio, Group 2 A §2) or the app button (Classic). */
+@Composable
+private fun SourceButton(glass: Boolean, text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
+    kind: ButtonKind = ButtonKind.Secondary, enabled: Boolean = true, icon: ImageVector? = null, small: Boolean = false) {
+    if (glass) GlassButton(text, onClick, modifier, kind = kind, enabled = enabled, icon = icon, small = small)
+    else AfButton(text, onClick, modifier, kind = kind, enabled = enabled, icon = icon)
+}

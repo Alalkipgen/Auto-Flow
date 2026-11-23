@@ -150,7 +150,7 @@ enum class ButtonKind { Primary, Secondary, Flow, Danger, Text }
 /**
  * DESIGN.md §9.4: Primary = filled purple (one per area), Secondary = outline, Text = no frame, Flow = cyan (Flow /
  * external), Danger = error outline (destructive). 44 dp visual ([small] 36) inside a 48 dp touch target, optional
- * 18 dp [icon]; hover / press overlay, keyboard focus ring, disabled at 40 %.
+ * 18 dp [icon] (and [trailingIcon] after the label: Next step →); hover / press overlay, keyboard focus ring, disabled at 40 %.
  */
 @Composable
 fun AfButton(
@@ -161,6 +161,7 @@ fun AfButton(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     small: Boolean = false,
+    trailingIcon: ImageVector? = null,
 ) {
     val (fill, line, ink) = when (kind) {
         ButtonKind.Primary -> Triple(AutoFlowColors.PrimaryFill, AutoFlowColors.PrimaryFill, Color.White)
@@ -181,6 +182,7 @@ fun AfButton(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             if (icon != null) AfIcon(icon, Modifier.testTag("button-icon"), tint = ink, size = AfSize.IconSmall)
             AfText(text, color = ink, type = if (small) AfType.ButtonSmall else AfType.Button)
+            if (trailingIcon != null) AfIcon(trailingIcon, tint = ink, size = AfSize.IconSmall)
         }
     }
 }

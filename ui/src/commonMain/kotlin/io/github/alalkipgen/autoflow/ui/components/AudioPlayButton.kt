@@ -5,15 +5,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
 
 /**
  * Play / Stop icon button (48 dp, label = description + tooltip) for one audio file; the player exists only while it
  * plays (none on desktop: [rememberSongPlayer] is null).
  */
 @Composable
-fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit) {
+fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit, glass: Boolean = false) {
     if (!playing) {
-        AfIconButton(AfIcons.Fill.Play, tr(UiText.AUDIO_PLAY), onToggle)
+        // Glass (Movie Recap block cards, Group 2 A §2): a 40 dp speaker, so it is not taken for the picture's Play.
+        if (glass) GlassIconButton(AfIcons.Fill.Volume, tr(UiText.AUDIO_PLAY), onToggle, size = GlassShapes.IconButtonHeader)
+        else AfIconButton(AfIcons.Fill.Play, tr(UiText.AUDIO_PLAY), onToggle)
         return
     }
     val player = rememberSongPlayer(path)
@@ -29,5 +32,6 @@ fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit) {
         while (player.playing) kotlinx.coroutines.delay(200)
         onToggle()
     }
-    AfIconButton(AfIcons.Fill.Square, tr(UiText.AUDIO_STOP), { player.pause(); onToggle() }, selected = true)
+    if (glass) GlassIconButton(AfIcons.Fill.Square, tr(UiText.AUDIO_STOP), { player.pause(); onToggle() }, size = GlassShapes.IconButtonHeader, selected = true)
+    else AfIconButton(AfIcons.Fill.Square, tr(UiText.AUDIO_STOP), { player.pause(); onToggle() }, selected = true)
 }

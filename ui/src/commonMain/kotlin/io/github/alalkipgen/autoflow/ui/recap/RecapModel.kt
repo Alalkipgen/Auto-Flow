@@ -379,6 +379,11 @@ class RecapModel(
         update { r -> r.copy(scenes = r.scenes.map { it.copy(picked = false) }) }
     }
 
+    /** Select all (Group 2 A §2): every scene picked, the same write path as [togglePick] / [clearPicks]. */
+    fun pickAll() {
+        update { r -> r.copy(scenes = r.scenes.map { it.copy(picked = true) }) }
+    }
+
     fun setTarget(ms: Long) {
         update { it.copy(targetMs = ms) }
     }

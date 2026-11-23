@@ -84,3 +84,20 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `swap` | `swap` | Classic Recap (⋮ action) |
 | `crosshair` | `crosshair-simple` | Seek to time (Diagnostics) |
 | `filmstrip` | `film-strip` | Source preview scene chip (picked scenes · movie time) |
+| `checks` | `checks` | Select all scenes (Source) |
+| `radio` | `radio-button` | Selected option row (Source split) |
+| `circle` | `circle` | Option row not selected |
+| `listsearch` | `list-magnifying-glass` | Scan result card |
+| `notepencil` | `note-pencil` | Summary card |
+| `checksquare` | `check-square` | Picked scene |
+| `caretleft` | `caret-left` | Previous page |
+| `arrowscw` | `arrows-clockwise` | Replace movie / subtitles |
+| `stack` | `stack` | Layers card (Style) |
+| `drophalf` | `drop-half` | Blur layer |
+| `textt` | `text-t` | Text layer |
+| `selection` | `selection` | Border layer |
+| `paintbucket` | `paint-bucket` | Background layer |
+| `sliders` | `sliders-horizontal` | More options card |
+| `arrowright` | `arrow-right` | Next step (sticky bar) |
+| `filevideo` | `file-video` | Movie file name |
+| `mic` | `microphone` | Voice card, voice remaining, transcript |

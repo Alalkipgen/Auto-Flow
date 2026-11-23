@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.media.playback.MoviePhase
@@ -117,6 +118,12 @@ class RecapMiniBarTest(val width: Int, val font: Float, val language: UiLanguage
             // The playing block's thumbnail pauses it.
             onNodeWithTag("block-preview-0").performScrollTo().performMouseInput { click() }
             waitUntil(timeoutMillis = 5_000) { onAllNodes(hasTestTag("block-preview-0") and hasContentDescription(pause)).fetchSemanticsNodes().isNotEmpty() }
+            // Scrolled up to the top edge, the thumbnail now sits under the mini bar (an overlay under the top bar): bring it out first.
+            if (onAllNodes(miniBar).fetchSemanticsNodes().isNotEmpty()) {
+                val bar = onNode(miniBar).getUnclippedBoundsInRoot(); val thumb = onNodeWithTag("block-preview-0").getUnclippedBoundsInRoot()
+                if (thumb.top < bar.bottom) onNodeWithTag("story-content")
+                    .performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, with(density) { (thumb.top - bar.bottom - 8.dp).toPx() }) }
+            }
             onNodeWithTag("block-preview-0").performMouseInput { click() }
             waitUntil(timeoutMillis = 5_000) { onAllNodes(hasTestTag("timeline-play") and hasContentDescription(play)).fetchSemanticsNodes().isNotEmpty() }
             assertEquals(before, h.bytes(), "previewing must not change any project file")

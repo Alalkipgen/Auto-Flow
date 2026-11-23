@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -155,6 +156,8 @@ internal fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         var page by remember(recap.scenes.size, pickedOnly) { mutableIntStateOf(0) }
         WrapRow {
             AfSwitch(tr(UiText.SHOW_PICKED), pickedOnly, { pickedOnly = it })
+            if (recap.picked.size < recap.scenes.size) AfButton(tr(UiText.SELECT_ALL_SCENES), { model.pickAll() },
+                Modifier.testTag("source-select-all"), icon = AfIcons.Regular.Checks)
             if (recap.picked.isNotEmpty()) AfButton(tr(UiText.CLEAR_PICKS), { model.clearPicks() }, kind = ButtonKind.Danger)
         }
         val rows = recap.scenes.withIndex().filter { (selectedScene == null || it.index == selectedScene) && (!pickedOnly || it.value.picked) }
