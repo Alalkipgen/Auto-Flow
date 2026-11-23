@@ -68,7 +68,8 @@ internal object InterstellarFixture {
     fun picture(scene: String): ByteArray = java.util.Base64.getMimeDecoder()
         .decode(requireNotNull(InterstellarFixture::class.java.getResourceAsStream("/recap-demo/$scene.jpg.b64")) { scene }.readBytes())
 
-    fun create(root: File, name: String = "Interstellar", ratio: Ratio = Ratio.R16_9): Built {
+    /** [history] = block 3 also keeps two older takes (the sample's C 12·7: "Other takes · 2", take 1 in another voice). */
+    fun create(root: File, name: String = "Interstellar", ratio: Ratio = Ratio.R16_9, history: Boolean = false): Built {
         val fs = JvmFs(); val store = ProjectStore(fs); val dir = File(root, "$name.autoflow")
         require(!dir.exists()) { "Fixture never overwrites an existing project: $dir" }
         val project = (store.create(dir.path, name, Mode.MOVIE_RECAP) as CoreResult.Ok).value
@@ -80,7 +81,13 @@ internal object InterstellarFixture {
         val artifacts = ArtifactStore(fs, dir.path)
         val script = (artifacts.put(CoreJson.encodeToString(RecapStory.serializer(), story).encodeToByteArray(), ArtifactKind.RECAP_SCRIPT, "json") as CoreResult.Ok).value
         val lock = VoiceLock("gemini", "gemini-2.5-flash-preview-tts", "Kore", "my")
-        val takes = story.blocks.zip(BLOCKS).mapNotNull { (block, demo) ->
+        val older = if (!history) emptyList() else story.blocks[2].let { block ->
+            listOf(block.durationMs - 3_200 to "Puck", block.durationMs - 1_300 to lock.voice).map { (ms, voice) ->
+                val audio = (artifacts.put(PcmWav.encode(8_000, FloatArray((ms * 8).toInt())), ArtifactKind.AUDIO, "wav") as CoreResult.Ok).value
+                BlockTake(block.id, audio.id, TakeSource.TTS, lock.provider, lock.model, voice, durationMs = ms, spokenHash = SpokenText.hash(block))
+            }
+        }
+        val takes = older + story.blocks.zip(BLOCKS).mapNotNull { (block, demo) ->
             if (demo.status == "NO_VOICE") return@mapNotNull null
             val ms = if (demo.status == "TIMING") block.durationMs + 1_000 else block.durationMs - 2_000
             val wav = PcmWav.encode(8_000, FloatArray((ms * 8).toInt()))

@@ -137,7 +137,7 @@ fun TileCard(title: String, tile: CardTile, modifier: Modifier = Modifier, actio
     GlassCard(modifier, selected = selected, tint = tile.colour, tintAlpha = .16f, gap = 10.dp) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SoftTile(tile.icon, tile.colour, size = 30.dp)
+            SoftTile(tile.icon, tile.colour, Modifier.testTag("card-tile"), size = 30.dp)
             AfText(title, Modifier.weight(1f), type = GlassSectionType, weight = androidx.compose.ui.text.font.FontWeight.Bold)
             action?.invoke()
         }

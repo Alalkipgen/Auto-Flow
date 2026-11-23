@@ -134,9 +134,11 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
     private val out = System.getenv("AUTOFLOW_GLASS_SHOTS_DIR")?.let(::File)
 
     /** The demo project opened like the app: Recap + Export models on one session, real ffmpeg for frames. */
-    private class Shots(ratio: Ratio) : AutoCloseable {
+    private class Shots(ratio: Ratio, recorder: Boolean = false, history: Boolean = false) : AutoCloseable {
         val root: File = Files.createTempDirectory("recap-shots").toFile()
-        val fixture = InterstellarFixture.create(root, ratio = ratio)
+        val fixture = InterstellarFixture.create(root, ratio = ratio, history = history)
+        /** While true, a take waveform's audio read waits (C 12·7: "Reading audio…" stays on screen). */
+        @Volatile var holdWaveforms = false
         val fs = JvmFs()
         val current = CurrentProject()
         val session = ProjectSession(fs, ProjectStore(fs), ProjectIndex(fs, File(root, "index.json").path), current)
@@ -153,10 +155,13 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
                 override fun findVlc(): String? = null
                 override fun isVlcDir(dir: String) = false
             }
-            val runner = ToolRunner { cmd, wd, timeout, keep, line -> when (val r = ProcessRunner.run(cmd, File(wd), timeout, keep, line)) {
+            val runner = ToolRunner { cmd, wd, timeout, keep, line ->
+                if ("s16le" in cmd) while (holdWaveforms) Thread.sleep(50)
+                when (val r = ProcessRunner.run(cmd, File(wd), timeout, keep, line)) {
                 is ProcessRunner.Exec.Done -> ToolExec.Done(r.exitCode, r.output, r.tail, r.wallMs, r.timedOut)
                 is ProcessRunner.Exec.CannotStart -> ToolExec.CannotStart(r.message)
-            } }
+                }
+            }
             val media = MediaTools(settings, locator, runner)
             val frames = RecapFrames(session, settings, fs, media, previewCacheDir = File(root, "cache/export-preview").path)
             val run = MutableStateFlow<RenderState>(RenderState.Queued)
@@ -173,9 +178,16 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
             val clipboard = object : Clipboard { override fun copyText(text: String) = PlatformResult.Ok(Unit) }
             export = ExportModel(session, settings, fs, queue, share, null, scope, clipboard, frames = frames)
             // Real scene / block thumbnails (ffmpeg from the demo movie), as in the sample.
-            recap = RecapModel(session, fs, media, null, scope, thumbnailCacheDir = File(root, "thumbs").path, frames = frames)
+            // C 12·2: a recorder stand-in (Record starts at once; the shot never stops it).
+            val voice = if (!recorder) null else object : io.github.alalkipgen.autoflow.platform.VoiceRecorder {
+                override val extension = "wav"
+                override suspend fun start(path: String) = PlatformResult.Ok(Unit)
+                override suspend fun stop() = PlatformResult.Ok(0L)
+                override fun cancel() = Unit
+            }
+            recap = RecapModel(session, fs, media, null, scope, recorder = voice, thumbnailCacheDir = File(root, "thumbs").path, frames = frames)
         }
-        override fun close() { scope.cancel(); root.deleteRecursively() }
+        override fun close() { holdWaveforms = false; scope.cancel(); root.deleteRecursively() }
     }
 
     private fun UiLanguage.code() = if (this == UiLanguage.BURMESE) "my" else "en"
@@ -238,11 +250,11 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
      */
     private fun shot(name: String, step: RecapStep, ratio: Ratio = Ratio.R16_9, full: Boolean = true, width: Int = WIDTH, height: Int = HEIGHT,
         crop: String? = null, prepare: (Shots) -> Unit = {}, area: (ComposeUiTest.() -> androidx.compose.ui.geometry.Rect)? = null,
-        open: ComposeUiTest.() -> Unit = {}) {
+        recorder: Boolean = false, history: Boolean = false, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         var extra = 0
         if (full) runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt()) {
-            Shots(ratio).use { s ->
+            Shots(ratio, recorder, history).use { s ->
                 prepare(s)
                 setContent(content(s, step, width)); waitForIdle(); ready(); open(); waitForIdle()
                 extra = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)).fetchSemanticsNodes()
@@ -250,7 +262,7 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
             }
         }
         runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt() + extra) {
-            Shots(ratio).use { s ->
+            Shots(ratio, recorder, history).use { s ->
                 prepare(s)
                 setContent(content(s, step, width)); waitForIdle(); ready(); open(); waitForIdle(); thumbnails()
                 val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
@@ -349,6 +361,145 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
             onNode((hasText(colour) or hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(colour))) and hasClickAction())
                 .performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
             waitForIdle()
+        }
+    }
+
+    /**
+     * D3 (PR 9): the C 12 shots PR 6 could not take — 12·2 Record tab while recording (a recorder stand-in), 12·6 the caption
+     * window after a custom timing was saved (Automatic resets), 12·7 the Takes card with the selected take's waveform still
+     * reading (the audio read waits) and Other takes open — and 13a with the caption field focused (its 1.5 dp cyan ring).
+     */
+    @Test fun voiceLeftovers() {
+        val tools: ComposeUiTest.() -> androidx.compose.ui.geometry.Rect = {
+            val top = onAllNodesWithText(UiText.V3_BLOCK_TOOLS.text(language)).fetchSemanticsNodes().first().boundsInRoot.top - 24 * SCALE
+            val bottom = onNodeWithTag("sticky-action-bar").fetchSemanticsNode().boundsInRoot.top
+            androidx.compose.ui.geometry.Rect(0f, top, WIDTH * SCALE, bottom)
+        }
+        shot("12-2-recording", RecapStep.VOICE, area = tools, recorder = true) {
+            openBlock(2); tab(UiText.VOICE_TAB_RECORD)
+            val record = UiText.RECORD.text(language)
+            val buttons = onAllNodes((hasText(record) or hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(record))) and hasClickAction() and
+                SemanticsMatcher.expectValue(SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
+            buttons[0].performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+            onNode(hasText(UiText.STOP.text(language)) or hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.STOP.text(language))))
+                .assertExists()
+        }
+        shot("12-6-caption-timing-custom", RecapStep.VOICE, area = tools) {
+            openBlock(2); onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasStateDescription(UiText.V3_COLLAPSED.text(language))).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle(); onNodeWithText(UiText.EDIT_CAPTION_TIMING.text(language)).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+            val end = onNode(hasSetTextAction() and hasContentDescription(UiText.TIME_END.text(language)))
+            val text = end.fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+            val ms = text.substringBefore(':').toLong() * 60_000 + (text.substringAfter(':').toDouble() * 1000).toLong() - 500
+            end.performTextReplacement("%d:%04.1f".format(java.util.Locale.ROOT, ms / 60_000, (ms % 60_000) / 1000.0))
+            // The timing editor's Save = the lowest Save on the page.
+            val save = UiText.SAVE.text(language)
+            val saves = onAllNodes((hasText(save) or hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(save))) and hasClickAction())
+            val index = saves.fetchSemanticsNodes().withIndex().maxBy { it.value.positionInRoot.y }.index
+            saves[index].performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+            onNodeWithText(UiText.AUTOMATIC.text(language)).assertExists()
+        }
+        shot("12-7-takes-loading-history", RecapStep.VOICE, crop = "voice-takes", history = true, prepare = { it.holdWaveforms = true }) {
+            openBlock(2)
+            onNode(hasStateDescription(UiText.V3_COLLAPSED.text(language)) and hasAnyAncestor(hasTestTag("voice-takes")))
+                .performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+            onNodeWithTag("voice-takes").performScrollTo()
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText(UiText.V3_WAVEFORM_LOADING.text(language)).fetchSemanticsNodes().isNotEmpty() }
+        }
+        shot("13a-dialog-script-focus", RecapStep.VOICE, full = false) {
+            openBlock(2); click("block-script-edit")
+            onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("block-script-input"))).performSemanticsAction(SemanticsActions.RequestFocus)
+            waitForIdle()
+        }
+    }
+
+    /**
+     * C 15 / 16 / 17 · 1–3, 8–9 (PR 9): Style · Layers with More options open (output · hide things · background · watermark ·
+     * Brand Kit · timing box), Captions, Look, Audio with music and without, the Brand Kit and caption style name forms (field focused).
+     */
+    @Test fun styleOptions() {
+        val more: ComposeUiTest.() -> Unit = {
+            click("style-section-LAYERS")
+            onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasAnyAncestor(hasTestTag("style-layer-options")))
+                .performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+        }
+        fun ComposeUiTest.button(text: UiText) {
+            val label = text.text(language)
+            onNode((hasText(label) or hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(label))) and hasClickAction())
+                .performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+        }
+        fun ComposeUiTest.focusName(label: UiText) {
+            onNode(hasSetTextAction() and hasContentDescription(label.text(language))).performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus)
+            waitForIdle()
+        }
+        /** The name form: from its label to Cancel, full width, plus 16 dp above and below (the card around it shows). */
+        fun form(label: UiText): ComposeUiTest.() -> androidx.compose.ui.geometry.Rect = {
+            val top = onNode(hasText(label.text(language)) and !hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+            val field = onNode(hasSetTextAction() and hasContentDescription(label.text(language))).fetchSemanticsNode().boundsInRoot
+            val cancel = UiText.CANCEL.text(language)
+            val bottom = onAllNodes((hasText(cancel) or hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(cancel))) and hasClickAction())
+                .fetchSemanticsNodes().map { it.boundsInRoot }.first { it.top > field.top }
+            val pad = 16 * SCALE
+            androidx.compose.ui.geometry.Rect(0f, top.top - pad, WIDTH * SCALE, bottom.bottom + pad)
+        }
+        // The sample's state: two blur boxes (subtitles strip + top-right logo), Blurred movie around it, a small top-right
+        // watermark (autoflow-logo.png); captions Boxed (dark box); the preview at 2:06 (block 5).
+        var opened: Shots? = null
+        shot("15-style-more-options", RecapStep.STYLE, prepare = { opened = it }) {
+            val s = opened!!
+            val logo = File(s.fixture.dir, "artifacts").walkTopDown().first { it.isFile && it.extension == "png" }
+            logo.copyTo(File(s.fixture.dir, "library/autoflow-logo.png").apply { parentFile.mkdirs() }, overwrite = true)
+            s.recap.setVisual { v -> v.copy(masks = listOf(io.github.alalkipgen.autoflow.core.recap.MaskPreset.BOTTOM, io.github.alalkipgen.autoflow.core.recap.MaskPreset.LOGO_TR)
+                .map { io.github.alalkipgen.autoflow.core.recap.RecapMask(it, it.rect) }, background = io.github.alalkipgen.autoflow.core.recap.FrameBackground.BLUR,
+                watermarkFile = "library/autoflow-logo.png", watermarkAnchor = io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor.TOP_RIGHT,
+                watermarkWidthPercent = io.github.alalkipgen.autoflow.core.recap.WatermarkSize.SMALL) }
+            waitForIdle(); seek(126_000); more()
+            // The sample has the top-right logo box picked in the placement box (its drag / resize hint shows).
+            val r = io.github.alalkipgen.autoflow.core.recap.MaskPreset.LOGO_TR.rect
+            onNodeWithTag(MASK_PREVIEW_TAG).performScrollTo().performTouchInput {
+                click(androidx.compose.ui.geometry.Offset(width * (r[0] + r[2] / 2), height * (r[1] + r[3] / 2)))
+            }
+            waitForIdle()
+        }
+        shot("16-style-captions", RecapStep.STYLE, prepare = { opened = it }) {
+            opened!!.recap.setCaptionStyle { it.copy(box = true) }
+            waitForIdle(); seek(126_000); click("style-section-CAPTIONS")
+        }
+        // The sample's Look state: Zoom 10 % + Warm picked.
+        var look: Shots? = null
+        shot("17-1-look", RecapStep.STYLE, crop = "style-look", prepare = { look = it }) {
+            look!!.recap.toggleLook(io.github.alalkipgen.autoflow.core.recap.Look.ZOOM)
+            look!!.recap.toggleLook(io.github.alalkipgen.autoflow.core.recap.Look.WARM)
+            waitForIdle(); click("style-section-LOOK")
+        }
+        var music: Shots? = null
+        shot("17-2-audio-music", RecapStep.STYLE, crop = "style-audio", prepare = { music = it }) {
+            val s = music!!
+            val id = (io.github.alalkipgen.autoflow.core.store.ArtifactStore(s.fs, s.fixture.dir.path).put(
+                io.github.alalkipgen.autoflow.media.audio.PcmWav.encode(8_000, FloatArray(8_000)), io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO,
+                "mp3", inputs = mapOf("role" to "bgm", RecapModel.BGM_NAME_INPUT to "Interstellar_theme.mp3"), provider = "imported")
+                as io.github.alalkipgen.autoflow.core.CoreResult.Ok).value.id
+            s.recap.setAudio { it.copy(bgm = id, trimSilence = true) }
+            waitForIdle(); click("style-section-AUDIO")
+        }
+        // The sample's sound switches: all three on (Trim long pauses included).
+        var quiet: Shots? = null
+        shot("17-3-audio-no-music", RecapStep.STYLE, crop = "style-audio", prepare = { quiet = it }) {
+            quiet!!.recap.setAudio { it.copy(trimSilence = true) }
+            waitForIdle(); click("style-section-AUDIO")
+        }
+        shot("17-8-brand-kit-name", RecapStep.STYLE, area = form(UiText.BRAND_KIT_NAME)) {
+            more(); button(UiText.SAVE_BRAND_KIT); focusName(UiText.BRAND_KIT_NAME)
+        }
+        var named: Shots? = null
+        shot("17-9-caption-style-name", RecapStep.STYLE, area = form(UiText.CAPTION_PRESET_NAME), prepare = { named = it }) {
+            named!!.recap.setCaptionStyle { it.copy(box = true) }
+            waitForIdle(); click("style-section-CAPTIONS"); button(UiText.SAVE_CAPTION_PRESET); focusName(UiText.CAPTION_PRESET_NAME)
         }
     }
 

@@ -115,3 +115,13 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `arrowUp` | `arrow-up` | Earlier (clips dialog) |
 | `arrowDown` | `arrow-down` | Later (clips dialog) |
 | `handTap` | `hand-tap` | Layer placement gesture hint |
+| `arrowUpLeft` | `arrow-up-left` | Watermark position top-left |
+| `arrowUpRight` | `arrow-up-right` | Watermark position top-right |
+| `arrowDownLeft` | `arrow-down-left` | Watermark position bottom-left |
+| `arrowDownRight` | `arrow-down-right` | Watermark position bottom-right |
+| `briefcase` | `briefcase` | Save as Brand Kit (Style) |
+| `eyeSlash` | `eye-slash` | Hide things on the movie card (Style) |
+| `floppyDisk` | `floppy-disk` | Save caption style (Style) |
+| `magicWand` | `magic-wand` | Look card (Style) |
+| `stamp` | `stamp` | Watermark card (Style) |
+| `musicNote` | `music-note` | Background music file, Add music (Style) |
