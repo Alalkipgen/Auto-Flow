@@ -37,6 +37,26 @@ import io.github.alalkipgen.autoflow.ui.components.PreviewPlayer
 import io.github.alalkipgen.autoflow.ui.export.ExportModel
 import io.github.alalkipgen.autoflow.ui.export.RecapFrames
 import io.github.alalkipgen.autoflow.ui.export.StudioExportScreen
+import io.github.alalkipgen.autoflow.ui.export.ExportUiState
+import io.github.alalkipgen.autoflow.ui.export.ExportRun
+import io.github.alalkipgen.autoflow.ui.export.PreviewFile
+import io.github.alalkipgen.autoflow.ui.export.RenderCard
+import io.github.alalkipgen.autoflow.ui.export.ExportPreviewCard
+import io.github.alalkipgen.autoflow.ui.export.PreflightCard
+import io.github.alalkipgen.autoflow.ui.export.ExactFramesCard
+import io.github.alalkipgen.autoflow.ui.components.AfText
+import io.github.alalkipgen.autoflow.ui.components.ambientBackground
+import io.github.alalkipgen.autoflow.ui.theme.AfType
+import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.media.render.Quality
+import io.github.alalkipgen.autoflow.media.audio.LoudnessMeasurement
+import io.github.alalkipgen.autoflow.core.recap.PreflightCheck
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -137,7 +157,7 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
                 is ProcessRunner.Exec.CannotStart -> ToolExec.CannotStart(r.message)
             } }
             val media = MediaTools(settings, locator, runner)
-            val frames = RecapFrames(session, settings, fs, media)
+            val frames = RecapFrames(session, settings, fs, media, previewCacheDir = File(root, "cache/export-preview").path)
             val run = MutableStateFlow<RenderState>(RenderState.Queued)
             val queue = object : RenderQueue {
                 override fun enqueue(job: RenderJob) = "render-1"
@@ -216,11 +236,12 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
      * node's bounds.
      */
     private fun shot(name: String, step: RecapStep, ratio: Ratio = Ratio.R16_9, full: Boolean = true, width: Int = WIDTH, height: Int = HEIGHT,
-        crop: String? = null, open: ComposeUiTest.() -> Unit = {}) {
+        crop: String? = null, prepare: (Shots) -> Unit = {}, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         var extra = 0
         if (full) runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt()) {
             Shots(ratio).use { s ->
+                prepare(s)
                 setContent(content(s, step, width)); waitForIdle(); ready(); open(); waitForIdle()
                 extra = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)).fetchSemanticsNodes()
                     .maxByOrNull { it.boundsInRoot.height }?.config?.get(SemanticsProperties.VerticalScrollAxisRange)?.maxValue()?.toInt() ?: 0
@@ -228,6 +249,7 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
         }
         runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt() + extra) {
             Shots(ratio).use { s ->
+                prepare(s)
                 setContent(content(s, step, width)); waitForIdle(); ready(); open(); waitForIdle(); thumbnails()
                 val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
                 val box = crop?.let { onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
@@ -252,6 +274,80 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
     @Test fun voice() = shot("3-voice", RecapStep.VOICE)
     @Test fun style() = shot("4-style", RecapStep.STYLE)
     @Test fun export() = shot("5-export", RecapStep.EXPORT)
+
+    /** A real 540p `exports/preview.mp4` (3 s of the demo movie), as after Preview 540p. */
+    private fun makePreview(s: Shots) {
+        val file = File(s.fixture.dir, "exports/preview.mp4").apply { parentFile.mkdirs() }
+        val process = ProcessBuilder(System.getenv("AUTOFLOW_FFMPEG") ?: "ffmpeg", "-y", "-loglevel", "error", "-ss", "5",
+            "-i", File(s.fixture.dir, "source/Interstellar.2014.mkv").path, "-t", "3", "-vf", "scale=960:540,format=yuv420p", "-r", "25",
+            "-c:v", "libx264", "-preset", "ultrafast", "-an", file.path).redirectErrorStream(true).start()
+        val log = process.inputStream.bufferedReader().readText()
+        check(process.waitFor() == 0) { "preview ffmpeg failed: $log" }
+    }
+
+    private fun ComposeUiTest.poster() {
+        waitUntil(timeoutMillis = 30_000) { onAllNodesWithTag("export-preview-poster").fetchSemanticsNodes().isNotEmpty() }
+        waitForIdle()
+    }
+
+    /** B 5-export after Preview 540p: the Render preview card; D 25c–d (PR 5): the same Fullscreen look for `export-preview-fullscreen`. */
+    @Test fun exportPreview() {
+        shot("5-export-preview-card", RecapStep.EXPORT, crop = "export-preview-card", prepare = { makePreview(it) }) { poster() }
+        shot("25c-export-fullscreen-portrait", RecapStep.EXPORT, full = false, prepare = { makePreview(it) }) { poster(); click("export-preview-fullscreen") }
+        shot("25d-export-fullscreen-landscape", RecapStep.EXPORT, full = false, width = HEIGHT, height = WIDTH, prepare = { makePreview(it) }) {
+            poster(); click("export-preview-fullscreen")
+        }
+    }
+
+    /**
+     * B `5-export-states`: the other states of the Export cards, each the real card composable in that state — Render running
+     * (low battery) · Render done · Render preview after Preview 540p (a real 540p file's poster) · Preflight all clear ·
+     * Exact frames made (the real export-pipeline stills of the demo). The desktop has no inline video player, so Render done
+     * shows its stand-in box where the phone shows ExoPlayer.
+     */
+    @Test fun exportStates() {
+        if (out == null) return
+        val tall = if (font > 1.5f) 6000 else 3400 // font 2.0: exact frames in one column
+        runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = (tall * SCALE).toInt()) {
+            Shots(Ratio.R16_9).use { s ->
+                makePreview(s)
+                s.export.refresh()
+                val dir = s.fixture.dir.path
+                val output = File(s.fixture.dir, "exports/export.mp4").path
+                fun run(state: RenderState) = ExportUiState(projectName = "Interstellar", run = ExportRun(dir, Quality.EXPORT, "render-1", output, state))
+                val loudness = RenderState.Loudness(-14.0, LoudnessMeasurement(-19.3, -1.5, 7.0, -29.6, .2), null)
+                val rights = PreflightCheck.Item("", PreflightCheck.Kind.INFO, reason = PreflightCheck.Reason.RIGHTS)
+                val preview = File(s.fixture.dir, "exports/preview.mp4").let { PreviewFile(it.path, it.length()) }
+                setContent {
+                    CompositionLocalProvider(LocalCompact provides true, LocalDensity provides Density(SCALE, font), LocalUiLanguage provides language,
+                        LocalUiFontFamily provides BurmeseTestFont.family, LocalPreviewPlayer provides player) {
+                        val state by s.export.state.collectAsState()
+                        LaunchedEffect(Unit) { s.export.makeThumbnails() }
+                        Column(Modifier.fillMaxWidth().ambientBackground().padding(12.dp).testTag("states"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            @Composable fun label(text: String) = AfText(text, color = AutoFlowColors.PrimaryText, type = AfType.Caption)
+                            label("Render · running (low battery)")
+                            RenderCard(run(RenderState.Running(.62, null)).copy(lowBattery = true), s.export, studio = true)
+                            label("Render · done")
+                            RenderCard(run(RenderState.Done(output, 96_000, 252_000, null, loudness)), s.export, studio = true)
+                            label("Render preview · after Preview 540p")
+                            ExportPreviewCard(preview, s.export, showOpen = true, glass = true)
+                            label("Preflight · all clear")
+                            PreflightCard(listOf(rights), glass = true)
+                            label("Exact frames · made (2 columns)")
+                            ExactFramesCard(state.thumbs, canMake = true, s.export, glass = true)
+                        }
+                    }
+                }
+                waitUntil(timeoutMillis = 240_000) { s.export.state.value.thumbs?.working == false }
+                poster()
+                val box = onNodeWithTag("states").fetchSemanticsNode().boundsInRoot
+                val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+                write("5-export-states", image.getSubimage(0, 0, image.width, box.bottom.toInt().coerceAtMost(image.height)))
+                assertEquals(null, s.export.state.value.thumbs?.failed)
+                assertEquals(emptyList(), textFitProblems((WIDTH * SCALE).toInt(), font, strict = true, minNodes = 3), "5-export-states ${language.code()} $font")
+            }
+        }
+    }
 
     /**
      * A `0-preview-states` 1–3 and 5–7 (4 = the mini bar, PR 2): the top card alone, measured on the full page so a font 2.0

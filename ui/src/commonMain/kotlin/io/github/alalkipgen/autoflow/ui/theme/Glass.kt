@@ -170,6 +170,10 @@ object GlassColors {
     val LayerBorder = AutoFlowColors.Amber
     val LayerBlur = AutoFlowColors.Cyan
     val LayerBackground = AutoFlowColors.Info
+    // Movie Recap Export step (Group 2 B): Render preview / Publish Kit Blue, Exact frames lavender, Render package Teal.
+    val ExportBlue = Subtitles
+    val ExportLavender = LibraryVoices
+    val ExportTeal = MusicVideo
     /** Option (radio) row: White .04 fill, White .10 border; selected Purple .14 (+ its 1.5 dp ring). */
     val OptionFill = Color.White.copy(alpha = .04f)
     val OptionBorder = Color.White.copy(alpha = .10f)

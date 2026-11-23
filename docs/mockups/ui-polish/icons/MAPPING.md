@@ -101,3 +101,9 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `arrowright` | `arrow-right` | Next step (sticky bar) |
 | `filevideo` | `file-video` | Movie file name |
 | `mic` | `microphone` | Voice card, voice remaining, transcript |
+| `filmreel` | `film-reel` | Render card (Export) |
+| `batterywarning` | `battery-warning` | Low battery callout (Export) |
+| `downloadsimple` | `download-simple` | Save to Gallery |
+| `framecorners` | `frame-corners` | Exact frames card |
+| `megaphone` | `megaphone` | Publish Kit card |
+| `arrowsquareout` | `arrow-square-out` | Open a render |

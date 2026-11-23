@@ -51,8 +51,9 @@ fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp
             }
             StickyActionBar(
                 StudioAction(state.recap?.let { tr(UiText.EXPORT_WITH_QUALITY, "quality" to it.quality.uiLabel()) }
-                    ?: tr(UiText.EXPORT_BUTTON), { model.render(Quality.EXPORT) }, current && state.canRender, "export-render"),
-                StudioAction(tr(UiText.PREVIEW_BUTTON), { model.render(Quality.PREVIEW) }, current && state.canRender, "export-preview"),
+                    ?: tr(UiText.EXPORT_BUTTON), { model.render(Quality.EXPORT) }, current && state.canRender, "export-render", AfIcons.Regular.Export),
+                StudioAction(tr(UiText.PREVIEW_BUTTON), { model.render(Quality.PREVIEW) }, current && state.canRender, "export-preview", AfIcons.Regular.Eye),
+                glass = true,
             )
         }
     }

@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -214,10 +215,31 @@ private fun PictureFrame(ui: TopPreviewUi, modifier: Modifier, overlays: Boolean
     Box(modifier.then(if (overlays) Modifier.shadow(6.dp, shape) else Modifier).clip(shape).background(Color.Black)
         .then(if (overlays) Modifier.border(1.dp, Color.White.copy(alpha = .08f), shape) else Modifier), contentAlignment = Alignment.Center) {
         if (here) picture(Modifier.fillMaxSize(), ui.enabled && ui.problem == null)
-        if (overlays) {
-            if (!ui.enabled && ui.idle) AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_IDLE)), Modifier.align(Alignment.BottomCenter).padding(10.dp),
-                muted = true, type = AfType.Caption, textAlign = TextAlign.Center)
-            if (ui.bigPlay && here) BigPlay(ui.togglePlay)
+        if (overlays) IdleOverlays(ui, ui.bigPlay && here)
+    }
+}
+
+/**
+ * Over a paused picture: the idle hint at the bottom (10 dp in) and the big Play in the centre — moved up above the hint
+ * when a long hint (font 2.0) would reach it, so the two never overlap.
+ */
+@Composable
+private fun BoxScope.IdleOverlays(ui: TopPreviewUi, play: Boolean) {
+    val hint = !ui.enabled && ui.idle
+    if (!hint && !play) return
+    Layout({
+        if (hint) AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_IDLE)), muted = true, type = AfType.Caption, textAlign = TextAlign.Center)
+        if (play) BigPlay(ui.togglePlay)
+    }, Modifier.matchParentSize()) { measurables, constraints ->
+        val pad = 10.dp.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val text = if (hint) measurables[0].measure(loose.copy(maxWidth = (constraints.maxWidth - 2 * pad).coerceAtLeast(0))) else null
+        val button = if (play) measurables.last().measure(loose) else null
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            val textTop = text?.let { constraints.maxHeight - pad - it.height } ?: constraints.maxHeight
+            text?.place((constraints.maxWidth - text.width) / 2, textTop)
+            button?.place((constraints.maxWidth - button.width) / 2,
+                minOf((constraints.maxHeight - button.height) / 2, textTop - 6.dp.roundToPx() - button.height).coerceAtLeast(0))
         }
     }
 }
@@ -352,9 +374,7 @@ private fun FullscreenPreview(ui: TopPreviewUi, onExit: () -> Unit, picture: @Co
 private fun FullPicture(ui: TopPreviewUi, modifier: Modifier, picture: @Composable (Modifier, Boolean) -> Unit) {
     Box(modifier, contentAlignment = Alignment.Center) {
         picture(Modifier.fillMaxSize(), ui.enabled && ui.problem == null)
-        if (!ui.enabled && ui.idle) AfText(My.breakSyllables(tr(UiText.V3_PREVIEW_IDLE)), Modifier.align(Alignment.BottomCenter).padding(10.dp),
-            muted = true, type = AfType.Caption, textAlign = TextAlign.Center)
-        if (ui.bigPlay) BigPlay(ui.togglePlay)
+        IdleOverlays(ui, ui.bigPlay)
     }
 }
 
