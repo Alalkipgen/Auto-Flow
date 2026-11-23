@@ -1,5 +1,10 @@
 package io.github.alalkipgen.autoflow.ui.components
 
+import androidx.compose.ui.focus.onFocusChanged
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -265,16 +270,24 @@ fun AfTextField(
     lines: Int = 1,
     mono: Boolean = true,
     enabled: Boolean = true,
+    glass: Boolean = false,
+    error: Boolean = false,
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = if (glass) GlassShapes.Field else ControlShape
     Box(
         modifier
             .heightIn(min = 48.dp).widthIn(min = 48.dp)
-            .clip(ControlShape)
-            .background(AutoFlowColors.Background)
-            .border(AutoFlowShapes.Border, AutoFlowColors.Line, ControlShape)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .clip(shape)
+            .background(if (glass) GlassColors.FieldFill else AutoFlowColors.Background)
+            .then(if (!glass) Modifier.border(AutoFlowShapes.Border, AutoFlowColors.Line, shape)
+                else if (error) Modifier.border(1.5.dp, AutoFlowColors.Amber, shape)
+                else if (focused) Modifier.border(1.5.dp, AutoFlowColors.Cyan, shape)
+                else Modifier.border(1.dp, GlassColors.FieldBorder, shape))
+            .onFocusChanged { focused = it.hasFocus }
+            .padding(horizontal = if (glass) 14.dp else 10.dp, vertical = if (glass) 10.dp else 8.dp),
     ) {
-        if (value.isEmpty()) AfText(placeholder, muted = true)
+        if (value.isEmpty()) AfText(placeholder, muted = !glass, color = if (glass) AutoFlowColors.Faint else null)
         BasicTextField(
             value = value,
             onValueChange = onChange,

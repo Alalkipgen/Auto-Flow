@@ -16,7 +16,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -169,19 +168,21 @@ internal fun StudioBlockVoiceAction(model: RecapModel, state: RecapUiState, row:
     } else StickyActionBar(action, caption = caption, glass = true)
     val request = pending?.takeIf { it.project == open?.project && it.dir == state.projectDir &&
         it.spoken == SpokenText.of(row.block, state.lexicon) } ?: return
-    Dialog(onDismissRequest = { pending = null }) {
-        AfCard(label, Modifier.widthIn(max = 560.dp).fillMaxWidth()) {
-            Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                AfText(tr(UiText.V3_ONLY_BLOCK, "n" to row.index + 1))
-                AfText(request.spoken, Modifier.testTag("voice-block-confirm-text"))
-                AfText(tr(UiText.V3_ONE_VOICE_REQUEST), muted = true)
-                AfText(tr(UiText.V3_NEW_TAKE_EFFECT), muted = true)
-            }
-            StickyActionBar(StudioAction(tr(UiText.START_PLAY), {
+    // Group 2 C 13d: the glass dialog (the action's icon), the spoken text as an inner glass quote, info / history rows.
+    // The long spoken text scrolls; Cancel | Start stay pinned under it (the footer).
+    GlassDialog({ pending = null }, if (revoice) AfIcons.Fill.Redo else AfIcons.Fill.Microphone, AutoFlowColors.Purple, label, footer = {
+        GlassDialogButtons(GlassDialogAction(tr(UiText.CANCEL), { pending = null }, tag = "voice-block-cancel"),
+            GlassDialogAction(tr(UiText.START_PLAY), {
                 rejected = !model.voiceInspector.confirm(request); pending = null
                 if (rejected) model.refresh()
-            }, allowed, "voice-block-confirm", AfIcons.Fill.Play),
-                StudioAction(tr(UiText.CANCEL), { pending = null }, tag = "voice-block-cancel"))
+            }, ButtonKind.Primary, AfIcons.Fill.Play, allowed, "voice-block-confirm"))
+    }) {
+        AfText(tr(UiText.V3_ONLY_BLOCK, "n" to row.index + 1), weight = FontWeight.Bold)
+        Box(Modifier.fillMaxWidth().clip(GlassShapes.MenuRow).background(GlassColors.OptionFill)
+            .border(1.dp, GlassColors.OptionBorder, GlassShapes.MenuRow).padding(12.dp)) {
+            AfText(request.spoken, Modifier.testTag("voice-block-confirm-text"))
         }
+        GlassFact(AfIcons.Regular.Info, tr(UiText.V3_ONE_VOICE_REQUEST), colour = AutoFlowColors.Muted, caption = true)
+        GlassFact(AfIcons.Regular.ClockCounterClockwise, tr(UiText.V3_NEW_TAKE_EFFECT), colour = AutoFlowColors.Muted, caption = true)
     }
 }

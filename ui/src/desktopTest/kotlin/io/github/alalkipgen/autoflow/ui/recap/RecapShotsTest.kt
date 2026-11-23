@@ -301,6 +301,28 @@ class RecapShotsTest(val language: UiLanguage, val font: Float) {
         }
     }
 
+    /**
+     * C 13a–e (PR 7): the five Voice dialogs over the Voice step — Script (block 3) · Movie source ranges with range 1's
+     * More options open and an empty range 2 (Save disabled) · Change voice… with Puck picked · Re-voice this block ·
+     * Voice n remaining.
+     */
+    @Test fun dialogs() {
+        shot("13a-dialog-script", RecapStep.VOICE, full = false) { openBlock(2); click("block-script-edit") }
+        shot("13b-dialog-clips", RecapStep.VOICE, full = false, height = 1125) {
+            openBlock(2); click("block-clips-edit")
+            onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasAnyAncestor(hasTestTag("clip-range-0")))
+                .performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle(); click("clip-add")
+        }
+        shot("13c-dialog-change-voice", RecapStep.VOICE, full = false) {
+            click("change-voice")
+            onNode(hasText("Puck", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+            waitForIdle()
+        }
+        shot("13d-dialog-revoice-block", RecapStep.VOICE, full = false) { openBlock(2); click("voice-block-request") }
+        shot("13e-dialog-voice-remaining", RecapStep.VOICE, full = false) { click("voice-remaining") }
+    }
+
     private fun ComposeUiTest.openBlock(index: Int) {
         onNodeWithTag("voice-open-$index").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         waitForIdle()

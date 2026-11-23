@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,7 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -190,16 +190,13 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
         else key(detail.block.id) { StudioBlockVoiceAction(model, state, detail) }
     }
     state.speakAllEta?.let { confirmation ->
-        Dialog(onDismissRequest = model::cancelSpeakAll) {
-            AfCard(tr(UiText.V3_VOICE_REMAINING, "n" to confirmation.count)) {
-                AfText(tr(UiText.V3_VOICE_REQUESTS, "n" to confirmation.count))
-                AfText(tr(UiText.SPEAK_ALL_HINT), muted = true)
-                WrapRow {
-                    AfButton(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) },
-                        Modifier.testTag("voice-confirm"), kind = ButtonKind.Primary, enabled = idle && gate.allowed, icon = AfIcons.Fill.Play)
-                    AfButton(tr(UiText.CANCEL), model::cancelSpeakAll, Modifier.testTag("voice-confirm-cancel"))
-                }
-            }
+        // Group 2 C 13e: the glass dialog (microphone tile), the hint as an info row, Cancel | Start (play).
+        GlassDialog(model::cancelSpeakAll, AfIcons.Fill.Microphone, GlassColors.RecapPink, tr(UiText.V3_VOICE_REMAINING, "n" to confirmation.count)) {
+            AfText(tr(UiText.V3_VOICE_REQUESTS, "n" to confirmation.count))
+            GlassFact(AfIcons.Regular.Info, tr(UiText.SPEAK_ALL_HINT), colour = AutoFlowColors.Muted, caption = true)
+            GlassDialogButtons(GlassDialogAction(tr(UiText.CANCEL), model::cancelSpeakAll, tag = "voice-confirm-cancel"),
+                GlassDialogAction(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) }, ButtonKind.Primary, AfIcons.Fill.Play,
+                    idle && gate.allowed, "voice-confirm"))
         }
     }
 }

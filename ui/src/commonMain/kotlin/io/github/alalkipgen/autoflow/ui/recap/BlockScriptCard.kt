@@ -6,7 +6,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -41,20 +40,24 @@ internal fun BlockScriptCard(model: RecapModel, state: RecapUiState, block: Reca
     key(draft.token) {
         var text by remember { mutableStateOf(draft.block.textMy) }
         var spoken by remember { mutableStateOf(draft.block.speakMy.orEmpty()) }
-        Dialog(onDismissRequest = editor::cancel) {
-            AfCard(tr(UiText.V3_SCRIPT), Modifier.widthIn(max = 560.dp).fillMaxWidth()) {
-                Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState()).testTag("block-script-form"),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AfText(tr(UiText.V3_CAPTION_TEXT), bold = true)
-                    AfTextField(text, { text = it }, tr(UiText.V3_CAPTION_TEXT), Modifier.fillMaxWidth().testTag("block-script-input"), lines = 4, mono = false, enabled = idle)
-                    AfText(tr(UiText.V3_SPOKEN_OVERRIDE), bold = true)
-                    AfTextField(spoken, { spoken = it }, tr(UiText.V3_SPOKEN_OVERRIDE), Modifier.fillMaxWidth().testTag("block-spoken-input"), lines = 3, mono = false, enabled = idle)
-                    AfText(tr(UiText.V3_SPOKEN_HELP), muted = true)
-                    SectionCard(tr(UiText.V3_MORE_OPTIONS), initiallyExpanded = false) { AfText(tr(UiText.V3_SPOKEN_HINT), muted = true) }
-                    edit.problem?.let { AfText(it.text(LocalUiLanguage.current), color = AutoFlowColors.Amber, modifier = Modifier.testTag("block-script-problem")) }
+        // Group 2 C 13a: the glass dialog (note-pencil tile), glass fields, info rows, More options card, Cancel | Save (check).
+        GlassDialog(editor::cancel, RecapTiles.Script.icon, RecapTiles.Script.colour, tr(UiText.V3_SCRIPT), footer = {
+            GlassDialogButtons(GlassDialogAction(tr(UiText.CANCEL), editor::cancel, tag = "block-script-cancel"),
+                GlassDialogAction(tr(UiText.SAVE), { editor.save(text, spoken) }, ButtonKind.Primary, AfIcons.Regular.Check, idle, "block-script-save"))
+        }) {
+            Column(Modifier.testTag("block-script-form"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                AfText(tr(UiText.V3_CAPTION_TEXT), bold = true)
+                AfTextField(text, { text = it }, tr(UiText.V3_CAPTION_TEXT), Modifier.fillMaxWidth().testTag("block-script-input"), lines = 4,
+                    mono = false, enabled = idle, glass = true)
+                AfText(tr(UiText.V3_SPOKEN_OVERRIDE), bold = true)
+                AfTextField(spoken, { spoken = it }, tr(UiText.V3_SPOKEN_OVERRIDE), Modifier.fillMaxWidth().testTag("block-spoken-input"), lines = 3,
+                    mono = false, enabled = idle, glass = true)
+                GlassFact(AfIcons.Regular.Info, tr(UiText.V3_SPOKEN_HELP), colour = AutoFlowColors.Muted, caption = true)
+                SectionCard(tr(UiText.V3_MORE_OPTIONS), initiallyExpanded = false, tile = RecapTiles.MoreOptions) {
+                    GlassFact(AfIcons.Regular.Info, tr(UiText.V3_SPOKEN_HINT), colour = AutoFlowColors.Muted, caption = true)
                 }
-                StickyActionBar(StudioAction(tr(UiText.SAVE), { editor.save(text, spoken) }, idle, "block-script-save"),
-                    StudioAction(tr(UiText.CANCEL), editor::cancel, tag = "block-script-cancel"))
+                edit.problem?.let { GlassCallout(AfIcons.Fill.Warn, it.text(LocalUiLanguage.current), AutoFlowColors.Amber,
+                    textModifier = Modifier.testTag("block-script-problem")) }
             }
         }
     }

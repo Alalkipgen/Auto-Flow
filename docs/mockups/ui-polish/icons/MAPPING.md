@@ -110,3 +110,7 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `arrowCounterClockwise` | `arrow-counter-clockwise` | Automatic (reset caption timing) |
 | `broom` | `broom` | Clean tab |
 | `stop` | `stop` | Stop recording |
+| `arrowsSplit` | `arrows-split` | Split range (clips dialog) |
+| `arrowsMerge` | `arrows-merge` | Join next range (clips dialog) |
+| `arrowUp` | `arrow-up` | Earlier (clips dialog) |
+| `arrowDown` | `arrow-down` | Later (clips dialog) |
