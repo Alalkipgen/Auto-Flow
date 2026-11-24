@@ -133,3 +133,9 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `usersThree` | `users-three` | Characters card (Music Video Input) |
 | `userPlus` | `user-plus` | Add character (Music Video Input) |
 | `hourglass` | `hourglass` | Input locked while Gemini works (Music Video) |
+| `circleDashed` | `circle-dashed` | Lyrics not synced yet (Music Video Input) |
+| `eraser` | `eraser` | Clear timings (Music Video Input) |
+| `paperPlaneRight` | `paper-plane-right` | Send — Suggest timings dialog (Music Video Input) |
+| `arrowLineDown` | `arrow-line-down` | Line starts — tap sync (Music Video Input) |
+| `flagCheckered` | `flag-checkered` | Last line ends — tap sync (Music Video Input) |
+| `arrowUUpLeft` | `arrow-u-up-left` | Restart — tap sync (Music Video Input) |

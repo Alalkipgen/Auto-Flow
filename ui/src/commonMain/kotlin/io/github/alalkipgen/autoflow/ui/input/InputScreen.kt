@@ -81,10 +81,11 @@ internal object MvTiles {
     val Song = CardTile(AfIcons.Fill.MusicNote, AutoFlowColors.Purple)
     val Video = CardTile(AfIcons.Fill.FilmStrip, GlassColors.MvVideoTile)
     val Characters = CardTile(AfIcons.Fill.UsersThree, AutoFlowColors.Green)
+    val LyricsTiming = CardTile(AfIcons.Fill.Timer, AutoFlowColors.Cyan)
 }
 
 /** The locked form's cards (a Gemini job runs): α .55, the controls are disabled as before. */
-private fun Modifier.dimmed(locked: Boolean): Modifier = if (locked) alpha(.55f) else this
+internal fun Modifier.dimmed(locked: Boolean): Modifier = if (locked) alpha(.55f) else this
 
 /**
  * Input (DESIGN.md §3, Group 3 B): glass cards for the lyrics, song, video settings and characters, then "Storyboard

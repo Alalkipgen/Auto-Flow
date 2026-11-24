@@ -136,6 +136,24 @@ class InputScreenTest {
     }
 
     @Test
+    fun suggestTimingsAsksFirst() = runComposeUiTest {
+        open()
+        fs.writeDurably("$dir/source/lyrics.txt", "One line\nSecond line".encodeToByteArray())
+        fs.writeDurably("$dir/source/song.mp3", byteArrayOf(1, 2, 3))
+        val model = InputModel(session, jobs)
+        setContent { InputScreen(model, jobs, onGenerated = {}) }
+        onNodeWithText(UiText.LYRICS_NOT_SYNCED.en).performScrollTo().assertIsDisplayed()
+        onNodeWithText(UiText.SUGGEST_TIMINGS.en).performScrollTo().performClick()
+        onNodeWithTag("confirm-suggest-timings").assertExists()
+        onNodeWithText(UiText.SUGGEST_TIMINGS_CONFIRM.en).assertExists()
+        onNodeWithTag("confirm-suggest-timings-back").performClick()
+        onNodeWithTag("confirm-suggest-timings").assertDoesNotExist()
+        assertEquals(null, jobs.state.value.gemini, "Back sends nothing")
+        onNodeWithText(UiText.SUGGEST_TIMINGS.en).performScrollTo().performClick()
+        onNodeWithTag("confirm-suggest-timings-send").assertIsEnabled()
+    }
+
+    @Test
     fun leavingTheScreenSavesTheDraft() = runComposeUiTest {
         open()
         var shown by mutableStateOf(true)

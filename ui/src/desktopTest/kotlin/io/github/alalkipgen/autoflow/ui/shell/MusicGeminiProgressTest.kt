@@ -140,10 +140,14 @@ class MusicGeminiProgressTest {
             setContent { KoinIsolatedContext(graph) { App() } }
             fun tap(text: String) = onNodeWithText(text).performScrollTo().assertIsDisplayed().performMouseInput { click() }
             tap("Music QA")
-            tap(UiText.SUGGEST_TIMINGS.en); tap(UiText.SEND.en)
+            tap(UiText.SUGGEST_TIMINGS.en)
+            onNodeWithTag("confirm-suggest-timings").assertIsDisplayed()
+            onNodeWithTag("confirm-suggest-timings-send").performMouseInput { click() }
             waitUntil(timeoutMillis = 5_000) { waiting.isCompleted }
             onNodeWithTag("gemini-project-run").assertIsDisplayed()
-            onNodeWithText(UiText.JOB_LYRIC_TIMINGS.en).assertIsDisplayed()
+            // The run card and the timing card's busy strip both name the job.
+            onAllNodesWithText(UiText.JOB_LYRIC_TIMINGS.en).onFirst().assertIsDisplayed()
+            onNodeWithTag("lyric-timing-running").assertExists()
             onNodeWithContentDescription(UiText.JOBS.en, substring = true).performMouseInput { click() }
             onNodeWithText(UiText.JOB_LYRIC_TIMINGS.en, substring = true).assertIsDisplayed()
             onNodeWithTag("job-open-storyboard").performScrollTo().performMouseInput { click() }

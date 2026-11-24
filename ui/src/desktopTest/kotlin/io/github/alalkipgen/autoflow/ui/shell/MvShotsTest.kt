@@ -26,6 +26,8 @@ import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
 import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.lyrics.LyricTimings
+import io.github.alalkipgen.autoflow.core.lyrics.TapSync
 import io.github.alalkipgen.autoflow.core.model.Character
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
@@ -49,6 +51,12 @@ import io.github.alalkipgen.autoflow.ui.input.GenerateCard
 import io.github.alalkipgen.autoflow.ui.input.InputScreen
 import io.github.alalkipgen.autoflow.ui.input.InputUiState
 import io.github.alalkipgen.autoflow.ui.input.SongCard
+import io.github.alalkipgen.autoflow.ui.input.LyricSyncUiState
+import io.github.alalkipgen.autoflow.ui.input.LyricTimingCard
+import io.github.alalkipgen.autoflow.ui.input.NoPlayer
+import io.github.alalkipgen.autoflow.ui.input.TapPanelBody
+import io.github.alalkipgen.autoflow.ui.input.TimingStatus
+import io.github.alalkipgen.autoflow.ui.input.TimingStatusBody
 import io.github.alalkipgen.autoflow.ui.jobs.MusicGeminiJobCard
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
@@ -279,6 +287,37 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         shot("04c-dialog-remove-character", full = false, prep = Demo::cast) {
             onNodeWithContentDescription(UiText.V3_REMOVE_NAMED.text(language, "name" to "မောင်မောင်")).performScrollTo()
                 .performSemanticsAction(SemanticsActions.OnClick)
+        }
+    }
+
+    /** The synced lines of the demo lyrics (no section markers), as the tap panel gets them. */
+    private val lines = LYRICS.lines().filter { !it.startsWith("[") }
+
+    @Composable private fun Tap(sync: TapSync, playing: Boolean, position: Long) = InCard {
+        LyricTimingCard { TapPanelBody(sync, playing, position, 96_000, {}, {}, {}, {}, {}, {}) }
+    }
+
+    @Composable private fun Status(state: LyricSyncUiState, running: Boolean = false) = InCard {
+        LyricTimingCard { TimingStatusBody(state, running, locked = running, {}, {}, {}) }
+    }
+
+    /** PR 3 (B 2, 🆕-5, samples 03 / 02 / 04b): the tap panel's three states, the card's states, the Suggest dialog. */
+    @Test fun lyricsTiming() {
+        val starts = listOf(5_000L, 11_000L, 17_000L, 29_000L, 41_000L, 53_000L, 65_000L, 77_000L)
+        sheet("03-lyrics-tap", if (font > 1.5f) 4600 else 2300, listOf(
+            "Playing · tap when the line starts" to { _ -> Tap(TapSync(lines, starts.take(3)), true, 17_500) },
+            "Last line · tap when it ends" to { _ -> Tap(TapSync(lines, starts), true, 93_000) },
+            "All lines done · Save is on" to { _ -> Tap(TapSync(lines, starts, lastEndMs = 95_500), false, 96_000) },
+        ))
+        sheet("02c-timing-states", if (font > 1.5f) 3400 else 1700, listOf(
+            "Lyrics timing · not synced" to { _ -> Status(LyricSyncUiState()) },
+            "Lyrics timing · synced (tap)" to { _ -> Status(LyricSyncUiState(TimingStatus.SYNCED, 8, LyricTimings.SOURCE_TAP)) },
+            "Lyrics timing · outdated (the lyrics changed)" to { _ -> Status(LyricSyncUiState(TimingStatus.OUTDATED, 8, LyricTimings.SOURCE_TAP)) },
+            "Lyrics timing · Suggest timings running" to { _ -> Status(LyricSyncUiState(), running = true) },
+            "Lyrics timing · desktop (no song player)" to { _ -> InCard { LyricTimingCard { NoPlayer {} } } },
+        ))
+        shot("04b-dialog-suggest-timings", full = false) {
+            onNodeWithText(UiText.SUGGEST_TIMINGS.text(language)).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         }
     }
 }
