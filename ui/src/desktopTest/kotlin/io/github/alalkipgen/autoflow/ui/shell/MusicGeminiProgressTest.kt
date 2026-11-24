@@ -77,7 +77,8 @@ class MusicGeminiProgressTest {
             }
             onNodeWithTag("recent-Music QA").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             tapText(UiText.GENERATE_STORYBOARD)
-            tapText(UiText.GENERATE)
+            // The confirm dialog's labels keep whole Burmese syllables (My.breakSyllables), so tap Generate by its tag.
+            onNodeWithTag("confirm-generate-ok").assertIsDisplayed().performMouseInput { click() }
             onNodeWithTag("gemini-project-run").assertIsDisplayed()
             stage(UiText.JOB_STORYBOARD_ANALYZE)
             stage(UiText.JOB_WAITING_GEMINI)

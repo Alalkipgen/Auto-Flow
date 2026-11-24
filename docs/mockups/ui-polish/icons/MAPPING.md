@@ -128,3 +128,8 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `copy` | `copy` | Copy title / chapters / description / hashtags (Publish Kit) |
 | `pencilLine` | `pencil-simple-line` | Input page chip (Music Video project bar) |
 | `trayArrowDown` | `tray-arrow-down` | Inbox page chip (Music Video project bar) |
+| `textAlignLeft` | `text-align-left` | Lyrics card (Music Video Input) |
+| `fileAudio` | `file-audio` | No song yet box (Music Video Input) |
+| `usersThree` | `users-three` | Characters card (Music Video Input) |
+| `userPlus` | `user-plus` | Add character (Music Video Input) |
+| `hourglass` | `hourglass` | Input locked while Gemini works (Music Video) |

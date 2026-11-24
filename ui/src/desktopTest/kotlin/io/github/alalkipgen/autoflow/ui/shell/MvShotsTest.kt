@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -25,10 +26,12 @@ import io.github.alalkipgen.autoflow.ai.TextProvider
 import io.github.alalkipgen.autoflow.ai.fake.FakeTextProvider
 import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.model.Character
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.core.model.Ratio
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.core.workflow.Blocker
 import io.github.alalkipgen.autoflow.platform.JvmFs
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.components.AfText
@@ -37,15 +40,23 @@ import io.github.alalkipgen.autoflow.ui.components.ambientBackground
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.inbox.SharedInbox
 import io.github.alalkipgen.autoflow.ui.input.InputModel
+import io.github.alalkipgen.autoflow.ui.input.CharactersCard
+import io.github.alalkipgen.autoflow.ui.input.GenerateCard
 import io.github.alalkipgen.autoflow.ui.input.InputScreen
+import io.github.alalkipgen.autoflow.ui.input.InputUiState
+import io.github.alalkipgen.autoflow.ui.input.SongCard
 import io.github.alalkipgen.autoflow.ui.jobs.MusicGeminiJobCard
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
+import io.github.alalkipgen.autoflow.ui.storyboard.JobState
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardResult
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
 import io.github.alalkipgen.autoflow.ui.textFitProblems
 import io.github.alalkipgen.autoflow.ui.theme.AfType
@@ -115,6 +126,17 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             shared = SharedInbox(fs, session, hold.path)
             input = InputModel(session, jobs)
         }
+        /** An Input model with no project open. */
+        val noProject = InputModel(ProjectSession(fs, ProjectStore(fs), ProjectIndex(fs, File(root, "none.json").path), CurrentProject()), jobs)
+        /** The samples' two characters (sample 01). */
+        fun cast() {
+            input.addCharacter(); input.setCharacterToken(0, "HERO"); input.setCharacterName(0, "မောင်မောင်")
+            input.setCharacterDescription(0, "a young Burmese man in his 20s, short black hair, white shirt, green longyi")
+            input.addCharacter(); input.setCharacterToken(1, "HEROINE"); input.setCharacterName(1, "သီတာ")
+            input.setCharacterDescription(1, "a young Burmese woman, long hair with a jasmine flower, thanaka on her cheeks, red htamein")
+        }
+        /** The cast, then a storyboard (Gemini answers at once), so Generate asks for a new version. */
+        fun storyboard() { cast(); gemini.go.complete(Unit); input.generate {} }
         override fun close() { scope.cancel(); root.deleteRecursively() }
     }
 
@@ -157,10 +179,11 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
      * ([full]) or at [height], writes the PNG and checks the texts.
      */
     private fun shot(name: String, width: Int = WIDTH, height: Int = HEIGHT, full: Boolean = true, waiting: Int = 0, running: Boolean = false,
-        exit: Boolean = false, open: ComposeUiTest.() -> Unit = {}) {
+        exit: Boolean = false, prep: (Demo) -> Unit = {}, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         var extra = 0
         fun ComposeUiTest.load(d: Demo) {
+            prep(d)
             if (running) d.input.generate {}
             setContent(page(d, width, exit = exit)); waitForIdle(); open(); waitForIdle()
         }
@@ -181,10 +204,12 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
     }
 
     /** A labelled sheet of [states] on the ambient background (like the samples' variant pages). */
-    private fun sheet(name: String, tall: Int, states: List<Pair<String, @Composable (Demo) -> Unit>>, waiting: Int = 0, running: Boolean = false) {
+    private fun sheet(name: String, tall: Int, states: List<Pair<String, @Composable (Demo) -> Unit>>, waiting: Int = 0, running: Boolean = false,
+        prep: (Demo) -> Unit = {}) {
         if (out == null) return
         runDesktopComposeUiTest(width = (WIDTH * SCALE).toInt(), height = (tall * SCALE).toInt()) {
             Demo(waiting).use { d ->
+                prep(d)
                 if (running) d.input.generate {}
                 setContent {
                     Locals(WIDTH) {
@@ -217,5 +242,43 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         shot("15c-running", full = false, running = true)
         shot("04d-dialog-exit", full = false, exit = true)
         if (font == 1f) shot("15d-desktop", width = 1280, height = 800, full = false)
+    }
+
+    /** One Input card of [state] (the page's padding). */
+    @Composable private fun InCard(content: @Composable () -> Unit) = Box(Modifier.fillMaxWidth().padding(screenPadding)) { content() }
+
+    private fun InputUiState.noSong() = copy(songFile = null, durationText = "", settings = settings.copy(songStyle = "", mood = ""))
+
+    /** PR 2 (B, samples 01 / 02 / 02b / 04a / 04c): the Input page, its states, the locked page, the Generate and Remove dialogs. */
+    @Test fun inputPage() {
+        shot("01-input", prep = Demo::storyboard)
+        val hero = Character("HERO", "မောင်မောင်", "a young Burmese man in his 20s, short black hair, white shirt, green longyi")
+        sheet("02-input-states", if (font > 1.5f) 7600 else 4300, listOf(
+            "Song · no song yet (dashed drop box)" to { d -> InCard { SongCard(d.input.state.value.noSong(), d.input, false) } },
+            "Song · importing" to { d -> InCard { SongCard(d.input.state.value.noSong().copy(songFile = "bagan_sunset.mp3", importingSong = true), d.input, false) } },
+            "Song · just imported (green message)" to { d ->
+                val notice = UiNotice(UiText.SONG_IMPORTED, "duration" to "1:36")
+                InCard { SongCard(d.input.state.value.copy(songFile = "bagan_sunset.mp3", songMessage = notice.text(language), songNotice = notice, songMessageOk = true), d.input, false) }
+            },
+            "Characters · problems (amber) + a field with an error" to { d ->
+                InCard { CharactersCard(d.input.state.value.copy(characters = listOf(hero, Character("HERO")), hasStoryboard = true), d.input, false) }
+            },
+            "Generate · blocked" to { d ->
+                InCard { GenerateCard(d.input.state.value.copy(blockers = listOf(Blocker.EMPTY_LYRICS, Blocker.NO_DURATION)), JobState(), d.jobs, d.current.state.value, {}) }
+            },
+            "Generate · Gemini failed" to { d ->
+                InCard { GenerateCard(d.input.state.value, JobState(last = StoryboardResult.Failed("Gemini: 503 Service Unavailable — the model is overloaded. Try again later.")),
+                    d.jobs, d.current.state.value, {}) }
+            },
+            "No project open" to { d -> Box(Modifier.fillMaxWidth().height(if (font > 1.5f) 220.dp else 140.dp)) { InputScreen(d.noProject, d.jobs, onGenerated = {}) } },
+        ))
+        shot("02b-input-locked", full = false, running = true)
+        shot("04a-dialog-generate", full = false, prep = Demo::storyboard) {
+            onNodeWithText(UiText.GENERATE_STORYBOARD.text(language)).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        }
+        shot("04c-dialog-remove-character", full = false, prep = Demo::cast) {
+            onNodeWithContentDescription(UiText.V3_REMOVE_NAMED.text(language, "name" to "မောင်မောင်")).performScrollTo()
+                .performSemanticsAction(SemanticsActions.OnClick)
+        }
     }
 }

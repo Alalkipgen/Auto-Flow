@@ -120,6 +120,9 @@ object GlassColors {
     val Voice = Color(0xFF22D3EE)
     val Dubbing = Color(0xFFF59E0B)
 
+    /** Music Video Input's Video card tile (Group 3 B 4, film-strip). */
+    val MvVideoTile = Color(0xFF60A5FA)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)
@@ -151,6 +154,8 @@ object GlassColors {
     /** Path box: black .22 fill, White .10 border. */
     val PathFill = Color.Black.copy(alpha = .22f)
     val PathBorder = Color.White.copy(alpha = .10f)
+    /** The dashed drop box frame (Group 3 B 1). */
+    val DashedBorder = Color.White.copy(alpha = .18f)
     /** Menu row: White .04 fill, White .09 border. */
     val MenuRowFill = Color.White.copy(alpha = .04f)
     val MenuRowBorder = Color.White.copy(alpha = .09f)
