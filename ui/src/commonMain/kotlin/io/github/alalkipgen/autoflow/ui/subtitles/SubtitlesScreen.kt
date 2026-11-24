@@ -8,7 +8,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
@@ -88,17 +87,16 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     )
 }
 
+/**
+ * Unsaved subtitle changes on leaving (Subtitles and Dubbing; Group 4 A 4): a glass dialog — Amber `floppy-disk` tile,
+ * SUB_LEAVE, then Save (primary, check), Discard (danger, trash) and Keep editing (secondary), stacked full width.
+ */
 @Composable
 internal fun LeaveDialog(save: () -> Unit, discard: () -> Unit, stay: () -> Unit) {
-    Dialog(onDismissRequest = stay) {
-        AfCard(My.breakSyllables(tr(UiText.SUB_LEAVE)), Modifier.widthIn(max = 440.dp).testTag("subtitles-leave")) {
-            WrapRow {
-                AfButton(My.breakSyllables(tr(UiText.SAVE)), save, Modifier.testTag("subtitles-leave-save"), kind = ButtonKind.Primary,
-                    icon = AfIcons.Regular.Check)
-                AfButton(My.breakSyllables(tr(UiText.DISCARD)), discard, Modifier.testTag("subtitles-leave-discard"), kind = ButtonKind.Danger)
-                AfButton(My.breakSyllables(tr(UiText.SUB_KEEP_EDITING)), stay, Modifier.testTag("subtitles-leave-stay"))
-            }
-        }
+    GlassDialog(stay, AfIcons.Fill.FloppyDisk, AutoFlowColors.Amber, My.breakSyllables(tr(UiText.SUB_LEAVE)), Modifier.testTag("subtitles-leave")) {
+        GlassDialogButtons(GlassDialogAction(My.breakSyllables(tr(UiText.SUB_KEEP_EDITING)), stay, tag = "subtitles-leave-stay"),
+            GlassDialogAction(My.breakSyllables(tr(UiText.SAVE)), save, ButtonKind.Primary, AfIcons.Regular.Check, tag = "subtitles-leave-save"),
+            GlassDialogAction(My.breakSyllables(tr(UiText.DISCARD)), discard, ButtonKind.Danger, AfIcons.Regular.Trash, tag = "subtitles-leave-discard"))
     }
 }
 

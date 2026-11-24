@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.dubbing
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,8 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.dubbing.DubBlock
 import io.github.alalkipgen.autoflow.core.subtitles.TimeText
 import io.github.alalkipgen.autoflow.ui.components.*
@@ -65,16 +69,17 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
     val preview: @Composable (Boolean) -> Unit = { captions ->
         if (export != null && doc != null) DubPreview(export, open, doc, playhead, player, captions)
     }
-    Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+    // Group 4 A 3: the ambient background (Group 1) behind every step, not the flat Background fill.
+    Column(modifier.fillMaxSize().ambientBackground()) {
         // "Dubbing · <project>"; the step bar is the step chooser (panel 6): each labelled step a tab, no chip row under it.
         ProjectTopBar(listOfNotNull(tr(UiText.V3_DUBBING), open?.project?.name?.takeIf { it.isNotBlank() }).joinToString(" · "),
             shown.ordinal + 1, tr(shown.text), { if (dirty) leaving = true else onBack() },
             steps = DubStep.entries.map { tr(it.text) }, onStep = { step = DubStep.entries[it] },
-            stepTags = DubStep.entries.map { "dub-step-${it.name}" })
+            stepTags = DubStep.entries.map { "dub-step-${it.name}" }, glass = true)
         val go: (DubStep) -> Unit = { step = it }
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
             when (shown) {
-                DubStep.VIDEO -> if (gates.video == DubBlock.TOO_LONG) Lock(block(DubBlock.TOO_LONG, gates, script)) else
+                DubStep.VIDEO -> if (gates.video == DubBlock.TOO_LONG) Lock(block(DubBlock.TOO_LONG, gates, script), tooLong = true) else
                     SubtitlesScreen(subtitles, session, editor, vlcDir = vlcDir, player = player, transcribe = transcribe)
                 DubStep.TRANSLATE -> gates.video?.let { Lock(block(it, gates, script), DubStep.VIDEO, go) }
                     ?: if (gates.script == DubBlock.NO_LINES) Lock(block(DubBlock.NO_LINES, gates, script), DubStep.VIDEO, go)
@@ -126,12 +131,35 @@ private fun block(b: DubBlock, g: DubGates, model: DubScriptModel): String = whe
     DubBlock.NOT_APPROVED -> tr(UiText.DUB_LOCK_NOT_APPROVED)
 }
 
-/** A locked step: why, and a button to the step that unlocks it. */
+/** A step's icon (plan §3.3): the Lock buttons and the Export checklist's Go-to buttons. */
+internal val DubStep.icon: ImageVector get() = when (this) {
+    DubStep.VIDEO -> AfIcons.Regular.FilmStrip
+    DubStep.TRANSLATE -> AfIcons.Regular.Translate
+    DubStep.SCRIPT -> AfIcons.Regular.NotePencil
+    DubStep.VOICE -> AfIcons.Regular.Dub
+    DubStep.EXPORT -> AfIcons.Regular.Export
+}
+
+/**
+ * A locked step (Group 4 B): a glass empty state centred in the step area (at most 420 dp wide) — a 56 dp Amber soft
+ * tile (`lock-simple`; `clock` for a video over the limit, [tooLong]), why (one string, centred), then the primary
+ * button to the step that unlocks it with that step's icon and a trailing arrow. It scrolls when taller than the area.
+ */
 @Composable
-private fun Lock(why: String, to: DubStep? = null, go: (DubStep) -> Unit = {}) {
-    Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
-        AfCard(My.breakSyllables(why), Modifier.testTag("dub-lock")) {
-            to?.let { AfButton(My.breakSyllables(tr(UiText.DUB_GO_TO, "step" to tr(it.text))), { go(it) }, Modifier.testTag("dub-go-${it.name}"), kind = ButtonKind.Primary) }
+private fun Lock(why: String, to: DubStep? = null, go: (DubStep) -> Unit = {}, tooLong: Boolean = false) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxWidth().heightIn(min = maxHeight).verticalScroll(rememberScrollState()).padding(screenPadding),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.weight(1f)) // the card sits a third of the way down, as in the sample
+            GlassCard(Modifier.widthIn(max = 420.dp).testTag("dub-lock"), padding = PaddingValues(horizontal = 20.dp, vertical = 24.dp)) {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    SoftTile(if (tooLong) AfIcons.Duotone.Clock else AfIcons.Duotone.Lock, AutoFlowColors.Amber, size = 56.dp)
+                    AfText(My.breakSyllables(why), size = 15.sp, textAlign = TextAlign.Center)
+                    to?.let { GlassButton(My.breakSyllables(tr(UiText.DUB_GO_TO, "step" to tr(it.text))), { go(it) }, Modifier.testTag("dub-go-${it.name}"),
+                        kind = ButtonKind.Primary, icon = it.icon, trailingIcon = AfIcons.Regular.ArrowRight) }
+                }
+            }
+            Spacer(Modifier.weight(2f))
         }
     }
 }

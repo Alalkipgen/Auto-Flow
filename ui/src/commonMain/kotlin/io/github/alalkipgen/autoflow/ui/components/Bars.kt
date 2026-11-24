@@ -10,6 +10,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -85,10 +87,13 @@ fun AfTopBar(title: String, modifier: Modifier = Modifier, subtitle: String? = n
  * `progress-segment-<i>`; the whole bar reports its progress to screen readers. With [onSelect] (and [labels]) every
  * step is a ≥ 48 dp tab — its label the description and tooltip, the current one "selected", tagged [tags]`[i]` — so
  * the bar also moves between the steps (Dubbing); without labels on a phone the bars alone are the targets.
+ * [glass] (Dubbing, Group 4 A 2): done bars the primary gradient, the current one Purple → Cyan with a glow, later
+ * ones White .14, the current label bold; desktop numbered steps as 22 dp dots — done green with a check, current a
+ * Cyan ring and number, later a White .22 ring — joined by 2 dp lines (green after a done step).
  */
 @Composable
 fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, count: Int = labels.size,
-    onSelect: ((Int) -> Unit)? = null, tags: List<String> = emptyList()) {
+    onSelect: ((Int) -> Unit)? = null, tags: List<String> = emptyList(), glass: Boolean = false) {
     require(count > 0 && current in 1..count && (labels.isEmpty() || labels.size == count))
     val texts = labels.map { My.breakSyllables(it) }
     val measurer = rememberTextMeasurer()
@@ -112,7 +117,7 @@ fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, c
                 .semantics { contentDescription = labels[i]; stateDescription = if (i == current - 1) "selected" else "not selected" }
                 .let { m -> tags.getOrNull(i)?.let { m.testTag(it) } ?: m }
         }
-        if (numbered) NumberedSteps(texts, current, tab) else {
+        if (numbered) { if (glass) GlassNumberedSteps(texts, current, tab) else NumberedSteps(texts, current, tab) } else {
             val column = (constraints.maxWidth - gap * (count - 1)) / count
             // Two-line labels would push the first content below the fold at font 2.0 (412 × 760, system font).
             val everyLabel = texts.isNotEmpty() && texts.indices.all { i ->
@@ -124,10 +129,10 @@ fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, c
             Row(horizontalArrangement = Arrangement.spacedBy(AfSize.StepGap)) {
                 repeat(count) { i ->
                     Column(Modifier.weight(1f).then(tab(i)), verticalArrangement = Arrangement.spacedBy(AfSpace.Xs, Alignment.CenterVertically)) {
-                        Box(Modifier.fillMaxWidth().height(AfSize.StepSegment).testTag("progress-segment-$i")
+                        if (glass) GlassStepSegment(i, current) else Box(Modifier.fillMaxWidth().height(AfSize.StepSegment).testTag("progress-segment-$i")
                             .clip(RoundedCornerShape(2.dp)).background(if (i < current) AutoFlowColors.PrimaryFill else AutoFlowColors.Line))
                         if (everyLabel) AfText(texts[i], Modifier.fillMaxWidth(), type = AfType.Micro, maxLines = 1,
-                            weight = if (i == current - 1) FontWeight.SemiBold else FontWeight.Normal,
+                            weight = if (i == current - 1) (if (glass) FontWeight.Bold else FontWeight.SemiBold) else FontWeight.Normal,
                             color = if (i == current - 1) AutoFlowColors.PrimaryText else AutoFlowColors.Muted)
                     }
                 }
@@ -137,6 +142,50 @@ fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, c
 }
 
 private val StepDot = 24.dp
+private val GlassStepDot = 22.dp
+private val StepShape = RoundedCornerShape(2.dp)
+
+/** A glass phone step bar segment (step [i], 0-based, of the 1-based [current]): see [StepBar]. */
+@Composable
+private fun GlassStepSegment(i: Int, current: Int) {
+    val now = i == current - 1
+    Box(Modifier.fillMaxWidth().height(AfSize.StepSegment).testTag("progress-segment-$i")
+        .then(if (now) Modifier.shadow(4.dp, StepShape, ambientColor = GlassColors.ProgressGlow, spotColor = GlassColors.ProgressGlow) else Modifier)
+        .clip(StepShape).drawBehind {
+            when {
+                i < current - 1 -> drawRect(Brush.horizontalGradient(listOf(GlassColors.PrimaryStart, AutoFlowColors.Purple)))
+                now -> drawRect(Brush.horizontalGradient(listOf(AutoFlowColors.Purple, AutoFlowColors.Cyan)))
+                else -> drawRect(GlassColors.StepLine)
+            }
+        })
+}
+
+/** Desktop numbered steps in glass (see [StepBar]): 22 dp dots (growing with large numbers), labels beside them, 2 dp joins. */
+@Composable
+private fun GlassNumberedSteps(texts: List<String>, current: Int, tab: @Composable (Int) -> Modifier) = Row(verticalAlignment = Alignment.CenterVertically) {
+    texts.forEachIndexed { i, t ->
+        val done = i < current - 1
+        val now = i == current - 1
+        Box(tab(i), contentAlignment = Alignment.Center) { Row(Modifier.testTag("progress-segment-$i"),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+            Box(Modifier.clip(CircleShape)
+                .background(when { done -> AutoFlowColors.Green; now -> GlassColors.StepDotNowFill; else -> GlassColors.StepDotFill })
+                .then(if (done) Modifier else Modifier.border(1.5.dp, if (now) AutoFlowColors.Cyan else GlassColors.StepDotBorder, CircleShape))
+                .layout { m, c ->
+                    val p = m.measure(c.copy(minWidth = 0, minHeight = 0))
+                    val side = maxOf(p.width, p.height, GlassStepDot.roundToPx())
+                    layout(side, side) { p.place((side - p.width) / 2, (side - p.height) / 2) }
+                }, contentAlignment = Alignment.Center) {
+                if (done) AfIcon(AfIcons.Regular.Check, tint = Color.White, size = AfSize.IconXs)
+                else AfText("${i + 1}", color = if (now) AutoFlowColors.Cyan else AutoFlowColors.Muted, type = AfType.Micro)
+            }
+            AfText(t, color = if (now) AutoFlowColors.PrimaryText else AutoFlowColors.Muted,
+                type = AfType.Caption, weight = if (now) FontWeight.Bold else null, maxLines = 2)
+        } }
+        if (i < texts.lastIndex) Box(Modifier.weight(1f).padding(horizontal = AfSpace.S).height(2.dp).clip(StepShape)
+            .background(if (done) AutoFlowColors.Green else GlassColors.StepLine))
+    }
+}
 
 @Composable
 private fun NumberedSteps(texts: List<String>, current: Int, tab: @Composable (Int) -> Modifier) = Row(verticalAlignment = Alignment.CenterVertically) {
