@@ -1,6 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.shotsheet
 
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
+import io.github.alalkipgen.autoflow.ui.components.GlassScrollColumn
+import io.github.alalkipgen.autoflow.ui.components.screenPadding
+import io.github.alalkipgen.autoflow.ui.recap.RecapChip
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -19,7 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,7 +63,6 @@ import io.github.alalkipgen.autoflow.ui.handoff.RefThumb
 import io.github.alalkipgen.autoflow.ui.handoff.THUMB_H
 import io.github.alalkipgen.autoflow.ui.handoff.THUMB_W
 import io.github.alalkipgen.autoflow.ui.handoff.VideoThumb
-import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.recap.ProjectPanes
 import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
 import io.github.alalkipgen.autoflow.ui.references.RefRow
@@ -69,7 +72,6 @@ import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import io.github.alalkipgen.autoflow.ui.shots.StatusBadge
 import io.github.alalkipgen.autoflow.ui.shots.VersionBrowser
 import io.github.alalkipgen.autoflow.ui.storyboard.Header
-import io.github.alalkipgen.autoflow.ui.storyboard.NO_STORYBOARD_TEXT
 import io.github.alalkipgen.autoflow.ui.storyboard.ShotCard
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
@@ -135,14 +137,11 @@ fun ShotSheetScreen(
     var detailOpen by remember(identity) { mutableStateOf(false) }
     var filter by remember(identity) { mutableStateOf(ShotFilter.ALL) }
 
-    if (shotsState.projectName == null) { AfText(tr(UiText.OPEN_PROJECT_FIRST), Modifier.padding(16.dp), muted = true); return }
+    // Group 3 C: no project / no storyboard = the dashed glass notes (samples 02 / 06), no background of their own.
+    if (shotsState.projectName == null) { Box(Modifier.padding(screenPadding)) { NoProjectNote() }; return }
     val rows = shotsState.rows
     if (rows.isEmpty()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AfText(tr(UiText.SHOT_SHEET), size = 18.sp, bold = true)
-            AfText(tr(UiText.STORYBOARD_EMPTY), muted = true)
-            AfButton(tr(UiText.GO_INPUT), onGoToInput, Modifier.heightIn(min = 48.dp), kind = ButtonKind.Primary)
-        }
+        Column(Modifier.fillMaxWidth().paneScroll(rememberScrollState()).padding(screenPadding)) { NoStoryboardBox(onGoToInput) }
         return
     }
     val selected = shotsState.selected?.takeIf { n -> rows.any { it.number == n } } ?: rows.first().number
@@ -159,49 +158,45 @@ fun ShotSheetScreen(
     val counts = ShotFilter.entries.associateWith { f -> rows.count(f::matches) }
     val openShot: (Int) -> Unit = { n -> shots.select(n); if (!wide) detailOpen = true }
 
-    // Always the wrapping (phone) arrangement: the list pane is narrow, and a large font must not push buttons out.
-    val allShots: @Composable () -> Unit = {
-        CompositionLocalProvider(LocalCompact provides true) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Header(sb, storyboard, busy)
-                CreditCounter(flow, handoff)
-                BatchPanel(flow, handoff)
-            }
-        }
+    // Group 3 C (sample 06): the sheet's glass storyboard / credits / batch boxes — the same model calls as the
+    // classic Header / CreditCounter / BatchPanel, which the classic screens keep.
+    val allShots: @Composable ColumnScope.() -> Unit = {
+        StoryboardBox(sb, storyboard, busy)
+        CreditsBox(flow, handoff)
+        BatchBox(flow, handoff)
     }
 
-    // Real counts from the existing ShotStatus badges; the filter only changes which rows are listed.
+    // Real counts from the existing ShotStatus badges; the filter only changes which rows are listed (sample 05).
     val shotList: @Composable () -> Unit = {
-        AfText(My.breakSyllables(tr(UiText.V3_MV_SUMMARY, "n" to rows.size, "accepted" to counts.getValue(ShotFilter.ACCEPTED))),
-            Modifier.testTag("shot-sheet-summary"), muted = true)
+        ShotListHead(My.breakSyllables(tr(UiText.V3_MV_SUMMARY, "n" to rows.size, "accepted" to counts.getValue(ShotFilter.ACCEPTED))))
         WrapRow {
             ShotFilter.entries.forEach { f ->
-                AfChip(My.breakSyllables(tr(f.label, "n" to counts.getValue(f))), f == filter, { filter = f },
-                    Modifier.heightIn(min = 48.dp).testTag("shot-filter-${f.name}"))
+                RecapChip(My.breakSyllables(tr(f.label, "n" to counts.getValue(f))), f == filter, { filter = f },
+                    Modifier.testTag("shot-filter-${f.name}"))
             }
         }
         val visible = rows.filter(filter::matches)
-        if (visible.isEmpty()) AfText(My.breakSyllables(tr(UiText.V3_MV_FILTER_EMPTY)), muted = true)
-        visible.forEach { r -> SheetShotItem(r, r.number == selected) { openShot(r.number) } }
+        if (visible.isEmpty()) FilterEmptyBox()
+        else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            visible.forEach { r -> SheetShotItem(r, r.number == selected) { openShot(r.number) } }
+        }
     }
 
+    // ≥ 840 dp: the list pane opens with All shots open (the boxes were always shown there).
+    var allOpen by remember(wide) { mutableStateOf(wide) }
+    val allShotsRow: @Composable () -> Unit = { AllShotsRow(allOpen, { allOpen = !allOpen }, allShots) }
+
     val list: @Composable () -> Unit = {
-        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            AfText(tr(UiText.SHOTS), bold = true)
+        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             shotList()
-            AfText(tr(UiText.ALL_SHOTS), bold = true)
-            allShots()
+            allShotsRow()
         }
     }
 
     val listPage: @Composable () -> Unit = {
-        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(8.dp).testTag("shot-sheet-list"),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText(tr(UiText.SHOTS), size = 16.sp, bold = true)
+        GlassScrollColumn(Modifier.fillMaxSize().testTag("shot-sheet-list"), PaddingValues(screenPadding), Arrangement.spacedBy(12.dp)) {
             shotList()
-            var open by remember { mutableStateOf(false) }
-            AfButton((if (open) "▼ " else "▶ ") + tr(UiText.ALL_SHOTS), { open = !open }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-all"))
-            if (open) allShots()
+            allShotsRow()
         }
     }
 
@@ -281,7 +276,7 @@ fun ShotSheetScreen(
         }
     }
 
-    ProjectShortcutHost { Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+    ProjectShortcutHost { Column(Modifier.fillMaxSize()) {
         // ← / → = the navigator's previous / next shot buttons, only while a sheet is shown.
         BlockShortcuts(
             previous = rows.getOrNull(index - 1)?.takeIf { sheetOpen }?.let { p -> { shots.select(p.number) } },
@@ -330,27 +325,6 @@ private fun RefSection(row: RefRow, model: ReferencesModel, importRef: () -> Uni
     val approveLabel = if (row.refApproved) "✓ Reference ${tr(UiText.APPROVED)}" else "✓ ${row.refs.indexOf(row.chosenRef).takeIf { it >= 0 }?.let(ReferencesModel::refLabel) ?: "Reference"} ${tr(UiText.APPROVE)}"
     AfButton(approveLabel, { model.approveRef(row.number, !row.refApproved) }, Modifier.heightIn(min = 48.dp).testTag("ref-approve"),
         kind = if (row.refApproved) ButtonKind.Primary else ButtonKind.Secondary, enabled = row.chosenRef != null)
-}
-
-/** One shot in the list pane: number, time, badge, the lyric's first line (DESIGN.md §3 cards and badges). */
-@Composable
-private fun SheetShotItem(row: ShotRow, selected: Boolean, onClick: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .clip(AutoFlowShapes.Card)
-            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, AutoFlowShapes.Card)
-            .background(if (selected) AutoFlowColors.Card else AutoFlowColors.Panel)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-            .testTag("shot-sheet-select-${row.number}"),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        WrapRow(spacing = 6.dp) {
-            AfText("#${row.number.toString().padStart(2, '0')} · ${row.timecode}", bold = true, size = 13.sp)
-            StatusBadge(row.status)
-        }
-        if (row.lyric.isNotBlank()) AfText(My.breakSyllables(row.lyric), muted = true, size = 12.sp)
-    }
 }
 
 @Composable

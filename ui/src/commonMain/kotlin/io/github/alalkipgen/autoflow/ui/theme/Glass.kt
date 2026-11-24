@@ -123,6 +123,18 @@ object GlassColors {
     /** Music Video Input's Video card tile (Group 3 B 4, film-strip). */
     val MvVideoTile = Color(0xFF60A5FA)
 
+    /** The Needs Flow status pill and number tile (Group 3 §3.2, sample 05): the lighter purple, readable at 11.5 sp. */
+    val ShotNeedsFlow = Color(0xFFA78BFA)
+
+    /** A shot list row (Group 3 C, sample 05 `.srow`): White .04 + .09 line; the selected one Purple .12 + .55 line. */
+    val ShotRowFill = Color.White.copy(alpha = .04f)
+    val ShotRowBorder = Color.White.copy(alpha = .09f)
+    val ShotRowSelectedFill = AutoFlowColors.Purple.copy(alpha = .12f)
+    val ShotRowSelectedBorder = AutoFlowColors.Purple.copy(alpha = .55f)
+
+    /** The All shots row (Group 3 C, sample 05 `.sub`): White .03 + .10 line. */
+    val AllShotsFill = Color.White.copy(alpha = .03f)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)

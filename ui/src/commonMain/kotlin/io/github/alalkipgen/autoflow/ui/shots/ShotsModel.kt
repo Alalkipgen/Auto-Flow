@@ -30,6 +30,8 @@ data class ShotRow(
     val timecode: String,
     val lyric: String,
     val status: ShotStatus,
+    /** Where the shot ends ("0:08"), for the shot sheet's "0:00–0:08" (Group 3 sample 05). */
+    val endTimecode: String = "",
 )
 
 /** Detail panel for one shot. */
@@ -206,6 +208,7 @@ class ShotsModel(private val session: ProjectSession) {
                 timecode = formatMs(shot.startMs),
                 lyric = shot.lyricsMy.take(40),
                 status = ShotStatus.of(project, shot, lookup),
+                endTimecode = formatMs(shot.startMs + shot.durationMs),
             )
         }
         val detail = sel?.let { n ->

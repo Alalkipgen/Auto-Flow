@@ -139,3 +139,8 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `arrowLineDown` | `arrow-line-down` | Line starts — tap sync (Music Video Input) |
 | `flagCheckered` | `flag-checkered` | Last line ends — tap sync (Music Video Input) |
 | `arrowUUpLeft` | `arrow-u-up-left` | Restart — tap sync (Music Video Input) |
+| `metronome` | `metronome` | Snap cuts to beat (Music Video All shots) |
+| `coins` | `coins` | Flow credits (Music Video All shots) |
+| `listlines` | `list` | Credit log (Music Video All shots) |
+| `filehtml` | `file-html` | Batch sheet (Music Video All shots) |
+| `funnel` | `funnel` | Filter with no match (Music Video shot list) |

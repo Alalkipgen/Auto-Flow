@@ -63,6 +63,14 @@ import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.storyboard.JobState
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
+import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
+import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
+import io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffModel
+import io.github.alalkipgen.autoflow.ui.shotsheet.ShotSheetScreen
+import io.github.alalkipgen.autoflow.ui.settings.FakePicker
+import io.github.alalkipgen.autoflow.ui.i18n.My
+import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardResult
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
@@ -119,7 +127,8 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         val session = ProjectSession(fs, ProjectStore(fs), ProjectIndex(fs, File(root, "index.json").path), current)
         val gemini = WaitingGemini()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val jobs = StoryboardJobs(StoryboardService(session, StoryboardGenerator(gemini)), scope)
+        val service = StoryboardService(session, StoryboardGenerator(gemini))
+        val jobs = StoryboardJobs(service, scope)
         val input: InputModel
         val shared: SharedInbox
         init {
@@ -133,6 +142,35 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             listOf("VID_20261121_183012.mp4", "IMG_4821.jpg", "lyrics_notes.pdf").take(waiting).forEach { File(hold, it).writeBytes(ByteArray(8)) }
             shared = SharedInbox(fs, session, hold.path)
             input = InputModel(session, jobs)
+        }
+        /** The shot sheet's page models, as AppShell makes them (no clipboard / browser in the shots). */
+        val storyboard by lazy { StoryboardModel(session, service, jobs) }
+        val shots by lazy { ShotsModel(session) }
+        val refs by lazy { ReferencesModel(session, { PlatformResult.Ok(Unit) }, { PlatformResult.Ok(Unit) }, FakePicker()) }
+        val handoff by lazy {
+            FlowHandoffModel(session, { PlatformResult.Ok(Unit) }, { PlatformResult.Ok(Unit) }, FakePicker(), nowMs = { 1_764_000_000_000L }, fs = fs)
+        }
+        private val project get() = current.state.value!!.project
+        private fun shot(n: Int) = project.shots.first { it.number == n }
+        /**
+         * The samples' shot list (sample 05): shots 1, 2, 5, 7, 10 accepted, 3 imported, 4 needs Flow, 6 prompt ready,
+         * 9 stale (its storyboard changed after the prompt), 8, 11, 12 draft; three credit lines; one batch sheet.
+         */
+        fun statuses() {
+            storyboard()
+            // One image per shot (the same bytes would be one shared artifact).
+            fun image(n: Int) = java.io.ByteArrayOutputStream().also { out ->
+                ImageIO.write(java.awt.image.BufferedImage(16, 9, java.awt.image.BufferedImage.TYPE_INT_RGB).apply { setRGB(0, 0, n * 0x101010) }, "png", out)
+            }.toByteArray()
+            fun prompt(n: Int) { storyboard.approve(n); shots.compilePrompt(n); shots.approvePrompt(n) }
+            val accepted = listOf(1, 2, 5, 7, 10)
+            for (n in accepted + listOf(3, 4)) { prompt(n); refs.importRefBytes(project, shot(n), image(n), "png"); refs.approveRef(n) }
+            for (n in accepted + 3) handoff.importVideoBytes(project, shot(n), byteArrayOf(n.toByte(), 1, 2), "mp4")
+            for (n in accepted) handoff.acceptVideo(n)
+            prompt(6)
+            prompt(9); storyboard.edit(9) { it.copy(lightingEn = it.lightingEn + ", warm dusk") }
+            handoff.logCredits(1, 20); handoff.logCredits(2, 100); handoff.logCredits(3, 100)
+            handoff.exportBatch()
         }
         /** An Input model with no project open. */
         val noProject = InputModel(ProjectSession(fs, ProjectStore(fs), ProjectIndex(fs, File(root, "none.json").path), CurrentProject()), jobs)
@@ -168,14 +206,15 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         V2ProjectBar("Bagan Sunset", v2ProjectScreens(false), screen, {}, {}, inboxWaiting = d.shared.state.value.waiting.size)
 
     /** A project page as AppShell draws it: project bar, Gemini run card, the page. */
-    private fun page(d: Demo, width: Int, screen: String = "Input", exit: Boolean = false): @Composable () -> Unit = {
+    private fun page(d: Demo, width: Int, screen: String = "Input", exit: Boolean = false,
+        body: @Composable (Demo) -> Unit = { InputScreen(it.input, it.jobs, onGenerated = {}) }): @Composable () -> Unit = {
         Locals(width) {
             // The window draws the plain Background behind project pages (no ambient there, as in AppShell).
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
                 Column(Modifier.fillMaxSize()) {
                     Bar(d, screen)
                     MusicGeminiJobCard(d.jobs, d.current.state.value, Modifier.fillMaxWidth().padding(screenPadding))
-                    Box(Modifier.fillMaxWidth().weight(1f)) { InputScreen(d.input, d.jobs, onGenerated = {}) }
+                    Box(Modifier.fillMaxWidth().weight(1f)) { body(d) }
                 }
             }
             if (exit) ExitDialog({}, {})
@@ -187,13 +226,14 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
      * ([full]) or at [height], writes the PNG and checks the texts.
      */
     private fun shot(name: String, width: Int = WIDTH, height: Int = HEIGHT, full: Boolean = true, waiting: Int = 0, running: Boolean = false,
-        exit: Boolean = false, prep: (Demo) -> Unit = {}, open: ComposeUiTest.() -> Unit = {}) {
+        exit: Boolean = false, screen: String = "Input", body: (@Composable (Demo) -> Unit)? = null, prep: (Demo) -> Unit = {},
+        open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         var extra = 0
         fun ComposeUiTest.load(d: Demo) {
             prep(d)
             if (running) d.input.generate {}
-            setContent(page(d, width, exit = exit)); waitForIdle(); open(); waitForIdle()
+            setContent(if (body == null) page(d, width, screen, exit) else page(d, width, screen, exit, body)); waitForIdle(); open(); waitForIdle()
         }
         if (full) runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt()) {
             Demo(waiting).use { d ->
@@ -318,6 +358,34 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         ))
         shot("04b-dialog-suggest-timings", full = false) {
             onNodeWithText(UiText.SUGGEST_TIMINGS.text(language)).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        }
+    }
+
+    /** Clicks the first clickable node showing [text] (the "before" build may add a symbol, Burmese may break syllables). */
+    private fun ComposeUiTest.clickText(text: String) {
+        onAllNodes(hasClickAction() and (hasText(text, substring = true) or hasText(My.breakSyllables(text), substring = true)))[0]
+            .performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        waitForIdle()
+    }
+
+    /** The shot sheet as AppShell draws it on a phone (the list page first). */
+    private val sheetPage: @Composable (Demo) -> Unit = { d ->
+        ShotSheetScreen(d.storyboard, d.jobs, d.shots, d.refs, d.handoff, readBytes = { runCatching { File(it).readBytes() }.getOrNull() },
+            windowWidthDp = WIDTH.toFloat(), onGoToInput = {})
+    }
+
+    /** PR 4 (§3.2, C, 🆕-5, samples 05 / 06 / 09a): the shot list, All shots open, the empty states, the Regenerate all dialog. */
+    @Test fun shotList() {
+        shot("05-shot-list", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses)
+        shot("06a-all-shots-open", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) {
+            click("shot-sheet-all")
+            clickText(UiText.CREDIT_LOG_COUNT.text(language, "size" to 3))
+        }
+        shot("06b-filter-empty", screen = SHOT_SHEET, body = sheetPage, prep = Demo::storyboard) { click("shot-filter-ACCEPTED") }
+        shot("06c-no-storyboard", screen = SHOT_SHEET, body = sheetPage)
+        shot("09a-dialog-regenerate-all", full = false, screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) {
+            click("shot-sheet-all")
+            clickText(UiText.REGENERATE_ALL.text(language))
         }
     }
 }

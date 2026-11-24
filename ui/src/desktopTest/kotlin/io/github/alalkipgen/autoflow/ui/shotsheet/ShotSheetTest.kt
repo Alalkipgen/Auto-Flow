@@ -7,6 +7,8 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.onAllNodesWithTag
+import io.github.alalkipgen.autoflow.ui.shots.pillLabel
 import androidx.compose.ui.test.click
 import kotlin.test.assertContentEquals
 import io.github.alalkipgen.autoflow.ui.textFitProblems
@@ -52,6 +54,7 @@ import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import io.github.alalkipgen.autoflow.ui.shots.USE_VERSION_BUTTON
 import io.github.alalkipgen.autoflow.ui.storyboard.APPROVE
 import io.github.alalkipgen.autoflow.ui.storyboard.NO_STORYBOARD_TEXT
+import io.github.alalkipgen.autoflow.ui.storyboard.JobState
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardService
@@ -246,11 +249,56 @@ class ShotSheetTest {
     }
 
     @Test
+    fun regenerateAllAsksFirstInTheGlassDialog() = runDesktopComposeUiTest(width = 1100, height = 1400) {
+        open()
+        val versions = storyboard.current().versions.size
+        val path = "/p/Rain.autoflow/project.json"
+        val bytes = fs.read(path)
+        setContent { sheet(1100f)() }
+        val regenerate = UiText.REGENERATE_ALL.text(UiLanguage.ENGLISH)
+        onNodeWithTag("all-shots-storyboard").performScrollTo().assertIsDisplayed() // the wide list opens All shots
+        onNodeWithText(regenerate).performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-regenerate-all").assertExists()
+        onNodeWithTag("confirm-regenerate-all-back").performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-regenerate-all").assertDoesNotExist()
+        assertEquals(versions, storyboard.current().versions.size, "Back makes no new storyboard version")
+        assertEquals(JobState(), jobs.state.value, "Back starts no Gemini run")
+        assertContentEquals(bytes, fs.read(path), "Back never writes the project")
+        onNodeWithText(regenerate).performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-regenerate-all-ok").performClick()
+        // The same regenerateAll() as before: one Gemini storyboard run on the jobs (the fake gives the same storyboard back).
+        waitUntil(timeoutMillis = 10_000) { jobs.state.value.running == null && jobs.state.value.last != null }
+        onNodeWithTag("confirm-regenerate-all").assertDoesNotExist()
+    }
+
+    @Test
+    fun everyRowShowsItsStatusPillInWords() = runDesktopComposeUiTest(width = 1100, height = 1400) {
+        open()
+        setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides UiLanguage.BURMESE) { sheet(1100f)() } }
+        val pills = io.github.alalkipgen.autoflow.core.workflow.ShotStatus.entries.sumOf {
+            onAllNodesWithTag("shot-status-${it.name}", useUnmergedTree = true).fetchSemanticsNodes().size
+        }
+        assertEquals(4, pills, "one status pill per shot row")
+        for (n in 1..4) onNodeWithTag("shot-number-$n", useUnmergedTree = true).assertExists()
+        // Prompt ready is the new key in both languages (the classic badge said English-only "✓ Prompt"); no symbols in the words.
+        assertEquals("Prompt ready", io.github.alalkipgen.autoflow.core.workflow.ShotStatus.PROMPT_READY.pillLabel())
+        assertEquals("Prompt အသင့်", io.github.alalkipgen.autoflow.core.workflow.ShotStatus.PROMPT_READY.pillLabel(UiLanguage.BURMESE))
+        for (status in io.github.alalkipgen.autoflow.core.workflow.ShotStatus.entries) for (language in UiLanguage.entries) {
+            val label = status.pillLabel(language)
+            assertTrue(label.none { it in "✓⚠●○↗⤓↻✕" }, "$status $language: $label")
+        }
+    }
+
+    @Test
     fun withoutAStoryboardItPointsToInput() = runDesktopComposeUiTest(width = 412, height = 800) {
         open(generate = false)
         var went = 0
         setContent { androidx.compose.runtime.CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE) { ShotSheetScreen(storyboard, jobs, shots, refs, handoff, { null }, 412f, onGoToInput = { went++ }) } }
-        onNodeWithText(UiText.STORYBOARD_EMPTY.text(UiLanguage.BURMESE)).assertExists()
+        onNodeWithTag("shot-sheet-empty").assertExists()
+        onNodeWithText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.STORYBOARD_EMPTY.text(UiLanguage.BURMESE))).assertExists()
         onNodeWithText("ထည့်သွင်းရန် သွားမယ်").performClick()
         assertEquals(1, went)
     }

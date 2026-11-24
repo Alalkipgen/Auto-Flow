@@ -391,7 +391,7 @@ internal fun batchSummary(ticked: Int, pending: Int, language: UiLanguage = UiLa
     else UiText.BATCH_COUNT.text(language, "pending" to pending, "ticked" to ticked)
 
 internal const val EXPORT_BATCH_BUTTON = "Batch စာရွက် ထုတ်မယ် (HTML)"
-internal const val OPEN_BATCH_BUTTON = "စာရွက် ဖွင့်မယ် ↗"
+internal const val OPEN_BATCH_BUTTON = "စာရွက် ဖွင့်မယ်"
 internal const val SHARE_BATCH_BUTTON = "စာရွက် မျှဝေမယ်"
 internal const val IN_BATCH_CHIP = "Batch စာရွက်ထဲ"
 
