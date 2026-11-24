@@ -92,7 +92,6 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import io.github.alalkipgen.autoflow.ui.theme.UiFont
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
@@ -100,6 +99,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.vector.ImageVector
+import io.github.alalkipgen.autoflow.ui.components.GlassButton
+import io.github.alalkipgen.autoflow.ui.components.GlassDialog
+import io.github.alalkipgen.autoflow.ui.components.GlassDialogAction
+import io.github.alalkipgen.autoflow.ui.components.GlassDialogButtons
+import io.github.alalkipgen.autoflow.ui.components.GlassDialogSurface
+import io.github.alalkipgen.autoflow.ui.components.GlassIconButton
+import io.github.alalkipgen.autoflow.ui.components.onSecondaryClick
+import io.github.alalkipgen.autoflow.ui.theme.AfType
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
 
 /** The Movie Recap workspace (docs/specs/recap.md §7): sidebar "Mode → Movie Recap", phone More. */
 const val RECAP_SCREEN = "Movie Recap"
@@ -481,7 +494,9 @@ private fun StudioV2App(
                                 }
                             }
                         } else {
-                            V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
+                            val inbox = koinInject<io.github.alalkipgen.autoflow.ui.inbox.SharedInbox>().state.collectAsState().value
+                            V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) },
+                                inboxWaiting = inbox.waiting.size)
                             if (!isRecap) MusicGeminiJobCard(koinInject(), open, Modifier.fillMaxWidth().padding(screenPadding))
                             Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen, windowWidthDp, backHandler, open?.dir) { openProjectScreen(it) } }
                         }
@@ -609,19 +624,58 @@ private fun MvClassicSteps(go: (String) -> Unit) {
     }
 }
 
-/** Project header in Studio v2: ← Projects, the project name, and chips for the project's screens. */
+/**
+ * Project header in Studio v2 (Group 3 A, 🆕-1): the glass top bar of the Recap / Dubbing editor — the back icon
+ * (to Projects), the project name (17 sp bold, one line) over the current page (Muted), and ⋮ holding Classic steps
+ * (right-click on the bar opens it too, DESIGN.md §9.8) — over one scrolling row of page chips with their icons
+ * (DESIGN.md §9.2: wrapped rows plus a running job card left no room for the page at font 2.0). The Inbox chip shows
+ * [inboxWaiting] (the shared files Inbox can move here, its "Move here (n)") as a cyan badge, none at 0 (🆕-16).
+ */
 @Composable
-private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), onBack)
-            projectName?.let { AfText(it, Modifier.weight(1f), bold = true) }
+internal fun V2ProjectBar(projectName: String?, screens: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit,
+    inboxWaiting: Int = 0) {
+    val chips = screens.filter { it != MV_CLASSIC }
+    val menu = MV_CLASSIC in screens
+    var open by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth()
+        .drawBehind {
+            drawRect(Brush.verticalGradient(listOf(GlassColors.TopBarTop, GlassColors.TopBarBottom)))
+            drawRect(GlassColors.TopBarLine, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
         }
-        // One scrolling row (DESIGN.md §9.2): wrapped rows plus a running job card left no room for the page at font 2.0.
-        io.github.alalkipgen.autoflow.ui.components.FilterChipRow(screens.map { io.github.alalkipgen.autoflow.ui.components.FilterChipItem(
-            io.github.alalkipgen.autoflow.ui.i18n.My.screen(it)) }, screens.indexOf(selected), { onSelect(screens[it]) })
-        Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
+        .then(if (menu) Modifier.onSecondaryClick { open = true } else Modifier)
+        .padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlassIconButton(AfIcons.Regular.Back, tr(UiText.PROJECTS_BACK), onBack, Modifier.testTag("mv-project-back"), size = GlassShapes.IconButtonHeader)
+            Column(Modifier.weight(1f)) {
+                projectName?.let { AfText(it, Modifier.semantics { contentDescription = it }, type = AfType.TopBarTitle, weight = FontWeight.Bold,
+                    maxLines = 1, ellipsis = true) }
+                AfText(My.breakSyllables(My.screen(selected)), color = AutoFlowColors.Muted, type = AfType.Caption)
+            }
+            if (menu) GlassIconButton(AfIcons.Regular.More, tr(UiText.V3_MORE_OPTIONS), { open = !open }, Modifier.testTag("mv-project-overflow"),
+                size = GlassShapes.IconButtonHeader, selected = open)
+        }
+        // ⋮ (sample 15): Classic steps as a small glass button under the bar, like the Recap ⋮ actions (Group 2 D 25a).
+        if (open) WrapRow(spacing = 8.dp) {
+            GlassButton(My.screen(MV_CLASSIC), { open = false; onSelect(MV_CLASSIC) }, Modifier.testTag("mv-tab-${mvTabTag(MV_CLASSIC)}"),
+                icon = AfIcons.Regular.Archive, small = true)
+        }
+        io.github.alalkipgen.autoflow.ui.components.FilterChipRow(chips.map { io.github.alalkipgen.autoflow.ui.components.FilterChipItem(
+            My.screen(it), icon = mvTabIcon(it), tag = "mv-tab-${mvTabTag(it)}", badge = if (it == "Inbox") inboxWaiting else null) },
+            chips.indexOf(selected), { onSelect(chips[it]) }, glass = true)
     }
+}
+
+/** A Music Video page's tag part: `mv-tab-input`, `mv-tab-shot-sheet`, …, `mv-tab-classic-steps`. */
+internal fun mvTabTag(screen: String): String = screen.lowercase().replace(' ', '-')
+
+/** A Music Video page chip's icon (Group 3 A 2). */
+private fun mvTabIcon(screen: String): ImageVector? = when (screen) {
+    "Input" -> AfIcons.Regular.PencilLine
+    SHOT_SHEET -> AfIcons.Regular.Film
+    "Inbox" -> AfIcons.Regular.TrayArrowDown
+    MV_PREVIEW -> AfIcons.Regular.MonitorPlay
+    "Export" -> AfIcons.Regular.Export
+    else -> null
 }
 
 /**
@@ -651,24 +705,13 @@ fun AppShell(
     }
 }
 
-/** "Exit Auto Flow?" confirmation (D-52). */
+/** "Exit Auto Flow?" confirmation (D-52) as a glass dialog (Group 3 A 6, sample 04d): Stay = secondary, Exit = danger. */
 @Composable
-private fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
-    Dialog(onDismissRequest = onStay) {
-        Column(
-            Modifier
-                .fillMaxWidth(0.85f)
-                .clip(AutoFlowShapes.Card)
-                .background(AutoFlowColors.Panel)
-                .padding(32.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            AfText(tr(UiText.EXIT_TITLE), bold = true, size = 20.sp)
-            AfText(tr(UiText.EXIT_HINT), muted = true)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AfButton(tr(UiText.EXIT), onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
-                AfButton(tr(UiText.STAY), onStay, Modifier.weight(1f))
-            }
+internal fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
+    GlassDialog(onStay) {
+        GlassDialogSurface(tr(UiText.EXIT_TITLE)) {
+            AfText(My.breakSyllables(tr(UiText.EXIT_HINT)), color = AutoFlowColors.Muted)
+            GlassDialogButtons(GlassDialogAction(tr(UiText.STAY), onStay), GlassDialogAction(tr(UiText.EXIT), onExit, ButtonKind.Danger))
         }
     }
 }

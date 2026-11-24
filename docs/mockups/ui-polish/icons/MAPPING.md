@@ -126,3 +126,5 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `stamp` | `stamp` | Watermark card (Style) |
 | `musicNote` | `music-note` | Background music file, Add music (Style) |
 | `copy` | `copy` | Copy title / chapters / description / hashtags (Publish Kit) |
+| `pencilLine` | `pencil-simple-line` | Input page chip (Music Video project bar) |
+| `trayArrowDown` | `tray-arrow-down` | Inbox page chip (Music Video project bar) |

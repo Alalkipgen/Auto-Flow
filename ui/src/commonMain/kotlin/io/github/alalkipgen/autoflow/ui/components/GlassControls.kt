@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
+import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
@@ -468,7 +469,7 @@ fun GlassModeChip(mode: Mode, modifier: Modifier = Modifier) {
  */
 @Composable
 fun GlassFilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
-    count: Int? = null, leading: (@Composable (ink: Color) -> Unit)? = null) {
+    count: Int? = null, leading: (@Composable (ink: Color) -> Unit)? = null, badge: Int? = null, badgeModifier: Modifier = Modifier) {
     val shape = GlassShapes.Pill
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -491,7 +492,17 @@ fun GlassFilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifi
             leading?.invoke(if (selected) Color.White else AutoFlowColors.Muted)
             AfText(text, color = if (selected) Color.White else AutoFlowColors.Text, type = AfType.Micro)
             if (count != null) AfText("$count", color = if (selected) GlassColors.FilterOnCount else AutoFlowColors.Muted, type = AfType.Micro)
+            if (badge != null) GlassCountBadge(badge, badgeModifier)
         }
+    }
+}
+
+/** Count badge (Group 3 A 🆕-16): 18 dp Cyan pill, the number in the dark Base colour, 11 sp bold. */
+@Composable
+fun GlassCountBadge(count: Int, modifier: Modifier = Modifier) {
+    Box(modifier.heightIn(min = 18.dp).widthIn(min = 18.dp).clip(GlassShapes.Pill).background(AutoFlowColors.Cyan).padding(horizontal = 5.dp),
+        contentAlignment = Alignment.Center) {
+        AfText("$count", color = GlassColors.Base, size = 11.sp, bold = true)
     }
 }
 

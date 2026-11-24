@@ -223,8 +223,11 @@ fun OptionChips(options: List<String>, selected: String, onSelect: (String) -> U
     WrapRow(modifier) { options.forEach { value -> AfChip(value, value == selected, { onSelect(value) }) } }
 }
 
-/** A filter and its item count; [count] null hides the number. */
-class FilterChipItem(val label: String, val count: Int? = null)
+/**
+ * A filter and its item count; [count] null hides the number. Glass rows only: [icon] before the label, [tag] on the
+ * chip and a cyan [badge] after the label (> 0 only, tagged `<tag>-badge`; the Music Video Inbox chip, Group 3 A 🆕-16).
+ */
+class FilterChipItem(val label: String, val count: Int? = null, val icon: ImageVector? = null, val tag: String? = null, val badge: Int? = null)
 
 /**
  * Filters scroll in one row with faded edges (DESIGN.md §9.2); options wrap instead ([OptionChips]). [glass] = glass
@@ -243,7 +246,9 @@ fun FilterChipRow(items: List<FilterChipItem>, selected: Int, onSelect: (Int) ->
             Offset(size.width - fade, 0f), Size(fade, size.height), blendMode = BlendMode.DstIn)
     }.horizontalScroll(scroll).padding(vertical = glow), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items.forEachIndexed { i, item ->
-            if (glass) GlassFilterChip(item.label, i == selected, { onSelect(i) }, count = item.count)
+            if (glass) GlassFilterChip(item.label, i == selected, { onSelect(i) }, item.tag?.let { Modifier.testTag(it) } ?: Modifier,
+                count = item.count, leading = item.icon?.let { icon -> { ink -> AfIcon(icon, tint = ink, size = 16.dp) } },
+                badge = item.badge?.takeIf { it > 0 }, badgeModifier = item.tag?.let { Modifier.testTag("$it-badge") } ?: Modifier)
             else AfChip(item.label, i == selected, { onSelect(i) }, count = item.count)
         }
     }
