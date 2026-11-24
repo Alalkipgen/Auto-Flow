@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
@@ -45,6 +46,8 @@ import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.inbox.SharedInbox
+import io.github.alalkipgen.autoflow.ui.inbox.InboxModel
+import io.github.alalkipgen.autoflow.ui.inbox.InboxScreen
 import io.github.alalkipgen.autoflow.ui.input.InputModel
 import io.github.alalkipgen.autoflow.ui.input.CharactersCard
 import io.github.alalkipgen.autoflow.ui.input.GenerateCard
@@ -171,6 +174,14 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             prompt(9); storyboard.edit(9) { it.copy(lightingEn = it.lightingEn + ", warm dusk") }
             handoff.logCredits(1, 20); handoff.logCredits(2, 100); handoff.logCredits(3, 100)
             handoff.exportBatch()
+        }
+        /** No project open, with the same shared files waiting (the Inbox's no-project state). */
+        val noSession = ProjectSession(fs, ProjectStore(fs), ProjectIndex(fs, File(root, "none-inbox.json").path), CurrentProject())
+        val sharedNoProject by lazy { SharedInbox(fs, noSession, File(root, SharedInbox.DIR_NAME).path) }
+        /** The samples' inbox files (sample 11): a Flow video, a reference image, a PDF that cannot be attached. */
+        fun inboxFiles() {
+            val dir = File(current.state.value!!.dir, "inbox").apply { mkdirs() }
+            listOf("flow_shot04_final.mp4", "ref_heroine_close.png", "lyrics_notes.pdf").forEach { File(dir, it).writeBytes(ByteArray(8)) }
         }
         /** An Input model with no project open. */
         val noProject = InputModel(ProjectSession(fs, ProjectStore(fs), ProjectIndex(fs, File(root, "none.json").path), CurrentProject()), jobs)
@@ -480,5 +491,35 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             d.second(); d.shots.acceptVersion(3, d.current.state.value!!.project.shots.first { it.number == 3 }.videos.first())
         }) { select(3) }
         shot("08p-videos-none", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = cards) { select(6) }
+    }
+
+    /** The Inbox as AppShell draws it (one model per demo). */
+    private val inboxPage: @Composable (Demo) -> Unit = { d ->
+        val model = remember(d) { InboxModel(d.session, d.fs) }
+        InboxScreen(model, shared = d.shared)
+    }
+
+    /**
+     * PR 9 (F, samples 11 / 11b): two shared files waiting over three inbox files, the video's shot chips open; the shared
+     * files with no project open; Attach to shot with no storyboard; a file deleted (the notice); the empty inbox.
+     */
+    @Test fun inbox() {
+        shot("11-inbox", screen = "Inbox", body = inboxPage, waiting = 2, prep = { it.statuses(); it.inboxFiles() }) {
+            clickText(UiText.ATTACH_SHOT.text(language))
+        }
+        shot("11b-shared-noproject", screen = "Inbox", waiting = 2, body = { d ->
+            val model = remember(d) { InboxModel(d.noSession, d.fs) }
+            InboxScreen(model, shared = d.sharedNoProject)
+        })
+        shot("11b-attach-noshots", screen = "Inbox", body = inboxPage, prep = { it.inboxFiles() }) { clickText(UiText.ATTACH_SHOT.text(language)) }
+        shot("11b-deleted", screen = "Inbox", body = inboxPage, prep = { it.statuses(); it.inboxFiles() }) {
+            val tag = "inbox-file-ref_heroine_close.png"
+            val delete = onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsActions.CustomActions].single()
+            runOnIdle { delete.action() }
+            waitForIdle()
+            click("$tag-remove-menu")
+            click("$tag-remove-confirm")
+        }
+        shot("11b-empty", screen = "Inbox", body = inboxPage, prep = Demo::statuses)
     }
 }

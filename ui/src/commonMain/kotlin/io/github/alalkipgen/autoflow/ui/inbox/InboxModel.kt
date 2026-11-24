@@ -18,6 +18,13 @@ import kotlinx.coroutines.flow.map
 
 enum class InboxItemKind { VIDEO, IMAGE, OTHER }
 
+/** What a file in the Inbox (or waiting in the share folder) is, by its extension. */
+internal fun inboxKindOf(name: String): InboxItemKind = when (name.substringAfterLast('.').lowercase()) {
+    "mp4", "mov" -> InboxItemKind.VIDEO
+    "png", "jpg", "jpeg" -> InboxItemKind.IMAGE
+    else -> InboxItemKind.OTHER
+}
+
 data class InboxItem(
     val name: String,
     val path: String,
@@ -29,6 +36,8 @@ data class InboxUiState(
     val projectName: String? = null,
     val items: List<InboxItem> = emptyList(),
     val shotNumbers: List<Int> = emptyList(),
+    /** Each shot's start (ms) by its number, for the Choose shot chips ("Shot 4 0:24"). */
+    val shotStartsMs: Map<Int, Long> = emptyMap(),
     val message: String? = null,
     val notice: UiNotice? = null,
     val inboxDir: String? = null,
@@ -50,6 +59,7 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
         _state.value.copy(
             projectName = open?.project?.name,
             shotNumbers = open?.project?.shots?.map { it.number } ?: emptyList(),
+            shotStartsMs = open?.project?.shots?.associate { it.number to it.startMs } ?: emptyMap(),
             inboxDir = open?.let { joinPath(it.dir, INBOX_DIR) },
             projectId = open?.project?.id,
         )
@@ -67,6 +77,7 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
         return _state.value.copy(
             projectName = open?.project?.name,
             shotNumbers = open?.project?.shots?.map { it.number } ?: emptyList(),
+            shotStartsMs = open?.project?.shots?.associate { it.number to it.startMs } ?: emptyMap(),
             message = _message.value,
             notice = _notice.value,
             inboxDir = open?.let { joinPath(it.dir, INBOX_DIR) },
@@ -93,11 +104,7 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
                             name = name,
                             path = joinPath(dir, name),
                             projectId = open.project.id,
-                            kind = when (name.substringAfterLast('.').lowercase()) {
-                                "mp4", "mov" -> InboxItemKind.VIDEO
-                                "png", "jpg", "jpeg" -> InboxItemKind.IMAGE
-                                else -> InboxItemKind.OTHER
-                            },
+                            kind = inboxKindOf(name),
                         )
                     }
                     .sortedBy { it.name }

@@ -183,6 +183,15 @@ object GlassColors {
     val BigPlayRing = Color.White.copy(alpha = .55f)
     const val TintMediaPane = .14f
 
+    // Music Video Inbox (Group 3 F, sample 11): the file kind tiles (video lavender, image blue, other Muted), each file's
+    // row card (White .04 fill, 1 dp White .10 border, radius 16) and the Shared to Auto Flow card's 1 dp Cyan .5 line.
+    val InboxVideo = Color(0xFFA78BFA)
+    val InboxImage = Color(0xFF60A5FA)
+    val InboxRowFill = Color.White.copy(alpha = .04f)
+    val InboxRowBorder = Color.White.copy(alpha = .10f)
+    val InboxSharedLine = Color(0xFF22D3EE).copy(alpha = .5f)
+    const val TintInboxShared = .16f
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)
@@ -347,6 +356,8 @@ object GlassShapes {
     val MenuRowMin = 56.dp
     val MenuTile = 36.dp
     val PathBox = RoundedCornerShape(12.dp)
+    /** A Music Video Inbox file card (sample 11 `.rc`). */
+    val InboxRow = RoundedCornerShape(16.dp)
     val Callout = RoundedCornerShape(12.dp)
 
     /** Tab screen spacing: section gap, inside a section, between cards. */
