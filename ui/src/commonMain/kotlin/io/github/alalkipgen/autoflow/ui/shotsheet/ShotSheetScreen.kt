@@ -43,7 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.ui.components.AfButton
-import io.github.alalkipgen.autoflow.ui.components.AfCard
+import io.github.alalkipgen.autoflow.ui.components.GlassButton
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
@@ -69,7 +70,6 @@ import io.github.alalkipgen.autoflow.ui.references.RefRow
 import io.github.alalkipgen.autoflow.ui.shots.PromptSection
 import io.github.alalkipgen.autoflow.ui.shots.ShotRow
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
-import io.github.alalkipgen.autoflow.ui.shots.StatusBadge
 import io.github.alalkipgen.autoflow.ui.shots.VersionBrowser
 import io.github.alalkipgen.autoflow.ui.storyboard.Header
 import io.github.alalkipgen.autoflow.ui.storyboard.ShotCard
@@ -109,6 +109,7 @@ internal fun forSheet(text: String, language: UiLanguage = UiLanguage.ENGLISH): 
  * the classic screens (same gates, same saves into the open project); nothing here keeps its own copy of the shot.
  * ≥ 840 dp window: shots list · sheet · media preview; narrower: the shot list, then one shot's sheet (Back → list).
  * UI v3 (PR-7): filters and navigator are presentation only; Copy prompt / Open Flow sit once in the sticky bar.
+ * Group 3 D outer: the glass back button, navigator (5-dot step strip, 🆕-15), step-card headers and glass sticky bar.
  */
 @Composable
 fun ShotSheetScreen(
@@ -211,36 +212,29 @@ fun ShotSheetScreen(
         }
     }
 
+    // 🆕-15: step n done = the flag its card already reads (storyboard approved · prompt approved · ref approved · a video
+    // imported · a video accepted); the navigator dots and the card badges show the same five.
+    val steps = listOf(
+        card?.approved == true,
+        detail?.approvedPrompt == true,
+        refRow?.refApproved == true,
+        (flowRow?.videoCount ?: 0) > 0 || detail?.versions?.isNotEmpty() == true,
+        flowRow?.accepted == true || detail?.acceptedVideoPath != null,
+    )
+
     val sheet: @Composable () -> Unit = {
         val scroll = key(identity, selected) { rememberScrollState() }
-        Column(
-            Modifier.fillMaxSize().paneScroll(scroll).padding(8.dp).testTag("shot-sheet"),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (!wide) AfButton(tr(UiText.V3_MV_SHOT_LIST), { detailOpen = false }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-back"))
-            // Navigator: which shot of how many, its badge, previous / next (no inert arrow at either end).
-            Column(
-                Modifier.fillMaxWidth().clip(AutoFlowShapes.Card).border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
-                    .background(AutoFlowColors.Panel).padding(10.dp).testTag("shot-sheet-navigator"),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                WrapRow {
-                    AfText("Shot ${row.number} · ${row.timecode}", Modifier.testTag("shot-sheet-title"), size = 16.sp, bold = true)
-                    StatusBadge(row.status)
-                    AfText("${index + 1} / ${rows.size}", Modifier.testTag("shot-sheet-position"), muted = true)
-                }
-                card?.lyric?.takeIf { it.isNotBlank() }?.let { AfText(My.breakSyllables(it), muted = true) }
-                WrapRow {
-                    rows.getOrNull(index - 1)?.let { p ->
-                        AfButton("← Shot ${p.number}", { shots.select(p.number) }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-prev"))
-                    }
-                    rows.getOrNull(index + 1)?.let { n ->
-                        AfButton("Shot ${n.number} →", { shots.select(n.number) }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-next"))
-                    }
-                }
+        // The scroll on the outer box and the padding inside it, so the glass buttons' 48 dp targets overflow into the padding.
+        GlassScrollColumn(Modifier.fillMaxSize().testTag("shot-sheet"), PaddingValues(if (wide) 8.dp else screenPadding),
+            Arrangement.spacedBy(12.dp), state = scroll) {
+            // Group 3 D outer (sample 07): Back = a small glass button with arrow-left; the navigator hero card.
+            if (!wide) GlassButton(My.breakSyllables(tr(UiText.V3_MV_SHOT_LIST)), { detailOpen = false }, Modifier.testTag("shot-sheet-back"),
+                icon = AfIcons.Regular.Back, small = true)
+            SheetNavigator(row, "${index + 1} / ${rows.size}", card?.lyric, steps, rows.getOrNull(index - 1), rows.getOrNull(index + 1)) {
+                shots.select(it)
             }
 
-            AfCard(tr(UiText.SHEET_STORYBOARD)) {
+            StepCard(SheetStep.STORYBOARD, steps[0]) {
                 job.lastFor(storyboard.openProject)?.takeIf { it != StoryboardResult.Done }
                     ?.message(uiLanguage)?.let { AfText(it, color = AutoFlowColors.Amber) }
                 sbMessage?.let { AfText(it, color = AutoFlowColors.Amber) }
@@ -248,12 +242,12 @@ fun ShotSheetScreen(
                 else AfText(tr(UiText.SHEET_NO_STORY_CARD), color = AutoFlowColors.Amber)
             }
 
-            AfCard(tr(UiText.SHEET_PROMPT)) {
+            StepCard(SheetStep.PROMPT, steps[1]) {
                 shotsState.actionError?.let { AfText(it, color = AutoFlowColors.Amber) }
                 if (detail != null) PromptSection(detail, shots) else AfText("…", muted = true)
             }
 
-            AfCard(tr(UiText.SHEET_REFS)) {
+            StepCard(SheetStep.REFS, steps[2]) {
                 refState.message?.let { AfText(refState.notice?.text(uiLanguage) ?: forSheet(it, uiLanguage), color = AutoFlowColors.Amber) }
                 if (refRow != null) RefSection(refRow, refs, importRef = {
                     scope.launch { refs.pickAndImportRef(refRow.number) { readBytes(it) } }
@@ -261,7 +255,7 @@ fun ShotSheetScreen(
             }
 
             // Copy prompt and Open Flow live once, in the sticky bar; import and acceptance stay here and manual.
-            AfCard(tr(UiText.SHEET_FLOW)) {
+            StepCard(SheetStep.FLOW, steps[3]) {
                 flow.message?.let { AfText(flow.notice?.text(uiLanguage) ?: forSheet(it, uiLanguage), color = AutoFlowColors.Amber) }
                 if (flowRow != null) HandoffCard(flowRow.copy(gateMsg = flowRow.gateMsg?.let { forSheet(it, uiLanguage) }), LocalCompact.current, handoff, importVideo = {
                     scope.launch { handoff.pickAndImportVideo(flowRow.number) { readBytes(it) } }
@@ -269,7 +263,7 @@ fun ShotSheetScreen(
                     noPromptText = tr(UiText.SHEET_COMPILE_FIRST), showCopy = false)
             }
 
-            AfCard(tr(UiText.SHEET_VIDEOS)) {
+            StepCard(SheetStep.VIDEOS, steps[4]) {
                 if (detail != null && detail.versions.isNotEmpty()) VersionBrowser(detail, shots)
                 else AfText(tr(UiText.SHEET_NO_VIDEO), muted = true)
             }
@@ -286,10 +280,12 @@ fun ShotSheetScreen(
             ProjectPanes(windowWidthDp, list = list, editor = if (sheetOpen) sheet else listPage, preview = preview)
         }
         if (sheetOpen) StickyActionBar(
-            primary = StudioAction("📋 ${tr(UiText.COPY_PROMPT)}", { handoff.copyPrompt(row.number) },
-                enabled = flowRow != null && flowRow.promptText != null && flowRow.gateMsg == null, tag = "shot-sheet-copy-prompt"),
-            secondary = StudioAction(tr(UiText.OPEN_FLOW), { handoff.openFlow() }, tag = "shot-sheet-open-flow"),
+            primary = StudioAction(tr(UiText.COPY_PROMPT), { handoff.copyPrompt(row.number) },
+                enabled = flowRow != null && flowRow.promptText != null && flowRow.gateMsg == null, tag = "shot-sheet-copy-prompt",
+                icon = AfIcons.Regular.Copy),
+            secondary = StudioAction(tr(UiText.OPEN_FLOW), { handoff.openFlow() }, tag = "shot-sheet-open-flow", icon = AfIcons.Regular.ArrowSquareOut),
             caption = My.breakSyllables(tr(UiText.V3_MV_MANUAL_HINT)),
+            glass = true,
         )
     } }
 }

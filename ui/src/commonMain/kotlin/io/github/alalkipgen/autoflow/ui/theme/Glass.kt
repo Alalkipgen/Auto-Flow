@@ -135,6 +135,23 @@ object GlassColors {
     /** The All shots row (Group 3 C, sample 05 `.sub`): White .03 + .10 line. */
     val AllShotsFill = Color.White.copy(alpha = .03f)
 
+    /**
+     * One shot's sheet (Group 3 D, samples 07 / 08): step 3 References Blue; the step number badge (#4B5573, green when
+     * done, a 2 dp #151B33 ring); the navigator's "3 / 12" chip (`.ofn` White .06 + .12 line), lyric quote (`.quote`
+     * Black .20 + White .08 line) and step dots (`.dt` White .06 + .22 line, the next one Cyan .14; `.dl` White .14).
+     */
+    val SheetRefs = Color(0xFF60A5FA)
+    val StepBadge = Color(0xFF4B5573)
+    val StepBadgeRing = Color(0xFF151B33)
+    val PositionChipFill = Color.White.copy(alpha = .06f)
+    val PositionChipBorder = Color.White.copy(alpha = .12f)
+    val QuoteFill = Color.Black.copy(alpha = .20f)
+    val QuoteBorder = Color.White.copy(alpha = .08f)
+    val StepDotFill = Color.White.copy(alpha = .06f)
+    val StepDotBorder = Color.White.copy(alpha = .22f)
+    val StepDotNowFill = AutoFlowColors.Cyan.copy(alpha = .14f)
+    val StepLine = Color.White.copy(alpha = .14f)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)

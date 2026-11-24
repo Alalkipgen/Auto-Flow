@@ -369,9 +369,10 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
     }
 
     /** The shot sheet as AppShell draws it on a phone (the list page first). */
-    private val sheetPage: @Composable (Demo) -> Unit = { d ->
+    private val sheetPage: @Composable (Demo) -> Unit = sheetAt(WIDTH)
+    private fun sheetAt(width: Int): @Composable (Demo) -> Unit = { d ->
         ShotSheetScreen(d.storyboard, d.jobs, d.shots, d.refs, d.handoff, readBytes = { runCatching { File(it).readBytes() }.getOrNull() },
-            windowWidthDp = WIDTH.toFloat(), onGoToInput = {})
+            windowWidthDp = width.toFloat(), onGoToInput = {})
     }
 
     /** PR 4 (§3.2, C, 🆕-5, samples 05 / 06 / 09a): the shot list, All shots open, the empty states, the Regenerate all dialog. */
@@ -386,6 +387,21 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         shot("09a-dialog-regenerate-all", full = false, screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) {
             click("shot-sheet-all")
             clickText(UiText.REGENERATE_ALL.text(language))
+        }
+    }
+
+    /**
+     * PR 5 (D outer, 🆕-15, samples 07 / 08 / 10): shot 3 (imported: steps 1–4 done) on its phone sheet; shot 1 (accepted, all
+     * five done, no previous) and shot 12 (draft, none done, no next) at the top; the desktop three panes at 1280 dp.
+     */
+    @Test fun shotSheet() {
+        shot("07-shot-sheet", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) { click("shot-sheet-select-3") }
+        shot("08a-sheet-accepted-first", full = false, screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) { click("shot-sheet-select-1") }
+        shot("08b-sheet-draft-last", full = false, screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) {
+            onNodeWithTag("shot-sheet-select-12").performScrollTo(); click("shot-sheet-select-12")
+        }
+        shot("10-desktop-shot-sheet", width = 1280, height = 800, full = false, screen = SHOT_SHEET, body = sheetAt(1280), prep = Demo::statuses) {
+            click("shot-sheet-select-3")
         }
     }
 }

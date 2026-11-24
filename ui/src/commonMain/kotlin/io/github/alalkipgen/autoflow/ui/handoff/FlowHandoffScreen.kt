@@ -70,7 +70,8 @@ fun FlowHandoffScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AfText(tr(UiText.FLOW_HANDOFF), size = 18.sp, bold = true)
-            AfButton(tr(UiText.OPEN_FLOW), { model.openFlow() }, kind = ButtonKind.Flow)
+            // OPEN_FLOW dropped its " ↗" (Group 3 D 4): the arrow-square-out icon keeps the "opens outside" cue here.
+            AfButton(tr(UiText.OPEN_FLOW), { model.openFlow() }, kind = ButtonKind.Flow, icon = io.github.alalkipgen.autoflow.ui.icons.AfIcons.Regular.ArrowSquareOut)
         }
         AfText(tr(UiText.FLOW_MANUAL_STEPS), muted = true, size = 12.sp)
 
