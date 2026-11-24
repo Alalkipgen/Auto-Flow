@@ -49,7 +49,9 @@ fun RecapStepHeader(step: RecapStep, onBack: () -> Unit, onNext: () -> Unit, onC
  * The 840 dp breakpoint is the WINDOW width, not the width remaining after the navigation rail.
  * At/above 840 dp: list · preview · inspector (UI v3 PR-8, concept 11). [editor] is the inspector; its pane keeps the
  * `project-editor` tag. Below 1200 dp the inspector keeps the former 44 % share so 840 dp editors do not get
- * narrower; from 1200 dp the preview takes the centre as in concept 11.
+ * narrower; from 1200 dp the preview takes the centre as in concept 11. [editorInMiddle] (the Music Video shot sheet, Group 3
+ * E sample 10) = list · editor · preview: the editor in the centre with the wider share (.45 from 1200 dp, else .44), the
+ * preview on the right (.32); Movie Recap keeps the order above.
  */
 @Composable
 fun ProjectPanes(
@@ -58,13 +60,19 @@ fun ProjectPanes(
     editor: @Composable () -> Unit,
     preview: @Composable () -> Unit,
     previewPage: Boolean = true,
+    editorInMiddle: Boolean = false,
 ) {
     if (windowWidthDp >= 840f) {
         val (listShare, previewShare, inspectorShare) = if (windowWidthDp >= 1200f) Triple(.23f, .45f, .32f) else Triple(.24f, .32f, .44f)
         Row(Modifier.fillMaxSize().padding(8.dp).testTag("project-three-panes"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.weight(listShare).fillMaxHeight().testTag("project-list")) { list() }
-            Box(Modifier.weight(previewShare).fillMaxHeight().testTag("project-preview")) { preview() }
-            Box(Modifier.weight(inspectorShare).fillMaxHeight().testTag("project-editor")) { editor() }
+            if (editorInMiddle) {
+                Box(Modifier.weight(maxOf(previewShare, inspectorShare)).fillMaxHeight().testTag("project-editor")) { editor() }
+                Box(Modifier.weight(minOf(previewShare, inspectorShare)).fillMaxHeight().testTag("project-preview")) { preview() }
+            } else {
+                Box(Modifier.weight(previewShare).fillMaxHeight().testTag("project-preview")) { preview() }
+                Box(Modifier.weight(inspectorShare).fillMaxHeight().testTag("project-editor")) { editor() }
+            }
         }
     } else {
         // F-6: phones have no room for the preview pane, so it is a second page; the top bar's ▶ / ✎ toggle switches it.

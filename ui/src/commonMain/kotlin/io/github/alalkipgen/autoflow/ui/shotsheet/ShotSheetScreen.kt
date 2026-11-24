@@ -44,13 +44,10 @@ import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.handoff.BatchPanel
 import io.github.alalkipgen.autoflow.ui.handoff.CreditCounter
 import io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffModel
-import io.github.alalkipgen.autoflow.ui.handoff.RefThumb
-import io.github.alalkipgen.autoflow.ui.handoff.VideoThumb
 import io.github.alalkipgen.autoflow.ui.recap.ProjectPanes
 import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
 import io.github.alalkipgen.autoflow.ui.shots.ShotRow
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
-import io.github.alalkipgen.autoflow.ui.shots.VersionBrowser
 import io.github.alalkipgen.autoflow.ui.storyboard.Header
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
@@ -85,7 +82,8 @@ internal fun forSheet(text: String, language: UiLanguage = UiLanguage.ENGLISH): 
  * (compile / approve), Ref A / B (copy image prompt, import, pick, approve), Flow handoff (open Flow, copy prompt,
  * pass, import video, credits) and the video versions with accept. Every action is the existing model action of
  * the classic screens (same gates, same saves into the open project); nothing here keeps its own copy of the shot.
- * ≥ 840 dp window: shots list · sheet · media preview; narrower: the shot list, then one shot's sheet (Back → list).
+ * ≥ 840 dp window: shots list · sheet · media pane (Group 3 E: the sheet in the middle); narrower: the shot list, then one
+ * shot's sheet (Back → list).
  * UI v3 (PR-7): filters and navigator are presentation only; Copy prompt / Open Flow sit once in the sticky bar.
  * Group 3 D outer: the glass back button, navigator (5-dot step strip, 🆕-15), step-card headers and glass sticky bar.
  */
@@ -179,16 +177,8 @@ fun ShotSheetScreen(
         }
     }
 
-    val preview: @Composable () -> Unit = {
-        Column(Modifier.fillMaxWidth().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText(tr(UiText.SHEET_MEDIA_SHOT, "number" to (row.number)), muted = true)
-            flowRow?.let { f ->
-                RefThumb(f, handoff)
-                VideoThumb(f, handoff)
-            }
-            AfText(My.breakSyllables(tr(UiText.V3_MV_SHORTCUTS_HINT)), Modifier.testTag("shortcuts-hint"), muted = true)
-        }
-    }
+    // Group 3 E (sample 10): the desktop media pane — the glass card with the reference image and the video at the pane's width.
+    val preview: @Composable () -> Unit = { SheetMediaPane(row.number, flowRow, handoff) }
 
     // 🆕-15: step n done = the flag its card already reads (storyboard approved · prompt approved · ref approved · a video
     // imported · a video accepted); the navigator dots and the card badges show the same five.
@@ -242,10 +232,8 @@ fun ShotSheetScreen(
                 }, fast = flow.creditHintFast, quality = flow.creditHintQuality, noPromptText = tr(UiText.SHEET_COMPILE_FIRST))
             }
 
-            StepCard(SheetStep.VIDEOS, steps[4]) {
-                if (detail != null && detail.versions.isNotEmpty()) VersionBrowser(detail, shots)
-                else AfText(tr(UiText.SHEET_NO_VIDEO), muted = true)
-            }
+            // Group 3 D inner 5 (PR 8): the versions in the glass look; the classic Shots screen keeps VersionBrowser.
+            StepCard(SheetStep.VIDEOS, steps[4]) { SheetVideos(detail, shots) }
         }
     }
 
@@ -256,7 +244,7 @@ fun ShotSheetScreen(
             next = rows.getOrNull(index + 1)?.takeIf { sheetOpen }?.let { n -> { shots.select(n.number) } },
         )
         Box(Modifier.fillMaxWidth().weight(1f)) {
-            ProjectPanes(windowWidthDp, list = list, editor = if (sheetOpen) sheet else listPage, preview = preview)
+            ProjectPanes(windowWidthDp, list = list, editor = if (sheetOpen) sheet else listPage, preview = preview, editorInMiddle = true)
         }
         if (sheetOpen) StickyActionBar(
             primary = StudioAction(tr(UiText.COPY_PROMPT), { handoff.copyPrompt(row.number) },

@@ -26,6 +26,8 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithText
@@ -56,6 +58,7 @@ import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
 import io.github.alalkipgen.autoflow.ui.settings.FakePicker
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import io.github.alalkipgen.autoflow.ui.shots.USE_VERSION_BUTTON
+import io.github.alalkipgen.autoflow.ui.shots.PREVIEW_VERSION_BUTTON
 import io.github.alalkipgen.autoflow.ui.storyboard.NO_STORYBOARD_TEXT
 import io.github.alalkipgen.autoflow.ui.storyboard.JobState
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
@@ -250,15 +253,51 @@ class ShotSheetTest {
         onNodeWithTag("sheet-flow-credits-logged").assertExists()
         assertEquals(listOf(20), project.flowCredits.manualLog.filter { it.shot == 2 }.map { it.credits }, "Skip logs nothing")
 
-        // 5 · Videos: two versions, newest first; use the older one.
-        onNodeWithText(io.github.alalkipgen.autoflow.ui.shots.versionsTitle(2, UiLanguage.BURMESE)).performScrollTo().assertExists()
-        onAllNodesWithText(USE_VERSION_BUTTON)[1].performScrollTo().performClick()
+        // 5 · Videos (Group 3 PR 8): two versions, newest first; the newest is previewed (no Preview, Use = primary).
+        val my = io.github.alalkipgen.autoflow.ui.i18n.My
+        onNodeWithTag("sheet-videos-empty").assertDoesNotExist()
+        onNodeWithTag("sheet-videos-title").performScrollTo()
+            .assertTextEquals(my.breakSyllables(io.github.alalkipgen.autoflow.ui.shots.versionsTitle(2, UiLanguage.BURMESE)))
+        onNodeWithTag("sheet-video-player").assertExists()
+        assertTrue(onNodeWithTag("sheet-version-2").fetchSemanticsNode().positionInRoot.y < onNodeWithTag("sheet-version-1").fetchSemanticsNode().positionInRoot.y, "newest first")
+        onNodeWithTag("sheet-version-preview-2").assertDoesNotExist()
+        onNodeWithTag("sheet-version-use-2").assertTextContains(my.breakSyllables(USE_VERSION_BUTTON))
+        textIn("sheet-version-pass-1", my.breakSyllables(UiText.PASS_DRAFT.text(UiLanguage.BURMESE))).assertExists()
+        onNodeWithTag("sheet-draft-hint").assertDoesNotExist()
+        // Preview v1 only moves the player (saves nothing); then use it.
+        onNodeWithTag("sheet-version-preview-1").assertTextContains(my.breakSyllables(PREVIEW_VERSION_BUTTON)).performScrollTo().performClick()
+        waitForIdle()
+        assertTrue(project.shots[1].acceptedVideo == null, "preview accepts nothing")
+        onNodeWithTag("sheet-version-preview-1").assertDoesNotExist()
+        onNodeWithTag("sheet-version-preview-2").assertExists()
+        onNodeWithTag("sheet-version-use-1").performScrollTo().performClick()
         waitForIdle()
         val s2 = project.shots[1]
         assertEquals(s2.videos[0], s2.acceptedVideo)
         assertEquals(HandoffState.ACCEPTED, s2.handoff.state)
         assertTrue(s2.approvals.video)
         assertSteps(1, 2, 3, 4, 5)
+        onNodeWithTag("sheet-version-accepted-1").assertExists()
+        onNodeWithTag("sheet-version-accepted-2").assertDoesNotExist()
+        onNodeWithTag("sheet-version-use-1").assertDoesNotExist()
+        onNodeWithTag("sheet-version-use-2").assertExists()
+        // The accepted video is a Draft: the amber lightning callout.
+        onNodeWithTag("sheet-draft-hint").performScrollTo()
+        textIn("sheet-draft-hint", my.breakSyllables(UiText.DRAFT_ACCEPTED_HINT.text(UiLanguage.BURMESE))).assertExists()
+        // Group 3 E: ≥ 840 dp = list · sheet · media pane (the sheet in the middle); the pane shows this shot's chosen ref and
+        // accepted video at its width (a tap = the Flow tiles' open / play), the keyboard hint under it.
+        val sheetPane = onNodeWithTag("project-editor").fetchSemanticsNode().boundsInRoot
+        val mediaPane = onNodeWithTag("project-preview").fetchSemanticsNode().boundsInRoot
+        assertTrue(onNodeWithTag("project-list").fetchSemanticsNode().boundsInRoot.right <= sheetPane.left && sheetPane.right <= mediaPane.left)
+        assertTrue(sheetPane.width > mediaPane.width, "the sheet has the wider share: $sheetPane / $mediaPane")
+        onNodeWithTag("sheet-media-title").assertTextEquals(my.breakSyllables(UiText.SHEET_MEDIA_SHOT.text(UiLanguage.BURMESE, "number" to 2)))
+        textIn("sheet-media-ref", my.breakSyllables(UiText.REF_IMAGE.text(UiLanguage.BURMESE))).assertExists()
+        textIn("sheet-media-video", my.breakSyllables(UiText.VIDEO_ACCEPTED.text(UiLanguage.BURMESE))).assertExists()
+        onNodeWithTag("sheet-media-ref-frame").assertHasClickAction()
+            .assertContentDescriptionEquals(UiText.REFERENCE_SHOT_DESCRIPTION.text(UiLanguage.BURMESE, "number" to 2))
+        onNodeWithTag("sheet-media-video-frame").assertHasClickAction()
+            .assertContentDescriptionEquals(UiText.VIDEO_SHOT_DESCRIPTION.text(UiLanguage.BURMESE, "number" to 2))
+        onNodeWithTag("shortcuts-hint").assertTextEquals(my.breakSyllables(UiText.V3_MV_SHORTCUTS_HINT.text(UiLanguage.BURMESE)))
 
         // Saved in the project file; the other shots were not touched.
         val saved = (store.open("/p/Rain.autoflow") as CoreResult.Ok).value
@@ -558,7 +597,7 @@ class ShotSheetTest {
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 2 · 0:08", substring = true)
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shotsDir, "09-shotsheet-detail-$cell.png"))
-        assertProjectPanesAndStickyActions(width, "shot-sheet-copy-prompt", "shot-sheet-open-flow")
+        assertProjectPanesAndStickyActions(width, "shot-sheet-copy-prompt", "shot-sheet-open-flow", editorInMiddle = true)
         val bar = onNodeWithTag("sticky-action-bar").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         for (tag in listOf("shot-sheet-copy-prompt", "shot-sheet-open-flow")) {
             val node = onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()

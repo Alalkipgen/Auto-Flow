@@ -462,4 +462,23 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             d.handoff.importVideoBytes(d.current.state.value!!.project, d.current.state.value!!.project.shots.first { it.number == 4 }, byteArrayOf(4, 1, 2), "mp4")
         }) { select(4) }
     }
+
+    /**
+     * PR 8 (D inner 5 + E, samples 07 / 08 / 10): the Videos step card of one shot — shot 3 with a second import on the
+     * Final pass (v2 previewed, nothing accepted), the same shot with the Draft v1 used (the Draft hint), shot 6 with no
+     * video; the desktop three panes (list · sheet · media pane) at 1280 dp come from [shotSheet].
+     */
+    @Test fun sheetVideos() {
+        val cards = listOf("sheet-step-5")
+        fun ComposeUiTest.select(n: Int) { onNodeWithTag("shot-sheet-select-$n").performScrollTo(); click("shot-sheet-select-$n") }
+        fun Demo.second() {
+            statuses(); handoff.setPass(3, io.github.alalkipgen.autoflow.core.model.Pass.FINAL)
+            handoff.importVideoBytes(current.state.value!!.project, current.state.value!!.project.shots.first { it.number == 3 }, byteArrayOf(3, 2, 1), "mp4")
+        }
+        shot("08n-videos-two", screen = SHOT_SHEET, body = sheetPage, crop = cards, prep = { it.second() }) { select(3) }
+        shot("08o-videos-draft-used", screen = SHOT_SHEET, body = sheetPage, crop = cards, prep = { d ->
+            d.second(); d.shots.acceptVersion(3, d.current.state.value!!.project.shots.first { it.number == 3 }.videos.first())
+        }) { select(3) }
+        shot("08p-videos-none", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = cards) { select(6) }
+    }
 }

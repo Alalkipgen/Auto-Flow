@@ -172,6 +172,17 @@ object GlassColors {
     val PlayMarkFill = Color(0xFF050812).copy(alpha = .5f)
     val PlayMarkRing = Color.White.copy(alpha = .45f)
 
+    /**
+     * The shot sheet's Videos card and desktop media pane (Group 3 D inner 5 / E, samples 07 / 08 / 10): the "v2" version tag
+     * (`.vt9` White .08 + .14 line), the big play mark on the pane's video (`.vplay.big` Base .55, a 1.5 dp White .55 ring)
+     * and the media pane's Cyan tint (.14).
+     */
+    val VersionTagFill = Color.White.copy(alpha = .08f)
+    val VersionTagBorder = Color.White.copy(alpha = .14f)
+    val BigPlayFill = Color(0xFF0A0E1C).copy(alpha = .55f)
+    val BigPlayRing = Color.White.copy(alpha = .55f)
+    const val TintMediaPane = .14f
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)
