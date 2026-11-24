@@ -436,4 +436,30 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             select(3); clickText(UiText.RECOMPILE.text(language))
         }
     }
+
+    /**
+     * PR 7 (D inner 3–4, samples 07 / 08): the References and Flow handoff step cards of one shot — shot 3 (ref approved, a
+     * video imported, credits logged), shot 6 with two refs picked but not approved, shot 6 with none, shot 8 (the prompt
+     * is not approved: the ref gate), shot 4 sent to Flow (Draft, in the batch sheet), shot 4 after an import on the Final
+     * pass (the credit question).
+     */
+    @Test fun sheetRefsFlow() {
+        val cards = listOf("sheet-step-3", "sheet-step-4")
+        fun ComposeUiTest.select(n: Int) { onNodeWithTag("shot-sheet-select-$n").performScrollTo(); click("shot-sheet-select-$n") }
+        fun ref(rgb: Int) = java.io.ByteArrayOutputStream().also { out ->
+            ImageIO.write(java.awt.image.BufferedImage(16, 9, java.awt.image.BufferedImage.TYPE_INT_RGB).apply { setRGB(1, 1, rgb) }, "png", out)
+        }.toByteArray()
+        shot("08h-refs-flow-imported", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = cards) { select(3) }
+        shot("08i-refs-picked", screen = SHOT_SHEET, body = sheetPage, crop = cards, prep = { d ->
+            d.statuses()
+            listOf(0x336699, 0x996633).forEach { c -> d.refs.importRefBytes(d.current.state.value!!.project, d.current.state.value!!.project.shots.first { it.number == 6 }, ref(c), "png") }
+        }) { select(6) }
+        shot("08j-refs-none", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = cards) { select(6) }
+        shot("08k-refs-gate", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = cards) { select(8) }
+        shot("08l-flow-needs-flow", screen = SHOT_SHEET, body = sheetPage, crop = cards, prep = { it.statuses(); it.handoff.copyPrompt(4) }) { select(4) }
+        shot("08m-flow-credits", screen = SHOT_SHEET, body = sheetPage, crop = cards, prep = { d ->
+            d.statuses(); d.handoff.copyPrompt(4); d.handoff.setPass(4, io.github.alalkipgen.autoflow.core.model.Pass.FINAL)
+            d.handoff.importVideoBytes(d.current.state.value!!.project, d.current.state.value!!.project.shots.first { it.number == 4 }, byteArrayOf(4, 1, 2), "mp4")
+        }) { select(4) }
+    }
 }

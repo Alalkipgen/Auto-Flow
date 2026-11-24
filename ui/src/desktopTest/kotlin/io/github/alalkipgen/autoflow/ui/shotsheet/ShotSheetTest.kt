@@ -23,6 +23,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
@@ -40,6 +42,7 @@ import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.HandoffState
 import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.core.model.Pass
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -155,7 +158,8 @@ class ShotSheetTest {
         assertEquals(listOf(false, true, false, false), project.shots.map { it.approvals.storyboard })
         assertSteps(1)
 
-        onNodeWithText("⚠ ${UiText.BLOCKER_NO_PROMPT.text(UiLanguage.BURMESE)}").performScrollTo().assertIsDisplayed()
+        onNodeWithTag("sheet-ref-locked").performScrollTo().assertIsDisplayed()
+        textIn("sheet-ref-locked", io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.BLOCKER_NO_PROMPT.text(UiLanguage.BURMESE))).assertExists()
         // 2 · Prompt: compile, approve.
         onNodeWithTag("sheet-prompt-compile").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables("Prompt စုစည်းမယ်")).performScrollTo().performClick()
         waitForIdle()
@@ -166,7 +170,8 @@ class ShotSheetTest {
         assertSteps(1, 2)
 
         // 3 · Ref A / B: copy the image prompt, import two images, pick B, approve it.
-        onNodeWithText("📋 ပုံ ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}").performScrollTo().performClick()
+        onNodeWithTag("ref-copy-prompt").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.COPY_IMAGE_PROMPT.text(UiLanguage.BURMESE)))
+            .performScrollTo().performClick()
         assertTrue(copied.last().isNotBlank())
         picker.files = listOf("/in/a.png")
         onNodeWithTag("ref-import").performScrollTo().performClick()
@@ -176,17 +181,45 @@ class ShotSheetTest {
         waitUntil(timeoutMillis = 5_000) { project.shots[1].refImages.size == 2 }
         val (refA, refB) = project.shots[1].refImages
         assertEquals(refA, project.shots[1].chosenRef, "the first import is chosen until the user picks")
-        onNodeWithTag("ref-pick-A").assertTextContains("Ref A ✓")
+        onNodeWithTag("ref-pick-A").assertTextContains("Ref A").assertIsSelected()
+        onNodeWithTag("ref-pick-B").assertIsNotSelected()
         onNodeWithTag("ref-pick-B").performScrollTo().performClick()
         waitForIdle()
         assertEquals(refB, project.shots[1].chosenRef)
-        onNodeWithTag("ref-approve").assertTextContains("✓ Ref B ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVE}").performScrollTo().performClick()
+        onNodeWithTag("ref-pick-B").assertIsSelected()
+        onNodeWithTag("ref-approve").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.V3_REF_APPROVE_NAMED.text(UiLanguage.BURMESE, "ref" to "Ref B")))
+            .performScrollTo().performClick()
         waitForIdle()
         assertTrue(project.shots[1].approvals.ref)
-        onNodeWithTag("ref-approve").assertTextContains("✓ Reference ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVED}")
+        textIn("ref-approved", io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.REF_APPROVED.text(UiLanguage.BURMESE))).assertExists()
+        // The same toggle as before: Undo approval (tag kept) clears it; approve again.
+        onNodeWithTag("ref-approve").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.UNDO_APPROVAL.text(UiLanguage.BURMESE))).performScrollTo().performClick()
+        waitForIdle()
+        assertFalse(project.shots[1].approvals.ref)
+        onNodeWithTag("ref-approved").assertDoesNotExist()
+        onNodeWithTag("ref-approve").performScrollTo().performClick()
+        waitForIdle()
+        assertTrue(project.shots[1].approvals.ref)
         assertSteps(1, 2, 3)
 
-        // 4 · Flow handoff: copy the Veo prompt, open Flow, import two videos.
+        // 4 · Flow handoff: Draft (Fast) / Final (Quality) segments = the same setPass; In batch sheet = the same tick.
+        onNodeWithTag("sheet-flow-prompt").assertExists()
+        onNodeWithTag("sheet-flow-pass-DRAFT").assertIsSelected()
+        onNodeWithTag("sheet-flow-pass-FINAL").performScrollTo().performClick()
+        waitForIdle()
+        assertEquals(Pass.FINAL, project.shots[1].handoff.pass)
+        onNodeWithTag("sheet-flow-pass-FINAL").assertIsSelected()
+        onNodeWithTag("sheet-flow-pass-DRAFT").performScrollTo().performClick()
+        waitForIdle()
+        assertEquals(Pass.DRAFT, project.shots[1].handoff.pass)
+        assertTrue(handoff.current().rows[1].inBatch)
+        onNodeWithTag("sheet-flow-batch").performScrollTo().performClick()
+        waitForIdle()
+        assertFalse(handoff.current().rows[1].inBatch)
+        onNodeWithTag("sheet-flow-batch").performScrollTo().performClick()
+        waitForIdle()
+        assertTrue(handoff.current().rows[1].inBatch)
+        // Copy the Veo prompt, open Flow, import two videos.
         onNodeWithTag("shot-sheet-copy-prompt").assertIsDisplayed().assertIsEnabled()
             .assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT).performMouseInput { click() }
         waitForIdle()
@@ -196,13 +229,26 @@ class ShotSheetTest {
         onNodeWithTag("shot-sheet-open-flow").assertIsDisplayed().assertTextContains("Flow ဖွင့်မယ်").performMouseInput { click() }
         assertEquals("https://labs.google/fx/tools/flow", opened.last())
         picker.files = listOf("/in/v1.mp4")
-        onNodeWithText("📂 ဗွီဒီယို ထည့်မယ်").performScrollTo().performClick()
+        onNodeWithTag("sheet-flow-import").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables("ဗွီဒီယို ထည့်မယ်")).performScrollTo().performClick()
         waitUntil(timeoutMillis = 5_000) { project.shots[1].videos.size == 1 }
-        onNodeWithText(CREDITS_QUESTION).performScrollTo().assertExists()
+        onNodeWithTag("sheet-credit-question").performScrollTo().assertExists()
+        textIn("sheet-credit-question", io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(CREDITS_QUESTION)).assertExists()
         picker.files = listOf("/in/v2.mp4")
-        onNodeWithText("📂 ဗွီဒီယို ထည့်မယ်").performScrollTo().performClick()
+        onNodeWithTag("sheet-flow-import").performScrollTo().performClick()
         waitUntil(timeoutMillis = 5_000) { project.shots[1].videos.size == 2 }
         assertSteps(1, 2, 3, 4)
+        onNodeWithTag("sheet-flow-state-IMPORTED").assertExists()
+        // The credit question: "20 · Fast" (the Draft pass's suggestion) is the same logCredits; Skip the same skipCredits.
+        onNodeWithTag("credit-fast").assertTextContains("20 · Fast")
+        onNodeWithTag("credit-quality").assertTextContains("100 · Quality")
+        onNodeWithTag("credit-fast").performScrollTo().performClick()
+        waitForIdle()
+        assertEquals(listOf(20), project.flowCredits.manualLog.filter { it.shot == 2 }.map { it.credits })
+        onNodeWithTag("credit-skip").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("sheet-credit-question").assertDoesNotExist()
+        onNodeWithTag("sheet-flow-credits-logged").assertExists()
+        assertEquals(listOf(20), project.flowCredits.manualLog.filter { it.shot == 2 }.map { it.credits }, "Skip logs nothing")
 
         // 5 · Videos: two versions, newest first; use the older one.
         onNodeWithText(io.github.alalkipgen.autoflow.ui.shots.versionsTitle(2, UiLanguage.BURMESE)).performScrollTo().assertExists()
@@ -550,3 +596,8 @@ class ShotSheetTest {
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "shotsheet-$width-font${(font * 100).toInt()}-${language.code}-${if (bundled) "bundled" else "fallback"}.png"))
     }
 }
+
+/** The text node [text] inside the node tagged [tag] (callouts, pills and cards do not merge their text). */
+@OptIn(ExperimentalTestApi::class)
+internal fun androidx.compose.ui.test.SemanticsNodeInteractionsProvider.textIn(tag: String, text: String) =
+    onNode(androidx.compose.ui.test.hasText(text, substring = true) and androidx.compose.ui.test.hasAnyAncestor(androidx.compose.ui.test.hasTestTag(tag)))

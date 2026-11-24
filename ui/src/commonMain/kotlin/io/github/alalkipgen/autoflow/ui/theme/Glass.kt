@@ -161,6 +161,17 @@ object GlassColors {
     val TagPillFill = Color.White.copy(alpha = .06f)
     val TagPillBorder = Color.White.copy(alpha = .14f)
 
+    /**
+     * The shot sheet's References and Flow handoff cards (Group 3 D inner 3–4, samples 07 / 08): the chosen Ref tile
+     * (`.rt9.on` lavender .12 under a 2 dp [ShotNeedsFlow] line; the others a White .12 line), the thumbnail corner badge
+     * (`.rk9` Base-dark .72) and the video tile's play mark (`.tp` .5 fill, a White .45 ring). Thumbnails keep [ThumbBorder].
+     */
+    val RefChosenFill = Color(0xFFA78BFA).copy(alpha = .12f)
+    val RefTileBorder = Color.White.copy(alpha = .12f)
+    val ThumbBadgeFill = Color(0xFF050812).copy(alpha = .72f)
+    val PlayMarkFill = Color(0xFF050812).copy(alpha = .5f)
+    val PlayMarkRing = Color.White.copy(alpha = .45f)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)

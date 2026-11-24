@@ -149,3 +149,5 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `personSimpleRun` | `person-simple-run` | Action field label (storyboard edit form) |
 | `mapPin` | `map-pin` | Setting field label (storyboard edit form) |
 | `sun` | `sun` | Lighting field label (storyboard edit form) |
+| `lightning` | `lightning` | Draft (Fast) pass + Fast credits option (Music Video Flow handoff) |
+| `diamond` | `diamond` | Final (Quality) pass + Quality credits option (Music Video Flow handoff) |

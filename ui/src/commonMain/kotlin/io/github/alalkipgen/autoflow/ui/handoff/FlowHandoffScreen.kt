@@ -49,6 +49,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.ui.i18n.My
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 
 /**
  * Flow Handoff screen (specs/flow-handoff.md): shot list → copy prompt → open Flow → import video → accept.
@@ -297,7 +298,7 @@ private fun HandoffActions(
         kind = ButtonKind.Primary,
         enabled = hasPrompt && row.gateMsg == null,
     )
-    AfButton(tr(UiText.IMPORT_VIDEO), importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted)
+    AfButton(tr(UiText.IMPORT_VIDEO), importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted, icon = AfIcons.Regular.Upload)
     if (row.videoCount > 0 && !row.accepted) {
         AfButton("✓ ${tr(UiText.ACCEPT_VIDEO)}", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
     }

@@ -31,6 +31,8 @@ import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 
 /**
  * References screen (D-14): copy ImageDialect prompt → paste in AI Studio → import image → approve.
@@ -50,7 +52,7 @@ fun ReferencesScreen(
     ) {
         WrapRow(spacing = 10.dp) {
             AfText(tr(UiText.REFERENCES), size = 18.sp, bold = true)
-            AfButton(tr(UiText.OPEN_AI_STUDIO), { model.openAiStudio() }, kind = ButtonKind.Secondary)
+            AfButton(tr(UiText.OPEN_AI_STUDIO), { model.openAiStudio() }, kind = ButtonKind.Secondary, trailingIcon = AfIcons.Regular.ArrowSquareOut)
         }
         AfText(tr(UiText.REFERENCES_MANUAL_HELP), muted = true, size = 12.sp)
 
@@ -104,7 +106,10 @@ private fun RefCard(
                     .background(color.copy(alpha = 0.18f))
                     .border(AutoFlowShapes.Border, color.copy(alpha = 0.5f), AutoFlowShapes.Card)
                     .padding(horizontal = 7.dp, vertical = 3.dp)) {
-                    AfText(label, color = color, size = 11.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (row.refApproved) AfIcon(AfIcons.Regular.Check, tint = color, size = 12.dp)
+                        AfText(label, color = color, size = 11.sp)
+                    }
                 }
             }
             if (row.refCount > 1) AfText(tr(UiText.REF_COUNT, "refCount" to (row.refCount)), muted = true, size = 11.sp)
@@ -128,13 +133,13 @@ private fun RefCard(
         // Wraps: three buttons do not fit a phone row, and a squeezed last button grew tall and invisible.
         WrapRow {
             AfButton(tr(UiText.COPY_IMAGE_PROMPT), { model.copyImagePrompt(row.number) },
-                kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null)
-            AfButton(tr(UiText.IMPORT_IMAGE), importRef, kind = ButtonKind.Secondary)
+                kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null, icon = AfIcons.Regular.Copy)
+            AfButton(tr(UiText.IMPORT_IMAGE), importRef, kind = ButtonKind.Secondary, icon = AfIcons.Regular.Upload)
             if (row.chosenRef != null) {
                 val approveLabel = if (row.refApproved) tr(UiText.REF_APPROVED_BUTTON) else tr(UiText.REF_APPROVE_BUTTON)
                 AfButton(approveLabel,
                     { model.approveRef(row.number, !row.refApproved) },
-                    kind = if (row.refApproved) ButtonKind.Primary else ButtonKind.Secondary)
+                    kind = if (row.refApproved) ButtonKind.Primary else ButtonKind.Secondary, icon = AfIcons.Regular.Check)
             }
         }
     }

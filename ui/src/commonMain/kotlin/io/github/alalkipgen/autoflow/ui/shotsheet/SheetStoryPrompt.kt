@@ -246,7 +246,7 @@ private fun RecompileDialog(prompt: String, onCancel: () -> Unit, onConfirm: () 
 
 /** The quote box (sample `.quote`): Black .20 + White .08 line, radius 12; [inner] = its padding and tag. */
 @Composable
-private fun QuoteBox(inner: Modifier, content: @Composable () -> Unit) {
+internal fun QuoteBox(inner: Modifier, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Box(Modifier.fillMaxWidth().clip(shape).background(GlassColors.QuoteFill).border(1.dp, GlassColors.QuoteBorder, shape).then(inner)) { content() }
 }
