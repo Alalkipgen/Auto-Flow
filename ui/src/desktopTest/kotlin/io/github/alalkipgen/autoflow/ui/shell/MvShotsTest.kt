@@ -8,7 +8,17 @@ import io.github.alalkipgen.autoflow.media.render.BatteryReader
 import io.github.alalkipgen.autoflow.media.render.BatteryReading
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.export.ExportModel
+import io.github.alalkipgen.autoflow.ui.export.MusicVideoExportScreen
 import io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview
+import io.github.alalkipgen.autoflow.core.lyrics.LyricLine
+import io.github.alalkipgen.autoflow.core.lyrics.LyricSync
+import io.github.alalkipgen.autoflow.media.audio.LoudnessMeasurement
+import io.github.alalkipgen.autoflow.media.render.Quality
+import io.github.alalkipgen.autoflow.media.render.RenderJob
+import io.github.alalkipgen.autoflow.media.render.RenderQueue
+import io.github.alalkipgen.autoflow.media.render.RenderResult
+import io.github.alalkipgen.autoflow.media.render.RenderState
+import kotlinx.coroutines.flow.MutableStateFlow
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import java.util.Base64
 import androidx.compose.foundation.layout.Arrangement
@@ -165,16 +175,16 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         }
         private val project get() = current.state.value!!.project
         private fun shot(n: Int) = project.shots.first { it.number == n }
+        /** One image per shot (the same bytes would be one shared artifact). */
+        private fun image(n: Int) = java.io.ByteArrayOutputStream().also { out ->
+            ImageIO.write(java.awt.image.BufferedImage(16, 9, java.awt.image.BufferedImage.TYPE_INT_RGB).apply { setRGB(0, 0, n * 0x101010) }, "png", out)
+        }.toByteArray()
         /**
          * The samples' shot list (sample 05): shots 1, 2, 5, 7, 10 accepted, 3 imported, 4 needs Flow, 6 prompt ready,
          * 9 stale (its storyboard changed after the prompt), 8, 11, 12 draft; three credit lines; one batch sheet.
          */
         fun statuses() {
             storyboard()
-            // One image per shot (the same bytes would be one shared artifact).
-            fun image(n: Int) = java.io.ByteArrayOutputStream().also { out ->
-                ImageIO.write(java.awt.image.BufferedImage(16, 9, java.awt.image.BufferedImage.TYPE_INT_RGB).apply { setRGB(0, 0, n * 0x101010) }, "png", out)
-            }.toByteArray()
             fun prompt(n: Int) { storyboard.approve(n); shots.compilePrompt(n); shots.approvePrompt(n) }
             val accepted = listOf(1, 2, 5, 7, 10)
             for (n in accepted + listOf(3, 4)) { prompt(n); refs.importRefBytes(project, shot(n), image(n), "png"); refs.approveRef(n) }
@@ -193,9 +203,44 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             val dir = File(current.state.value!!.dir, "inbox").apply { mkdirs() }
             listOf("flow_shot04_final.mp4", "ref_heroine_close.png", "lyrics_notes.pdf").forEach { File(dir, it).writeBytes(ByteArray(8)) }
         }
-        /** The Export model the Preview page uses (no render queue, no share; Pyidaungsu for the lyrics after [lyricFont]). */
+        /**
+         * The Export model the Preview and Export pages use (no share; Pyidaungsu for the lyrics after [lyricFont]):
+         * set [queued] (a render queue, as on the phone; else "not available here") and [batteryPercent] before first use.
+         */
         val settings by lazy { SettingsStore(fs, File(root, "settings.json").path) }
-        val export by lazy { ExportModel(session, settings, fs, null, null, BatteryReader { BatteryReading(80, charging = false) }, scope) }
+        var queued = false
+        var batteryPercent = 80
+        /** The queued render's state (the shots set it; nothing renders). */
+        val renderRun = MutableStateFlow<RenderState>(RenderState.Queued)
+        private val queue = object : RenderQueue {
+            override fun enqueue(job: RenderJob) = "render-1"
+            override fun observe(id: String) = renderRun
+            override fun cancel(id: String) { renderRun.value = RenderState.Cancelled }
+        }
+        val export by lazy {
+            ExportModel(session, settings, fs, if (queued) queue else null, null, BatteryReader { BatteryReading(batteryPercent, charging = false) }, scope)
+        }
+        val dir get() = current.state.value!!.dir
+        /** The demo lyrics synced (one line every 9 s); [stale] = timings of an older text (the lyrics changed since). */
+        fun synced(stale: Boolean = false) {
+            val lines = LyricSync.lines(LYRICS).mapIndexed { i, t -> LyricLine(if (stale && i == 0) "$t …" else t, i * 9_000L, i * 9_000L + 8_000L) }
+            session.saveLyricTimings(LyricTimings(lines = lines))
+        }
+        /** A finished 1080p Export read back from its record (the app restarted): 1:36, took 41 s, two-pass loudness. */
+        fun lastExport() {
+            val mp4 = File(dir, "exports/export.mp4").apply { parentFile.mkdirs(); writeBytes(ByteArray(2_048)) }
+            File(dir, "exports/export.result.json").writeBytes(RenderResult(mp4.name, 96_000, 41_000, mp4.length(),
+                RenderState.Loudness(-14.0, LoudnessMeasurement(-14.2, -1.5, 6.0, -24.3, 0.2), null)).encode())
+        }
+        /** Every shot with its video accepted (the Video card's green check). */
+        fun allAccepted() {
+            storyboard()
+            for (n in 1..project.shots.size) {
+                storyboard.approve(n); shots.compilePrompt(n); shots.approvePrompt(n)
+                refs.importRefBytes(project, shot(n), image(n), "png"); refs.approveRef(n)
+                handoff.importVideoBytes(project, shot(n), byteArrayOf(n.toByte(), 1, 2), "mp4"); handoff.acceptVideo(n)
+            }
+        }
         /** The lyric font in Settings (the burned lyrics need a Burmese font, as in the app). */
         fun lyricFont() {
             val dir = generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "fonts") }.first { File(it, "Pyidaungsu-Regular.ttf.b64").isFile }
@@ -587,6 +632,35 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         }
         shot("12d-fullscreen-landscape", width = HEIGHT, height = WIDTH, screen = MV_PREVIEW, body = previewPage, prep = prep, full = false) {
             seekPreview(19_000); click("mv-preview-fullscreen"); playPreview()
+        }
+    }
+
+    /** The Music Video Export page as AppShell draws it: the Preview card (stand-in player) over the Export cards. */
+    private val exportPage: @Composable (Demo) -> Unit = { d ->
+        MusicVideoExportScreen(d.export, livePreview = {
+            MusicVideoPreview(d.export) { _, _, modifier, _ ->
+                Box(modifier.background(Brush.verticalGradient(listOf(Color(0xFFF6C77A), Color(0xFFEFA25E), Color(0xFFB8742E), Color(0xFF6E4520)))))
+            }
+        })
+    }
+
+    /**
+     * PR 11 (H + 🆕-4, samples 13 / 14): the page on shot 3 at 0:19 (6 videos pending, the song, 8 synced lines); a render
+     * running at 62 % with a low battery; the last Export read back; not available here + no song; every video
+     * accepted with no Burmese font and lyric timings older than the lyrics.
+     */
+    @Test fun export() {
+        val base: (Demo) -> Unit = { it.statuses(); it.handoff.acceptVideo(3); it.lyricFont(); it.synced(); it.queued = true }
+        shot("13-export", screen = "Export", body = exportPage, prep = base) { seekPreview(19_000) }
+        shot("14-rendering-low-battery", screen = "Export", body = exportPage, prep = { d ->
+            base(d); d.batteryPercent = 12; d.export.render(Quality.EXPORT); d.renderRun.value = RenderState.Running(.62, null)
+        }) { seekPreview(19_000) }
+        shot("14b-last-render", screen = "Export", body = exportPage, prep = { d -> base(d); d.lastExport() }) { seekPreview(19_000) }
+        shot("14c-unavailable-no-song", screen = "Export", body = exportPage, prep = { d ->
+            base(d); d.queued = false; File(d.dir, "source/song.mp3").delete()
+        }) { seekPreview(19_000) }
+        shot("14d-no-font-stale", screen = "Export", body = exportPage, prep = { d -> d.allAccepted(); d.synced(stale = true); d.queued = true }) {
+            seekPreview(19_000)
         }
     }
 }

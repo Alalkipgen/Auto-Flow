@@ -84,6 +84,8 @@ internal const val LOUDNESS = "အသံကျယ်မှု"
 /**
  * Export (PLAN Q-09 c): what goes into the video (shots, accepted videos, song, lyrics font), Preview / Export,
  * progress + Cancel, then Open / Share. The battery warning (below 20 % and not charging) warns, it does not block.
+ * [studio] = the glass look of Studio v2 (Movie Recap step 5, the Music Video Export page): no page title, the Render
+ * card only when there is a run, a last render or a notice (Preview / Export sit in the page's sticky bar).
  */
 @Composable
 fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Boolean = false,
@@ -115,24 +117,18 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier, studio: Bool
         val inlineRun = state.run?.let { it.quality == Quality.PREVIEW && it.state is RenderState.Done } == true
         val showOpen = !inlineRun && (state.run != null || state.lastRenders.none { it.quality == Quality.PREVIEW })
         ExportPreviewCard(state.preview, model, showOpen, glass = studio)
-        if (recap != null) RecapSummary(recap, state.font, model, studio, state.busy) else AfCard(tr(UiText.VIDEO)) {
+        if (recap != null) RecapSummary(recap, state.font, model, studio, state.busy)
+        else if (studio) MusicVideoFacts(state)
+        else AfCard(tr(UiText.VIDEO)) {
             AfText(tr(UiText.EXPORT_SHOT_COUNT, "shots" to (state.shots), "durationMs" to (InputModel.formatDuration(state.durationMs))))
             val pending = state.shots - state.accepted
-            AfText(
-                tr(UiText.ACCEPTED_VIDEO_COUNT, "accepted" to (state.accepted)) + (if (LocalUiLanguage.current == UiLanguage.ENGLISH && state.accepted != 1) "s" else "") + if (pending > 0) tr(UiText.PENDING_VIDEO_COUNT, "pending" to (pending)) else "",
-                color = if (pending > 0) AutoFlowColors.Amber else null,
-            )
+            AfText(acceptedLine(state), color = if (pending > 0) AutoFlowColors.Amber else null)
             AfText(
                 state.songFile?.let { "♪ $it" } ?: tr(UiText.NO_SONG_EXPORT),
                 color = if (state.songFile == null) AutoFlowColors.Amber else null,
             )
             AfText(
-                when {
-                    state.font == null -> tr(UiText.NO_BURMESE_FONT_LYRICS)
-                    state.syncedLines > 0 -> tr(UiText.LYRICS_SYNC_COUNT, "syncedLines" to (state.syncedLines), "font" to (state.font))
-                    state.lyricShots == 0 -> tr(UiText.NO_SHOT_LYRICS)
-                    else -> tr(UiText.LYRICS_SHOT_COUNT, "lyricShots" to (state.lyricShots), "font" to (state.font))
-                },
+                state.font?.let { lyricsLine(state, it) } ?: tr(UiText.NO_BURMESE_FONT_LYRICS),
                 color = if (state.font == null) AutoFlowColors.Amber else null,
             )
             if (state.timingOutdated) {
@@ -175,7 +171,7 @@ internal object ExportTiles {
     val Package get() = CardTile(AfIcons.Fill.Box, GlassColors.ExportTeal)
 }
 
-/** A card of the Export screen: the glass tile card on the Movie Recap step ([glass]), the plain card elsewhere. */
+/** A card of the Export screen: the glass tile card in Studio v2 ([glass]: Movie Recap step 5, Music Video Export), the plain card elsewhere. */
 @Composable
 internal fun ExportCard(title: String, tile: CardTile, glass: Boolean, modifier: Modifier = Modifier, icon: ImageVector? = null,
     content: @Composable ColumnScope.() -> Unit) {
@@ -188,6 +184,70 @@ private fun MonoFact(icon: ImageVector, text: String, modifier: Modifier = Modif
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         AfIcon(icon, Modifier.padding(top = 2.dp), tint = AutoFlowColors.Muted, size = 17.dp)
         Box(Modifier.weight(1f)) { MonoText(text, 12.5.sp, AutoFlowColors.Muted, modifier = modifier) }
+    }
+}
+
+/** "N accepted video(s)" and, when some shots have none yet, " · M show as "pending" cards". */
+@Composable
+private fun acceptedLine(state: ExportUiState): String {
+    val pending = state.shots - state.accepted
+    return tr(UiText.ACCEPTED_VIDEO_COUNT, "accepted" to (state.accepted)) +
+        (if (LocalUiLanguage.current == UiLanguage.ENGLISH && state.accepted != 1) "s" else "") +
+        if (pending > 0) tr(UiText.PENDING_VIDEO_COUNT, "pending" to (pending)) else ""
+}
+
+/** The lyrics that go into the video with the Burmese [font]: the synced lines, or the shots' own lyrics. */
+@Composable
+private fun lyricsLine(state: ExportUiState, font: String): String = when {
+    state.syncedLines > 0 -> tr(UiText.LYRICS_SYNC_COUNT, "syncedLines" to (state.syncedLines), "font" to (font))
+    state.lyricShots == 0 -> tr(UiText.NO_SHOT_LYRICS)
+    else -> tr(UiText.LYRICS_SHOT_COUNT, "lyricShots" to (state.lyricShots), "font" to (font))
+}
+
+/**
+ * Group 3 H (PR 11): the Video card of the Music Video Export page — the film-slate Purple tile, one 17 dp icon row
+ * per fact (Group 2 B "Output" style): shots · accepted videos (green check-circle; an amber hourglass while some
+ * shots show as "pending" cards) · the song file on a mono row · the lyrics line. No song, no Burmese font and lyric
+ * timings older than the lyrics are amber callouts.
+ */
+@Composable
+internal fun MusicVideoFacts(state: ExportUiState) {
+    TileCard(tr(UiText.VIDEO), ExportTiles.Output, Modifier.testTag("export-video")) {
+        GlassFact(AfIcons.Regular.FilmStrip, tr(UiText.EXPORT_SHOT_COUNT, "shots" to (state.shots),
+            "durationMs" to (InputModel.formatDuration(state.durationMs))))
+        val pending = state.shots - state.accepted
+        when {
+            pending > 0 -> GlassFact(AfIcons.Fill.Hourglass, acceptedLine(state), colour = AutoFlowColors.Amber, iconColour = AutoFlowColors.Amber)
+            state.accepted > 0 -> GlassFact(AfIcons.Fill.CheckCircle, acceptedLine(state), iconColour = AutoFlowColors.Green)
+            else -> GlassFact(AfIcons.Regular.CheckCircle, acceptedLine(state))
+        }
+        state.songFile?.let { MonoFact(AfIcons.Regular.MusicNote, it, Modifier.testTag("export-song")) }
+            ?: GlassCallout(AfIcons.Fill.Warn, tr(UiText.NO_SONG_EXPORT), AutoFlowColors.Amber)
+        state.font?.let { GlassFact(AfIcons.Regular.TextAa, lyricsLine(state, it)) }
+            ?: GlassCallout(AfIcons.Fill.Warn, tr(UiText.NO_BURMESE_FONT_LYRICS), AutoFlowColors.Amber)
+        if (state.timingOutdated) GlassCallout(AfIcons.Fill.Warn, tr(UiText.LYRICS_TIMING_STALE), AutoFlowColors.Amber)
+    }
+}
+
+/**
+ * Group 3 H (PR 11, 🆕-4): the Music Video Export page of Studio v2 — the glass Export cards of the Movie Recap step
+ * (`studio`: no page title, the Render card only when there is a run, a last render or a notice) under the live
+ * preview, then a sticky bar with Preview 540p · Export 1080p (as on Recap step 5) and the background hint.
+ */
+@Composable
+fun MusicVideoExportScreen(model: ExportModel, livePreview: (@Composable () -> Unit)? = null) {
+    val state by model.state.collectAsState()
+    val open by model.projects.collectAsState()
+    val current = open != null && state.projectDir == open?.dir
+    Column(Modifier.fillMaxSize()) {
+        ExportScreen(model, Modifier.weight(1f), studio = true, livePreview = livePreview)
+        StickyActionBar(
+            StudioAction(tr(UiText.EXPORT_BUTTON), { model.render(Quality.EXPORT) }, current && state.canRender, "export-render", AfIcons.Regular.Export),
+            StudioAction(tr(UiText.PREVIEW_BUTTON), { model.render(Quality.PREVIEW) }, current && state.canRender, "export-preview",
+                AfIcons.Regular.MonitorPlay),
+            caption = tr(UiText.RENDER_BACKGROUND_HINT),
+            glass = true,
+        )
     }
 }
 

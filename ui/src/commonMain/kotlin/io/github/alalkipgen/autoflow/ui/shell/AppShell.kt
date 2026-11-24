@@ -602,7 +602,8 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float,
         }
         "Export" -> {
             val model = koinInject<io.github.alalkipgen.autoflow.ui.export.ExportModel>()
-            io.github.alalkipgen.autoflow.ui.export.ExportScreen(model, livePreview = {
+            // Group 3 H (🆕-4): the glass Export cards over a sticky Preview 540p / Export 1080p bar.
+            io.github.alalkipgen.autoflow.ui.export.MusicVideoExportScreen(model, livePreview = {
                 io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview(model, io.github.alalkipgen.autoflow.ui.subtitles.moviePlayer(model.previewVlcDir()))
             })
         }

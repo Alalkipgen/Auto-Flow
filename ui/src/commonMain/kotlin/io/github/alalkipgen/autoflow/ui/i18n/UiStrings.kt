@@ -631,7 +631,7 @@ enum class UiText(val en: String, val my: String?) {
     LYRICS_SYNC_COUNT("Lyrics: {syncedLines} synced lines · {font}", "သီချင်းစာသား: ချိန်ကိုက်ပြီး {syncedLines} ကြောင်း · {font}"),
     NO_SHOT_LYRICS("No lyrics on the shots.", "Shot များတွင် သီချင်းစာသား မရှိပါ။"),
     LYRICS_SHOT_COUNT("Lyrics on {lyricShots} shots · {font}", "Shot {lyricShots} ခုတွင် သီချင်းစာသား ပါ · {font}"),
-    LYRICS_TIMING_STALE("⚠ The lyrics changed after the sync: each shot's lyrics are used (Input → Lyrics timing → Sync again).", "⚠ ချိန်ကိုက်ပြီးနောက် သီချင်းစာသား ပြောင်းသွားသည်: shot တစ်ခုစီ၏ စာသားကို သုံးမည် (ထည့်သွင်း → စာသားအချိန် → ပြန်ချိန်ကိုက်)။"),
+    LYRICS_TIMING_STALE("The lyrics changed after the sync: each shot's lyrics are used (Input → Lyrics timing → Sync again).", "ချိန်ကိုက်ပြီးနောက် သီချင်းစာသား ပြောင်းသွားသည်: shot တစ်ခုစီ၏ စာသားကို သုံးမည် (ထည့်သွင်း → စာသားအချိန် → ပြန်ချိန်ကိုက်)။"),
     RENDER_HEADING("Render", "Render"),
     RECAP_SCENE_COUNT("{segments} scenes · {durationMs}", "ပြကွက် {segments} ခု · {durationMs}"),
     RECAP_VOICED_COUNT("{voiced} of {segments} voiced", "{segments} ခုအနက် {voiced} ခု အသံပါ"),
