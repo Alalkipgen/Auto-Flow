@@ -8,6 +8,9 @@ import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.core.workflow.SongBeats
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
@@ -114,7 +117,12 @@ class StoryboardModelTest {
 
         assertTrue(m.setSnapToBeat(true))
         jobs.state.first { it.running == null }
-        assertEquals(StoryboardResult.Failed(BeatFinder.NO_FFMPEG), jobs.state.value.last, "no ffmpeg in this test and nothing cached")
+        assertEquals(StoryboardResult.Failed(BeatFinder.NO_FFMPEG, UiNotice(UiText.V3_BEAT_NO_FFMPEG)), jobs.state.value.last,
+            "no ffmpeg in this test and nothing cached")
+        // Group 3 §8-2: the reason in the UI language.
+        assertEquals(UiText.V3_BEAT_NO_FFMPEG.text(UiLanguage.BURMESE), jobs.state.value.last?.message(UiLanguage.BURMESE))
+        assertEquals(BeatFinder.NO_FFMPEG, jobs.state.value.last?.message(UiLanguage.ENGLISH), "English reads as before")
+        assertNull(m.snapped.value)
         assertFalse(m.current().snapToBeat)
 
         session.writeBeats(SongBeats(session.songSha256()!!, 119.6, listOf(7_800, 16_100, 24_400)))
@@ -124,12 +132,17 @@ class StoryboardModelTest {
         assertEquals(listOf(0L, 7_800L, 16_100L, 24_000L), starts(), "24 400 is outside ±250 ms")
         assertEquals(30_000, session.open!!.project.shots.last().let { it.startMs + it.durationMs })
         assertTrue(m.current().snapToBeat)
-        assertEquals("♩ Cuts snapped to the beat: 2 of 3 moved · about 120 BPM.", m.message.value)
+        assertEquals(SnapSummary(moved = 2, total = 3, bpm = 120), m.snapped.value)
+        assertEquals("Cuts snapped to the beat: 2 of 3 moved · about 120 BPM.", m.snapped.value?.text(UiLanguage.ENGLISH))
+        assertEquals(UiText.V3_SNAP_DONE.text(UiLanguage.BURMESE, "moved" to 2, "total" to 3) +
+            UiText.V3_SNAP_BPM.text(UiLanguage.BURMESE, "bpm" to 120) + ".", m.snapped.value?.text(UiLanguage.BURMESE))
+        assertNull(m.message.value, "the summary is not an English message any more")
 
         service.generateAll()
         assertEquals(listOf(0L, 7_800L, 16_100L, 24_000L), starts(), "a new version snaps too while the switch is on")
 
         assertTrue(m.setSnapToBeat(false))
+        assertNull(m.snapped.value, "the next action clears the summary")
         assertEquals(listOf(0L, 8_000L, 16_000L, 24_000L), starts())
         assertFalse(m.current().snapToBeat)
     }

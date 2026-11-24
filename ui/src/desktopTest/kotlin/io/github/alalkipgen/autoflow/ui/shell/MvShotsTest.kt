@@ -663,4 +663,75 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             seekPreview(19_000)
         }
     }
+
+    /** The song's beats (92 BPM): 8 of the 11 cuts after the first lie 180 ms off a beat and move, 3 sit on one. */
+    private fun Demo.beats() {
+        val cuts = (1..11).map { it * 8_000L }
+        session.writeBeats(io.github.alalkipgen.autoflow.core.workflow.SongBeats(session.songSha256()!!, 92.0,
+            cuts.mapIndexed { i, c -> if (i % 3 == 2) c else c + 180 }))
+    }
+
+    /** Snap cuts to beat on, waiting for the job (its beats are read on another thread). */
+    private fun Demo.snap() {
+        storyboard.setSnapToBeat(true)
+        runBlocking { withTimeout(10_000) { while (jobs.state.value.running != null || jobs.state.value.last == null) delay(20) } }
+        Thread.sleep(200)
+    }
+
+    /**
+     * PR 12 (I + §8, sample 16): the Classic steps page; the classic References screen (shot 1 approved, shot 2 imported,
+     * shot 3 behind the prompt gate); the classic sidebar's lock on desktop; Snap cuts to beat done (All shots and the
+     * sheet's Storyboard card) and failed without ffmpeg; the Character Bible's problem lines.
+     */
+    @Test fun classic() {
+        shot("16-classic-steps", full = false, screen = MV_CLASSIC, body = { MvClassicSteps {} })
+        shot("16b-classic-references", height = if (font > 1.5f) 1900 else 1150, full = false, screen = "References", body = { d ->
+            io.github.alalkipgen.autoflow.ui.references.ReferencesScreen(d.refs, readBytes = { runCatching { File(it).readBytes() }.getOrNull() })
+        }, prep = { d ->
+            d.storyboard()
+            val project = { d.current.state.value!!.project }
+            fun shot(n: Int) = project().shots.first { it.number == n }
+            for (n in 1..2) { d.storyboard.approve(n); d.shots.compilePrompt(n); d.shots.approvePrompt(n) }
+            for (n in 1..2) d.refs.importRefBytes(project(), shot(n), java.io.ByteArrayOutputStream().also { o ->
+                ImageIO.write(java.awt.image.BufferedImage(16, 9, java.awt.image.BufferedImage.TYPE_INT_RGB).apply { setRGB(0, 0, n * 0x202020) }, "png", o)
+            }.toByteArray(), "png")
+            d.refs.approveRef(1)
+        })
+        classicLock("16c-classic-lock")
+        shot("06d-snap-done", screen = SHOT_SHEET, body = sheetPage, crop = listOf("all-shots-storyboard"), prep = { d ->
+            d.storyboard(); d.beats(); d.snap()
+        }) { click("shot-sheet-all") }
+        shot("08n-snap-sheet", screen = SHOT_SHEET, body = sheetPage, crop = listOf("sheet-step-1"), prep = { d ->
+            d.storyboard(); d.beats(); d.snap()
+        }) { click("shot-sheet-select-3") }
+        shot("08o-snap-no-ffmpeg", screen = SHOT_SHEET, body = sheetPage, crop = listOf("sheet-step-1"), prep = { d ->
+            d.storyboard(); d.snap()
+        }) { click("shot-sheet-select-3") }
+        val hero = Character("HERO", "မောင်မောင်", "a young Burmese man in his 20s, short black hair, white shirt, green longyi")
+        sheet("02c-character-problems", if (font > 1.5f) 3000 else 1600, listOf(
+            "Characters · problems (amber)" to { d ->
+                InCard { CharactersCard(d.input.state.value.copy(characters = listOf(hero, Character("HERO"))), d.input, false) }
+            },
+        ))
+    }
+
+    /** The classic (v1) desktop shell with no project: the sidebar's locked Shots clicked, its lock note open. */
+    private fun classicLock(name: String) {
+        if (out == null) return
+        runDesktopComposeUiTest(width = (840 * SCALE).toInt(), height = (640 * SCALE).toInt()) {
+            Demo().use { d ->
+                val model = ShellModel(d.noSession)
+                setContent {
+                    Locals(840) {
+                        val status = io.github.alalkipgen.autoflow.ui.settings.providerStatus(true, io.github.alalkipgen.autoflow.ui.settings.KeyState.MISSING, language)
+                        AppShell(status, selected = "Dashboard", onSelect = {}, locks = model.current(language).locks) { AfText("Dashboard") }
+                    }
+                }
+                waitForIdle()
+                onNode(hasContentDescription(My.screen("Shots", language)) and isSelectable()).performScrollTo().performClick()
+                waitForIdle()
+                write(name, onAllNodes(isRoot())[0].captureToImage().toAwtImage())
+            }
+        }
+    }
 }

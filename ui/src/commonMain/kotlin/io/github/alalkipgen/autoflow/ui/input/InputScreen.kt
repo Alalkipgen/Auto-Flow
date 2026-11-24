@@ -243,7 +243,9 @@ internal fun CharactersCard(state: InputUiState, model: InputModel, locked: Bool
         AfText(My.breakSyllables(tr(UiText.CHARACTERS_HELP)), color = AutoFlowColors.Muted, type = AfType.Caption)
         state.characters.forEachIndexed { i, c -> CharacterBox(i, c, model, locked, onRemove = { removing = c }) }
         GlassButton(tr(UiText.ADD_CHARACTER), model::addCharacter, enabled = !locked, icon = AfIcons.Regular.UserPlus)
-        state.characterProblems.forEach { GlassCallout(AfIcons.Fill.Warn, it, AutoFlowColors.Amber) }
+        state.characterProblems.forEach {
+            GlassCallout(AfIcons.Fill.Warn, My.breakSyllables(characterProblemText(it, LocalUiLanguage.current)), AutoFlowColors.Amber)
+        }
         if (state.hasStoryboard && state.characters.isNotEmpty()) {
             GlassCallout(AfIcons.Regular.Info, tr(UiText.CHARACTERS_AFTER_STORYBOARD), AutoFlowColors.Muted, Modifier.testTag("characters-after-storyboard"))
         }

@@ -102,6 +102,7 @@ fun ShotSheetScreen(
 ) {
     val sb by storyboard.state.collectAsState(storyboard.current())
     val sbMessage by storyboard.message.collectAsState()
+    val sbSnapped by storyboard.snapped.collectAsState()
     val job by jobs.state.collectAsState()
     val shotsState by shots.state.collectAsState(shots.current())
     val refState by refs.state.collectAsState(refs.current())
@@ -208,6 +209,7 @@ fun ShotSheetScreen(
                 job.lastFor(storyboard.openProject)?.takeIf { it != StoryboardResult.Done }
                     ?.message(uiLanguage)?.let { SheetNotice(it) }
                 sbMessage?.let { SheetNotice(it) }
+                sbSnapped?.let { SnapDoneCallout(it) }
                 if (card != null) SheetStoryboard(card, storyboard, busy)
                 else SheetNotice(tr(UiText.SHEET_NO_STORY_CARD))
             }

@@ -473,6 +473,27 @@ class ShotSheetTest {
         }
     }
 
+    /** Group 3 §8-2 (sample 06): Snap cuts to beat says what it moved, under the switch, in the UI language. */
+    @Test
+    fun snapToBeatSummaryIsAGreenCalloutInTheUiLanguage() = runDesktopComposeUiTest(width = 412, height = 1600) {
+        open()
+        fs.createDirectories("/c")
+        fs.writeDurably("/c/s.mp3", byteArrayOf(1, 2, 3))
+        session.importSong("/c/s.mp3")
+        session.writeBeats(io.github.alalkipgen.autoflow.core.workflow.SongBeats(session.songSha256()!!, 119.6, listOf(7_800, 16_100, 24_400)))
+        setContent { CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides UiLanguage.BURMESE) { sheet(412f)() } }
+        onNodeWithTag("shot-sheet-all").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("snap-to-beat").performScrollTo().performClick()
+        waitUntil(timeoutMillis = 5_000) { storyboard.snapped.value != null }
+        waitForIdle()
+        val summary = assertNotNull(storyboard.snapped.value)
+        assertEquals(3, summary.total)
+        onNode(androidx.compose.ui.test.hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(summary.text(UiLanguage.BURMESE)))
+            and androidx.compose.ui.test.hasAnyAncestor(androidx.compose.ui.test.hasTestTag("snap-done"))).performScrollTo().assertIsDisplayed()
+        onNodeWithText("Cuts snapped", substring = true).assertDoesNotExist()
+    }
+
     @Test
     fun withoutAStoryboardItPointsToInput() = runDesktopComposeUiTest(width = 412, height = 800) {
         open(generate = false)

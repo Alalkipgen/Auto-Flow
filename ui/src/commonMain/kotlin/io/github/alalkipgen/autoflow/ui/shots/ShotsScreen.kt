@@ -271,8 +271,6 @@ internal fun versionLine(v: VideoVersion, language: io.github.alalkipgen.autoflo
 internal const val PREVIEW_VERSION_BUTTON = "ကြည့်မယ်"
 /** Accepts this one version (the Flow handoff card's "ဗွီဒီယို လက်ခံမယ်" accepts the newest import). Group 3 PR 8: no "▶ " / "✓ " (icons). */
 internal const val USE_VERSION_BUTTON = "ဒီဗားရှင်း လက်ခံမယ်"
-internal const val DRAFT_ACCEPTED_HINT =
-    "The accepted video is a Draft (Fast). For the final cut: Flow Handoff → Pass: Final (Quality), import the new video, then use it here."
 
 @Composable
 private fun SectionLabel(text: String) {

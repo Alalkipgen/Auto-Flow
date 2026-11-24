@@ -202,6 +202,13 @@ object GlassColors {
     val MvPendingBorder = Color.White.copy(alpha = .16f)
     val MvFrameEdge = Color.White.copy(alpha = .08f)
 
+    // Music Video Classic steps (Group 3 I, sample 16): the four steps' tiles — Storyboard purple, Shots cyan,
+    // References blue, Flow handoff lavender.
+    val ClassicStoryboard = Color(0xFF8B5CF6)
+    val ClassicShots = Color(0xFF22D3EE)
+    val ClassicRefs = Color(0xFF60A5FA)
+    val ClassicHandoff = Color(0xFFA78BFA)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)

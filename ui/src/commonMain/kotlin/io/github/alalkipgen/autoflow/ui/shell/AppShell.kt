@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.shell
 
 import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -611,18 +612,37 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float,
     }
 }
 
-/** The classic Music Video steps for one release (5B-12): each opens its old screen; Back returns here. */
+/**
+ * The classic Music Video steps for one release (5B-12; Group 3 I, sample 16): SHELL_CLASSIC_HINT as an info callout
+ * over one glass list of the four classic screens (Storyboard film-slate purple, Shots note-pencil cyan, References
+ * image blue, Flow handoff arrow-square-out lavender), each row one button with a caret-right; each opens its old
+ * screen and Back returns here. The project bar's subtitle names the page, so the page has no title of its own.
+ */
 @Composable
-private fun MvClassicSteps(go: (String) -> Unit) {
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AfText(io.github.alalkipgen.autoflow.ui.i18n.My.screen(MV_CLASSIC), bold = true)
-        AfText(tr(UiText.SHELL_CLASSIC_HINT), muted = true)
-        io.github.alalkipgen.autoflow.ui.components.WrapRow {
-            MV_CLASSIC_SCREENS.forEach { s ->
-                io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), { go(s) }, Modifier.heightIn(min = 48.dp))
+internal fun MvClassicSteps(go: (String) -> Unit) {
+    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).testTag("mv-classic-steps"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        io.github.alalkipgen.autoflow.ui.components.GlassCallout(AfIcons.Fill.Info, My.breakSyllables(tr(UiText.SHELL_CLASSIC_HINT)),
+            AutoFlowColors.Info, Modifier.testTag("mv-classic-hint"))
+        val shape = GlassShapes.MenuRow
+        Column(Modifier.fillMaxWidth().clip(shape).background(GlassColors.MenuRowFill).border(1.dp, GlassColors.MenuRowBorder, shape)) {
+            MV_CLASSIC_SCREENS.forEachIndexed { i, s ->
+                if (i > 0) io.github.alalkipgen.autoflow.ui.components.GlassListDivider()
+                val (icon, tone) = classicStepTile(s)
+                io.github.alalkipgen.autoflow.ui.components.GlassSettingsRow(My.screen(s), { go(s) },
+                    leading = { io.github.alalkipgen.autoflow.ui.components.SoftTile(icon, tone) },
+                    modifier = Modifier.testTag("mv-classic-${s.lowercase().replace(' ', '-')}"))
             }
         }
     }
+}
+
+/** A classic step's 34 dp tile (sample 16): its Fill icon and colour. */
+private fun classicStepTile(screen: String): Pair<androidx.compose.ui.graphics.vector.ImageVector, Color> = when (screen) {
+    "Storyboard" -> AfIcons.Fill.Film to GlassColors.ClassicStoryboard
+    "Shots" -> AfIcons.Fill.NotePencil to GlassColors.ClassicShots
+    "References" -> AfIcons.Fill.Image to GlassColors.ClassicRefs
+    else -> AfIcons.Fill.ArrowSquareOut to GlassColors.ClassicHandoff
 }
 
 /**
@@ -832,7 +852,8 @@ private fun SidebarItem(name: String, selected: Boolean, lock: String?, showLock
                 modifier = Modifier.weight(1f).padding(start = if (selected) 9.dp else 12.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
                 style = TextStyle(color = ink, fontSize = 13.sp, fontFamily = LocalUiFontFamily.current),
             )
-            if (lock != null) BasicText(LOCK_GLYPH, style = TextStyle(color = ink, fontSize = 11.sp))
+            // Group 3 I (§3.1): the lock-simple icon, not the "🔒" glyph (the phone's More list keeps [LOCK_GLYPH]).
+            if (lock != null) AfIcon(AfIcons.Regular.Lock, Modifier.padding(end = 8.dp), tint = ink, size = 14.dp)
         }
         if (lock != null && showLock) {
             AfText(lock, Modifier.testTag("classic-lock-$name").padding(start = 12.dp, end = 8.dp, bottom = 6.dp), size = 11.sp, color = AutoFlowColors.Amber)

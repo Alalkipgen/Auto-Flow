@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.BesideOrUnder
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.GlassCallout
 import io.github.alalkipgen.autoflow.ui.components.CardTile
 import io.github.alalkipgen.autoflow.ui.components.GlassButton
 import io.github.alalkipgen.autoflow.ui.components.GlassDialog
@@ -71,6 +73,7 @@ import io.github.alalkipgen.autoflow.ui.recap.RecapChip
 import io.github.alalkipgen.autoflow.ui.shots.ShotRow
 import io.github.alalkipgen.autoflow.ui.shots.ShotStatusPill
 import io.github.alalkipgen.autoflow.ui.shots.pillColour
+import io.github.alalkipgen.autoflow.ui.storyboard.SnapSummary
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardUiState
 import io.github.alalkipgen.autoflow.ui.theme.AfType
@@ -227,6 +230,8 @@ internal fun StoryboardBox(state: StoryboardUiState, model: StoryboardModel, bus
             GlassButton(My.breakSyllables(tr(UiText.REGENERATE_ALL)), { confirming = true }, enabled = !busy, icon = AfIcons.Regular.Redo, small = true)
         }
         SnapSwitch(state.snapToBeat) { if (!busy) model.setSnapToBeat(it) }
+        val snapped by model.snapped.collectAsState()
+        snapped?.let { SnapDoneCallout(it) }
     }
     if (confirming && !busy) {
         val downstream = state.cards.count { it.hasDownstream }
@@ -247,6 +252,11 @@ internal fun RegenerateAllDialog(text: String, onBack: () -> Unit, onConfirm: ()
                 tag = "confirm-regenerate-all-ok"))
     }
 }
+
+/** What the last snap moved (sample 06): a green callout with the metronome, in the UI language (Group 3 §8-2). */
+@Composable
+internal fun SnapDoneCallout(summary: SnapSummary) =
+    GlassCallout(AfIcons.Fill.Metronome, My.breakSyllables(summary.text(LocalUiLanguage.current)), AutoFlowColors.Green, Modifier.testTag("snap-done"))
 
 /** "Snap cuts to beat" as a switch line (sample 06): metronome 18 Muted, the label (body) and the glass switch; ≥ 48 dp. */
 @Composable
