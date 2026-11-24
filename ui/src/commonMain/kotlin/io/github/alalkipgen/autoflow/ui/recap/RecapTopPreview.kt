@@ -244,9 +244,9 @@ private fun BoxScope.IdleOverlays(ui: TopPreviewUi, play: Boolean) {
     }
 }
 
-/** 54 dp dark glass circle, 1.5 dp White .55 ring; the Play button below is the accessible control. */
+/** 54 dp dark glass circle, 1.5 dp White .55 ring; the Play button below is the accessible control (also the Music Video Preview's). */
 @Composable
-private fun BigPlay(onPlay: () -> Unit) {
+internal fun BigPlay(onPlay: () -> Unit) {
     val play by rememberUpdatedState(onPlay)
     Box(Modifier.size(54.dp).shadow(8.dp, CircleShape).clip(CircleShape).background(AutoFlowColors.Background.copy(alpha = .55f))
         .border(1.5.dp, Color.White.copy(alpha = .55f), CircleShape).pointerInput(Unit) { detectTapGestures { play() } },
@@ -313,12 +313,11 @@ private fun Controls(ui: TopPreviewUi, modifier: Modifier = Modifier, middle: (@
     }
 }
 
-/** 48 dp primary-gradient circle with a coloured shadow and top highlight; Fill play / pause 22 dp. */
+/** 48 dp primary-gradient circle with a coloured shadow and top highlight; Fill play / pause 22 dp (also the Music Video Preview's). */
 @Composable
-private fun PlayCircle(playing: Boolean, onClick: () -> Unit) {
-    val label = tr(if (playing) UiText.PAUSE else UiText.PLAY)
+internal fun PlayCircle(playing: Boolean, onClick: () -> Unit, tag: String = "timeline-play", label: String = tr(if (playing) UiText.PAUSE else UiText.PLAY)) {
     val interaction = remember { MutableInteractionSource() }
-    Box(Modifier.testTag("timeline-play").afTooltip(label).size(48.dp)
+    Box(Modifier.testTag(tag).afTooltip(label).size(48.dp)
         .shadow(10.dp, CircleShape, ambientColor = GlassColors.PrimaryGlow, spotColor = GlassColors.PrimaryGlow).clip(CircleShape)
         .drawBehind { drawRect(primaryBrush()) }
         .border(1.dp, Color.White.copy(alpha = .18f), CircleShape)

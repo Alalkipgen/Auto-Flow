@@ -1,6 +1,16 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import io.github.alalkipgen.autoflow.media.render.BatteryReader
+import io.github.alalkipgen.autoflow.media.render.BatteryReading
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
+import io.github.alalkipgen.autoflow.ui.export.ExportModel
+import io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview
+import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
+import java.util.Base64
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -182,6 +192,15 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         fun inboxFiles() {
             val dir = File(current.state.value!!.dir, "inbox").apply { mkdirs() }
             listOf("flow_shot04_final.mp4", "ref_heroine_close.png", "lyrics_notes.pdf").forEach { File(dir, it).writeBytes(ByteArray(8)) }
+        }
+        /** The Export model the Preview page uses (no render queue, no share; Pyidaungsu for the lyrics after [lyricFont]). */
+        val settings by lazy { SettingsStore(fs, File(root, "settings.json").path) }
+        val export by lazy { ExportModel(session, settings, fs, null, null, BatteryReader { BatteryReading(80, charging = false) }, scope) }
+        /** The lyric font in Settings (the burned lyrics need a Burmese font, as in the app). */
+        fun lyricFont() {
+            val dir = generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "fonts") }.first { File(it, "Pyidaungsu-Regular.ttf.b64").isFile }
+            val font = File(root, "Pyidaungsu-Regular.ttf").apply { writeBytes(Base64.getMimeDecoder().decode(File(dir, "Pyidaungsu-Regular.ttf.b64").readBytes())) }
+            settings.update { it.copy(fontPaths = listOf(font.path)) }
         }
         /** An Input model with no project open. */
         val noProject = InputModel(ProjectSession(fs, ProjectStore(fs), ProjectIndex(fs, File(root, "none.json").path), CurrentProject()), jobs)
@@ -521,5 +540,53 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
             click("$tag-remove-confirm")
         }
         shot("11b-empty", screen = "Inbox", body = inboxPage, prep = Demo::statuses)
+    }
+
+    /** The Music Video Preview page as AppShell draws it, with a stand-in player (a sunset picture; no VLC in the shots). */
+    private val previewPage: @Composable (Demo) -> Unit = { d ->
+        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).testTag("mv-preview-page")) {
+            MusicVideoPreview(d.export) { _, _, modifier, _ ->
+                Box(modifier.background(Brush.verticalGradient(listOf(Color(0xFFF6C77A), Color(0xFFEFA25E), Color(0xFFB8742E), Color(0xFF6E4520)))))
+            }
+        }
+    }
+
+    /** The clock to [ms] through the scrubber (the owner's drag). */
+    private fun ComposeUiTest.seekPreview(ms: Long, durationMs: Long = 96_000L) {
+        onNodeWithTag("mv-preview-scrubber").performSemanticsAction(SemanticsActions.SetProgress) { it((ms + .5f) / durationMs) }
+        waitForIdle()
+    }
+
+    /**
+     * Play with the test clock held (the preview's frame clock would otherwise run to the end at once). With Fullscreen
+     * open there are two Play buttons (card and window) on the same clock; either one plays.
+     */
+    private fun ComposeUiTest.playPreview() {
+        mainClock.autoAdvance = false
+        onAllNodesWithTag("mv-preview-play").onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+    }
+
+    /**
+     * PR 10 (G + 🆕-3, samples 12 / 12b–d): playing on shot 3 at 0:19; a pending shot (8, its card); the hint open, paused
+     * on shot 1 (the big Play); nothing to preview yet (the dashed box); Fullscreen portrait and landscape.
+     */
+    @Test fun preview() {
+        // Shot 3's imported video accepted too (sample 12 plays shot 3); shots 4, 6, 8, 9, 11, 12 stay pending.
+        val prep: (Demo) -> Unit = { it.statuses(); it.handoff.acceptVideo(3); it.lyricFont() }
+        shot("12-preview", screen = MV_PREVIEW, body = previewPage, prep = prep) { seekPreview(19_000); playPreview() }
+        shot("12b-pending", screen = MV_PREVIEW, body = previewPage, prep = prep) { seekPreview(58_000) }
+        shot("12b-hint-open", screen = MV_PREVIEW, body = previewPage, prep = prep) {
+            seekPreview(3_000)
+            if (onAllNodesWithTag("mv-preview-hint-toggle").fetchSemanticsNodes().isNotEmpty()) click("mv-preview-hint-toggle")
+        }
+        shot("12b-empty", screen = MV_PREVIEW, body = previewPage, prep = { it.lyricFont() })
+        shot("12c-fullscreen-portrait", screen = MV_PREVIEW, body = previewPage, prep = prep, full = false) {
+            seekPreview(19_000); click("mv-preview-fullscreen"); playPreview()
+        }
+        shot("12d-fullscreen-landscape", width = HEIGHT, height = WIDTH, screen = MV_PREVIEW, body = previewPage, prep = prep, full = false) {
+            seekPreview(19_000); click("mv-preview-fullscreen"); playPreview()
+        }
     }
 }

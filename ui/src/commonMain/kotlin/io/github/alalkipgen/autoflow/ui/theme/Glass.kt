@@ -192,6 +192,16 @@ object GlassColors {
     val InboxSharedLine = Color(0xFF22D3EE).copy(alpha = .5f)
     const val TintInboxShared = .16f
 
+    // Music Video Preview (Group 3 G + 🆕-3, samples 12 / 12b): the card's blue tint, the time chip on the picture, a
+    // pending shot's dark glass (radial glow → deep, White .08 card with a White .16 line) and the picture's 1 dp edge.
+    const val TintMvPreview = .16f
+    val MvTimeChip = Color(0xFF050812).copy(alpha = .62f)
+    val MvPendingGlow = Color(0xFF2A2050)
+    val MvPendingDeep = Color(0xFF070914)
+    val MvPendingFill = Color.White.copy(alpha = .08f)
+    val MvPendingBorder = Color.White.copy(alpha = .16f)
+    val MvFrameEdge = Color.White.copy(alpha = .08f)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)

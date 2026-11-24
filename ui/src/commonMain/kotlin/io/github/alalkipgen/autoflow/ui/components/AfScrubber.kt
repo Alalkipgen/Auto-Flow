@@ -24,13 +24,15 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 /**
  * Foundation-only Af control: output fraction, not a second player or timeline. Vertical scrolling stays free.
  * [glass] = the glass preview look (track White .12, Cyan → Purple fill, 16 dp white knob with a Purple .35 ring);
- * [ticks] = 2 × 10 dp White .28 marks at these fractions (block starts).
+ * [ticks] = 2 × 10 dp White .28 marks at these fractions (block starts); [onTap] = a tap's fraction goes there instead of
+ * [onChange] (e.g. to snap to a tick); drags, keys and TalkBack still use [onChange].
  */
 @Composable
 fun AfScrubber(value: Float, label: String, onChange: (Float) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
-    glass: Boolean = false, ticks: List<Float> = emptyList()) {
+    glass: Boolean = false, ticks: List<Float> = emptyList(), onTap: ((Float) -> Unit)? = null) {
     val fraction = value.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
     val change by rememberUpdatedState(onChange)
+    val tap by rememberUpdatedState(onTap ?: onChange)
     val focus = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
     // Canvas is a Spacer: a minimum-only height gives its input/semantics node zero intrinsic height.
@@ -58,7 +60,7 @@ fun AfScrubber(value: Float, label: String, onChange: (Float) -> Unit, modifier:
         .pointerInput(enabled) {
             if (enabled) detectTapGestures { point ->
                 focus.requestFocus()
-                change(((point.x - 12.dp.toPx()) / (size.width - 24.dp.toPx())).coerceIn(0f, 1f))
+                tap(((point.x - 12.dp.toPx()) / (size.width - 24.dp.toPx())).coerceIn(0f, 1f))
             }
         }.pointerInput(enabled) {
             if (enabled) detectHorizontalDragGestures(onDragStart = { focus.requestFocus() }) { pointer, _ ->
