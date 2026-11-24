@@ -216,6 +216,7 @@ fun GlassCard(
     gap: Dp = GlassShapes.CardGap,
     centred: Boolean = false,
     outline: Color? = null,
+    outlineWidth: Dp = 1.5.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = GlassShapes.Card
@@ -241,8 +242,8 @@ fun GlassCard(
                 drawContent()
                 attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) }
                 when {
-                    // [outline] (the Recap block playing in the top preview): 1.5 dp in that colour.
-                    outline != null -> drawGlassBorder(shape, outline, outline, 1.5.dp)
+                    // [outline] (the Recap block playing in the top preview; the shot sheet's approved / stale step): [outlineWidth].
+                    outline != null -> drawGlassBorder(shape, outline, outline, outlineWidth)
                     selected -> drawGlassBorder(shape, AutoFlowColors.Purple, AutoFlowColors.Purple)
                     flat -> drawGlassBorder(shape, GlassColors.FlatBorder, GlassColors.FlatBorder)
                     else -> drawGlassBorder(shape, GlassColors.CardBorder, GlassColors.CardHighlight)

@@ -71,12 +71,15 @@ private fun fixed(size: Dp): TextUnit = with(LocalDensity.current) { size.toSp()
 
 /**
  * A step card (sample 07 `stepCard`): glass, tinted with the step colour (.16); header = the 30 dp soft tile with the 18 dp
- * number badge on its top-right corner (grey with N, green with `check` when done, 2 dp ring) and the title 14 sp bold.
+ * number badge on its top-right corner (grey with N, green with `check` when done, 2 dp ring) and the title 14 sp bold;
+ * [outline] = the Storyboard step's approved (Green .45, 1 dp) or stale (Stale .60, 1.5 dp) frame (sample 08).
  */
 @Composable
-internal fun StepCard(step: SheetStep, done: Boolean, content: @Composable ColumnScope.() -> Unit) {
+internal fun StepCard(step: SheetStep, done: Boolean, outline: Color? = null, outlineWidth: Dp = 1.dp,
+    content: @Composable ColumnScope.() -> Unit) {
     val n = step.ordinal + 1
-    GlassCard(Modifier.testTag("sheet-step-$n").semantics { stepDone = done }, tint = step.colour, tintAlpha = .16f, gap = 10.dp) {
+    GlassCard(Modifier.testTag("sheet-step-$n").semantics { stepDone = done }, tint = step.colour, tintAlpha = .16f, gap = 10.dp,
+        outline = outline, outlineWidth = outlineWidth) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.padding(top = 4.dp, end = 4.dp)) {

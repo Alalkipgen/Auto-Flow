@@ -67,12 +67,10 @@ import io.github.alalkipgen.autoflow.ui.handoff.VideoThumb
 import io.github.alalkipgen.autoflow.ui.recap.ProjectPanes
 import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
 import io.github.alalkipgen.autoflow.ui.references.RefRow
-import io.github.alalkipgen.autoflow.ui.shots.PromptSection
 import io.github.alalkipgen.autoflow.ui.shots.ShotRow
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import io.github.alalkipgen.autoflow.ui.shots.VersionBrowser
 import io.github.alalkipgen.autoflow.ui.storyboard.Header
-import io.github.alalkipgen.autoflow.ui.storyboard.ShotCard
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardModel
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardResult
@@ -234,17 +232,19 @@ fun ShotSheetScreen(
                 shots.select(it)
             }
 
-            StepCard(SheetStep.STORYBOARD, steps[0]) {
+            // Group 3 D inner 1–2 (PR 6): the Storyboard and Prompt bodies in the glass look; messages = amber warning callouts.
+            val (outline, outlineWidth) = card.stepOutline()
+            StepCard(SheetStep.STORYBOARD, steps[0], outline, outlineWidth) {
                 job.lastFor(storyboard.openProject)?.takeIf { it != StoryboardResult.Done }
-                    ?.message(uiLanguage)?.let { AfText(it, color = AutoFlowColors.Amber) }
-                sbMessage?.let { AfText(it, color = AutoFlowColors.Amber) }
-                if (card != null) ShotCard(card, storyboard, busy, showHeader = false)
-                else AfText(tr(UiText.SHEET_NO_STORY_CARD), color = AutoFlowColors.Amber)
+                    ?.message(uiLanguage)?.let { SheetNotice(it) }
+                sbMessage?.let { SheetNotice(it) }
+                if (card != null) SheetStoryboard(card, storyboard, busy)
+                else SheetNotice(tr(UiText.SHEET_NO_STORY_CARD))
             }
 
             StepCard(SheetStep.PROMPT, steps[1]) {
-                shotsState.actionError?.let { AfText(it, color = AutoFlowColors.Amber) }
-                if (detail != null) PromptSection(detail, shots) else AfText("…", muted = true)
+                shotsState.actionError?.let { SheetNotice(it) }
+                if (detail != null) SheetPrompt(detail, shots) else AfText("…", muted = true)
             }
 
             StepCard(SheetStep.REFS, steps[2]) {

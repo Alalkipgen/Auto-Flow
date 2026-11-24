@@ -152,6 +152,15 @@ object GlassColors {
     val StepDotNowFill = AutoFlowColors.Cyan.copy(alpha = .14f)
     val StepLine = Color.White.copy(alpha = .14f)
 
+    /**
+     * The shot sheet's Storyboard and Prompt cards (Group 3 D inner, samples 07 / 08): the approved step card's outline
+     * (`.okb` Green .45, 1 dp), the stale one (`.staleb` Stale .60, 1.5 dp) and the camera / mood tag pills (White .06 + .14).
+     */
+    val StepApprovedOutline = AutoFlowColors.Green.copy(alpha = .45f)
+    val StepStaleOutline = AutoFlowColors.Stale.copy(alpha = .60f)
+    val TagPillFill = Color.White.copy(alpha = .06f)
+    val TagPillBorder = Color.White.copy(alpha = .14f)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)

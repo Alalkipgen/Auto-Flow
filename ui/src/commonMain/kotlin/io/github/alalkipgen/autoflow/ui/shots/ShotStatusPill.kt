@@ -62,13 +62,17 @@ internal fun ShotStatus.pillLabel(language: UiLanguage = UiLanguage.ENGLISH): St
  * .14 fill and .38 line, the 14 dp icon and the 11.5 sp label in the tone. Tagged `shot-status-<STATUS>`.
  */
 @Composable
-internal fun ShotStatusPill(status: ShotStatus, modifier: Modifier = Modifier) {
-    val tone = status.pillColour()
+internal fun ShotStatusPill(status: ShotStatus, modifier: Modifier = Modifier) =
+    TonePill(status.pillColour(), status.pillIcon(), status.pillLabel(LocalUiLanguage.current), modifier.testTag("shot-status-${status.name}"))
+
+/** The status pill's look for any tone (sample `pill9`): Approved = Green check-circle, Stale = warning on the shot sheet. */
+@Composable
+internal fun TonePill(tone: Color, icon: ImageVector, text: String, modifier: Modifier = Modifier) {
     val shape = GlassShapes.Pill
     Row(modifier.heightIn(min = 24.dp).clip(shape).background(tone.copy(alpha = .14f)).border(1.dp, tone.copy(alpha = .38f), shape)
-        .padding(start = 7.dp, end = 9.dp, top = 2.dp, bottom = 2.dp).testTag("shot-status-${status.name}"),
+        .padding(start = 7.dp, end = 9.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        AfIcon(status.pillIcon(), tint = tone, size = 14.dp)
-        AfText(My.breakSyllables(status.pillLabel(LocalUiLanguage.current)), color = tone, type = AfType.Micro)
+        AfIcon(icon, tint = tone, size = 14.dp)
+        AfText(My.breakSyllables(text), color = tone, type = AfType.Micro)
     }
 }

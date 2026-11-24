@@ -54,6 +54,8 @@ data class ShotDetail(
     val versions: List<VideoVersion> = emptyList(),
     /** The version shown in the player: the one the user picked, else the accepted one, else the newest. */
     val previewing: ArtifactId? = null,
+    /** [compileError] is a workflow gate (e.g. the storyboard is not approved yet), not a compile failure — shown as a lock. */
+    val compileGated: Boolean = false,
 )
 
 /** One imported video of a shot. [pass] comes from the artifact note written at import (`draft` / `final`). */
@@ -216,8 +218,8 @@ class ShotsModel(private val session: ProjectSession) {
             val spec = readSpec(shot)
             val ir = readPromptIr(shot)
             val promptText = ir?.let { VeoFlowDialect.render(it) }
+            val gate = WorkflowRules.canCompilePrompt(shot)
             val compileError = if (ir == null) {
-                val gate = WorkflowRules.canCompilePrompt(shot)
                 when {
                     !gate.allowed -> gate.blockers.joinToString("; ") { it.text() }
                     spec != null -> when (val r = PromptCompiler.compile(spec, project.globalStyle, project.characters, project.settings.ratio, shot.durationMs)) {
@@ -240,6 +242,7 @@ class ShotsModel(private val session: ProjectSession) {
                 pass = shot.handoff.pass,
                 versions = versions(shot),
                 previewing = _preview.value[n]?.takeIf { it in shot.videos } ?: shot.acceptedVideo ?: shot.videos.lastOrNull(),
+                compileGated = ir == null && !gate.allowed,
             )
         }
         return ShotsUiState(

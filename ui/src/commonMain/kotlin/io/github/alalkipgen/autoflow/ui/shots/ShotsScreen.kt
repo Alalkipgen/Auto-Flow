@@ -217,7 +217,8 @@ internal fun PromptSection(detail: ShotDetail, model: ShotsModel) {
                     }, kind = ButtonKind.Danger)
                     AfButton(tr(UiText.CANCEL), { confirmCompile = false })
                 } else {
-                    AfButton(tr(UiText.RECOMPILE), { confirmCompile = true }, kind = ButtonKind.Secondary)
+                    // RECOMPILE dropped its "↻ " (Group 3 §4): the arrow-clockwise icon keeps the cue on the classic Shots screen.
+                    AfButton(tr(UiText.RECOMPILE), { confirmCompile = true }, kind = ButtonKind.Secondary, icon = io.github.alalkipgen.autoflow.ui.icons.AfIcons.Regular.Redo)
                 }
             }
         }

@@ -53,7 +53,6 @@ import io.github.alalkipgen.autoflow.ui.references.ReferencesModel
 import io.github.alalkipgen.autoflow.ui.settings.FakePicker
 import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import io.github.alalkipgen.autoflow.ui.shots.USE_VERSION_BUTTON
-import io.github.alalkipgen.autoflow.ui.storyboard.APPROVE
 import io.github.alalkipgen.autoflow.ui.storyboard.NO_STORYBOARD_TEXT
 import io.github.alalkipgen.autoflow.ui.storyboard.JobState
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
@@ -151,17 +150,17 @@ class ShotSheetTest {
         onAllNodesWithText(io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT).assertCountEquals(1)
 
         // 1 · Storyboard: approve this shot only.
-        onNodeWithText(APPROVE).performScrollTo().performClick()
+        onNodeWithTag("sheet-story-approve").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(io.github.alalkipgen.autoflow.ui.i18n.My.APPROVE)).performScrollTo().performClick()
         waitForIdle()
         assertEquals(listOf(false, true, false, false), project.shots.map { it.approvals.storyboard })
         assertSteps(1)
 
         onNodeWithText("⚠ ${UiText.BLOCKER_NO_PROMPT.text(UiLanguage.BURMESE)}").performScrollTo().assertIsDisplayed()
         // 2 · Prompt: compile, approve.
-        onNodeWithText("Prompt စုစည်းမယ်").performScrollTo().performClick()
+        onNodeWithTag("sheet-prompt-compile").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables("Prompt စုစည်းမယ်")).performScrollTo().performClick()
         waitForIdle()
         assertNotNull(project.shots[1].promptIr)
-        onNodeWithText("✓ Prompt ${io.github.alalkipgen.autoflow.ui.i18n.My.APPROVE}").performScrollTo().performClick()
+        onNodeWithTag("sheet-prompt-approve").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(UiText.V3_APPROVE_PROMPT.text(UiLanguage.BURMESE))).performScrollTo().performClick()
         waitForIdle()
         assertTrue(project.shots[1].approvals.prompt)
         assertSteps(1, 2)
@@ -291,6 +290,84 @@ class ShotSheetTest {
         onNodeWithTag("confirm-regenerate-all").assertDoesNotExist()
     }
 
+    /**
+     * Group 3 D inner 1–2 (PR 6): the Storyboard and Prompt cards on the sheet — Approve / Undo approval, Compile, Approve
+     * prompt / Undo approval; New take and Recompile ask first in glass dialogs (🆕-5) whose Back / Cancel change nothing.
+     */
+    @Test
+    fun storyboardAndPromptCardsAskFirstInGlassDialogs() = runDesktopComposeUiTest(width = 1100, height = 1400) {
+        open()
+        val path = "/p/Rain.autoflow/project.json"
+        setContent { sheet(1100f)() }
+        onNodeWithTag("shot-sheet-select-2").performClick()
+        waitForIdle()
+        // Before the storyboard is approved the prompt is behind the workflow gate: an amber lock, no compile button.
+        onNodeWithTag("sheet-prompt-locked").performScrollTo().assertIsDisplayed()
+        onNodeWithTag("sheet-prompt-compile").assertDoesNotExist()
+        onNodeWithTag("sheet-story-approve").assertTextContains("Approve").performScrollTo().performClick()
+        waitForIdle()
+        assertTrue(project.shots[1].approvals.storyboard)
+        onNodeWithTag("sheet-story-approved").assertExists()
+        onNodeWithTag("sheet-story-unapprove").assertTextContains("Undo approval").performScrollTo().performClick()
+        waitForIdle()
+        assertFalse(project.shots[1].approvals.storyboard, "Undo approval is the same approve(false) as before")
+        onNodeWithTag("sheet-story-approve").performScrollTo().performClick()
+        waitForIdle()
+
+        // New take: Back changes nothing; Regenerate is the same regenerate() as before (one Gemini run on the jobs).
+        val spec = project.shots[1].spec
+        onNodeWithTag("sheet-story-regenerate").assertTextContains("Regenerate").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-new-take").assertExists()
+        onNodeWithText("New take for shot 2?").assertExists()
+        onNodeWithTag("new-take-keep-scene").assertExists()
+        var bytes = fs.read(path)
+        onNodeWithTag("confirm-new-take-back").performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-new-take").assertDoesNotExist()
+        assertEquals(JobState(), jobs.state.value, "Back starts no Gemini run")
+        assertContentEquals(bytes, fs.read(path), "Back never writes the project")
+        assertEquals(spec, project.shots[1].spec)
+
+        // Prompt: compile, approve, undo, approve; Recompile asks first.
+        onNodeWithTag("sheet-prompt-compile").assertTextContains("Compile prompt").performScrollTo().performClick()
+        waitForIdle()
+        val prompt = assertNotNull(project.shots[1].promptIr)
+        onNodeWithTag("sheet-prompt-text").assertExists()
+        onNodeWithTag("sheet-prompt-approve").assertTextContains("Approve prompt").performScrollTo().performClick()
+        waitForIdle()
+        assertTrue(project.shots[1].approvals.prompt)
+        onNodeWithTag("sheet-prompt-approved").assertExists()
+        onNodeWithTag("sheet-prompt-unapprove").performScrollTo().performClick()
+        waitForIdle()
+        assertFalse(project.shots[1].approvals.prompt, "Undo approval is the same approvePrompt(false) as the old Approved button")
+        onNodeWithTag("sheet-prompt-approve").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("sheet-prompt-recompile").assertTextContains("Recompile").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-recompile").assertExists()
+        onNodeWithText("Recompile this prompt?").assertExists()
+        bytes = fs.read(path)
+        onNodeWithTag("confirm-recompile-cancel").performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-recompile").assertDoesNotExist()
+        assertContentEquals(bytes, fs.read(path), "Cancel never writes the project")
+        assertEquals(prompt, project.shots[1].promptIr)
+        onNodeWithTag("sheet-prompt-recompile").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-recompile-ok").performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-recompile").assertDoesNotExist()
+        assertNotNull(project.shots[1].promptIr)
+
+        onNodeWithTag("sheet-story-regenerate").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("confirm-new-take-ok").performClick()
+        waitUntil(timeoutMillis = 10_000) { jobs.state.value.running == null && jobs.state.value.last != null }
+        onNodeWithTag("confirm-new-take").assertDoesNotExist()
+        assertFalse(project.shots[1].approvals.storyboard, "a new take needs approval again")
+    }
+
     @Test
     fun everyRowShowsItsStatusPillInWords() = runDesktopComposeUiTest(width = 1100, height = 1400) {
         open()
@@ -337,7 +414,7 @@ class ShotSheetTest {
         onNodeWithTag("shot-sheet-select-1").performScrollTo().performClick()
         waitForIdle()
         onNodeWithTag("shot-sheet-title").assertTextContains("Shot 1 · 0:00", substring = true)
-        onNodeWithText(APPROVE).performScrollTo().performClick()
+        onNodeWithTag("sheet-story-approve").assertTextContains(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(io.github.alalkipgen.autoflow.ui.i18n.My.APPROVE)).performScrollTo().performClick()
         waitForIdle()
         assertEquals(listOf(true, false), project.shots.map { it.approvals.storyboard })
         val rain = (store.open("/p/Rain.autoflow") as CoreResult.Ok).value
@@ -449,7 +526,7 @@ class ShotSheetTest {
             assertTrue(node.boundsInRoot.bottom <= bar.top + 0.5f, "$tag is not covered by the sticky bar at font $font")
         }
         val scene = storyboard.current().cards.first { it.number == 2 }.spec!!.sceneMy
-        onNodeWithText(scene).performScrollTo().assertIsDisplayed()
+        onNode(androidx.compose.ui.test.hasText(io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(scene)) and androidx.compose.ui.test.hasAnyAncestor(androidx.compose.ui.test.hasTestTag("sheet-step-1"))).performScrollTo().assertIsDisplayed()
         // The step cards' titles (no "N · " — the badge shows N; 🆕-15), each inside its own card `sheet-step-n`.
         for ((k, title) in listOf(UiText.SHEET_STORYBOARD, UiText.SHEET_PROMPT, UiText.SHEET_REFS, UiText.SHEET_FLOW, UiText.SHEET_VIDEOS)
             .map { io.github.alalkipgen.autoflow.ui.i18n.My.breakSyllables(it.text(language)) }.withIndex()) {

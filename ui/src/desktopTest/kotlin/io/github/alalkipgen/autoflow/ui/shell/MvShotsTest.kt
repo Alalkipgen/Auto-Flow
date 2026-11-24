@@ -227,7 +227,7 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
      */
     private fun shot(name: String, width: Int = WIDTH, height: Int = HEIGHT, full: Boolean = true, waiting: Int = 0, running: Boolean = false,
         exit: Boolean = false, screen: String = "Input", body: (@Composable (Demo) -> Unit)? = null, prep: (Demo) -> Unit = {},
-        open: ComposeUiTest.() -> Unit = {}) {
+        crop: List<String>? = null, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         var extra = 0
         fun ComposeUiTest.load(d: Demo) {
@@ -245,7 +245,14 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         runDesktopComposeUiTest(width = (width * SCALE).toInt(), height = (height * SCALE).toInt() + extra) {
             Demo(waiting).use { d ->
                 load(d)
-                write(name, onAllNodes(isRoot())[0].captureToImage().toAwtImage())
+                val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+                if (crop == null) write(name, image) else {
+                    // Only the [crop] nodes (e.g. the sheet's step cards 1–2) with 8 dp around them, the full page width.
+                    val boxes = crop.map { onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
+                    val top = (boxes.minOf { it.top } - 8 * SCALE).toInt().coerceAtLeast(0)
+                    val bottom = (boxes.maxOf { it.bottom } + 8 * SCALE).toInt().coerceAtMost(image.height)
+                    write(name, image.getSubimage(0, top, image.width, bottom - top))
+                }
                 assertEquals(emptyList(), textFitProblems((width * SCALE).toInt(), font, strict = true, minNodes = 3), "$name ${language.code()} $font")
             }
         }
@@ -402,6 +409,31 @@ class MvShotsTest(val language: UiLanguage, val font: Float) {
         }
         shot("10-desktop-shot-sheet", width = 1280, height = 800, full = false, screen = SHOT_SHEET, body = sheetAt(1280), prep = Demo::statuses) {
             click("shot-sheet-select-3")
+        }
+    }
+
+    /**
+     * PR 6 (D inner 1–2, 🆕-5, samples 07 / 08 / 09b / 09c): the Storyboard and Prompt step cards of one shot — shot 3
+     * (both approved), shot 8 (draft: the prompt is behind the gate), shot 11 (prompt compiled, not approved), shot 12
+     * (storyboard approved, prompt not compiled), shot 4 with the edit form open; the New take and Recompile questions.
+     */
+    @Test fun sheetCards() {
+        val cards = listOf("sheet-step-1", "sheet-step-2")
+        fun ComposeUiTest.select(n: Int) { onNodeWithTag("shot-sheet-select-$n").performScrollTo(); click("shot-sheet-select-$n") }
+        shot("08c-cards-approved", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = cards) { select(3) }
+        shot("08d-cards-draft", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = cards) { select(8) }
+        shot("08e-cards-compiled", screen = SHOT_SHEET, body = sheetPage, crop = cards,
+            prep = { it.statuses(); it.storyboard.approve(11); it.shots.compilePrompt(11) }) { select(11) }
+        shot("08f-cards-not-compiled", screen = SHOT_SHEET, body = sheetPage, crop = cards,
+            prep = { it.statuses(); it.storyboard.approve(12) }) { select(12) }
+        shot("08g-storyboard-editing", screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses, crop = listOf("sheet-step-1")) {
+            select(4); clickText(UiText.EDIT.text(language))
+        }
+        shot("09b-dialog-new-take", full = false, screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) {
+            select(3); clickText(UiText.REGENERATE.text(language))
+        }
+        shot("09c-dialog-recompile", full = false, screen = SHOT_SHEET, body = sheetPage, prep = Demo::statuses) {
+            select(3); clickText(UiText.RECOMPILE.text(language))
         }
     }
 }

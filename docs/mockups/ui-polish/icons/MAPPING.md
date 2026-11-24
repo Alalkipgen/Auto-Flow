@@ -144,3 +144,8 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `listlines` | `list` | Credit log (Music Video All shots) |
 | `filehtml` | `file-html` | Batch sheet (Music Video All shots) |
 | `funnel` | `funnel` | Filter with no match (Music Video shot list) |
+| `videoCamera` | `video-camera` | Storyboard camera tag + Camera field label (Music Video shot sheet) |
+| `smiley` | `smiley` | Storyboard mood tag + Mood field label (Music Video shot sheet) |
+| `personSimpleRun` | `person-simple-run` | Action field label (storyboard edit form) |
+| `mapPin` | `map-pin` | Setting field label (storyboard edit form) |
+| `sun` | `sun` | Lighting field label (storyboard edit form) |
