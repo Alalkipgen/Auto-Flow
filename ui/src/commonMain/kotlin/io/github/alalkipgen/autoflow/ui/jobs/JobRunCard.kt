@@ -83,10 +83,11 @@ internal fun MusicGeminiJobCard(jobs: StoryboardJobs, project: OpenProject?, mod
  * tool's own [content] (its "line k of n" and Pause / Resume / Cancel).
  */
 @Composable
-internal fun ToolAiJobCard(job: AiJob, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun ToolAiJobCard(job: AiJob, modifier: Modifier = Modifier, tile: CardTile? = null, content: @Composable ColumnScope.() -> Unit) {
     val language = LocalUiLanguage.current
     val row = remember(job, language) { jobRows(null, null, null, listOf(job), language).single() }
-    JobRunCard(row.copy(projectTitle = null, detail = null, reason = null), modifier, actions = content)
+    // [tile] = the glass job card (Group 4 F 3: Dubbing's Speak with `microphone-stage` in Purple); the other tools keep theirs.
+    JobRunCard(row.copy(projectTitle = null, detail = null, reason = null), modifier, tile = tile, actions = content)
 }
 
 /** A tool page's direct AI request with no job (Dubbing Shorten): the same card, running, with live wait time. */

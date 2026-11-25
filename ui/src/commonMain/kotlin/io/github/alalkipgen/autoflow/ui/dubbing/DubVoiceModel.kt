@@ -82,6 +82,9 @@ class DubVoiceModel(
     fun setTone(tone: String?) = change { it.copy(tone = tone?.takeIf { t -> t in VoiceTakes.TONES && t != it.tone }) }
 
     /** Original sound under the dub (D-83): Lower keeps `dubbing.originalVolume`, Mute is 0. */
+    /** The original-sound volume that Lower sets (the Lower segment shows it while Mute is on, not 0 %). */
+    val lowerVolume: Double get() = config.dubbing.originalVolume
+
     fun setOriginal(mode: String) = change {
         it.copy(original = if (mode == DubOriginal.MUTE) DubOriginal(DubOriginal.MUTE, 0.0) else DubOriginal(DubOriginal.LOWER, config.dubbing.originalVolume))
     }

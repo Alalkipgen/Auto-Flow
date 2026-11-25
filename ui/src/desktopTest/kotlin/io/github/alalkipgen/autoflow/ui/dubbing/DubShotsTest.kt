@@ -11,6 +11,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleOps
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
@@ -53,6 +54,12 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         /** 9:40 — the samples say 24:10, which is over the Dubbing limit (`dubbing.maxSourceMs` = 10 min). */
         const val DURATION = 580_000L
         /** The samples' lines (#18–#26, #31: start, end, English source, Burmese subtitle). */
+        private val KORE = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", "tts-a", "Kore", "my")
+        private val NILAR = io.github.alalkipgen.autoflow.core.recap.VoiceLock("edge", "edge-tts", "my-MM-NilarNeural", "my")
+        private val CHARON = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", "gemini-3.8-flash-tts", "Charon", "my")
+        private val EDGE = io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig(model = "edge-tts", voices = listOf(
+            io.github.alalkipgen.autoflow.ai.config.EdgeVoice("my-MM-ThihaNeural", "Thiha", "male", "my"),
+            io.github.alalkipgen.autoflow.ai.config.EdgeVoice("my-MM-NilarNeural", "Nilar", "female", "my")))
         private val SAMPLE = mapOf(
             18 to Line(118_400, 120_800, "This is my final lesson.", "ဒါ ငါ့ရဲ့ နောက်ဆုံး သင်ခန်းစာပဲ"),
             19 to Line(122_000, 124_600, "You must choose your successor.", "မင်း ဆက်ခံမယ့်သူကို ရွေးရမယ်"),
@@ -102,18 +109,38 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
          * Takes for the lines (the samples' 33 of 40: none for every 6th line and #40; #9 and #21 too long), spoken with
          * one Gemini voice; [all] = every line voiced and none too long.
          */
-        fun voices(all: Boolean = false) {
+        fun voices(all: Boolean = false, lock: io.github.alalkipgen.autoflow.core.recap.VoiceLock = KORE, tone: String? = null, mute: Boolean = false) {
             val open = f.session.open!!
             val art = io.github.alalkipgen.autoflow.core.store.ArtifactStore(f.fs, open.dir)
             val doc = script.state.value.doc ?: run { script.open(); script.state.value.doc!! }
-            val lock = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", "tts-a", "Kore", "my")
             val takes = doc.cues.withIndex().filter { (i, _) -> all || ((i + 1) % 6 != 0 && i + 1 != 40) }.associate { (i, c) ->
                 val ms = if (!all && (i + 1 == 9 || i + 1 == 21)) 9_000L else (c.endMs - c.startMs - 200).coerceAtLeast(500)
                 c.id to io.github.alalkipgen.autoflow.core.model.DubTake(
                     (art.put("RIFF-${c.id}".encodeToByteArray(), io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, "wav") as CoreResult.Ok).value.id,
-                    io.github.alalkipgen.autoflow.core.dubbing.DubRules.takeKey(c, io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY, lock, null), ms)
+                    io.github.alalkipgen.autoflow.core.dubbing.DubRules.takeKey(c, io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY, lock, tone), ms)
             }
-            update { it.copy(dubbing = (it.dubbing ?: io.github.alalkipgen.autoflow.core.model.DubbingTool()).copy(lock = lock, takes = takes)) }
+            update { it.copy(dubbing = (it.dubbing ?: io.github.alalkipgen.autoflow.core.model.DubbingTool()).copy(lock = lock, tone = tone, takes = takes,
+                original = if (mute) io.github.alalkipgen.autoflow.core.model.DubOriginal(io.github.alalkipgen.autoflow.core.model.DubOriginal.MUTE, 0.0)
+                    else io.github.alalkipgen.autoflow.core.model.DubOriginal())) }
+        }
+        /** The Voice step's model (only when [withVoice]: without it the step is the planned tile, PR 1's shots). */
+        var withVoice = false
+        var models = listOf("gemini-3.8-flash-tts")
+        val jobs = kotlinx.coroutines.flow.MutableStateFlow<List<io.github.alalkipgen.autoflow.core.recap.AiJob>>(emptyList())
+        val runner = object : io.github.alalkipgen.autoflow.core.recap.AiJobRunner {
+            override val jobs = this@Demo.jobs
+            override suspend fun enqueue(job: io.github.alalkipgen.autoflow.core.recap.AiJob): String = job.id
+            override suspend fun cancel(id: String) = Unit
+            override suspend fun refresh() = Unit
+        }
+        val voice by lazy {
+            DubVoiceModel(f.session, DubSpeakJob(f.session, f.fs, io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider()), runner, scope, models = models,
+                edgeVoices = { EDGE })
+        }
+        /** The Speak job of the open project: [left] of 40 lines still to speak. */
+        fun job(state: AiJobState, left: Int, error: String? = null) {
+            jobs.value = listOf(io.github.alalkipgen.autoflow.core.recap.AiJob("speak-1", io.github.alalkipgen.autoflow.core.recap.AiJobKind.DUB_TTS,
+                f.session.open!!.dir, (41 - left..40).map { "c$it" }, state, error, initialItemCount = 40))
         }
         /** An unsaved subtitle change (the editor's draft). */
         fun dirty() { f.editor.open(); f.editor.edit { SubtitleOps.setTextMy(it, "c2", "မင်း ဆက်ခံမယ့်သူကို အခု ရွေးရမယ်") } }
@@ -139,19 +166,22 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
     private fun screen(d: Demo, width: Int, scale: Float): @Composable () -> Unit = {
         Locals(width, scale) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
-                DubbingScreen(d.script, d.f.model, d.f.session, d.f.editor, onBack = {}, player = d.player, translate = d.f.translate, export = d.export)
+                DubbingScreen(d.script, d.f.model, d.f.session, d.f.editor, onBack = {}, player = d.player, translate = d.f.translate, export = d.export,
+                    voice = if (d.withVoice) d.voice else null)
             }
         }
     }
 
     /** One shot of the Dubbing screen after [prep] and [open] (e.g. a step tab); phone at [HEIGHT], desktop 1440 × 900. */
     private fun shot(name: String, desktop: Boolean = false, durationMs: Long = DURATION, lines: List<Line> = lines(),
-        prep: Demo.() -> Unit = {}, crop: String? = null, only: String? = null, landscape: Boolean = false, open: ComposeUiTest.() -> Unit = {}) {
+        prep: Demo.() -> Unit = {}, crop: String? = null, only: String? = null, landscape: Boolean = false, margin: Int = 8, tall: Int = 2,
+        open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         val width = if (desktop) 1440 else WIDTH
         val scale = if (desktop) 1f else SCALE
-        // A card alone gets a twice-high window so the whole card is in sight at font 2.0 (the lines list scrolls under the footer).
-        val (w, h) = if (landscape) HEIGHT to WIDTH else width to (if (desktop) 900 else if (only != null) HEIGHT * 2 else HEIGHT)
+        // A card alone gets a twice-high window ([tall] times for the open voice card) so the whole card is in sight at font 2.0
+        // (the lines list scrolls under the footer).
+        val (w, h) = if (landscape) HEIGHT to WIDTH else width to (if (desktop) 900 else if (only != null) HEIGHT * tall else HEIGHT)
         runDesktopComposeUiTest(width = (w * scale).toInt(), height = (h * scale).toInt()) {
             Demo(durationMs, lines).use { d ->
                 d.prep()
@@ -160,8 +190,8 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
                 if (only != null) {
                     // Only the [only] node with 8 dp around it, the full width (e.g. the preview card).
                     val box = onNodeWithTag(only).fetchSemanticsNode().boundsInRoot
-                    val top = (box.top - 8 * scale).toInt().coerceAtLeast(0)
-                    write(name, image.getSubimage(0, top, image.width, ((box.bottom + 8 * scale).toInt().coerceAtMost(image.height)) - top))
+                    val top = (box.top - margin * scale).toInt().coerceAtLeast(0)
+                    write(name, image.getSubimage(0, top, image.width, ((box.bottom + margin * scale).toInt().coerceAtMost(image.height)) - top))
                 } else if (crop == null) write(name, image) else {
                     // From the top down to the [crop] node's bottom + 8 dp (e.g. the project bar).
                     val bottom = (onNodeWithTag(crop).fetchSemanticsNode().boundsInRoot.bottom + 8 * scale).toInt().coerceAtMost(image.height)
@@ -261,5 +291,31 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         if (font == 1f) shot("12-desktop-script-lines", desktop = true, prep = { voices(); script.open(); check(script.setSpoken("c21", own)); script.open() }) {
             seekPreview(141_400); toLine("c19")
         }
+    }
+
+    private fun ComposeUiTest.toVoice(key: String) { onNodeWithTag("dub-voice-rows").performScrollToKey(key); waitForIdle() }
+
+    /** PR 4 (F 1–5, 🆕-3, 🆕-4; samples 03 / 04 / 05 / 06a): the voice card closed and open, the Speak job, notices, the dialog. */
+    @Test fun voice() {
+        val nilar: Demo.() -> Unit = { withVoice = true; approve(); voices(lock = NILAR, tone = "calm") }
+        shot("03-voice", prep = nilar) { toVoice("settings") }
+        shot("04-open-edge", prep = nilar, only = "dub-voice-settings", tall = 3) { toVoice("settings"); clickIf("dub-voice-expand"); toVoice("settings") }
+        shot("04-open-gemini-mute", prep = { withVoice = true; approve(); voices(lock = CHARON, tone = "calm", mute = true) },
+            only = "dub-voice-settings", tall = 3) {
+            toVoice("settings"); clickIf("dub-voice-expand"); toVoice("settings")
+        }
+        shot("04-no-models", prep = { withVoice = true; models = emptyList(); approve() }, only = "dub-voice-settings", tall = 3) { toVoice("settings") }
+        shot("04-running", prep = { nilar(this); job(AiJobState.RUNNING, 15) }, only = "dub-voice-settings") { toVoice("settings") }
+        shot("05-job-running", prep = { nilar(this); job(AiJobState.RUNNING, 15) }, only = "dub-speak-job") { toVoice("speak") }
+        shot("05-job-paused", prep = { nilar(this); job(AiJobState.PAUSED, 16) }, only = "dub-speak-job") { toVoice("speak") }
+        shot("05-job-stopped", prep = { nilar(this); job(AiJobState.FAILED, 16, "Edge: 429 Too Many Requests.") }, only = "dub-speak-job") {
+            toVoice("speak")
+        }
+        shot("05-notice-ok", prep = { withVoice = true; approve(); voices(all = true, lock = NILAR, tone = "calm"); voice.ask() }, only = "dub-speak-notice",
+            margin = 24) { toVoice("speak") }
+        shot("05-notice-amber", prep = { withVoice = true; approve(); voices(lock = NILAR, tone = "calm"); job(AiJobState.RUNNING, 15)
+            voice.ask(); jobs.value = emptyList() }, only = "dub-speak-notice", margin = 24) { toVoice("speak") }
+        shot("06a-dialog", prep = nilar) { toVoice("speak"); click("dub-speak") }
+        if (font == 1f) shot("12-desktop-voice", desktop = true, prep = nilar) { toVoice("settings") }
     }
 }
