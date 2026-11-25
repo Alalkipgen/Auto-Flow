@@ -1,5 +1,16 @@
 package io.github.alalkipgen.autoflow.ui.dubbing
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -21,6 +32,7 @@ import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.subtitles.*
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
@@ -87,7 +99,7 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                 DubStep.SCRIPT -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.script != null -> Lock(block(gates.script, gates, script), target(gates.script), go)
-                    doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok) { preview(true) }
+                    doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok, playhead, export) { preview(true) }
                 }
                 DubStep.VOICE -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
@@ -167,41 +179,84 @@ private fun Lock(why: String, to: DubStep? = null, go: (DubStep) -> Unit = {}, t
 @Composable
 private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui.projects.OpenProject?,
     doc: io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc, approved: Boolean, notice: UiNotice?, ok: Boolean,
-    preview: @Composable () -> Unit = {}) {
+    playhead: Playhead? = null, export: DubExportModel? = null, preview: @Composable () -> Unit = {}) {
     val rows = remember(open?.project?.subtitles?.video, doc) { model.rows(open, doc) }
+    // 🆕-2: the line under the preview's playhead (the chip's line) gets the playing outline; its head seeks there.
+    val ticks = remember(open?.dir, open?.project, doc) { export?.previewTicks(open, doc) }
+    val position = playhead?.positionMs
+    val playingN = position?.let { pos -> ticks?.let { DubPreviewClock.line(it, pos) } ?: rows.lastOrNull { pos >= it.startMs && pos < it.endMs }?.n }
     Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
-        notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.padding(horizontal = 12.dp).testTag("dub-notice"),
-            color = if (ok) AutoFlowColors.Green else AutoFlowColors.Failed) }
+        // Group 4 E: the notice as a callout — green check-circle when it went well; amber warning when it failed or asks
+        // for more (Shorten's lines need a new approval and new takes). Same text, same tag.
+        notice?.let {
+            val good = ok && it.key != UiText.DUB_SHORTEN_USED
+            GlassCallout(if (good) AfIcons.Fill.CheckCircle else AfIcons.Fill.Warn, My.breakSyllables(it.text(LocalUiLanguage.current)),
+                if (good) AutoFlowColors.Green else AutoFlowColors.Amber, Modifier.padding(start = screenPadding, end = screenPadding, top = 12.dp),
+                textModifier = Modifier.testTag("dub-notice"))
+        }
         LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("dub-rows"), contentPadding = PaddingValues(screenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(key = "preview") { preview() } // F-6: scrolls with the lines
-            items(rows, key = { it.id }) { r -> ScriptRow(r, { model.setSpoken(r.id, it) }, { model.useSubtitle(r.id) }) }
+            items(rows, key = { it.id }) { r ->
+                ScriptRow(r, { model.setSpoken(r.id, it) }, { model.useSubtitle(r.id) }, playing = r.n == playingN,
+                    seek = playhead?.let { p -> { p.seek(r.startMs) } })
+            }
         }
         StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_APPROVE)), { model.approve() }, enabled = !approved, tag = "dub-approve",
             icon = AfIcons.Regular.Check),
-            caption = My.breakSyllables(tr(if (approved) UiText.DUB_APPROVED else UiText.DUB_NOT_APPROVED)))
+            caption = My.breakSyllables(tr(if (approved) UiText.DUB_APPROVED else UiText.DUB_NOT_APPROVED)), glass = true,
+            captionIcon = if (approved) AfIcons.Regular.CheckCircle else AfIcons.Regular.Info,
+            captionColour = if (approved) AutoFlowColors.Green else null)
     }
 }
 
-/** One line as a cue card (panel 6): "#n start → end" in tabular figures, its room, then the subtitle and the spoken line. */
+/**
+ * One line as a glass cue card (Group 4 E, samples 01 / 02): "#n" bold + "start → end" mono (the head; 🆕-2 a tap seeks the
+ * preview there, without playing), the room as a `timer` fact row, then the small muted labels over the subtitle (a read-only
+ * inner box) and the spoken line (a glass field, no placeholder: the label names it). [playing] = the Cyan outline.
+ */
 @Composable
-private fun ScriptRow(r: DubScriptRow, save: (String) -> Unit, useSubtitle: () -> Unit) {
+private fun ScriptRow(r: DubScriptRow, save: (String) -> Unit, useSubtitle: () -> Unit, playing: Boolean = false, seek: (() -> Unit)? = null) {
     var text by remember(r.id, r.spoken) { mutableStateOf(r.spoken) }
-    AfCard(Modifier.testTag("dub-row-${r.id}")) {
-        WrapRow(Modifier.testTag("dub-row-head-${r.id}")) {
-            AfText("#${r.n}", color = AutoFlowColors.Muted, type = AfType.Numbers, weight = FontWeight.SemiBold)
-            AfText("${TimeText.show(r.startMs)} → ${TimeText.show(r.endMs)}", color = AutoFlowColors.Muted, type = AfType.Numbers)
+    val compact = LocalCompact.current
+    // The head is a 48 dp target from the card's top edge (no top padding then), so it looks like the sample's 12 dp inset.
+    GlassCard(Modifier.testTag("dub-row-${r.id}"), padding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp,
+        top = if (seek == null) 12.dp else 0.dp), gap = 8.dp,
+        outline = if (playing) io.github.alalkipgen.autoflow.ui.theme.GlassColors.PlayingOutline else null) {
+        // The head keeps its texts as children (tests and screen readers read "#n" and the times); the row itself is the button.
+        val head = Modifier.testTag("dub-row-head-${r.id}").fillMaxWidth().then(if (seek == null) Modifier else Modifier
+            .heightIn(min = AfSize.Touch).pointerInput(seek) { detectTapGestures { seek() } }
+            .semantics { role = Role.Button; onClick { seek(); true } })
+        // Head + room with no gap between them when the head is the 48 dp target: it already leaves the sample's space.
+        Column(verticalArrangement = Arrangement.spacedBy(if (seek == null) 8.dp else 0.dp)) {
+            Box(head, contentAlignment = Alignment.CenterStart) {
+                WrapRow {
+                    AfText("#${r.n}", size = 14.sp, bold = true)
+                    AfText("${TimeText.show(r.startMs)} → ${TimeText.show(r.endMs)}", muted = true, mono = true, size = 13.sp)
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                AfIcon(AfIcons.Regular.Timer, tint = AutoFlowColors.Muted, size = 15.dp)
+                AfText(My.breakSyllables(tr(UiText.DUB_SLOT, "s" to (r.slotMs / 100) / 10.0)), Modifier.testTag("dub-slot-${r.id}"), muted = true, size = 12.sp)
+            }
         }
-        AfText(My.breakSyllables(tr(UiText.DUB_SLOT, "s" to (r.slotMs / 100) / 10.0)), Modifier.testTag("dub-slot-${r.id}"), muted = true)
-        AfText(My.breakSyllables(tr(UiText.DUB_SUBTITLE)), bold = true)
-        AfText(My.breakSyllables(r.textMy), Modifier.testTag("dub-subtitle-${r.id}"))
-        AfText(My.breakSyllables(tr(UiText.DUB_SPOKEN)), bold = true)
-        AfTextField(text, { text = it }, tr(UiText.DUB_SPOKEN), Modifier.fillMaxWidth().testTag("dub-spoken-${r.id}"), lines = 2, mono = false)
-        WrapRow {
-            if (text.trim() != r.spoken) AfButton(tr(UiText.SAVE), { save(text) }, Modifier.testTag("dub-save-${r.id}"), kind = ButtonKind.Primary,
-                icon = AfIcons.Regular.Check)
-            if (r.own) AfButton(My.breakSyllables(tr(UiText.DUB_USE_SUBTITLE)), useSubtitle, Modifier.testTag("dub-use-subtitle-${r.id}"),
-                icon = AfIcons.Regular.Subtitles)
+        AfText(My.breakSyllables(tr(UiText.DUB_SUBTITLE)), muted = true, size = 12.sp)
+        val box = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+        Box(Modifier.fillMaxWidth().clip(box).background(Color.White.copy(alpha = .04f))
+            .border(1.dp, Color.White.copy(alpha = .08f), box).padding(horizontal = 14.dp, vertical = 10.dp)) {
+            AfText(My.breakSyllables(r.textMy), Modifier.testTag("dub-subtitle-${r.id}"), size = 15.sp)
+        }
+        AfText(My.breakSyllables(tr(UiText.DUB_SPOKEN)), muted = true, size = 12.sp)
+        AfTextField(text, { text = it }, tr(UiText.DUB_SPOKEN), Modifier.fillMaxWidth().testTag("dub-spoken-${r.id}"), lines = 2, mono = false,
+            glass = true, showPlaceholder = false)
+        val edited = text.trim() != r.spoken
+        if (edited || r.own) Row(Modifier.fillMaxWidth(), horizontalArrangement = if (compact) Arrangement.Start else Arrangement.End) {
+            WrapRow {
+                if (edited) GlassButton(tr(UiText.SAVE), { save(text) }, Modifier.testTag("dub-save-${r.id}"), kind = ButtonKind.Primary,
+                    icon = AfIcons.Regular.Check, small = true)
+                if (r.own) GlassButton(My.breakSyllables(tr(UiText.DUB_USE_SUBTITLE)), useSubtitle, Modifier.testTag("dub-use-subtitle-${r.id}"),
+                    icon = AfIcons.Regular.Subtitles, small = true)
+            }
         }
     }
 }

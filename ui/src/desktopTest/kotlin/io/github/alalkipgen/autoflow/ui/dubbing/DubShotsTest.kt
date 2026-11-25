@@ -16,6 +16,7 @@ import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Dest
 import io.github.alalkipgen.autoflow.ui.shell.StudioV2Shell
 import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesFixture
@@ -224,5 +225,41 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("11c-fullscreen-landscape", prep = { voices() }, landscape = true) { seekPreview(141_400); clickIf("dub-preview-fullscreen"); playPreview() }
         shot("01-script-top", prep = { voices() }) { seekPreview(141_400) }
         if (font == 1f) shot("12-desktop-script-preview", desktop = true, prep = { voices() }) { seekPreview(141_400) }
+    }
+
+    /** Scroll the Dub script list to the line [id]. */
+    private fun ComposeUiTest.toLine(id: String) { onNodeWithTag("dub-rows").performScrollToKey(id); waitForIdle() }
+
+    /** Type into the spoken field of [id] (focused, so the cyan ring shows). */
+    private fun ComposeUiTest.typeSpoken(id: String, text: String) {
+        onNode(hasContentDescription(UiText.DUB_SPOKEN.text(language)) and hasAnyAncestor(hasTestTag("dub-spoken-$id")))
+            .performClick().performTextReplacement(text)
+        waitForIdle()
+    }
+
+    /**
+     * PR 3 (E + 🆕-2, samples 01 / 02): the Dub script — the notice after Save (green) and after Shorten (amber); #19
+     * edited, not saved (field focused + Save); #21 its own spoken line (Use the subtitle); #23 under the playhead (the
+     * cyan outline); the sticky bar not approved / approved; the list scrolled to #19 (01); desktop.
+     */
+    @Test fun script() {
+        val edited = "မင်းနောက်က ဆက်ခံမယ့်သူကို ရွေးရမယ်"
+        val own = "ဒါက နဂါးစစ်သည် တစ်ယောက်ရဲ့ တာဝန်ပဲ"
+        shot("02-notice-saved", prep = { script.open(); check(script.setSpoken("c19", edited)) }, crop = "dub-notice")
+        shot("02-notice-shorten", prep = {
+            script.open(); check(script.setSpoken(mapOf("c21" to own), io.github.alalkipgen.autoflow.ui.i18n.UiNotice(UiText.DUB_SHORTEN_USED, "n" to 1)))
+        }, crop = "dub-notice")
+        shot("02-edited", prep = { voices() }, only = "dub-row-c19") { toLine("c19"); typeSpoken("c19", edited) }
+        shot("02-own", prep = { voices(); script.open(); check(script.setSpoken("c21", own)); script.open() }, only = "dub-row-c21") { toLine("c21") }
+        shot("02-playing", prep = { voices() }, only = "dub-row-c23") { seekPreview(141_400); toLine("c23") }
+        shot("02-head-seek", prep = { voices() }, only = "dub-row-c24") { toLine("c24"); click("dub-row-head-c24") }
+        shot("02-sticky-not-approved", only = "sticky-action-bar")
+        shot("02-sticky-approved", prep = { approve() }, only = "sticky-action-bar") { click("dub-step-SCRIPT") }
+        shot("01-script-lines", prep = { voices(); script.open(); check(script.setSpoken("c21", own)); script.open() }) {
+            seekPreview(141_400); toLine("c19"); typeSpoken("c19", edited)
+        }
+        if (font == 1f) shot("12-desktop-script-lines", desktop = true, prep = { voices(); script.open(); check(script.setSpoken("c21", own)); script.open() }) {
+            seekPreview(141_400); toLine("c19")
+        }
     }
 }

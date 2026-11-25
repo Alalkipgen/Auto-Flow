@@ -221,7 +221,19 @@ private fun NumberedSteps(texts: List<String>, current: Int, tab: @Composable (I
  */
 @Composable
 internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (@Composable (Modifier) -> Unit)?,
-    hint: String?, leading: (@Composable () -> Unit)?, keys: (@Composable () -> Unit)? = null) {
+    hint: String?, leading: (@Composable () -> Unit)?, keys: (@Composable () -> Unit)? = null, hintIcon: ImageVector? = null,
+    hintColour: Color? = null) {
+    // [hintIcon] (15 dp, before the hint) and [hintColour] (default Muted): e.g. Dubbing's approved caption (green check-circle).
+    val hintText = @Composable { text: String, centred: Boolean ->
+        if (hintIcon == null) AfText(text, if (centred) Modifier.fillMaxWidth() else Modifier, color = hintColour ?: AutoFlowColors.Muted,
+            type = AfType.Caption, textAlign = if (centred) TextAlign.Center else null)
+        else Row(if (centred) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.spacedBy(6.dp,
+            if (centred) Alignment.CenterHorizontally else Alignment.Start), verticalAlignment = Alignment.CenterVertically) {
+            AfIcon(hintIcon, tint = hintColour ?: AutoFlowColors.Muted, size = 15.dp)
+            AfText(text, Modifier.weight(1f, fill = false), color = hintColour ?: AutoFlowColors.Muted, type = AfType.Caption,
+                textAlign = if (centred) TextAlign.Center else null)
+        }
+    }
     if (LocalCompact.current) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.S)) {
         Layout({ leading?.invoke(); secondary?.invoke(Modifier); primary(Modifier) }) { items, c ->
             val gap = AfSpace.S.roundToPx()
@@ -240,11 +252,11 @@ internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (
                 }
             }
         }
-        hint?.let { AfText(it, Modifier.fillMaxWidth(), color = AutoFlowColors.Muted, type = AfType.Caption, textAlign = TextAlign.Center) }
+        hint?.let { hintText(it, true) }
     } else Layout({
         if (hint != null || keys != null) Column(verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
             keys?.invoke()
-            hint?.let { AfText(it, color = AutoFlowColors.Muted, type = AfType.Caption) }
+            hint?.let { hintText(it, false) }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(AfSpace.S, Alignment.End), verticalArrangement = Arrangement.spacedBy(AfSpace.S),
             itemVerticalAlignment = Alignment.CenterVertically) {

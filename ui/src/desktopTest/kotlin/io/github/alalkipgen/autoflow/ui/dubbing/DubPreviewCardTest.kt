@@ -143,4 +143,32 @@ class DubPreviewCardTest {
             onNodeWithTag("dub-preview").assertDoesNotExist()
         } finally { scope.cancel() }
     }
+
+    /** 🆕-2 (Group 4 E): a line card's head is a 48 dp button that seeks the preview to the line's start, without playing. */
+    @Test fun aLineHeadSeeksThePreviewWithoutPlaying() {
+        for (language in UiLanguage.entries) for (font in listOf(1f, 2f)) runDesktopComposeUiTest(width = 360, height = 1400) {
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            try {
+                val h = Harness(lines, scope); h.voices()
+                setContent {
+                    CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
+                        LocalUiFontFamily provides BurmeseTestFont.family) {
+                        DubbingScreen(h.script, h.f.model, h.f.session, h.f.editor, onBack = {}, player = h.player, export = h.export)
+                    }
+                }
+                waitForIdle()
+                onNodeWithTag("dub-step-SCRIPT").performSemanticsAction(SemanticsActions.OnClick); waitForIdle()
+                onNodeWithTag("dub-rows").performScrollToKey("c3"); waitForIdle()
+                onNodeWithTag("dub-row-head-c3").assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
+                    .assertHeightIsAtLeast(androidx.compose.ui.unit.Dp(48f))
+                onNode(hasText("#3") and hasAnyAncestor(hasTestTag("dub-row-head-c3"))).assertExists() // the texts stay readable
+                onNodeWithTag("dub-row-head-c3").performSemanticsAction(SemanticsActions.OnClick); waitForIdle()
+                onNodeWithTag("dub-rows").performScrollToKey("preview"); waitForIdle()
+                assertEquals("0:20.0 / 1:00.0", time())
+                onNodeWithTag("dub-play").assert(hasContentDescription(UiText.SUB_PLAY.text(language))) // not playing
+                onNodeWithTag("dub-preview-line-chip").assertTextEquals("#3")
+                assertEquals(emptyList(), textFitProblems(360, font))
+            } finally { scope.cancel() }
+        }
+    }
 }
