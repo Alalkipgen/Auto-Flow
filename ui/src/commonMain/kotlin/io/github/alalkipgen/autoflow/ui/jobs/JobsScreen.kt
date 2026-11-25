@@ -318,8 +318,11 @@ fun JobsScreen(
         }
         val external = noticeRow?.identity == row.identity
         val feedback = if (external) notice else live.notice?.takeIf { live.noticeTarget == row.identity }?.text(language)
-        feedback?.let { AfText(My.breakSyllables(it), Modifier.testTag("job-notice-$key"),
-            color = if (!external && live.notice?.key == UiText.EXPORT_GALLERY_SAVED) AutoFlowColors.Green else AutoFlowColors.Failed) }
+        // Saved to Gallery: green with the check-circle (the string has no "✓", Group 4 §4).
+        feedback?.let { if (!external && live.notice?.key == UiText.EXPORT_GALLERY_SAVED)
+            io.github.alalkipgen.autoflow.ui.components.GlassFact(AfIcons.Fill.CheckCircle, My.breakSyllables(it), colour = AutoFlowColors.Green,
+                iconColour = AutoFlowColors.Green, textModifier = Modifier.testTag("job-notice-$key"))
+            else AfText(My.breakSyllables(it), Modifier.testTag("job-notice-$key"), color = AutoFlowColors.Failed) }
     }
     // No background of its own: the shell's ambient shows through the glass cards (DESIGN.md §9.10).
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {

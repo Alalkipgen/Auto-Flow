@@ -86,7 +86,11 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val f = SubtitlesFixture(lines, durationMs, "Kung Fu Panda 4", scope, dub = true)
         val script = DubScriptModel(f.session, f.fs)
-        val export = DubExportModel(f.session, f.fs, io.github.alalkipgen.autoflow.ui.media.MediaTasks(DubExportModelTest.Queue(), scope), scope)
+        /** The export's stand-in queue (PR 6: its states drive the job / done / stopped shots); [share] = a phone's file sharing. */
+        val queue = DubExportModelTest.Queue()
+        var share: io.github.alalkipgen.autoflow.platform.FileShare? = null
+        var tasksOn = true
+        val export by lazy { DubExportModel(f.session, f.fs, io.github.alalkipgen.autoflow.ui.media.MediaTasks(queue.takeIf { tasksOn }, scope), scope, share = share) }
         /** The stand-in decoder: a sunset picture (no VLC in the shots), paused at the seek; [failed] = it cannot play here. */
         var failed = false
         val player: io.github.alalkipgen.autoflow.ui.subtitles.SubtitlePlayer = { _, req, m, report ->
@@ -195,7 +199,7 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
 
     /** One shot of the Dubbing screen after [prep] and [open] (e.g. a step tab); phone at [HEIGHT], desktop 1440 × 900. */
     private fun shot(name: String, desktop: Boolean = false, durationMs: Long = DURATION, lines: List<Line> = lines(),
-        prep: Demo.() -> Unit = {}, crop: String? = null, only: String? = null, landscape: Boolean = false, margin: Int = 8, tall: Int = 2,
+        prep: Demo.() -> Unit = {}, crop: String? = null, only: String? = null, until: String? = null, landscape: Boolean = false, margin: Int = 8, tall: Int = 2,
         open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         val width = if (desktop) 1440 else WIDTH
@@ -208,9 +212,13 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
                 d.prep()
                 setContent(screen(d, w, scale)); waitForIdle(); open(); waitForIdle()
                 val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
-                if (only != null) {
-                    // Only the [only] node with 8 dp around it, the full width (e.g. the preview card).
-                    val box = onNodeWithTag(only).fetchSemanticsNode().boundsInRoot
+                // [only] may name alternatives ("a|b": the first one on screen, e.g. a tag the before code did not have).
+                val tag = only?.split('|')?.firstOrNull { onAllNodesWithTag(it).fetchSemanticsNodes().isNotEmpty() }
+                if (only != null && tag == null) write(name, image)
+                else if (tag != null) {
+                    // Only the [only] node with 8 dp around it, the full width (e.g. the preview card); [until] = down to that node.
+                    val box = onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.let { b ->
+                        until?.let { u -> onAllNodesWithTag(u).fetchSemanticsNodes().firstOrNull()?.boundsInRoot }?.let { b.copy(bottom = it.bottom) } ?: b }
                     val top = (box.top - margin * scale).toInt().coerceAtLeast(0)
                     write(name, image.getSubimage(0, top, image.width, ((box.bottom + margin * scale).toInt().coerceAtMost(image.height)) - top))
                 } else if (crop == null) write(name, image) else {
@@ -369,5 +377,85 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("08-sticky-speak", prep = lines, only = "sticky-action-bar")
         shot("08-sticky-done", prep = { withVoice = true; approve(); voices(all = true, lock = NILAR, tone = "calm") }, only = "sticky-action-bar")
         if (font == 1f) shot("12-desktop-voice-lines", desktop = true, prep = lines) { toVoiceIf("filters") }
+    }
+
+    /** Scroll the Export step to [tag] (when it is there). */
+    private fun ComposeUiTest.toExport(tag: String) { runCatching { onNodeWithTag(tag).performScrollTo() }; waitForIdle() }
+
+    /** The export's steps up to the last one done, then the last one [state] (null = done too). */
+    private fun Demo.through(last: io.github.alalkipgen.autoflow.media.render.RenderState?) {
+        val doc = script.state.value.doc ?: run { script.open(); script.state.value.doc!! }
+        export.start(doc)
+        while (true) {
+            val i = queue.jobs.size - 1
+            val final = queue.task(i).kind == io.github.alalkipgen.autoflow.media.audio.DubMixer.EXPORT
+            if (final && last != null) { queue.states.getValue("job${i + 1}").value = last; return }
+            queue.done(i)
+            if (final) return
+        }
+    }
+
+    /**
+     * PR 6 (G, sample 07 / 08 / 12c): the Export step — ready (3/3) with Burmese subtitles and the .wav on, not ready (1/3)
+     * with Go to and the sticky's reason, the job card (mixing / queued / making the video), done on a phone and the
+     * desktop, stopped (cancelled / an error), the options with subtitles off and the original muted, the notices; desktop.
+     */
+    @Test fun export() {
+        val ready: Demo.() -> Unit = { approve(); voices(all = true, lock = NILAR, tone = "calm"); export.setBurn(true); export.setWav(true) }
+        // The runs: no burned subtitles (the shots have no Burmese font file, so a burn stops with its notice).
+        val go: Demo.() -> Unit = { approve(); voices(all = true, lock = NILAR, tone = "calm"); export.setWav(true) }
+        val toExport: ComposeUiTest.() -> Unit = { click("dub-step-EXPORT") }
+        shot("07-export", prep = ready) { toExport(); toExport("dub-export-checks") }
+        shot("07-export-checks", prep = ready, only = "dub-export-checks|dub-export-options") { toExport(); toExport("dub-export-checks") }
+        shot("07-export-options", prep = ready, only = "dub-export-options", tall = 3) { toExport(); toExport("dub-export-options") }
+        shot("08-not-ready", prep = { approve(); voices(lock = NILAR, tone = "calm") }) { toExport(); toExport("dub-export-checks") }
+        shot("08-not-ready-checks", prep = { approve(); voices(lock = NILAR, tone = "calm") }, only = "dub-export-checks|dub-export-blocks", tall = 3) {
+            toExport(); toExport("dub-export-blocks")
+        }
+        shot("08-sticky-reason", prep = { approve(); voices(lock = NILAR, tone = "calm") }, only = "sticky-action-bar") { toExport() }
+        val mixing = io.github.alalkipgen.autoflow.media.render.RenderState.Running(.46, null)
+        shot("08-job-mixing", prep = { go(this); export.start(script.state.value.doc!!); queue.states.getValue("job1").value = mixing },
+            only = "dub-export-job") { toExport(); toExport("dub-export-job") }
+        shot("08-job-queued", prep = { go(this); through(io.github.alalkipgen.autoflow.media.render.RenderState.Queued) }, only = "dub-export-job") {
+            toExport(); toExport("dub-export-job")
+        }
+        shot("08-job-making", prep = { go(this); through(io.github.alalkipgen.autoflow.media.render.RenderState.Running(.72, null)) }, only = "dub-export-job") {
+            toExport(); toExport("dub-export-job")
+        }
+        shot("08-sticky-busy", prep = { go(this); through(io.github.alalkipgen.autoflow.media.render.RenderState.Running(.72, null)) }, only = "sticky-action-bar") {
+            toExport()
+        }
+        val phone = object : io.github.alalkipgen.autoflow.platform.FileShare {
+            override val sharesFiles = true
+            override fun open(path: String, mime: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+            override fun share(path: String, mime: String, title: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+            override suspend fun saveToGallery(path: String, mime: String, displayName: String) =
+                io.github.alalkipgen.autoflow.platform.PlatformResult.Ok("Movies/AutoFlow/$displayName")
+            override fun openFolder(path: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+        }
+        shot("08-done-phone", prep = { share = phone; go(this); through(null) }, only = "dub-export-done", until = "dub-export-play", margin = 40) {
+            toExport(); toExport("dub-export-play"); toExport("dub-export-done")
+        }
+        shot("08-done-desktop", prep = { go(this); through(null) }, only = "dub-export-done", until = "dub-export-play", margin = 40) {
+            toExport(); toExport("dub-export-play"); toExport("dub-export-done")
+        }
+        shot("08-stopped-cancelled", prep = { go(this); export.start(script.state.value.doc!!); export.cancel() }, only = "dub-export-stopped", margin = 24) {
+            toExport(); toExport("dub-export-stopped")
+        }
+        shot("08-stopped-error", prep = { go(this); through(io.github.alalkipgen.autoflow.media.render.RenderState.Failed("ffmpeg exited with code 1")) },
+            only = "dub-export-stopped", margin = 24) { toExport(); toExport("dub-export-stopped") }
+        shot("08-options-off-mute", prep = { approve(); voices(all = true, lock = NILAR, tone = "calm", mute = true) }, only = "dub-export-options", tall = 3) {
+            toExport(); toExport("dub-export-options")
+        }
+        shot("08-notice-gallery", prep = { share = phone; go(this); through(null) }, only = "dub-export-notice", margin = 24) {
+            toExport(); click("dub-export-gallery"); toExport("dub-export-notice")
+        }
+        shot("08-notice-cannot", prep = { tasksOn = false; approve(); voices(all = true, lock = NILAR, tone = "calm") }, only = "dub-export-notice", margin = 24) {
+            toExport(); click("dub-export-go"); toExport("dub-export-notice")
+        }
+        shot("08-notice-font", prep = { approve(); voices(all = true, lock = NILAR, tone = "calm"); export.setBurn(true) }, only = "dub-export-notice", margin = 24) {
+            toExport(); click("dub-export-go"); toExport("dub-export-notice")
+        }
+        if (font == 1f) shot("12c-desktop-export", desktop = true, prep = ready) { toExport() }
     }
 }

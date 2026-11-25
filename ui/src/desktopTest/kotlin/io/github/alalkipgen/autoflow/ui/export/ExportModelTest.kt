@@ -203,11 +203,11 @@ class ExportModelTest {
         m.saveToGallery()
         runCurrent()
         assertEquals("gallery $dir/exports/export.mp4 Rain-export-job1.mp4", share.calls.last())
-        assertEquals("Saved to Gallery ✓ · Movies/AutoFlow/Rain-export-job1.mp4", m.state.value.message)
+        assertEquals("Saved to Gallery · Movies/AutoFlow/Rain-export-job1.mp4", m.state.value.message)
         assertTrue(m.state.value.messageOk)
         val notice = assertNotNull(m.state.value.notice)
         assertEquals(m.state.value.message, notice.text(UiLanguage.ENGLISH))
-        assertEquals("Gallery ထဲ သိမ်းပြီး ✓ · Movies/AutoFlow/Rain-export-job1.mp4", notice.text(UiLanguage.BURMESE))
+        assertEquals("Gallery ထဲ သိမ်းပြီး · Movies/AutoFlow/Rain-export-job1.mp4", notice.text(UiLanguage.BURMESE))
         assertFalse(m.state.value.savingToGallery)
 
         m.refresh()

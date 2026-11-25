@@ -416,14 +416,20 @@ fun GlassChoiceRow(label: String, selected: Boolean, onClick: () -> Unit, modifi
     }
 }
 
-/** A switch row (min 52, padding 6 × 12): [label] (body; [mono] for raw keys) and the 46 × 28 glass switch; the whole row toggles. */
+/**
+ * A switch row (min 52, padding 6 × 12): [label] (body; [mono] for raw keys) and the 46 × 28 glass switch; the whole row toggles.
+ * [icon] = a 20 dp Muted line icon before the label (Dubbing Export options); [enabled] = false dims it and stops the toggle.
+ */
 @Composable
-fun GlassSwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, mono: Boolean = false) {
+fun GlassSwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, mono: Boolean = false,
+    icon: ImageVector? = null, enabled: Boolean = true) {
     val interaction = remember { MutableInteractionSource() }
     Row(modifier.fillMaxWidth().heightIn(min = GlassShapes.OptionRowMin)
-        .toggleable(checked, interaction, null, role = Role.Switch, onValueChange = onChange).interactionOverlay(interaction, RectangleShape)
+        .toggleable(checked, interaction, null, enabled = enabled, role = Role.Switch, onValueChange = onChange).interactionOverlay(interaction, RectangleShape)
+        .then(if (enabled) Modifier else Modifier.alpha(.4f))
         .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        icon?.let { AfIcon(it, tint = AutoFlowColors.Muted, size = 20.dp) }
         AfText(label, Modifier.weight(1f), type = if (mono) null else AfType.Body, mono = mono)
         GlassSwitch(checked)
     }

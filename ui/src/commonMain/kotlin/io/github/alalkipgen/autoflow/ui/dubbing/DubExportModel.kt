@@ -30,6 +30,7 @@ import io.github.alalkipgen.autoflow.media.render.Overlay
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.export.RecapFrames
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.media.MediaTaskRun
@@ -71,6 +72,8 @@ class DubExportModel(
     private val config: ToolsConfig = ToolsConfig(),
     private val share: FileShare? = null,
     private val lexicon: () -> Lexicon = { Lexicon.EMPTY },
+    /** The owner's UI language: the Jobs title of each step is written in it (§8.2), not always in English. */
+    private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
     private val _state = MutableStateFlow(DubExportUi())
     val state: StateFlow<DubExportUi> = _state.asStateFlow()
@@ -80,6 +83,9 @@ class DubExportModel(
     fun check(open: OpenProject?, doc: SubtitleDoc): DubExportCheck? = open?.project?.subtitles?.video?.let {
         DubExport.check(open.project.dubbing, doc, it.durationMs, config.dubbing.minGapMs, config.dubbing.maxVoiceSpeed, lexicon())
     }
+
+    /** The lines that have something to say (as [check] counts them): "All 40 lines have a voice" on the checklist. */
+    fun spokenLines(doc: SubtitleDoc): Int = lexicon().let { lex -> doc.cues.count { io.github.alalkipgen.autoflow.core.dubbing.DubRules.sayText(it, lex).isNotEmpty() } }
 
     /** Burmese subtitles on the video: saved in the project (`burnSubtitles`). */
     fun setBurn(on: Boolean) {
@@ -172,7 +178,7 @@ class DubExportModel(
         val open = session.open ?: return null
         val video = open.project.subtitles?.video ?: return null
         val tool = open.project.dubbing ?: return null
-        if (!tasks.available) return say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to "This app cannot make videos here."))
+        if (!tasks.available) return say(open.dir, UiNotice(UiText.V3_DUB_CANNOT_MAKE)) // §8.1: in the owner's language
         val lines = DubExport.lines(tool, doc, video.durationMs, config.dubbing.minGapMs, config.dubbing.maxVoiceSpeed, lexicon())
             ?: return say(open.dir, UiNotice(UiText.DUB_EXPORT_NOT_READY))
         val store = session.artifacts() ?: return null
@@ -198,7 +204,8 @@ class DubExportModel(
             voice = keep?.let { MediaTaskJob.absolute(open.dir, it.output) }, busy = true, size = kept?.size ?: BurnSize.MEDIUM, fit = kept?.fit)
         return scope.launch {
             for (t in all) {
-                val title = "${open.project.name} · ${(if (t.kind == DubMixer.EXPORT) UiText.DUB_EXPORT_MAKING else UiText.DUB_EXPORT_MIXING).en}"
+                // §8.2: the Jobs / notification title in the owner's language (was always `.en`).
+                val title = "${open.project.name} · ${(if (t.kind == DubMixer.EXPORT) UiText.DUB_EXPORT_MAKING else UiText.DUB_EXPORT_MIXING).text(uiLanguage())}"
                 val run = tasks.start(t, open.dir, title, DUBBING_SCREEN) ?: break
                 _state.update { it.copy(runs = it.runs + run.id) }
                 val end = tasks.runs.first { l -> l.firstOrNull { it.id == run.id }?.state?.finished == true }.first { it.id == run.id }.state

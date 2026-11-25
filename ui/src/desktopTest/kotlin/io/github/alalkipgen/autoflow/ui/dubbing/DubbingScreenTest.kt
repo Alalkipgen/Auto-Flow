@@ -337,7 +337,7 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-play").performScrollTo().assertIsDisplayed()
                     onNodeWithTag("dub-export-original").performScrollTo()
                     onNodeWithTag("dub-export-blocks").assertDoesNotExist()
-                    onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.DUB_LOWER.text(language)))
+                    onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.V3_DUB_LOWER.text(language, "percent" to 15)))
                     onNodeWithTag("dub-burn-lines-1").assertDoesNotExist()
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isNotEmpty() }

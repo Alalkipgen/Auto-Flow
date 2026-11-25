@@ -541,7 +541,7 @@ class ExportModel(
         scope.launch {
             val r = fs.saveToGallery(file, MP4, galleryName(_state.value.projectName ?: "AutoFlow", run))
             _state.value = when (r) {
-                is PlatformResult.Ok -> _state.value.copy(savingToGallery = false, message = "Saved to Gallery ✓ · ${r.value}", notice = UiNotice(UiText.EXPORT_GALLERY_SAVED, "path" to r.value), messageOk = true)
+                is PlatformResult.Ok -> _state.value.copy(savingToGallery = false, message = UiText.EXPORT_GALLERY_SAVED.en.replace("{path}", r.value), notice = UiNotice(UiText.EXPORT_GALLERY_SAVED, "path" to r.value), messageOk = true)
                 is PlatformResult.Failed -> _state.value.copy(savingToGallery = false, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason), messageOk = false)
                 is PlatformResult.Unsupported -> _state.value.copy(savingToGallery = false, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason), messageOk = false)
             }
