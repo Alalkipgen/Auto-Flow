@@ -203,13 +203,14 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-step-VOICE").assert(chosen) // approved → lands on Voice
                     onNodeWithTag("dub-voice-rows").performScrollToKey("c1")
                     onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_NO_VOICE.text(language)))
-                    onNodeWithTag("dub-voice-rows").performScrollToKey("settings")
+                    // Desktop (Group 4 H): the voice card and Speak are on the right pane, not in the lines list.
+                    if (width < 840) onNodeWithTag("dub-voice-rows").performScrollToKey("settings")
                     onNodeWithTag("dub-voice-Kore").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.lock?.voice == "Kore" }
                     onNodeWithTag("dub-original-mute").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.original.mode == "mute" }
                     onNodeWithTag("dub-speak").assertIsEnabled().performMouseInput { click() }
-                    onNodeWithTag("dub-voice-rows").performScrollToKey("speak")
+                    if (width < 840) onNodeWithTag("dub-voice-rows").performScrollToKey("speak")
                     onNodeWithTag("dub-speak-confirm").assertIsDisplayed()
                     onNodeWithTag("dub-speak-start").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 10_000) { current.state.value!!.project.dubbing!!.takes.size == 2 }
@@ -218,6 +219,8 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_FITS.text(language)))
                     onNodeWithTag("dub-voice-rows").performScrollToKey("c2")
                     onNodeWithTag("dub-fit-c2").assertTextEquals(My.breakSyllables(UiText.DUB_USES_PAUSE.text(language)))
+                    // Desktop: the selected line opens in place with Speak this line again.
+                    if (width >= 840) onNodeWithTag("dub-voice-head-c2").performMouseInput { click() }
                     onNodeWithTag("dub-redo-c2").assertIsEnabled()
                     onNodeWithTag("dub-go-export").assertIsDisplayed()
                     assertEquals(emptyList(), textFitProblems(width, font))

@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
  * or Open folder (desktop), and the sticky Make the dubbed video with its reason while a check fails.
  */
 @Composable
-internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: SubtitleDoc, go: (DubStep) -> Unit,
+internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: SubtitleDoc, go: (DubStep) -> Unit, wide: Boolean = false,
     preview: @Composable () -> Unit = {}) {
     val all by model.state.collectAsState()
     val runs by model.runs.collectAsState()
@@ -51,10 +51,10 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
     val spoken = remember(doc) { model.spokenLines(doc) }
     val run = remember(runs, s.runs) { model.current() }
     val tool = open?.project?.dubbing
-    Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().weight(1f).paneScroll(rememberScrollState()).padding(screenPadding).testTag("dub-export"),
+    // Desktop (Group 4 H, sample 12c): the checklist, options and package on the left; the preview and the job / done card on the right.
+    val left = @Composable { modifier: Modifier -> Column(modifier.paneScroll(rememberScrollState()).padding(screenPadding).testTag("dub-export"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            preview() // F-6: scrolls with the step
+            if (!wide) preview() // F-6: scrolls with the step
             if (check != null) Checklist(check, spoken, go)
             TileCard(My.breakSyllables(tr(UiText.DUB_STEP_EXPORT)), CardTile(AfIcons.Fill.SlidersHorizontal, AutoFlowColors.Purple),
                 Modifier.testTag("dub-export-options")) {
@@ -80,7 +80,7 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                     icon = AfIcons.Regular.FileAudio, enabled = !s.busy)
                 GlassFact(AfIcons.Regular.Info, My.breakSyllables(tr(UiText.DUB_EXPORT_KEEPS)), colour = AutoFlowColors.Muted, caption = true)
             }
-            if (run != null) Progress(model, s, run.kind, run.state)
+            if (run != null && !wide) Progress(model, s, run.kind, run.state)
             // F-7 (D-96): this export's choices and script in a render package, to render it elsewhere.
             RenderPackageCard({
                 val fit = model.fit(open)
@@ -92,7 +92,13 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                 GlassCallout(if (s.ok) AfIcons.Fill.CheckCircle else AfIcons.Fill.Warn, My.breakSyllables(it.text(LocalUiLanguage.current)), tone,
                     textModifier = Modifier.testTag("dub-export-notice"))
             }
-        }
+        } }
+    Column(if (wide) Modifier.fillMaxSize() else Modifier.widthIn(max = 900.dp).fillMaxSize()) {
+        if (wide) DubPanes({ left(Modifier.fillMaxSize()) }, {
+            preview()
+            if (run != null) Progress(model, s, run.kind, run.state)
+        }, Modifier.weight(1f))
+        else left(Modifier.fillMaxWidth().weight(1f))
         val blocked = check != null && !check.ok
         StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_EXPORT_GO)), { model.start(doc) }, enabled = check?.ok == true && !s.busy,
             tag = "dub-export-go", icon = AfIcons.Regular.Export), glass = true,

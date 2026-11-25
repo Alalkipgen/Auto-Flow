@@ -52,7 +52,7 @@ import io.github.alalkipgen.autoflow.ui.subtitles.Playhead
 private val TONES = listOf("calm" to UiText.VA_TONE_CALM, "lively" to UiText.VA_TONE_LIVELY, "news" to UiText.VA_TONE_NEWS,
     "story" to UiText.VA_TONE_STORY)
 
-private fun sec(ms: Long) = ((ms + 99) / 100) / 10.0
+internal fun sec(ms: Long) = ((ms + 99) / 100) / 10.0
 
 /** The Voice step's line filters (Group 4 F 7): To fix = too long; No voice = no take or an old one; Done = the rest. */
 internal enum class DubLineFilter(val tag: String) {
@@ -75,7 +75,7 @@ internal enum class DubLineFilter(val tag: String) {
 @Composable
 internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, toExport: () -> Unit,
     shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}, playhead: Playhead? = null,
-    export: DubExportModel? = null, editLine: (String) -> Unit = {}, preview: @Composable () -> Unit = {}) {
+    export: DubExportModel? = null, editLine: (String) -> Unit = {}, wide: Boolean = false, preview: @Composable () -> Unit = {}) {
     val all by model.state.collectAsState()
     val jobs by model.jobs.collectAsState()
     val dir = open?.dir
@@ -93,13 +93,18 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
     val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val shortenOn = shorten != null && script != null && dir != null
-    Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("dub-voice-rows"), state = list, contentPadding = PaddingValues(screenPadding),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // F-6: the preview scrolls with the step, so a phone with a large font keeps room for the controls.
-            item(key = "preview") { preview() }
-            item(key = "settings") { Settings(model, open, idle) }
-            item(key = "speak") { Speak(model, s, job) }
+    // Desktop (Group 4 H): the selected line opens in place and its waveform shows on the right; at first the first too-long line.
+    var selected by remember(dir) { mutableStateOf<String?>(null) }
+    val chosen = if (!wide) null else selected?.let { id -> rows.firstOrNull { it.id == id } }
+        ?: rows.firstOrNull { it.fit?.kind == DubFitKind.TOO_LONG } ?: rows.firstOrNull()
+    val lines = @Composable { modifier: Modifier -> LazyColumn(modifier.testTag("dub-voice-rows"), state = list, contentPadding = PaddingValues(screenPadding),
+            verticalArrangement = Arrangement.spacedBy(if (wide) 8.dp else 12.dp)) {
+            // F-6: the preview scrolls with the step, so a phone with a large font keeps room for the controls (desktop: on the right).
+            if (!wide) {
+                item(key = "preview") { preview() }
+                item(key = "settings") { Settings(model, open, idle) }
+                item(key = "speak") { Speak(model, s, job) }
+            }
             if (shortenOn) item(key = "shorten") { Shorten(shorten!!, script!!, dir!!, rows, doc, idle, toScript) }
             item(key = "filters") {
                 val items = DubLineFilter.entries.map { f ->
@@ -122,14 +127,26 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
                 }
             }
             items(shown, key = { it.id }) { r ->
-                LineRow(model, r, idle, playing == r.id, { playing = if (playing == r.id) null else r.id }, r.n == playingN,
-                    playhead?.let { p -> { p.seek(r.startMs) } }, { editLine(r.id) },
-                    if (shortenOn) ({
-                        shorten!!.ask(dir!!, rows, doc)
-                        scope.launch { list.animateScrollToItem(3) } // preview, settings, speak, shorten
-                    }) else null, shortenOn && shorten!!.available)
+                val ask: (() -> Unit)? = if (shortenOn) ({
+                    shorten!!.ask(dir!!, rows, doc)
+                    scope.launch { list.animateScrollToItem(if (wide) 0 else 3) } // (preview, settings, speak,) shorten
+                    Unit
+                }) else null
+                if (wide) DeskLineRow(model, r, r.id == chosen?.id, { selected = r.id; playhead?.seek(r.startMs) }, idle, playing == r.id,
+                    { playing = if (playing == r.id) null else r.id }, r.n == playingN, { editLine(r.id) }, ask, shortenOn && shorten!!.available)
+                else LineRow(model, r, idle, playing == r.id, { playing = if (playing == r.id) null else r.id }, r.n == playingN,
+                    playhead?.let { p -> { p.seek(r.startMs) } }, { editLine(r.id) }, ask, shortenOn && shorten!!.available)
             }
         }
+    }
+    Column(if (wide) Modifier.fillMaxSize() else Modifier.widthIn(max = 900.dp).fillMaxSize()) {
+        if (wide) DubPanes({ lines(Modifier.fillMaxSize()) }, {
+            preview()
+            chosen?.let { r -> LineWaveCard(r, remember(r.take?.au) { r.take?.let { model.takePeaks(it.au) } }) }
+            Settings(model, open, idle)
+            Speak(model, s, job)
+        }, Modifier.weight(1f))
+        else lines(Modifier.fillMaxWidth().weight(1f))
         val n = rows.count { it.spoken.isNotEmpty() }
         if (missing > 0 || !idle) StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_SPEAK_LINES, "n" to missing)), { model.ask() },
             enabled = idle && missing > 0 && s.confirm == null, tag = "dub-speak", icon = AfIcons.Regular.Dub),
@@ -192,6 +209,61 @@ private fun LineRow(model: DubVoiceModel, r: DubVoiceRow, idle: Boolean, playing
     }
 }
 
+/**
+ * One line on the desktop (Group 4 H, sample 12): a table row — "#n", the start time (mono), the spoken line with the source
+ * line under it (muted 12 sp), the take's length, the fit pill and Play; the head selects the line and seeks the preview
+ * there. The [selected] line opens in place: its spoken line (read-only here; Edit line opens Dub script), the room, and
+ * Edit line · Shorten (too long) · Speak this line again.
+ */
+@Composable
+private fun DeskLineRow(model: DubVoiceModel, r: DubVoiceRow, selected: Boolean, select: () -> Unit, idle: Boolean, playing: Boolean,
+    toggle: () -> Unit, playingLine: Boolean, editLine: () -> Unit, shorten: (() -> Unit)?, canShorten: Boolean) {
+    val take = r.take
+    val long = r.fit?.kind == DubFitKind.TOO_LONG
+    GlassCard(Modifier.testTag("dub-voice-row-${r.id}"), padding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), gap = 8.dp,
+        selected = selected && !long, attention = if (long) io.github.alalkipgen.autoflow.ui.theme.Tone.Warning else null,
+        outline = when {
+            long && selected -> AutoFlowColors.Amber
+            playingLine -> GlassColors.PlayingOutline
+            long -> AutoFlowColors.Amber.copy(alpha = .45f)
+            else -> null
+        }) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.weight(1f).heightIn(min = io.github.alalkipgen.autoflow.ui.theme.AfSize.Touch).testTag("dub-voice-head-${r.id}")
+                .pointerInput(select) { detectTapGestures { select() } }.semantics { role = Role.Button; onClick { select(); true } }
+                .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AfText("#${r.n}", Modifier.widthIn(min = 40.dp), size = 14.sp, bold = true)
+                AfText(TimeText.show(r.startMs), Modifier.widthIn(min = 56.dp), muted = true, mono = true, size = 13.sp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    AfText(My.breakSyllables(r.spoken), size = 15.sp)
+                    if (r.source.isNotBlank()) AfText(r.source, muted = true, size = 12.sp)
+                }
+            }
+            take?.let { AfText(My.breakSyllables(tr(UiText.DUB_TAKE, "s" to sec(it.ms))), Modifier.testTag("dub-take-${r.id}"), muted = true, size = 12.sp) }
+            FitPill(r, Modifier.testTag("dub-fit-${r.id}"))
+            Box(Modifier.size(io.github.alalkipgen.autoflow.ui.theme.AfSize.Touch), contentAlignment = Alignment.Center) {
+                take?.let { t -> model.takePath(t.au)?.let { AudioPlayButton(it, playing, toggle, glass = true, glassIcon = AfIcons.Fill.Play) } }
+            }
+        }
+        if (selected) {
+            val box = RoundedCornerShape(12.dp)
+            Box(Modifier.fillMaxWidth().clip(box).background(Color.White.copy(alpha = .04f)).border(1.dp, Color.White.copy(alpha = .08f), box)
+                .padding(horizontal = 14.dp, vertical = 10.dp)) { AfText(My.breakSyllables(r.spoken), size = 15.sp) }
+            WrapRow(spacing = 12.dp) {
+                Fact(AfIcons.Regular.Timer, tr(UiText.DUB_SLOT, "s" to (r.slotMs / 100) / 10.0), Modifier.testTag("dub-voice-slot-${r.id}"))
+            }
+            WrapRow(Modifier.padding(bottom = 8.dp)) {
+                if (long) GlassButton(My.breakSyllables(tr(UiText.SUB_EDIT_LINE)), editLine, Modifier.testTag("dub-edit-line-${r.id}"),
+                    icon = AfIcons.Regular.Edit, small = true)
+                if (long) shorten?.let { GlassButton(My.breakSyllables(tr(UiText.DUB_SHORTEN)), it, Modifier.testTag("dub-row-shorten-${r.id}"),
+                    icon = AfIcons.Regular.Spark, small = true, enabled = idle && canShorten) }
+                if (take != null || r.old) GlassButton(My.breakSyllables(tr(UiText.DUB_REDO_LINE)), { model.ask(setOf(r.id)) }, Modifier.testTag("dub-redo-${r.id}"),
+                    icon = AfIcons.Regular.Redo, small = true, enabled = idle)
+            }
+        }
+    }
+}
+
 @Composable
 private fun Fact(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, modifier: Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -205,7 +277,7 @@ private fun Fact(icon: androidx.compose.ui.graphics.vector.ImageVector, text: St
  * No voice / Script changed Muted. One node for tests and screen readers (the text is the pill's).
  */
 @Composable
-private fun FitPill(r: DubVoiceRow, modifier: Modifier) {
+internal fun FitPill(r: DubVoiceRow, modifier: Modifier) {
     val fit = r.fit
     val (icon, tone, text) = when {
         r.take == null || fit == null -> if (r.old) Triple(AfIcons.Regular.NotePencil, AutoFlowColors.Muted, tr(UiText.V3_SCRIPT_CHANGED))

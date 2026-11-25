@@ -345,7 +345,7 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("05-notice-amber", prep = { withVoice = true; approve(); voices(lock = NILAR, tone = "calm"); job(AiJobState.RUNNING, 15)
             voice.ask(); jobs.value = emptyList() }, only = "dub-speak-notice", margin = 24) { toVoice("speak") }
         shot("06a-dialog", prep = nilar) { toVoice("speak"); click("dub-speak") }
-        if (font == 1f) shot("12-desktop-voice", desktop = true, prep = nilar) { toVoice("settings") }
+        if (font == 1f) shot("12-desktop-voice", desktop = true, prep = nilar) { toVoiceIf("settings") }
     }
 
     /** Scroll the Voice list to [key] when it is there (the before shots have no filters). */
@@ -457,5 +457,22 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
             toExport(); click("dub-export-go"); toExport("dub-export-notice")
         }
         if (font == 1f) shot("12c-desktop-export", desktop = true, prep = ready) { toExport() }
+    }
+
+    /**
+     * PR 7 (H, samples 12 / 12b / 12c): the desktop two panes at 1440 × 900 — Voice (lines with the source line, the selected
+     * line open, its waveform card, the voice card), Dub script (cards with the two fields side by side, the selected line's
+     * facts), Export (checklist and options; the preview and the done card on the right).
+     */
+    @Test fun desktop() {
+        if (font != 1f) return
+        val lines: Demo.() -> Unit = { withVoice = true; speedUp = true; approve(); voices(lock = NILAR, tone = "calm", variety = true) }
+        shot("12-desktop-voice-panes", desktop = true, prep = lines) { click("dub-step-VOICE") }
+        shot("12-desktop-voice-selected", desktop = true, prep = lines) { click("dub-step-VOICE"); toVoiceIf("c21"); clickIf("dub-voice-head-c21"); toVoiceIf("c21") }
+        shot("12b-desktop-script-panes", desktop = true, prep = lines) { click("dub-step-SCRIPT"); toLine("c21"); clickIf("dub-row-head-c21"); toLine("c21") }
+        val go: Demo.() -> Unit = { approve(); voices(all = true, lock = NILAR, tone = "calm"); export.setWav(true) }
+        shot("12c-desktop-export-panes", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-EXPORT") }
+        shot("12c-desktop-export-done", desktop = true, prep = { go(this); through(null) }) { click("dub-step-EXPORT") }
+        shot("12c-desktop-export-blocked", desktop = true, prep = { approve(); voices(lock = NILAR, tone = "calm") }) { click("dub-step-EXPORT") }
     }
 }
