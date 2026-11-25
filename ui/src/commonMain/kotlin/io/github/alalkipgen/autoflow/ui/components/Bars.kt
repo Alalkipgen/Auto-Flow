@@ -222,15 +222,17 @@ private fun NumberedSteps(texts: List<String>, current: Int, tab: @Composable (I
 @Composable
 internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (@Composable (Modifier) -> Unit)?,
     hint: String?, leading: (@Composable () -> Unit)?, keys: (@Composable () -> Unit)? = null, hintIcon: ImageVector? = null,
-    hintColour: Color? = null) {
+    hintColour: Color? = null, hintTag: String? = null) {
     // [hintIcon] (15 dp, before the hint) and [hintColour] (default Muted): e.g. Dubbing's approved caption (green check-circle).
+    // [hintTag] = the hint text's test tag.
+    val tag = hintTag?.let { Modifier.testTag(it) } ?: Modifier
     val hintText = @Composable { text: String, centred: Boolean ->
-        if (hintIcon == null) AfText(text, if (centred) Modifier.fillMaxWidth() else Modifier, color = hintColour ?: AutoFlowColors.Muted,
+        if (hintIcon == null) AfText(text, (if (centred) Modifier.fillMaxWidth() else Modifier).then(tag), color = hintColour ?: AutoFlowColors.Muted,
             type = AfType.Caption, textAlign = if (centred) TextAlign.Center else null)
         else Row(if (centred) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.spacedBy(6.dp,
             if (centred) Alignment.CenterHorizontally else Alignment.Start), verticalAlignment = Alignment.CenterVertically) {
             AfIcon(hintIcon, tint = hintColour ?: AutoFlowColors.Muted, size = 15.dp)
-            AfText(text, Modifier.weight(1f, fill = false), color = hintColour ?: AutoFlowColors.Muted, type = AfType.Caption,
+            AfText(text, Modifier.weight(1f, fill = false).then(tag), color = hintColour ?: AutoFlowColors.Muted, type = AfType.Caption,
                 textAlign = if (centred) TextAlign.Center else null)
         }
     }

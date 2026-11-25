@@ -16,6 +16,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +78,8 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
     // Landing on Dub script or Voice stays put (Approve does not move the owner away); Video → Translate still follows the lines.
     LaunchedEffect(open?.dir, doc != null) { if (step == null && doc != null && shown >= DubStep.SCRIPT) step = shown }
     var leaving by remember { mutableStateOf(false) }
+    // 🆕-5: Voice's Edit line opens Dub script at that line with its field focused (then cleared).
+    var focusLine by remember(open?.dir) { mutableStateOf<String?>(null) }
     // F-6 (D-95): one preview clock for Dub script, Voice and Export; a step change pauses it where it is.
     val playhead = remember(open?.dir) { Playhead() }
     LaunchedEffect(shown) { playhead.playing = false; playhead.seek(playhead.positionMs) }
@@ -99,13 +104,14 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                 DubStep.SCRIPT -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.script != null -> Lock(block(gates.script, gates, script), target(gates.script), go)
-                    doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok, playhead, export) { preview(true) }
+                    doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok, playhead, export, focusLine,
+                        { focusLine = null }) { preview(true) }
                 }
                 DubStep.VOICE -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
                     voice != null && doc != null -> VoiceStep(voice, open, doc, { step = DubStep.EXPORT }, shorten, script,
-                        { step = DubStep.SCRIPT }) { preview(true) }
+                        { step = DubStep.SCRIPT }, playhead, export, { focusLine = it; step = DubStep.SCRIPT }) { preview(true) }
                     else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
                         PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-VOICE"))
                     }
@@ -179,8 +185,12 @@ private fun Lock(why: String, to: DubStep? = null, go: (DubStep) -> Unit = {}, t
 @Composable
 private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui.projects.OpenProject?,
     doc: io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc, approved: Boolean, notice: UiNotice?, ok: Boolean,
-    playhead: Playhead? = null, export: DubExportModel? = null, preview: @Composable () -> Unit = {}) {
+    playhead: Playhead? = null, export: DubExportModel? = null, focus: String? = null, focused: () -> Unit = {},
+    preview: @Composable () -> Unit = {}) {
     val rows = remember(open?.project?.subtitles?.video, doc) { model.rows(open, doc) }
+    val list = rememberLazyListState()
+    // 🆕-5: scroll the line asked for into view (item 0 is the preview); its row then focuses the field.
+    LaunchedEffect(focus) { rows.indexOfFirst { it.id == focus }.takeIf { it >= 0 }?.let { list.scrollToItem(it + 1) } }
     // 🆕-2: the line under the preview's playhead (the chip's line) gets the playing outline; its head seeks there.
     val ticks = remember(open?.dir, open?.project, doc) { export?.previewTicks(open, doc) }
     val position = playhead?.positionMs
@@ -194,12 +204,12 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
                 if (good) AutoFlowColors.Green else AutoFlowColors.Amber, Modifier.padding(start = screenPadding, end = screenPadding, top = 12.dp),
                 textModifier = Modifier.testTag("dub-notice"))
         }
-        LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("dub-rows"), contentPadding = PaddingValues(screenPadding),
+        LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("dub-rows"), state = list, contentPadding = PaddingValues(screenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(key = "preview") { preview() } // F-6: scrolls with the lines
             items(rows, key = { it.id }) { r ->
                 ScriptRow(r, { model.setSpoken(r.id, it) }, { model.useSubtitle(r.id) }, playing = r.n == playingN,
-                    seek = playhead?.let { p -> { p.seek(r.startMs) } })
+                    seek = playhead?.let { p -> { p.seek(r.startMs) } }, focus = r.id == focus, focused = focused)
             }
         }
         StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_APPROVE)), { model.approve() }, enabled = !approved, tag = "dub-approve",
@@ -216,8 +226,11 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
  * inner box) and the spoken line (a glass field, no placeholder: the label names it). [playing] = the Cyan outline.
  */
 @Composable
-private fun ScriptRow(r: DubScriptRow, save: (String) -> Unit, useSubtitle: () -> Unit, playing: Boolean = false, seek: (() -> Unit)? = null) {
+private fun ScriptRow(r: DubScriptRow, save: (String) -> Unit, useSubtitle: () -> Unit, playing: Boolean = false, seek: (() -> Unit)? = null,
+    focus: Boolean = false, focused: () -> Unit = {}) {
     var text by remember(r.id, r.spoken) { mutableStateOf(r.spoken) }
+    val field = remember { FocusRequester() }
+    LaunchedEffect(focus) { if (focus) { runCatching { field.requestFocus() }; focused() } }
     val compact = LocalCompact.current
     // The head is a 48 dp target from the card's top edge (no top padding then), so it looks like the sample's 12 dp inset.
     GlassCard(Modifier.testTag("dub-row-${r.id}"), padding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp,
@@ -247,7 +260,7 @@ private fun ScriptRow(r: DubScriptRow, save: (String) -> Unit, useSubtitle: () -
             AfText(My.breakSyllables(r.textMy), Modifier.testTag("dub-subtitle-${r.id}"), size = 15.sp)
         }
         AfText(My.breakSyllables(tr(UiText.DUB_SPOKEN)), muted = true, size = 12.sp)
-        AfTextField(text, { text = it }, tr(UiText.DUB_SPOKEN), Modifier.fillMaxWidth().testTag("dub-spoken-${r.id}"), lines = 2, mono = false,
+        AfTextField(text, { text = it }, tr(UiText.DUB_SPOKEN), Modifier.fillMaxWidth().focusRequester(field).testTag("dub-spoken-${r.id}"), lines = 2, mono = false,
             glass = true, showPlaceholder = false)
         val edited = text.trim() != r.spoken
         if (edited || r.own) Row(Modifier.fillMaxWidth(), horizontalArrangement = if (compact) Arrangement.Start else Arrangement.End) {

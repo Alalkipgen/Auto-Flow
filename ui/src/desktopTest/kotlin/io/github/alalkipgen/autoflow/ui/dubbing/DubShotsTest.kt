@@ -109,15 +109,23 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
          * Takes for the lines (the samples' 33 of 40: none for every 6th line and #40; #9 and #21 too long), spoken with
          * one Gemini voice; [all] = every line voiced and none too long.
          */
-        fun voices(all: Boolean = false, lock: io.github.alalkipgen.autoflow.core.recap.VoiceLock = KORE, tone: String? = null, mute: Boolean = false) {
+        fun voices(all: Boolean = false, lock: io.github.alalkipgen.autoflow.core.recap.VoiceLock = KORE, tone: String? = null, mute: Boolean = false,
+            variety: Boolean = false) {
             val open = f.session.open!!
             val art = io.github.alalkipgen.autoflow.core.store.ArtifactStore(f.fs, open.dir)
             val doc = script.state.value.doc ?: run { script.open(); script.state.value.doc!! }
             val takes = doc.cues.withIndex().filter { (i, _) -> all || ((i + 1) % 6 != 0 && i + 1 != 40) }.associate { (i, c) ->
-                val ms = if (!all && (i + 1 == 9 || i + 1 == 21)) 9_000L else (c.endMs - c.startMs - 200).coerceAtLeast(500)
+                val ms = when {
+                    !all && (i + 1 == 9 || i + 1 == 21) -> 9_000L
+                    variety && i + 1 == 2 -> 4_000L // uses the pause after it
+                    variety && i + 1 == 3 -> 7_000L // a little faster (with [speedUp])
+                    else -> (c.endMs - c.startMs - 200).coerceAtLeast(500)
+                }
+                // [variety]: #4's take was spoken before its line changed (another tone), so it is old.
+                val key = if (variety && i + 1 == 4) "calm-old" else tone
                 c.id to io.github.alalkipgen.autoflow.core.model.DubTake(
                     (art.put("RIFF-${c.id}".encodeToByteArray(), io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, "wav") as CoreResult.Ok).value.id,
-                    io.github.alalkipgen.autoflow.core.dubbing.DubRules.takeKey(c, io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY, lock, tone), ms)
+                    io.github.alalkipgen.autoflow.core.dubbing.DubRules.takeKey(c, io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY, lock, key), ms)
             }
             update { it.copy(dubbing = (it.dubbing ?: io.github.alalkipgen.autoflow.core.model.DubbingTool()).copy(lock = lock, tone = tone, takes = takes,
                 original = if (mute) io.github.alalkipgen.autoflow.core.model.DubOriginal(io.github.alalkipgen.autoflow.core.model.DubOriginal.MUTE, 0.0)
@@ -133,9 +141,22 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
             override suspend fun cancel(id: String) = Unit
             override suspend fun refresh() = Unit
         }
+        /** A voice may speak up to 1.2 × faster (the Faster pill); off = the shipped 1.0. */
+        var speedUp = false
         val voice by lazy {
             DubVoiceModel(f.session, DubSpeakJob(f.session, f.fs, io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider()), runner, scope, models = models,
-                edgeVoices = { EDGE })
+                edgeVoices = { EDGE }, config = if (speedUp) io.github.alalkipgen.autoflow.core.config.ToolsConfig(
+                    dubbing = io.github.alalkipgen.autoflow.core.config.ToolsConfig.Dubbing(maxVoiceSpeed = 1.2)) else io.github.alalkipgen.autoflow.core.config.ToolsConfig())
+        }
+        /** Shorten with a stand-in Gemini that offers a shorter #9 and #21 (#21's still a little long). */
+        val shorten by lazy {
+            val gemini = object : io.github.alalkipgen.autoflow.ai.TextProvider {
+                override suspend fun json(prompt: String, schema: io.github.alalkipgen.autoflow.ai.JsonSchema, system: String?) =
+                    io.github.alalkipgen.autoflow.ai.AiResult.Ok(kotlinx.serialization.json.Json.parseToJsonElement(
+                        """{"lines":[{"id":"c9","spokenMy":"ငါ မရွေးချင်ဘူး"},{"id":"c21","spokenMy":"ဒါ နဂါး စစ်သည်ရဲ့ တာဝန်ပဲ၊ ငါတို့ အားလုံး သိတယ်"}]}"""),
+                        io.github.alalkipgen.autoflow.ai.Usage("t"))
+            }
+            DubShortenModel(io.github.alalkipgen.autoflow.ai.dubbing.DubShortener(gemini), scope)
         }
         /** The Speak job of the open project: [left] of 40 lines still to speak. */
         fun job(state: AiJobState, left: Int, error: String? = null) {
@@ -167,7 +188,7 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         Locals(width, scale) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
                 DubbingScreen(d.script, d.f.model, d.f.session, d.f.editor, onBack = {}, player = d.player, translate = d.f.translate, export = d.export,
-                    voice = if (d.withVoice) d.voice else null)
+                    voice = if (d.withVoice) d.voice else null, shorten = if (d.withVoice) d.shorten else null)
             }
         }
     }
@@ -317,5 +338,36 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
             voice.ask(); jobs.value = emptyList() }, only = "dub-speak-notice", margin = 24) { toVoice("speak") }
         shot("06a-dialog", prep = nilar) { toVoice("speak"); click("dub-speak") }
         if (font == 1f) shot("12-desktop-voice", desktop = true, prep = nilar) { toVoice("settings") }
+    }
+
+    /** Scroll the Voice list to [key] when it is there (the before shots have no filters). */
+    private fun ComposeUiTest.toVoiceIf(key: String) { runCatching { onNodeWithTag("dub-voice-rows").performScrollToKey(key) }; waitForIdle() }
+
+    /**
+     * PR 5 (F 6–9, 🆕-2, 🆕-5): the Voice lines — the list with its filters (All / To fix / No voice / Done), each row state
+     * (fits, uses the pause, faster, too long with Edit line + Shorten, no voice, script changed, under the playhead), To fix
+     * chosen, a filter with no lines, Shorten offered and its results, the sticky Speak with its caption and all voiced; desktop.
+     */
+    @Test fun voiceLines() {
+        val lines: Demo.() -> Unit = { withVoice = true; speedUp = true; approve(); voices(lock = NILAR, tone = "calm", variety = true) }
+        shot("07-lines", prep = lines) { toVoiceIf("filters") }
+        // No voice = #12 and the playing line #10, away from #7 / #17 ("အဲဒီ မြို့က အန္တရာယ် များတယ်"): at 2.0 the text layout
+        // breaks that line inside "ရာယ်" (a final consonant; PR 5 body, noticed item — not fixed here).
+        for ((state, id) in listOf("fits" to "c1", "uses-pause" to "c2", "faster" to "c3", "script-changed" to "c4", "no-voice" to "c12", "too-long" to "c9")) {
+            shot("07-row-$state", prep = lines, only = "dub-voice-row-$id") { toVoice(id) }
+        }
+        shot("07-row-playing", prep = lines, only = "dub-voice-row-c10") { seekPreview(68_000); toVoice("c10") }
+        shot("07-filter-fix", prep = lines) { toVoiceIf("filters"); clickIf("dub-filter-fix"); toVoiceIf("filters") }
+        shot("07-filter-empty", prep = { withVoice = true; approve(); voices(all = true, lock = NILAR, tone = "calm") }) {
+            toVoiceIf("filters"); clickIf("dub-filter-fix"); toVoiceIf("filters")
+        }
+        shot("08-shorten-offer", prep = lines, only = "dub-shorten-card") { toVoice("shorten") }
+        shot("08-shorten-results", prep = lines, only = "dub-shorten-card", tall = 3) {
+            toVoice("shorten"); click("dub-shorten"); waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-shorten-row-c9").fetchSemanticsNodes().isNotEmpty() }
+            toVoice("shorten")
+        }
+        shot("08-sticky-speak", prep = lines, only = "sticky-action-bar")
+        shot("08-sticky-done", prep = { withVoice = true; approve(); voices(all = true, lock = NILAR, tone = "calm") }, only = "sticky-action-bar")
+        if (font == 1f) shot("12-desktop-voice-lines", desktop = true, prep = lines) { toVoiceIf("filters") }
     }
 }
