@@ -86,6 +86,8 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
     // Group 4 H: two panes from an 840 dp window (D3); Dub script's two fields side by side from 1200 dp.
     val window = dubWindowWidthDp()
     val wide = window >= DUB_WIDE_DP
+    // 🆕-6: the desktop keys (↑ / ↓ / Enter) and the line chosen in Dub script and Voice.
+    val keys = remember(open?.dir) { DubLineKeys() }
     val preview: @Composable (Boolean) -> Unit = { captions ->
         if (export != null && doc != null) DubPreview(export, open, doc, playhead, player, captions)
     }
@@ -97,7 +99,7 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
             steps = DubStep.entries.map { tr(it.text) }, onStep = { step = DubStep.entries[it] },
             stepTags = DubStep.entries.map { "dub-step-${it.name}" }, glass = true)
         val go: (DubStep) -> Unit = { step = it }
-        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
+        val body = @Composable {
             when (shown) {
                 DubStep.VIDEO -> if (gates.video == DubBlock.TOO_LONG) Lock(block(DubBlock.TOO_LONG, gates, script), tooLong = true) else
                     SubtitlesScreen(subtitles, session, editor, vlcDir = vlcDir, player = player, transcribe = transcribe)
@@ -108,13 +110,13 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.script != null -> Lock(block(gates.script, gates, script), target(gates.script), go)
                     doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok, playhead, export, focusLine,
-                        { focusLine = null }, wide, window >= DUB_COLUMNS_DP, voice) { preview(true) }
+                        { focusLine = null }, wide, window >= DUB_COLUMNS_DP, voice, keys, { focusLine = it }) { preview(true) }
                 }
                 DubStep.VOICE -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
                     voice != null && doc != null -> VoiceStep(voice, open, doc, { step = DubStep.EXPORT }, shorten, script,
-                        { step = DubStep.SCRIPT }, playhead, export, { focusLine = it; step = DubStep.SCRIPT }, wide) { preview(true) }
+                        { step = DubStep.SCRIPT }, playhead, export, { focusLine = it; step = DubStep.SCRIPT }, wide, keys) { preview(true) }
                     else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
                         PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-VOICE"))
                     }
@@ -128,6 +130,12 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                     }
                 }
             }
+        }
+        // 🆕-6 (desktop only): Space / ↑ / ↓ / Enter on Dub script, Voice and Export; Video and Translate keep the Subtitles editor's keys.
+        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
+            if (wide && shown >= DubStep.SCRIPT) ProjectShortcutHost(onKey = keys::handle) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) { body() }
+            } else body()
         }
     }
     if (leaving) LeaveDialog(
@@ -189,13 +197,14 @@ private fun Lock(why: String, to: DubStep? = null, go: (DubStep) -> Unit = {}, t
 private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui.projects.OpenProject?,
     doc: io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc, approved: Boolean, notice: UiNotice?, ok: Boolean,
     playhead: Playhead? = null, export: DubExportModel? = null, focus: String? = null, focused: () -> Unit = {},
-    wide: Boolean = false, columns: Boolean = false, voice: DubVoiceModel? = null, preview: @Composable () -> Unit = {}) {
+    wide: Boolean = false, columns: Boolean = false, voice: DubVoiceModel? = null, keys: DubLineKeys = remember(open?.dir) { DubLineKeys() },
+    edit: (String) -> Unit = {}, preview: @Composable () -> Unit = {}) {
     val rows = remember(open?.project?.subtitles?.video, doc) { model.rows(open, doc) }
     val list = rememberLazyListState()
     // 🆕-5: scroll the line asked for into view (item 0 is the preview on a phone); its row then focuses the field.
     LaunchedEffect(focus) { rows.indexOfFirst { it.id == focus }.takeIf { it >= 0 }?.let { list.scrollToItem(if (wide) it else it + 1) } }
     // Desktop (Group 4 H): the selected line's facts on the right (the line asked for, a tapped head, else the first line).
-    var selected by remember(open?.dir) { mutableStateOf<String?>(null) }
+    var selected by keys::selected
     LaunchedEffect(focus) { focus?.let { selected = it } }
     // 🆕-2: the line under the preview's playhead (the chip's line) gets the playing outline; its head seeks there.
     val ticks = remember(open?.dir, open?.project, doc) { export?.previewTicks(open, doc) }
@@ -211,6 +220,11 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
                 textModifier = Modifier.testTag("dub-notice"))
         }
         val chosen = if (!wide) null else rows.firstOrNull { it.id == selected } ?: rows.firstOrNull()
+        // 🆕-6: ↑ / ↓ move through these lines (the list has no preview item on desktop); Enter focuses the chosen line's field.
+        if (wide) {
+            BindLineKeys(keys, rows.map { it.id to it.startMs }, chosen?.id, playhead?.let { p -> { ms: Long -> p.seek(ms) } }, edit)
+            FollowLineKeys(keys, list, rows.indexOfFirst { it.id == chosen?.id })
+        }
         val lines = @Composable { modifier: Modifier -> LazyColumn(modifier.testTag("dub-rows"), state = list, contentPadding = PaddingValues(screenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (!wide) item(key = "preview") { preview() } // F-6: scrolls with the lines (desktop: pinned on the right)
@@ -232,7 +246,7 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
             icon = AfIcons.Regular.Check),
             caption = My.breakSyllables(tr(if (approved) UiText.DUB_APPROVED else UiText.DUB_NOT_APPROVED)), glass = true,
             captionIcon = if (approved) AfIcons.Regular.CheckCircle else AfIcons.Regular.Info,
-            captionColour = if (approved) AutoFlowColors.Green else null)
+            captionColour = if (approved) AutoFlowColors.Green else null, keys = if (wide) ({ DubShortcutsHint() }) else null)
     }
 }
 

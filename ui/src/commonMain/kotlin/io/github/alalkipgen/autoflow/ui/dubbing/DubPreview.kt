@@ -86,6 +86,8 @@ internal fun DubPreview(export: DubExportModel, open: OpenProject?, doc: Subtitl
             if (!playhead.playing && playhead.positionMs >= duration) playhead.seek(0)
             playhead.toggle()
         })
+    // 🆕-6: Space on the desktop = this Play / Pause button (no-op on a phone: no shortcut host there).
+    io.github.alalkipgen.autoflow.ui.components.PlayPauseShortcut(bar.toggle)
     // The picture lives in one place: the card, or the Fullscreen window (a new player there, from where the clock is).
     val picture: @Composable (Modifier) -> Unit = { modifier ->
         Box(modifier, contentAlignment = Alignment.BottomCenter) {

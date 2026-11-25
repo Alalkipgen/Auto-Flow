@@ -1179,6 +1179,7 @@ enum class UiText(val en: String, val my: String?) {
     V3_DUB_CHECK_FITS("No line is too long", "အချိန်ကျော်နေတဲ့ စာကြောင်း မရှိ"),
     V3_DUB_EXPORT_REASON("Fix the checklist first.", "စစ်ရန်စာရင်းကို အရင်ပြင်ပါ။"),
     V3_DUB_CANNOT_MAKE("This app cannot make videos here.", "ဒီနေရာမှာ ဗီဒီယို ထုတ်လို့ မရပါ။"),
+    V3_DUB_SHORTCUTS("Space play / pause · ↑ / ↓ previous / next line · Enter edit the line", "Space ဖွင့် / ခဏရပ် · ↑ / ↓ ယခင် / နောက် စာကြောင်း · Enter စာကြောင်း ပြင်မယ်"),
     V3_FIX_TIMING("Fix timing", "အချိန်ကိုက် ပြင်မယ်"),
     V3_REVOICE("Re-voice", "အသံ ပြန်ထုတ်မယ်"),
     V3_GENERATE_VOICE("Generate voice", "အသံ ထုတ်မယ်"),

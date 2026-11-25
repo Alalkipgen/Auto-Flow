@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.input.key.Key
 import io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.dubbing.DubRules
@@ -195,5 +196,72 @@ class DubDesktopPanesTest {
         assert(p.first() < .2f)
         assertNull(wavePeaks("RIFF-c1".encodeToByteArray()))
         assertNull(wavePeaks(wav(5), 10))
+    }
+
+    /** 🆕-6 (PR 8): Space = the preview's Play / Pause, ↑ / ↓ = previous / next line (chosen + seek), Enter = Edit line; the hint row. */
+    @Test fun voiceKeysChooseTheLineAndEnterOpensTheScript() {
+        for (language in UiLanguage.entries) runDesktopComposeUiTest(width = 1440, height = 900) {
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            try {
+                val h = Harness(scope)
+                run(h, language)
+                assertEquals(My.breakSyllables(UiText.V3_DUB_SHORTCUTS.text(language)), onNodeWithTag("dub-shortcuts").fetchSemanticsNode()
+                    .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString { it.text })
+                val host = onNodeWithTag("project-shortcuts").assertIsFocused()
+                onNodeWithTag("dub-voice-slot-c1").assertExists() // at first the too-long line
+                host.performKeyInput { pressKey(Key.DirectionDown) }; waitForIdle()
+                onNodeWithTag("dub-voice-slot-c2").assertExists()
+                onNodeWithTag("dub-voice-slot-c1").assertDoesNotExist()
+                onNode(hasText("#2 · 0:10.0 → 0:12.0") and inPane("dub-line-wave")).assertExists()
+                onNode(hasTestTag("dub-playhead") and hasText("0:10.0", substring = true)).assertExists() // the preview seeks there
+                host.performKeyInput { pressKey(Key.DirectionUp); pressKey(Key.DirectionUp) }; waitForIdle()
+                onNodeWithTag("dub-voice-slot-c1").assertExists() // stops at the first line, no wrap
+                host.performKeyInput { pressKey(Key.Spacebar) }; waitForIdle()
+                onNode(hasTestTag("dub-play") and hasContentDescription(UiText.SUB_PAUSE.text(language))).assertExists()
+                host.performKeyInput { pressKey(Key.Spacebar) }; waitForIdle()
+                onNode(hasTestTag("dub-play") and hasContentDescription(UiText.SUB_PLAY.text(language))).assertExists()
+                host.performKeyInput { pressKey(Key.DirectionDown); pressKey(Key.Enter) }; waitForIdle()
+                waitUntil(timeoutMillis = 5_000) { onAllNodes(hasSetTextAction() and hasAnyAncestor(hasTestTag("dub-spoken-c2"))).fetchSemanticsNodes().isNotEmpty() }
+                onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("dub-spoken-c2"))).assertIsFocused() // Dub script, field focused
+                assertEquals(emptyList(), textFitProblems(1440, 1f))
+            } finally { scope.cancel() }
+        }
+    }
+
+    @Test fun scriptKeysMoveTheChosenLineAndEnterFocusesItsField() = runDesktopComposeUiTest(width = 1440, height = 900) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val h = Harness(scope)
+            run(h, UiLanguage.ENGLISH)
+            click("dub-step-SCRIPT")
+            onNodeWithTag("dub-shortcuts").assertExists()
+            val host = onNodeWithTag("project-shortcuts")
+            host.performSemanticsAction(SemanticsActions.RequestFocus); waitForIdle()
+            onNode(hasText("#1 · 0:01.0 → 0:03.0")).assertExists()
+            host.performKeyInput { pressKey(Key.DirectionDown) }; waitForIdle()
+            onNode(hasText("#2 · 0:10.0 → 0:12.0")).assertExists()
+            host.performKeyInput { pressKey(Key.Enter) }; waitForIdle()
+            onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("dub-spoken-c2"))).assertIsFocused()
+        } finally { scope.cancel() }
+    }
+
+    @Test fun exportAndPhonesHaveNoLineHint() {
+        runDesktopComposeUiTest(width = 1440, height = 900) {
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            try {
+                run(Harness(scope), UiLanguage.ENGLISH)
+                click("dub-step-EXPORT")
+                onNodeWithTag("project-shortcuts").assertExists() // Space still plays the preview
+                onNodeWithTag("dub-shortcuts").assertDoesNotExist()
+            } finally { scope.cancel() }
+        }
+        runDesktopComposeUiTest(width = 360, height = 1600) {
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            try {
+                run(Harness(scope), UiLanguage.ENGLISH)
+                onNodeWithTag("project-shortcuts").assertDoesNotExist()
+                onNodeWithTag("dub-shortcuts").assertDoesNotExist()
+            } finally { scope.cancel() }
+        }
     }
 }

@@ -75,7 +75,8 @@ internal enum class DubLineFilter(val tag: String) {
 @Composable
 internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, toExport: () -> Unit,
     shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}, playhead: Playhead? = null,
-    export: DubExportModel? = null, editLine: (String) -> Unit = {}, wide: Boolean = false, preview: @Composable () -> Unit = {}) {
+    export: DubExportModel? = null, editLine: (String) -> Unit = {}, wide: Boolean = false,
+    keys: DubLineKeys = remember(open?.dir) { DubLineKeys() }, preview: @Composable () -> Unit = {}) {
     val all by model.state.collectAsState()
     val jobs by model.jobs.collectAsState()
     val dir = open?.dir
@@ -94,9 +95,15 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
     val scope = rememberCoroutineScope()
     val shortenOn = shorten != null && script != null && dir != null
     // Desktop (Group 4 H): the selected line opens in place and its waveform shows on the right; at first the first too-long line.
-    var selected by remember(dir) { mutableStateOf<String?>(null) }
+    var selected by keys::selected
     val chosen = if (!wide) null else selected?.let { id -> rows.firstOrNull { it.id == id } }
         ?: rows.firstOrNull { it.fit?.kind == DubFitKind.TOO_LONG } ?: rows.firstOrNull()
+    // 🆕-6: ↑ / ↓ move through the lines the filter shows; Enter = Edit line (Dub script at the chosen line).
+    if (wide) {
+        BindLineKeys(keys, shown.map { it.id to it.startMs }, chosen?.id, playhead?.let { p -> { ms: Long -> p.seek(ms) } }, editLine)
+        // The list on desktop: (shorten,) filters, (empty,) the lines.
+        FollowLineKeys(keys, list, shown.indexOfFirst { it.id == chosen?.id }.takeIf { it >= 0 }?.let { it + (if (shortenOn) 2 else 1) })
+    }
     val lines = @Composable { modifier: Modifier -> LazyColumn(modifier.testTag("dub-voice-rows"), state = list, contentPadding = PaddingValues(screenPadding),
             verticalArrangement = Arrangement.spacedBy(if (wide) 8.dp else 12.dp)) {
             // F-6: the preview scrolls with the step, so a phone with a large font keeps room for the controls (desktop: on the right).
@@ -151,11 +158,12 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
         if (missing > 0 || !idle) StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_SPEAK_LINES, "n" to missing)), { model.ask() },
             enabled = idle && missing > 0 && s.confirm == null, tag = "dub-speak", icon = AfIcons.Regular.Dub),
             caption = My.breakSyllables(tr(UiText.V3_DUB_SPEAK_CAPTION, "done" to (n - missing), "n" to n,
-                "minutes" to model.minutes(missing, open?.project?.dubbing?.lock))), glass = true, captionTag = "dub-speak-caption")
+                "minutes" to model.minutes(missing, open?.project?.dubbing?.lock))), glass = true, captionTag = "dub-speak-caption",
+            keys = if (wide) ({ DubShortcutsHint() }) else null)
         else StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_GO_TO, "step" to tr(UiText.DUB_STEP_EXPORT))), toExport, tag = "dub-go-export",
             icon = AfIcons.Regular.Export, trailingIcon = AfIcons.Regular.ArrowRight),
             caption = My.breakSyllables(tr(UiText.DUB_ALL_VOICED)), glass = true, captionIcon = AfIcons.Regular.CheckCircle,
-            captionColour = AutoFlowColors.Green, captionTag = "dub-speak-caption")
+            captionColour = AutoFlowColors.Green, captionTag = "dub-speak-caption", keys = if (wide) ({ DubShortcutsHint() }) else null)
         s.confirm?.takeIf { idle }?.let { SpeakDialog(model, it, open) }
     }
 }

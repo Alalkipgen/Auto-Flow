@@ -475,4 +475,20 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("12c-desktop-export-done", desktop = true, prep = { go(this); through(null) }) { click("dub-step-EXPORT") }
         shot("12c-desktop-export-blocked", desktop = true, prep = { approve(); voices(lock = NILAR, tone = "calm") }) { click("dub-step-EXPORT") }
     }
+
+    /**
+     * PR 8 (🆕-6 + the font 2.0 / 1440 sweep): every desktop Dubbing step at 1440 × 900 at font 1.0 and 2.0 (strict text fit),
+     * and the bottom bar with the shortcut hint row (`dub-shortcuts`) on Voice and Dub script.
+     */
+    @Test fun sweep() {
+        val lines: Demo.() -> Unit = { withVoice = true; speedUp = true; approve(); voices(lock = NILAR, tone = "calm", variety = true) }
+        shot("15-voice", desktop = true, prep = lines) { click("dub-step-VOICE") }
+        shot("15-voice-keys", desktop = true, prep = lines, only = "sticky-action-bar", margin = 0) { click("dub-step-VOICE") }
+        shot("15-script", desktop = true, prep = lines) { click("dub-step-SCRIPT") }
+        shot("15-script-keys", desktop = true, prep = lines, only = "sticky-action-bar", margin = 0) { click("dub-step-SCRIPT") }
+        val go: Demo.() -> Unit = { approve(); voices(all = true, lock = NILAR, tone = "calm"); export.setWav(true) }
+        shot("15-export", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-EXPORT") }
+        shot("15-export-done", desktop = true, prep = { go(this); through(null) }) { click("dub-step-EXPORT") }
+        shot("15-lock", desktop = true) { click("dub-step-VOICE") }
+    }
 }
