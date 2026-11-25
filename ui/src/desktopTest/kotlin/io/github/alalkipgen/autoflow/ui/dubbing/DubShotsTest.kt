@@ -78,6 +78,18 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val f = SubtitlesFixture(lines, durationMs, "Kung Fu Panda 4", scope, dub = true)
         val script = DubScriptModel(f.session, f.fs)
+        val export = DubExportModel(f.session, f.fs, io.github.alalkipgen.autoflow.ui.media.MediaTasks(DubExportModelTest.Queue(), scope), scope)
+        /** The stand-in decoder: a sunset picture (no VLC in the shots), paused at the seek; [failed] = it cannot play here. */
+        var failed = false
+        val player: io.github.alalkipgen.autoflow.ui.subtitles.SubtitlePlayer = { _, req, m, report ->
+            androidx.compose.runtime.LaunchedEffect(req) {
+                report(io.github.alalkipgen.autoflow.media.playback.MovieSnapshot(positionMs = req.sourceMs, durationMs = durationMs,
+                    phase = if (failed) io.github.alalkipgen.autoflow.media.playback.MoviePhase.FAILED else io.github.alalkipgen.autoflow.media.playback.MoviePhase.PAUSED))
+            }
+            androidx.compose.foundation.layout.Box(m.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(
+                androidx.compose.ui.graphics.Color(0xFF3A1E12), androidx.compose.ui.graphics.Color(0xFFC0602A),
+                androidx.compose.ui.graphics.Color(0xFF7A3A1A), androidx.compose.ui.graphics.Color(0xFF140A08)))))
+        }
         private fun update(change: (io.github.alalkipgen.autoflow.core.model.Project) -> io.github.alalkipgen.autoflow.core.model.Project) {
             val open = f.session.open!!
             check(f.session.update(open.dir, open.project.id, change) is CoreResult.Ok)
@@ -85,6 +97,23 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         fun noVideo() = update { it.copy(subtitles = it.subtitles?.copy(video = null)) }
         fun noLines() = update { it.copy(subtitles = it.subtitles?.copy(current = null)) }
         fun approve() { script.open(); check(script.approve()) }
+        /**
+         * Takes for the lines (the samples' 33 of 40: none for every 6th line and #40; #9 and #21 too long), spoken with
+         * one Gemini voice; [all] = every line voiced and none too long.
+         */
+        fun voices(all: Boolean = false) {
+            val open = f.session.open!!
+            val art = io.github.alalkipgen.autoflow.core.store.ArtifactStore(f.fs, open.dir)
+            val doc = script.state.value.doc ?: run { script.open(); script.state.value.doc!! }
+            val lock = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", "tts-a", "Kore", "my")
+            val takes = doc.cues.withIndex().filter { (i, _) -> all || ((i + 1) % 6 != 0 && i + 1 != 40) }.associate { (i, c) ->
+                val ms = if (!all && (i + 1 == 9 || i + 1 == 21)) 9_000L else (c.endMs - c.startMs - 200).coerceAtLeast(500)
+                c.id to io.github.alalkipgen.autoflow.core.model.DubTake(
+                    (art.put("RIFF-${c.id}".encodeToByteArray(), io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, "wav") as CoreResult.Ok).value.id,
+                    io.github.alalkipgen.autoflow.core.dubbing.DubRules.takeKey(c, io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY, lock, null), ms)
+            }
+            update { it.copy(dubbing = (it.dubbing ?: io.github.alalkipgen.autoflow.core.model.DubbingTool()).copy(lock = lock, takes = takes)) }
+        }
         /** An unsaved subtitle change (the editor's draft). */
         fun dirty() { f.editor.open(); f.editor.edit { SubtitleOps.setTextMy(it, "c2", "မင်း ဆက်ခံမယ့်သူကို အခု ရွေးရမယ်") } }
         override fun close() { scope.cancel() }
@@ -109,28 +138,35 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
     private fun screen(d: Demo, width: Int, scale: Float): @Composable () -> Unit = {
         Locals(width, scale) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
-                DubbingScreen(d.script, d.f.model, d.f.session, d.f.editor, onBack = {}, player = d.f.paused, translate = d.f.translate)
+                DubbingScreen(d.script, d.f.model, d.f.session, d.f.editor, onBack = {}, player = d.player, translate = d.f.translate, export = d.export)
             }
         }
     }
 
     /** One shot of the Dubbing screen after [prep] and [open] (e.g. a step tab); phone at [HEIGHT], desktop 1440 × 900. */
     private fun shot(name: String, desktop: Boolean = false, durationMs: Long = DURATION, lines: List<Line> = lines(),
-        prep: Demo.() -> Unit = {}, crop: String? = null, open: ComposeUiTest.() -> Unit = {}) {
+        prep: Demo.() -> Unit = {}, crop: String? = null, only: String? = null, landscape: Boolean = false, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         val width = if (desktop) 1440 else WIDTH
         val scale = if (desktop) 1f else SCALE
-        runDesktopComposeUiTest(width = (width * scale).toInt(), height = ((if (desktop) 900 else HEIGHT) * scale).toInt()) {
+        // A card alone gets a twice-high window so the whole card is in sight at font 2.0 (the lines list scrolls under the footer).
+        val (w, h) = if (landscape) HEIGHT to WIDTH else width to (if (desktop) 900 else if (only != null) HEIGHT * 2 else HEIGHT)
+        runDesktopComposeUiTest(width = (w * scale).toInt(), height = (h * scale).toInt()) {
             Demo(durationMs, lines).use { d ->
                 d.prep()
-                setContent(screen(d, width, scale)); waitForIdle(); open(); waitForIdle()
+                setContent(screen(d, w, scale)); waitForIdle(); open(); waitForIdle()
                 val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
-                if (crop == null) write(name, image) else {
+                if (only != null) {
+                    // Only the [only] node with 8 dp around it, the full width (e.g. the preview card).
+                    val box = onNodeWithTag(only).fetchSemanticsNode().boundsInRoot
+                    val top = (box.top - 8 * scale).toInt().coerceAtLeast(0)
+                    write(name, image.getSubimage(0, top, image.width, ((box.bottom + 8 * scale).toInt().coerceAtMost(image.height)) - top))
+                } else if (crop == null) write(name, image) else {
                     // From the top down to the [crop] node's bottom + 8 dp (e.g. the project bar).
                     val bottom = (onNodeWithTag(crop).fetchSemanticsNode().boundsInRoot.bottom + 8 * scale).toInt().coerceAtMost(image.height)
                     write(name, image.getSubimage(0, 0, image.width, bottom))
                 }
-                assertEquals(emptyList(), textFitProblems((width * scale).toInt(), font, strict = true, minNodes = 3), "$name ${language.code()} $font")
+                assertEquals(emptyList(), textFitProblems((w * scale).toInt(), font, strict = true, minNodes = 3), "$name ${language.code()} $font")
             }
         }
     }
@@ -154,5 +190,39 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
             shot("12-desktop-lock", desktop = true) { click("dub-step-VOICE") }
             shot("12-desktop-script", desktop = true)
         }
+    }
+
+    /** A click on [tag] when it is there (the before shots have no ⓘ / Fullscreen). */
+    private fun ComposeUiTest.clickIf(tag: String) { if (onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()) click(tag) }
+
+    private fun ComposeUiTest.seekPreview(ms: Long) {
+        onAllNodesWithTag("dub-scrubber").onFirst().performSemanticsAction(SemanticsActions.SetProgress) { it((ms + .5f) / DURATION) }
+        waitForIdle()
+    }
+
+    /** Play with the test clock held; with Fullscreen open there are two Play buttons on the same clock, either one plays. */
+    private fun ComposeUiTest.playPreview() {
+        mainClock.autoAdvance = false
+        onAllNodesWithTag("dub-play").onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+    }
+
+    /**
+     * PR 2 (D + 🆕-1, samples 11 / 11b / 11c): the preview card on Dub script — playing on line #23 at 2:21.4; paused
+     * between two lines (no chip, no caption); the hint open; Export with Burmese subtitles off; the video cannot play
+     * here; Fullscreen portrait and landscape; the whole Dub script step with the card on top (01).
+     */
+    @Test fun preview() {
+        val card = "dub-preview-box"
+        shot("11-playing", prep = { voices() }, only = card) { seekPreview(141_400); playPreview() }
+        shot("11-between-lines", prep = { voices() }, only = card) { seekPreview(146_600) }
+        shot("11-hint-open", prep = { voices() }, only = card) { seekPreview(141_400); clickIf("dub-preview-info") }
+        shot("11-export-no-subtitles", prep = { voices(all = true); approve() }, only = card) { click("dub-step-EXPORT"); seekPreview(141_400) }
+        shot("11-unavailable", prep = { voices(); failed = true }, only = card)
+        shot("11b-fullscreen-portrait", prep = { voices() }) { seekPreview(141_400); clickIf("dub-preview-fullscreen"); playPreview() }
+        shot("11c-fullscreen-landscape", prep = { voices() }, landscape = true) { seekPreview(141_400); clickIf("dub-preview-fullscreen"); playPreview() }
+        shot("01-script-top", prep = { voices() }) { seekPreview(141_400) }
+        if (font == 1f) shot("12-desktop-script-preview", desktop = true, prep = { voices() }) { seekPreview(141_400) }
     }
 }

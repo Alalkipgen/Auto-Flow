@@ -325,8 +325,12 @@ class DubbingScreenTest {
                     }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-go-export").fetchSemanticsNodes().isNotEmpty() }
                     // F-6 (D-95): Voice and Export show the dubbed video before any render, both spoken lines in it.
+                    // Group 4 🆕-1: the scope caption names the voices; the long hint opens behind ⓘ.
+                    onNodeWithTag("dub-preview-scope").assertTextEquals(My.breakSyllables(UiText.V3_DUB_PREVIEW_SCOPE.text(language, "n" to 2)))
+                    onNodeWithTag("dub-preview-hint").assertDoesNotExist()
+                    onNodeWithTag("dub-preview-info").performScrollTo().performMouseInput { click() }
                     onNodeWithTag("dub-preview-hint").assertTextEquals(My.breakSyllables(UiText.DUB_PREVIEW_HINT.text(language, "n" to 2)))
-                    onNodeWithTag("dub-preview").assertIsDisplayed()
+                    onNodeWithTag("dub-preview").performScrollTo().assertIsDisplayed()
                     onNodeWithTag("dub-go-export").performMouseInput { click() }
                     onNodeWithTag("dub-step-EXPORT").assert(chosen)
                     onNodeWithTag("dub-preview").assertIsDisplayed()
