@@ -47,13 +47,21 @@ internal fun ComposeUiTest.assertIconOnly(tag: String, key: UiText, language: Ui
     assertTrue(node.boundsInRoot.width >= 48f && node.boundsInRoot.height >= 48f, "$tag: 48 dp target ${node.boundsInRoot}")
 }
 
-/** P9-12d: the card tagged [tag] has one 18 dp icon (or [iconDp] tile, Group 5) right before its [title]. */
+/**
+ * P9-12d: the card tagged [tag] has one 18 dp icon (or [iconDp] tile, Group 5) right before its [title]. [iconTag] =
+ * "card-tile" for a Group 5 TileCard, "glass-dialog-tile" for a GlassDialog header.
+ */
 @OptIn(ExperimentalTestApi::class)
-internal fun ComposeUiTest.assertCardIcon(tag: String, title: String, iconDp: Float = 18f) {
-    val titles = onAllNodes(hasText(title) and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true)
+internal fun ComposeUiTest.assertCardIcon(tag: String, title: String, iconDp: Float = 18f, iconTag: String = "card-icon") {
+    // A TileCard title is drawn as is, other cards break Burmese syllables (zero-width spaces): compare without them.
+    val plain = title.replace("\u200B", "")
+    val sameTitle = SemanticsMatcher("text = $plain") { n ->
+        n.config.getOrElse(androidx.compose.ui.semantics.SemanticsProperties.Text) { emptyList() }.any { it.text.replace("\u200B", "") == plain }
+    }
+    val titles = onAllNodes(sameTitle and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true)
     runCatching { titles[0].performScrollTo() } // a lazy list item can be composed ahead, not yet placed
     val t = titles.fetchSemanticsNodes().map { it.boundsInRoot }.first { it.width > 0f }
-    val icons = onAllNodes(hasTestTag("card-icon") and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).fetchSemanticsNodes()
+    val icons = onAllNodes(hasTestTag(iconTag) and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).fetchSemanticsNodes()
         .map { it.boundsInRoot }.filter { it.right <= t.left && t.left - it.right <= 12f && it.top < t.bottom && t.top < it.bottom }
     assertEquals(1, icons.size, "$tag: one icon before the title $t")
     assertEquals(iconDp, icons.single().width, .5f, "$tag: $iconDp dp icon")

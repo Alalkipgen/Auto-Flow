@@ -33,7 +33,20 @@ import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import io.github.alalkipgen.autoflow.ai.AiResult
+import io.github.alalkipgen.autoflow.ai.SceneSpan
+import io.github.alalkipgen.autoflow.ai.TranscribeProvider
+import io.github.alalkipgen.autoflow.ai.Transcript as AiTranscript
+import io.github.alalkipgen.autoflow.ai.TranscriptSegment
+import io.github.alalkipgen.autoflow.ai.Usage
+import io.github.alalkipgen.autoflow.core.recap.SubtitleTrack
+import io.github.alalkipgen.autoflow.core.subtitles.MediaChunks
+import io.github.alalkipgen.autoflow.media.probe.MediaInfo
+import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.recap.SceneAudioCutter
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import java.io.File
@@ -80,8 +93,9 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
                 Line(a, a + 2_200 + (n % 3) * 300, w.text, w.my) // never over the next start: the sample's 3 checks only
             }
         }
-        /** A text-fit problem from before Group 5 that a later PR of the group fixes (see [shot]). */
-        private const val KNOWN = "Dune.Part.Two.2024.mkv"
+        /** PR 5: the sample's video — 12:40, 1920 × 1080, 23.98 fps, with sound; text tracks 3 (eng, Recommended) and 4 (spa), a picture track 5. */
+        val INFO = MediaInfo(DURATION, 1920, 1080, 23.976, "h264", "aac", listOf(
+            SubtitleTrack(3, "subrip", "eng", "English (SDH)"), SubtitleTrack(4, "subrip", "spa", "Español"), SubtitleTrack(5, "hdmv_pgs_subtitle")))
         const val EDIT12 = "ငါ မင်းကို ဘယ်တော့မှ ထားခဲ့မှာ မဟုတ်ဘူး"
     }
     private val out = System.getenv("AUTOFLOW_GLASS_SHOTS_DIR")?.let(::File)
@@ -89,7 +103,14 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
     /** The demo project and its models (nothing touches the disk). */
     private inner class Demo(dub: Boolean = false) : AutoCloseable {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val f = SubtitlesFixture(lines(), DURATION, "Dune: Part Two", scope, dub = dub)
+        /** What ffprobe says of the video (PR 5: [INFO], its 3 tracks); null = cannot be read here. */
+        var probe: suspend (String) -> MediaInfo? = { null }
+        /** Writes the track's `.srt` (PR 5); default: no ffmpeg here. */
+        var extract: suspend (String, Int, String) -> UiNotice? = { _, _, _ -> UiNotice(UiText.MOVIE_FFMPEG_UNAVAILABLE) }
+        /** Transcribe (PR 5); null = not built here (the PlannedTile). */
+        var transcribe: SubtitleTranscribeModel? = null
+        val f = SubtitlesFixture(lines(), DURATION, "Dune: Part Two", scope, dub = dub, probe = { probe(it) },
+            extract = { v, i, o -> extract(v, i, o) })
         /** The sample's 12:40 video is over Dubbing's 10 min default (`dubbing.maxSourceMs`): the shots allow 15 min. */
         val script by lazy { DubScriptModel(f.session, f.fs, ToolsConfig().let { it.copy(dubbing = it.dubbing.copy(maxSourceMs = 900_000)) }) }
         init {
@@ -110,6 +131,16 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
             check(f.session.update(open.dir, open.project.id, change) is CoreResult.Ok)
         }
         fun noLines() = update { it.copy(subtitles = it.subtitles?.copy(current = null)) }
+        /** PR 5: the source page as the sample opens it — no lines yet, the video's 3 tracks, Transcribe built. */
+        fun source(withLines: Boolean = false, chunkMs: Long? = null, gemini: TranscribeProvider = Gemini(),
+            cutter: SceneAudioCutter? = null, pauses: suspend (String, String) -> List<MediaChunks.Pause>? = { _, _ -> emptyList() }) {
+            if (!withLines) noLines()
+            probe = { INFO }
+            val config = ToolsConfig().let { c -> chunkMs?.let { c.copy(transcribe = c.transcribe.copy(chunkMaxMs = it)) } ?: c }
+            val usage = io.github.alalkipgen.autoflow.ai.usage.UsageCounter(f.fs, "/app/usage.json")
+            kotlinx.coroutines.runBlocking { repeat(4) { usage.record("gemini-test") } } // the sample's "Today: 4 requests."
+            transcribe = if (cutter == null) f.transcribe(gemini, config, pauses, usage = usage) else f.transcribe(gemini, config, pauses, cutter, usage)
+        }
         /** The editor the screen shows ([restoreOffer] swaps in a new one, as after a restart). */
         var editor = f.editor
         /** Sample 02 state 5: unsaved edits from an earlier session — a draft file, then a new editor that offers it back. */
@@ -153,9 +184,10 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
     private fun screen(d: Demo, width: Int, scale: Float, dub: Boolean): @Composable () -> Unit = {
         Locals(width, scale) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
-                if (dub) DubbingScreen(d.script, d.f.model, d.f.session, d.editor, onBack = {}, player = d.player, translate = d.f.translate)
+                if (dub) DubbingScreen(d.script, d.f.model, d.f.session, d.editor, onBack = {}, player = d.player, transcribe = d.transcribe,
+                    translate = d.f.translate)
                 else SubtitlesScreen(d.f.model, d.f.session, d.editor, player = d.player, onBack = {}, exporter = d.f.exporter(width < 600),
-                    burner = d.f.burner(width < 600), translate = d.f.translate)
+                    burner = d.f.burner(width < 600), transcribe = d.transcribe, translate = d.f.translate)
             }
         }
     }
@@ -179,7 +211,7 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
      * 8 dp around it (full width); [crop] = from the top to that node's bottom + 8 dp.
      */
     private fun shot(name: String, desktop: Boolean = false, dub: Boolean = false, height: Int = HEIGHT, width: Int = WIDTH,
-        failing: Boolean = false, window: Boolean = false, view: TextChoice = TextChoice.BURMESE, prep: Demo.() -> Unit = {},
+        failing: Boolean = false, window: Boolean = false, dialog: Boolean = false, pad: Int = 8, view: TextChoice = TextChoice.BURMESE, prep: Demo.() -> Unit = {},
         only: String? = null, crop: String? = null, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         val w = if (desktop) 1440 else width
@@ -194,23 +226,30 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
                 setContent(screen(d, w, scale, dub)); waitForIdle(); d.editor.setView(view); waitForIdle(); open(); waitForIdle()
                 // [window]: the Fullscreen dialog (its own root, over the screen).
                 val roots = onAllNodes(isRoot())
-                val image = (if (window) roots[roots.fetchSemanticsNodes().lastIndex] else roots[0]).captureToImage().toAwtImage()
+                val image = (if (window) roots[roots.fetchSemanticsNodes().lastIndex] else roots[0]).captureToImage().toAwtImage().let { base ->
+                    if (!dialog || roots.fetchSemanticsNodes().size < 2) base
+                    else { // [dialog]: the screen with the dialog window (its scrim and card) drawn over it
+                        val top = roots[roots.fetchSemanticsNodes().lastIndex].captureToImage().toAwtImage()
+                        java.awt.image.BufferedImage(base.width, base.height, java.awt.image.BufferedImage.TYPE_INT_ARGB).apply {
+                            createGraphics().run { drawImage(base, 0, 0, null); drawImage(top, (base.width - top.width) / 2, (base.height - top.height) / 2, null); dispose() }
+                        }
+                    }
+                }
                 val tag = only?.split('|')?.firstOrNull { onAllNodesWithTag(it.substringBefore("..")).fetchSemanticsNodes().isNotEmpty() }
                 if (tag != null && ".." in tag) { // from the top of the first node to the bottom of the second
                     val (a, b) = tag.split("..")
                     val top = (onAllNodesWithTag(a).onFirst().fetchSemanticsNode().boundsInRoot.top - 8 * scale).toInt().coerceAtLeast(0)
                     val bottom = (onAllNodesWithTag(b).onFirst().fetchSemanticsNode().boundsInRoot.bottom + 8 * scale).toInt().coerceAtMost(image.height)
                     write(name, image.getSubimage(0, top, image.width, bottom - top))
-                } else if (tag != null) {
+                } else if (tag != null) { // [pad] dp around it (more when the tag is on a text inside its card)
                     val box = onAllNodesWithTag(tag).onFirst().fetchSemanticsNode().boundsInRoot
-                    val top = (box.top - 8 * scale).toInt().coerceAtLeast(0)
-                    write(name, image.getSubimage(0, top, image.width, ((box.bottom + 8 * scale).toInt().coerceAtMost(image.height)) - top))
+                    val top = (box.top - pad * scale).toInt().coerceAtLeast(0)
+                    write(name, image.getSubimage(0, top, image.width, ((box.bottom + pad * scale).toInt().coerceAtMost(image.height)) - top))
                 } else if (crop != null) {
                     val bottom = (onAllNodesWithTag(crop).onFirst().fetchSemanticsNode().boundsInRoot.bottom + 8 * scale).toInt().coerceAtMost(image.height)
                     write(name, image.getSubimage(0, 0, image.width, bottom))
                 } else write(name, image)
-                // The Source page's video file name breaks inside a word at font 2.0 (as before Group 5); its card is PR 5's (C).
-                val problems = textFitProblems((w * scale).toInt(), font, strict = true, minNodes = 3).filterNot { KNOWN in it }
+                val problems = textFitProblems((w * scale).toInt(), font, strict = true, minNodes = 3)
                 if (System.getenv("AUTOFLOW_SHOTS_BEFORE") == null) assertEquals(emptyList(), problems, "$name ${language.code()} $font")
             }
         }
@@ -297,13 +336,97 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         }
     }
 
+    /** A Gemini that answers each chunk with one line, waits forever on chunk [hold], and is busy (429) on chunk [busyAt]. */
+    private class Gemini(val hold: Int? = null, val busyAt: Int? = null) : TranscribeProvider {
+        @Volatile var n = 0
+        override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<AiTranscript> = error("not used")
+        override suspend fun transcribeScenes(audio: ByteArray, mime: String, scenes: List<SceneSpan>, lang: String?): AiResult<List<List<TranscriptSegment>>> {
+            n++
+            if (n == hold) awaitCancellation()
+            if (n == busyAt) return AiResult.RateLimited(null, "429 Resource exhausted")
+            return AiResult.Ok(listOf(listOf(TranscriptSegment(1_000, 3_500, "Line $n"))), Usage("gemini-test"))
+        }
+    }
+
+    private fun ComposeUiTest.waitTag(tag: String) =
+        waitUntil(timeoutMillis = 15_000) { onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+
+    /** PR 5 (C; samples 04 / 05): the source page, its states; the no-video box. */
+    @Test fun source() {
+        val src = "subtitles-source"
+        shot("04-source", height = if (font == 1f) HEIGHT else 1700, prep = { source() }) { waitTag("subtitles-use-track") }
+        shot("05-reading", height = 1700, prep = { source(); probe = { awaitCancellation() } }, only = src)
+        shot("05-no-tracks", height = 1700, prep = { source(); probe = { INFO.copy(subtitleTracks = emptyList()) } }, only = src) {
+            waitTag("subtitles-tracks-none")
+        }
+        shot("05-unreadable", height = 1700, prep = { source(); probe = { null } }, only = src) { waitTag("subtitles-tracks-unknown") }
+        shot("05-busy", height = 1700, prep = { source(); extract = { _, _, _ -> awaitCancellation() } }, only = "subtitles-busy..$src") {
+            waitTag("subtitles-use-track"); click("subtitles-use-track"); waitTag("subtitles-busy")
+        }
+        shot("05-notice-failed", height = 1700, prep = {
+            source(); extract = { _, _, out -> f.fs.writeDurably(out, "1\n00:00:01,000 --> 00:00:02,000\nOne\n\nnot a cue\n".encodeToByteArray()); null }
+        }, only = "subtitles-notice", pad = 26) { waitTag("subtitles-use-track"); click("subtitles-use-track"); waitTag("subtitles-notice") }
+        shot("05-again", height = 1700, prep = { source(withLines = true) }, only = src) {
+            waitTag("subtitles-change-source"); click("subtitles-change-source"); waitTag("subtitles-source-cancel")
+        }
+        shot("05-no-sound", height = 1700, prep = {
+            source(); update { p -> p.copy(subtitles = p.subtitles?.copy(video = p.subtitles!!.video!!.copy(hasAudio = false))) }
+        }, only = src) { waitTag("subtitles-transcribe-no-sound") }
+        shot("05-planned", height = 1700, prep = { source(); transcribe = null }, only = "subtitles-transcribe-planned") { waitTag("subtitles-use-track") }
+        shot("05-no-video", height = 1700, prep = { source(); update { p -> p.copy(subtitles = p.subtitles?.copy(video = null)) } },
+            only = "subtitles-no-video", pad = 84)
+    }
+
+    /** PR 5 (D; samples 07a / 07c): the Transcribe dialog — first time, and again over lines (a new version). */
+    @Test fun transcribeDialog() {
+        val tall = if (font == 1f) HEIGHT else 1700
+        shot("07a-dialog-transcribe", height = tall, prep = { source() }, window = true, dialog = true) {
+            waitTag("subtitles-transcribe"); click("subtitles-transcribe"); waitTag("subtitles-transcribe-confirm")
+        }
+        shot("07c-dialog-transcribe-again", height = tall, prep = { source(withLines = true) }, window = true, dialog = true) {
+            waitTag("subtitles-change-source"); click("subtitles-change-source"); click("subtitles-transcribe"); waitTag("subtitles-transcribe-again")
+        }
+    }
+
+    /** PR 5 (D; sample 06): finding the pauses, the job running / paused (Gemini busy) / stopped (no ffmpeg), the notices after. */
+    @Test fun transcribeJob() {
+        val job = "subtitles-transcribe-job"
+        fun ComposeUiTest.start() {
+            waitTag("subtitles-transcribe"); click("subtitles-transcribe"); waitTag("subtitles-transcribe-start"); click("subtitles-transcribe-start")
+        }
+        shot("06-finding", height = 1700, prep = { source(pauses = { _, _ -> awaitCancellation() }) }, only = "subtitles-transcribe-finding", pad = 44) {
+            waitTag("subtitles-transcribe"); click("subtitles-transcribe"); waitTag("subtitles-transcribe-finding")
+        }
+        val running = Gemini(hold = 3)
+        shot("06-running", height = 1700, prep = { source(chunkMs = 60_000, gemini = running) }, only = job) {
+            start(); waitUntil(timeoutMillis = 15_000) { running.n >= 3 }; waitTag("subtitles-transcribe-pause")
+        }
+        shot("06-paused-busy", height = 1700, prep = { source(chunkMs = 60_000, gemini = Gemini(busyAt = 6)) }, only = job) {
+            start(); waitTag("subtitles-transcribe-resume")
+        }
+        shot("06-stopped", height = 1700, prep = {
+            var cuts = 0
+            source(chunkMs = 60_000, cutter = SceneAudioCutter { _, chunk, out, _ ->
+                if (++cuts == 6) error(VideoTranscriber.NO_FFMPEG)
+                f.fs.writeDurably(out, chunk.ranges.joinToString { "${it.inMs}-${it.outMs}" }.encodeToByteArray()); null
+            })
+        }, only = job) { start(); waitTag("subtitles-transcribe-resume") }
+        shot("06-done", height = 1700, prep = { source() }, only = "subtitles-transcribe-notice", pad = 26) {
+            start(); waitTag("subtitles-transcribe-notice")
+        }
+        shot("06-cancelled", height = 1700, prep = { source(chunkMs = 60_000, gemini = Gemini(hold = 2)) }, only = "subtitles-transcribe-notice",
+            pad = 26) {
+            start(); waitTag("subtitles-transcribe-cancel"); click("subtitles-transcribe-cancel"); waitTag("subtitles-transcribe-notice")
+        }
+    }
+
     @Test fun shell() {
         shot("01-editor", prep = { dirty() }) { demoState() }
         shot("01-editor-full", height = 1669, prep = { dirty() }) { demoState() }
         shot("02-bar-dirty", prep = { dirty() }, crop = "subtitles-top-bar") { demoState() }
         shot("02-bar-clean", crop = "subtitles-top-bar") { demoState() }
         shot("02-notice-saved", prep = { dirty(); check(f.editor.save()) }, only = "subtitles-editor-notice") { demoState() }
-        shot("13a-dubbing-step-1", dub = true, height = 1314, prep = { noLines() }) { clickIf("dub-step-VIDEO") }
+        shot("13a-dubbing-step-1", dub = true, height = 1314, prep = { source() }) { clickIf("dub-step-VIDEO") }
         shot("13b-dubbing-step-2", dub = true, height = 1314, prep = { dirty() }) { click("dub-step-TRANSLATE"); demoState() }
         if (font == 1f) {
             shot("12-desktop-editor", desktop = true, prep = { dirty() }) { demoState() }

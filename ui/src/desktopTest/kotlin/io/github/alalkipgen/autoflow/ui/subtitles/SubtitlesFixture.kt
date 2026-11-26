@@ -32,6 +32,13 @@ import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.jobs.DesktopAiJobRunner
 import io.github.alalkipgen.autoflow.ui.jobs.RecapJobProcessor
 import io.github.alalkipgen.autoflow.ui.media.MediaTasks
+import io.github.alalkipgen.autoflow.ai.TranscribeProvider
+import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
+import io.github.alalkipgen.autoflow.core.subtitles.MediaChunks
+import io.github.alalkipgen.autoflow.media.probe.MediaInfo
+import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.recap.SceneAudioCutter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.emptyFlow
@@ -42,7 +49,8 @@ import kotlinx.serialization.json.JsonElement
  * video. Nothing touches the disk.
  */
 internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: String = "Clip", private val scope: CoroutineScope = MainScope(),
-    dub: Boolean = false) {
+    dub: Boolean = false, probe: suspend (String) -> MediaInfo? = { null },
+    extract: (suspend (video: String, index: Int, out: String) -> UiNotice?)? = null) {
     data class Line(val startMs: Long, val endMs: Long, val text: String, val my: String? = null)
 
     val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
@@ -60,7 +68,7 @@ internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: Strin
             dubbing = if (dub) DubbingTool() else created.dubbing)) as CoreResult.Ok).value))
     }
     val model = SubtitlesModel(session, fs, DashboardModel(fs, store, index, SettingsStore(fs, "/app/s.json"), FakePicker(), current),
-        null, scope, probe = { null })
+        null, scope, probe = probe, extract = extract ?: { _, _, _ -> UiNotice(UiText.MOVIE_FFMPEG_UNAVAILABLE) })
     val editor = SubtitleEditorModel(session, fs, scope)
 
     /** A paused decoder at the seek: a frame to draw the line on, no sound. */
@@ -77,6 +85,19 @@ internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: Strin
         val job = SubtitleTranslateJob(session, fs, SubtitleTranslator(never), ToolsConfig())
         SubtitleTranslateModel(session, job, DesktopAiJobRunner(AiJobStore(fs, "/app/ai-jobs"), scope,
             RecapJobProcessor({ null }, { null }, { job }), pacer = { RpmPacer(6_000) }), ToolsConfig(), scope)
+    }
+
+    /**
+     * Transcribe over [gemini] (each chunk's sound is "a-b" ms text), [pauses] found in the sound, the sound cut by
+     * [cutter] (default: writes the chunk's ranges); [config] sets the chunk length.
+     */
+    fun transcribe(gemini: TranscribeProvider, config: ToolsConfig = ToolsConfig(),
+        pauses: suspend (String, String) -> List<MediaChunks.Pause>? = { _, _ -> emptyList() },
+        cutter: SceneAudioCutter = SceneAudioCutter { _, chunk, out, _ -> fs.writeDurably(out, chunk.ranges.joinToString { "${it.inMs}-${it.outMs}" }.encodeToByteArray()); null },
+        usage: UsageCounter = UsageCounter(fs, "/app/usage.json")): SubtitleTranscribeModel {
+        val transcriber = VideoTranscriber(session, fs, null, gemini, config, cutter, pauses)
+        val runner = DesktopAiJobRunner(AiJobStore(fs, "/app/ai-jobs"), scope, RecapJobProcessor({ null }, { transcriber }), pacer = { RpmPacer(6_000) })
+        return SubtitleTranscribeModel(session, transcriber, runner, usage, config, scope)
     }
 
     /** Export and burn that write nothing: a phone shares ([phone]), the desktop saves and opens the folder. */

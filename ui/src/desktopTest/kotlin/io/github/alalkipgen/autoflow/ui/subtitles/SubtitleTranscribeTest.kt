@@ -216,14 +216,15 @@ class SubtitleTranscribeTest {
                 waitTag("subtitles-change-source")
                 tap("subtitles-change-source")
                 // P9-12d: the source screen's cards and buttons carry icons, not glyphs.
-                assertCardIcon("subtitles-video", UiText.SUBTITLES_VIDEO.text(language))
-                assertCardIcon("subtitles-source", UiText.SUB_START_HOW.text(language))
+                // Group 5 PR 5: Video / Source are TileCards (30 dp tile), the confirm a GlassDialog (44 dp tile).
+                assertCardIcon("subtitles-video", My.breakSyllables(UiText.SUBTITLES_VIDEO.text(language)), 30f, "card-tile")
+                assertCardIcon("subtitles-source", My.breakSyllables(UiText.SUB_START_HOW.text(language)), 30f, "card-tile")
                 assertIconButton("subtitles-import-srt", UiText.IMPORT_SUBTITLES, language)
                 assertIconButton("subtitles-transcribe", UiText.SUB_TRANSCRIBE, language)
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language source")
                 tap("subtitles-transcribe")
                 waitTag("subtitles-transcribe-again")
-                assertCardIcon("subtitles-transcribe-confirm", My.breakSyllables(UiText.SUB_TRANSCRIBE.text(language)))
+                assertCardIcon("subtitles-transcribe-confirm", My.breakSyllables(UiText.SUB_TRANSCRIBE.text(language)), 44f, "glass-dialog-tile")
                 assertIconButton("subtitles-transcribe-start", UiText.START, language)
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language confirm")
                 tap("subtitles-transcribe-start")

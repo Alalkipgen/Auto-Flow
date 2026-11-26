@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -19,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.DpSize
+import io.github.alalkipgen.autoflow.ui.media.MediaThumbnails
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
@@ -56,7 +59,8 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     // 🆕-8: a host bar (Dubbing) shows Undo / Redo only while the editor is shown, not on the source page.
     SideEffect { onEditorShown?.invoke(editing) }
     val header: @Composable ColumnScope.() -> Unit = {
-        state.busy?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-busy"), muted = true) }
+        // Group 5 C 3: extracting / importing = a progress card on top (the choices under it are off while it runs).
+        state.busy?.let { SubProgressCard(My.breakSyllables(it.text(LocalUiLanguage.current)), "subtitles-busy") }
         // Group 5 A 8: the notices as callouts — green `check-circle` saved, red `x-circle` cannot read, amber `warning`.
         state.notice?.let {
             if (state.ok) GlassCallout(AfIcons.Fill.CheckCircle, My.breakSyllables(it.text(LocalUiLanguage.current)), AutoFlowColors.Green,
@@ -100,9 +104,9 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
                 .testTag("subtitles-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 header()
                 if (video != null) {
-                    VideoCard(video)
+                    VideoCard(video, open!!.dir)
                     SourceCard(state, model, open!!.dir, video.hasAudio, transcribe, onCancel = if (draft != null) ({ choosing = false }) else null)
-                } else if (state.busy == null) AfText(My.breakSyllables(tr(UiText.SUBTITLES_NO_VIDEO)), Modifier.testTag("subtitles-no-video"), muted = true)
+                } else if (state.busy == null) NoVideo()
             }
         }
     }
@@ -176,11 +180,38 @@ private fun from(doc: SubtitleDoc) = when {
     else -> tr(UiText.SUB_FROM_OTHER)
 }
 
+/**
+ * The video (Group 5 C 1): a glass card with the cyan `film-strip` tile + SUBTITLES_VIDEO, then a 120 × 68 frame of the video
+ * (the app's thumbnail cache, as Home / Projects; the film placeholder until it is made) beside the file name (mono 14 sp;
+ * a long name breaks after "." / "-" / "_", never inside a word) and the facts 12 sp muted — under the frame when that
+ * column would be too narrow (large fonts).
+ */
 @Composable
-private fun VideoCard(video: SourceVideo) {
-    AfCard(tr(UiText.SUBTITLES_VIDEO), Modifier.testTag("subtitles-video"), icon = AfIcons.Regular.Film) {
-        AfText(video.file.substringAfterLast('/'), mono = true)
-        VideoFacts(video)
+private fun VideoCard(video: SourceVideo, dir: String) {
+    TileCard(tr(UiText.SUBTITLES_VIDEO), CardTile(AfIcons.Fill.FilmStrip, AutoFlowColors.Cyan), Modifier.testTag("subtitles-video")) {
+        val source = remember(dir, video) { MediaThumbnails.Source(dir, video.file, revision = video.sizeBytes.toString(), durationMs = video.durationMs) }
+        ThumbBeside(VideoThumb.width, {
+            MediaThumb(source, AfIcons.Duotone.FilmStrip, Modifier.glassThumb(), size = VideoThumb, placeholderColour = AutoFlowColors.Cyan)
+        }, { m ->
+            Column(m, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                MonoText(video.file.substringAfterLast('/'), 14.sp, AutoFlowColors.Text, modifier = Modifier.testTag("subtitles-video-file"))
+                VideoFacts(video, size = 12.sp)
+            }
+        }, gap = 12.dp)
+    }
+}
+
+/** The video frame of [VideoCard] (Group 5 C 1). */
+private val VideoThumb = DpSize(120.dp, 68.dp)
+
+/** No readable video (Group 5 C 3): the Group 3 dashed empty state — `video-camera-slash` Duotone + SUBTITLES_NO_VIDEO, centred. */
+@Composable
+private fun NoVideo() {
+    Column(Modifier.fillMaxWidth().glassDashedBox(18.dp).padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AfIcon(AfIcons.Duotone.VideoCameraSlash, tint = AutoFlowColors.Muted, size = 40.dp)
+        AfText(My.breakSyllables(tr(UiText.SUBTITLES_NO_VIDEO)), Modifier.testTag("subtitles-no-video"), muted = true,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -193,39 +224,54 @@ private fun VideoFacts(video: SourceVideo, modifier: Modifier = Modifier, size: 
         modifier.testTag("subtitles-video-facts"), muted = true, size = size)
 }
 
-/** Where the lines come from: a text track, an `.srt` file, or the speech (S-5b, Gemini). */
+/**
+ * Where the lines come from: a text track, an `.srt` file, or the speech (S-5b, Gemini). Group 5 C 2–3: a glass card
+ * (the purple `subtitles` tile + SUB_START_HOW), SUB_TRACKS as a small muted label, reading = an `hourglass` line, none /
+ * unreadable = an `info` line, the text tracks as glass radio cards (recommended = the cyan pill), the picture tracks as an
+ * `image` line, Use the subtitles inside the video (primary, `check`), a divider, then Import (.srt) (`folder-open`, primary
+ * when there is no text track) and Transcribe full width, and Cancel (`x`) when choosing again. Busy = all off.
+ */
 @Composable
 private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, dir: String, hasSound: Boolean, transcribe: SubtitleTranscribeModel?,
     onCancel: (() -> Unit)?) {
     val idle = state.busy == null
-    AfCard(tr(UiText.SUB_START_HOW), Modifier.testTag("subtitles-source"), icon = AfIcons.Regular.Subtitles) {
-        AfText(My.breakSyllables(tr(UiText.SUB_TRACKS)), bold = true)
+    TileCard(tr(UiText.SUB_START_HOW), CardTile(AfIcons.Fill.Subtitles, AutoFlowColors.Purple), Modifier.testTag("subtitles-source")) {
+        AfText(My.breakSyllables(tr(UiText.SUB_TRACKS)), muted = true, type = AfType.Caption)
         val tracks = state.tracks
         when {
-            tracks == null -> AfText(My.breakSyllables(tr(if (state.tracksRead) UiText.SUB_TRACKS_UNREADABLE else UiText.SUB_TRACKS_READING)),
-                Modifier.testTag("subtitles-tracks-unknown"), muted = true)
-            tracks.isEmpty() -> AfText(My.breakSyllables(tr(UiText.SUB_TRACKS_NONE)), Modifier.testTag("subtitles-tracks-none"), muted = true)
+            tracks == null -> GlassFact(if (state.tracksRead) AfIcons.Regular.Info else AfIcons.Regular.Hourglass,
+                My.breakSyllables(tr(if (state.tracksRead) UiText.SUB_TRACKS_UNREADABLE else UiText.SUB_TRACKS_READING)),
+                colour = AutoFlowColors.Muted, textModifier = Modifier.testTag("subtitles-tracks-unknown"))
+            tracks.isEmpty() -> GlassFact(AfIcons.Regular.Info, My.breakSyllables(tr(UiText.SUB_TRACKS_NONE)), colour = AutoFlowColors.Muted,
+                textModifier = Modifier.testTag("subtitles-tracks-none"))
             else -> {
                 val text = tracks.filter { it.isText }
                 var pick by remember(tracks) { mutableStateOf(SubtitlesModel.defaultTrack(tracks)) }
                 text.forEach { t ->
                     val title = tr(UiText.SUBTITLE_TRACK, "index" to t.index) + " · " + (t.language ?: "?")
                     OptionCard(title, listOfNotNull(t.codecName, t.title).joinToString(" · "), pick == t.index, { pick = t.index },
-                        Modifier.testTag("subtitles-track-${t.index}"), recommended = t.index == SubtitlesModel.defaultTrack(tracks), enabled = idle)
+                        // busy: the tracks dim with the buttons (sample 05 state 4)
+                        Modifier.testTag("subtitles-track-${t.index}").alpha(if (idle) 1f else .4f),
+                        recommended = t.index == SubtitlesModel.defaultTrack(tracks), enabled = idle, radio = true)
                 }
-                if (text.isEmpty()) AfText(My.breakSyllables(tr(UiText.SUB_TRACKS_NONE)), Modifier.testTag("subtitles-tracks-none"), muted = true)
+                if (text.isEmpty()) GlassFact(AfIcons.Regular.Info, My.breakSyllables(tr(UiText.SUB_TRACKS_NONE)), colour = AutoFlowColors.Muted,
+                    textModifier = Modifier.testTag("subtitles-tracks-none"))
                 val pictures = tracks.filter { !it.isText }
-                if (pictures.isNotEmpty()) AfText(My.breakSyllables(tr(UiText.SUB_PICTURE_TRACK, "n" to pictures.size,
-                    "codec" to pictures.map { it.codecName }.distinct().joinToString(", "))), Modifier.testTag("subtitles-picture-tracks"), muted = true)
-                if (text.isNotEmpty()) AfButton(My.breakSyllables(tr(UiText.SUB_USE_TRACK)),
+                if (pictures.isNotEmpty()) GlassFact(AfIcons.Regular.Image, My.breakSyllables(tr(UiText.SUB_PICTURE_TRACK, "n" to pictures.size,
+                    "codec" to pictures.map { it.codecName }.distinct().joinToString(", "))), colour = AutoFlowColors.Muted,
+                    textModifier = Modifier.testTag("subtitles-picture-tracks"))
+                if (text.isNotEmpty()) GlassButton(My.breakSyllables(tr(UiText.SUB_USE_TRACK)),
                     { text.firstOrNull { it.index == pick }?.let { model.useTrack(it) } },
-                    Modifier.fillMaxWidth().testTag("subtitles-use-track"), kind = ButtonKind.Primary, enabled = idle && pick != null)
+                    Modifier.fillMaxWidth().testTag("subtitles-use-track"), kind = ButtonKind.Primary, enabled = idle && pick != null,
+                    icon = AfIcons.Regular.Check)
             }
         }
-        AfButton(My.breakSyllables(tr(UiText.IMPORT_SUBTITLES)), { model.importSrt() }, Modifier.fillMaxWidth().testTag("subtitles-import-srt"),
-            kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle, icon = AfIcons.Regular.Folder)
+        GlassHairline()
+        GlassButton(My.breakSyllables(tr(UiText.IMPORT_SUBTITLES)), { model.importSrt() }, Modifier.fillMaxWidth().testTag("subtitles-import-srt"),
+            kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle, icon = AfIcons.Regular.FolderOpen)
         if (transcribe != null) TranscribeButton(transcribe, dir, hasSound, idle)
-        onCancel?.let { AfButton(tr(UiText.CANCEL), it, Modifier.testTag("subtitles-source-cancel")) }
+        onCancel?.let { GlassButton(My.breakSyllables(tr(UiText.CANCEL)), it, Modifier.fillMaxWidth().testTag("subtitles-source-cancel"),
+            icon = AfIcons.Regular.Close) }
     }
     if (transcribe == null) PlannedTile(tr(UiText.SUB_TRANSCRIBE), tr(if (hasSound) UiText.SUB_TRANSCRIBE_NEXT else UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE), Modifier.testTag("subtitles-transcribe-planned"))
 }
