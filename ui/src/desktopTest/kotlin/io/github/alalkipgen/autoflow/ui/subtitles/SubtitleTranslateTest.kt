@@ -127,7 +127,7 @@ class SubtitleTranslateTest {
 
     private fun ComposeUiTest.show(f: Fixture, language: UiLanguage = UiLanguage.ENGLISH, font: Float = 1f) = setContent {
         CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language, LocalUiFontFamily provides BurmeseTestFont.family) {
-            SubtitlesScreen(f.model, f.session, f.editor, player = noDecoder, exporter = null, translate = f.translate)
+            SubtitlesScreen(f.model, f.session, f.editor, player = noDecoder, exporter = null, translate = f.translate, onBack = {}) // 🆕-8: Undo in the top bar
         }
     }
 

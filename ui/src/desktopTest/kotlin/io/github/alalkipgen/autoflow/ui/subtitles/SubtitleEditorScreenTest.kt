@@ -148,7 +148,7 @@ class SubtitleEditorScreenTest {
 
     @Test fun editThenSaveMakesANewVersionAndDiscardGoesBack() = runDesktopComposeUiTest(width = 412, height = 900) {
         val f = Fixture()
-        show(f, 412, 1f, UiLanguage.ENGLISH)
+        show(f, 412, 1f, UiLanguage.ENGLISH, onBack = {}) // 🆕-8: Undo / Redo live in the top bar
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c3").fetchSemanticsNodes().isNotEmpty() }
         click("subtitles-cue-edit-c3")
         onNode(hasAnyAncestor(hasTestTag("subtitles-edit-text")) and hasSetTextAction()).performTextReplacement("The third line, typed")
@@ -207,7 +207,7 @@ class SubtitleEditorScreenTest {
         // A new editor reads the file, as after a restart.
         val editor = SubtitleEditorModel(f.session, f.fs, MainScope())
         setContent {
-            CompositionLocalProvider(LocalUiLanguage provides UiLanguage.ENGLISH) { SubtitlesScreen(f.model, f.session, editor, player = noDecoder) }
+            CompositionLocalProvider(LocalUiLanguage provides UiLanguage.ENGLISH) { SubtitlesScreen(f.model, f.session, editor, player = noDecoder, onBack = {}) } // 🆕-8: Undo is in its top bar
         }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-restore").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-undo").assertIsNotEnabled() // answer the offer first

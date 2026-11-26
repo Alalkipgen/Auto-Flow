@@ -59,12 +59,14 @@ private fun Action(action: StudioAction, primary: Boolean = false, modifier: Mod
  * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels); with [onStep] its steps are
  * tabs tagged [stepTags] (Dubbing moves between its steps there). [glass] (Dubbing, Group 4 A 1–2): the glass panel
  * (White .08 → .03 with a White .08 line under it, as the Music Video project bar), the 40 dp glass back button, the
- * name 17 sp bold on one line, and the glass [StepBar].
+ * name 17 sp bold on one line, and the glass [StepBar]. [trailing] comes first among the right-hand icon buttons (Dubbing
+ * step 2's Undo / Redo, Group 5 🆕-8).
  */
 @Composable
 fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit,
     modifier: Modifier = Modifier, options: List<StudioAction> = emptyList(), saveState: StudioStatus? = null,
     steps: List<String> = emptyList(), onStep: ((Int) -> Unit)? = null, stepTags: List<String> = emptyList(), glass: Boolean = false,
+    trailing: @Composable RowScope.() -> Unit = {},
 ) {
     require(step in 1..5)
     var open by remember(name) { mutableStateOf(false) }
@@ -76,6 +78,7 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
     Column(modifier.fillMaxWidth().then(panel), verticalArrangement = Arrangement.spacedBy(if (glass) 8.dp else 6.dp)) {
         val subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step))
         val actions: @Composable RowScope.() -> Unit = {
+            trailing()
             if (page != null) {
                 val icon = if (page.shown) AfIcons.Regular.Edit else AfIcons.Fill.Play
                 val label = tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW)

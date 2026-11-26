@@ -1,11 +1,21 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.io.joinPath
@@ -16,20 +26,19 @@ import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
-import io.github.alalkipgen.autoflow.ui.theme.AfSpace
-import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
-import io.github.alalkipgen.autoflow.ui.theme.Tone
+import io.github.alalkipgen.autoflow.ui.theme.*
 
 /**
  * The Subtitles tool (specs/quick-tools.md §5): the video's facts and its source (S-2b), then the editor (S-3c), under a
- * pinned top bar when it has its own Back (Dubbing's steps bring their own bar).
+ * pinned top bar when it has its own Back (Dubbing's steps bring their own bar; [onEditorShown] tells that bar when the
+ * editor is shown, so it can carry Undo / Redo, 🆕-8).
  * Back with unsaved changes asks first: Save, Discard, or Keep editing.
  */
 @Composable
 fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel, modifier: Modifier = Modifier,
     vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir), onBack: (() -> Unit)? = null,
     exporter: SubtitleExportModel? = null, burner: SubtitleBurnModel? = null, transcribe: SubtitleTranscribeModel? = null,
-    translate: SubtitleTranslateModel? = null) {
+    translate: SubtitleTranslateModel? = null, onEditorShown: ((Boolean) -> Unit)? = null) {
     val all by model.state.collectAsState()
     val open by session.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -41,27 +50,36 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     LaunchedEffect(open?.dir, tool?.current) { model.refresh(); editor.open() }
     val draft = ed.draft?.takeIf { ed.dir == open?.dir && it.base == tool?.current }
     val back = onBack?.let { b -> { if (draft?.dirty == true) leaving = true else b() } }
+    val editing = video != null && draft != null && !choosing
+    // 🆕-8: a host bar (Dubbing) shows Undo / Redo only while the editor is shown, not on the source page.
+    SideEffect { onEditorShown?.invoke(editing) }
     val header: @Composable ColumnScope.() -> Unit = {
         state.busy?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-busy"), muted = true) }
+        // Group 5 A 8: the notices as callouts — green `check-circle` saved, red `x-circle` cannot read, amber `warning`.
         state.notice?.let {
-            AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-notice"),
-                color = if (state.ok) AutoFlowColors.Green else AutoFlowColors.Failed)
+            if (state.ok) GlassCallout(AfIcons.Fill.CheckCircle, My.breakSyllables(it.text(LocalUiLanguage.current)), AutoFlowColors.Green,
+                textModifier = Modifier.testTag("subtitles-notice"))
+            else GlassCallout(AfIcons.Fill.XCircle, My.breakSyllables(it.text(LocalUiLanguage.current)), AutoFlowColors.Failed,
+                textModifier = Modifier.testTag("subtitles-notice"))
         }
-        state.warning?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-warning"), color = AutoFlowColors.Amber) }
+        state.warning?.let { GlassCallout(AfIcons.Fill.Warn, My.breakSyllables(it.text(LocalUiLanguage.current)), AutoFlowColors.Amber,
+            textModifier = Modifier.testTag("subtitles-warning")) }
         if (transcribe != null && open != null) TranscribePanel(transcribe, open!!.dir)
         if (translate != null && open != null) TranslatePanel(translate, open!!.dir)
     }
-    Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+    // Group 5 A 2: the ambient background (Group 1), not the flat Background fill.
+    Column(modifier.fillMaxSize().ambientBackground()) {
         // DESIGN.md §9.7 panel 5: a pinned top bar — the tool, the project, and a warning dot while edits are unsaved.
         if (back != null) {
             val name = open?.project?.name.orEmpty()
             val dirty = draft?.dirty == true
-            AfTopBar(tr(UiText.V3_SUBTITLES), Modifier.background(AutoFlowColors.Panel).padding(horizontal = AfSpace.S, vertical = AfSpace.Xs)
-                .testTag("subtitles-top-bar"), subtitle = My.breakSyllables(if (dirty) "${tr(UiText.SUB_NOT_SAVED)} · $name" else name),
-                status = Tone.Warning.takeIf { dirty }, onBack = back, backModifier = Modifier.testTag("subtitles-back"))
+            SubtitlesTopBar(tr(UiText.V3_SUBTITLES), My.breakSyllables(if (dirty) "${tr(UiText.SUB_NOT_SAVED)} · $name" else name), dirty, back) {
+                // 🆕-8: Undo / Redo in the bar on the editor (not on the source page).
+                if (editing) SubtitleUndoRedo(editor, translate)
+            }
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            if (video != null && draft != null && !choosing) {
+            if (editing) {
                 Box(Modifier.widthIn(max = 1400.dp).fillMaxSize()) { // two panes from 840 dp
                     SubtitleEditor(editor, joinPath(open!!.dir, video.file), video, player, header = {
                         header()
@@ -85,6 +103,49 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
         discard = { leaving = false; editor.discard(); onBack() },
         stay = { leaving = false },
     )
+}
+
+/**
+ * The Subtitles top bar (Group 5 A 1, the Group 2 `ProjectTopBar` look): the glass panel (White .08 → .03, a White .08
+ * line under it), the 40 dp glass back button, [title] 17 sp bold on one line, [subtitle] 12 sp muted — while [dirty] a
+ * 6 dp amber dot and the text in WarningText — then [actions] (Undo / Redo, 🆕-8) at the right.
+ */
+@Composable
+internal fun SubtitlesTopBar(title: String, subtitle: String, dirty: Boolean, onBack: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().drawBehind {
+            drawRect(Brush.verticalGradient(listOf(GlassColors.TopBarTop, GlassColors.TopBarBottom)))
+            drawRect(GlassColors.TopBarLine, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
+        }.padding(horizontal = GlassShapes.TopBarPadX, vertical = GlassShapes.TopBarPadY).testTag("subtitles-top-bar"),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        GlassIconButton(AfIcons.Regular.Back, tr(UiText.BACK), onBack, Modifier.testTag("subtitles-back"), size = GlassShapes.IconButtonHeader)
+        Column(Modifier.weight(1f)) {
+            AfText(title, Modifier.semantics { contentDescription = title }, type = AfType.TopBarTitle, weight = FontWeight.Bold, maxLines = 1, ellipsis = true)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (dirty) Box(Modifier.size(6.dp).clip(CircleShape).background(AutoFlowColors.Amber))
+                AfText(subtitle, color = if (dirty) AutoFlowColors.WarningText else AutoFlowColors.Muted, type = AfType.Caption)
+            }
+        }
+        actions()
+    }
+}
+
+/**
+ * 🆕-8: Undo / Redo as two 40 dp glass icon buttons (Undo = Redo's arrow mirrored, as before) for the Subtitles top bar
+ * and the Dubbing top bar on step 2 — the same rules as in the list header before: on only while the editor is idle (no
+ * restore offer, no translation running) and the draft can undo / redo; tags `subtitles-undo` / `subtitles-redo`.
+ */
+@Composable
+internal fun SubtitleUndoRedo(editor: SubtitleEditorModel, translate: SubtitleTranslateModel?) {
+    val s by editor.state.collectAsState()
+    val draft = s.draft ?: return
+    val translating = translate?.jobOf(s.dir, translate.jobs.collectAsState().value)
+    val idle = s.offer == null && translating == null
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        GlassIconButton(AfIcons.Regular.Redo, tr(UiText.SUB_UNDO), editor::undo, Modifier.graphicsLayer(scaleX = -1f).testTag("subtitles-undo"),
+            size = GlassShapes.IconButtonHeader, enabled = idle && draft.canUndo)
+        GlassIconButton(AfIcons.Regular.Redo, tr(UiText.SUB_REDO), editor::redo, Modifier.testTag("subtitles-redo"),
+            size = GlassShapes.IconButtonHeader, enabled = idle && draft.canRedo)
+    }
 }
 
 /**

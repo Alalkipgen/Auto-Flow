@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -110,9 +109,9 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     if (withPreview) preview()
                     header()
                     s.offer?.let { RestoreCard(it, editor) }
-                    s.notice?.let {
-                        AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-editor-notice"),
-                            color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
+                    s.notice?.let { // Group 5 A 8 / B: a callout — green `check-circle` done, amber `warning` refused
+                        GlassCallout(if (s.ok) AfIcons.Fill.CheckCircle else AfIcons.Fill.Warn, My.breakSyllables(it.text(LocalUiLanguage.current)),
+                            if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber, textModifier = Modifier.testTag("subtitles-editor-notice"))
                     }
                     WrapRow {
                         Segmented(TextChoice.entries.map { tr(viewLabel(it)) }, TextChoice.entries.indexOf(s.view),
@@ -120,10 +119,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                         if (s.issues.isNotEmpty()) AfChip(My.breakSyllables(tr(UiText.SUB_TO_CHECK, "n" to s.issues.size)), false, {
                             editor.nextIssue()?.let { id -> scope.launch { list.animateScrollToItem(1 + cues.indexOfFirst { it.id == id }.coerceAtLeast(0)) } }
                         }, Modifier.testTag("subtitles-issues"), icon = AfIcons.Fill.Warn)
-                        // Undo is Redo's arrow mirrored.
-                        AfIconButton(AfIcons.Regular.Redo, tr(UiText.SUB_UNDO), editor::undo, Modifier.graphicsLayer(scaleX = -1f).testTag("subtitles-undo"),
-                            enabled = idle && draft.canUndo)
-                        AfIconButton(AfIcons.Regular.Redo, tr(UiText.SUB_REDO), editor::redo, Modifier.testTag("subtitles-redo"), enabled = idle && draft.canRedo)
+                        // 🆕-8: Undo / Redo are in the top bar now (SubtitleUndoRedo).
                     }
                     WrapRow {
                         AfButton(My.breakSyllables(tr(UiText.SUB_CHANGE_SOURCE)), onChangeSource, Modifier.testTag("subtitles-change-source"), enabled = !draft.dirty && translating == null)

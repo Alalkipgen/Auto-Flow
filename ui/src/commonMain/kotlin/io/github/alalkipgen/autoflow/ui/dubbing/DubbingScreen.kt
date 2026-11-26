@@ -78,6 +78,8 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
     // Landing on Dub script or Voice stays put (Approve does not move the owner away); Video → Translate still follows the lines.
     LaunchedEffect(open?.dir, doc != null) { if (step == null && doc != null && shown >= DubStep.SCRIPT) step = shown }
     var leaving by remember { mutableStateOf(false) }
+    // Group 5 🆕-8: whether the embedded Subtitles screen shows its editor (Undo / Redo then sit in this bar).
+    var subtitlesEditor by remember(open?.dir) { mutableStateOf(false) }
     // 🆕-5: Voice's Edit line opens Dub script at that line with its field focused (then cleared).
     var focusLine by remember(open?.dir) { mutableStateOf<String?>(null) }
     // F-6 (D-95): one preview clock for Dub script, Voice and Export; a step change pauses it where it is.
@@ -97,15 +99,25 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
         ProjectTopBar(listOfNotNull(tr(UiText.V3_DUBBING), open?.project?.name?.takeIf { it.isNotBlank() }).joinToString(" · "),
             shown.ordinal + 1, tr(shown.text), { if (dirty) leaving = true else onBack() },
             steps = DubStep.entries.map { tr(it.text) }, onStep = { step = DubStep.entries[it] },
-            stepTags = DubStep.entries.map { "dub-step-${it.name}" }, glass = true)
+            stepTags = DubStep.entries.map { "dub-step-${it.name}" }, glass = true, trailing = {
+                // Group 5 🆕-8: step 2 (the Subtitles editor) has Undo / Redo in this bar.
+                val embedded = when (shown) { // the steps that show SubtitlesScreen (not their locks)
+                    DubStep.VIDEO -> gates.video != DubBlock.TOO_LONG
+                    DubStep.TRANSLATE -> gates.video == null && gates.script != DubBlock.NO_LINES
+                    else -> false
+                }
+                if (embedded && subtitlesEditor) SubtitleUndoRedo(editor, translate.takeIf { shown == DubStep.TRANSLATE })
+            })
         val go: (DubStep) -> Unit = { step = it }
         val body = @Composable {
             when (shown) {
                 DubStep.VIDEO -> if (gates.video == DubBlock.TOO_LONG) Lock(block(DubBlock.TOO_LONG, gates, script), tooLong = true) else
-                    SubtitlesScreen(subtitles, session, editor, vlcDir = vlcDir, player = player, transcribe = transcribe)
+                    SubtitlesScreen(subtitles, session, editor, vlcDir = vlcDir, player = player, transcribe = transcribe,
+                        onEditorShown = { subtitlesEditor = it })
                 DubStep.TRANSLATE -> gates.video?.let { Lock(block(it, gates, script), DubStep.VIDEO, go) }
                     ?: if (gates.script == DubBlock.NO_LINES) Lock(block(DubBlock.NO_LINES, gates, script), DubStep.VIDEO, go)
-                    else SubtitlesScreen(subtitles, session, editor, vlcDir = vlcDir, player = player, translate = translate)
+                    else SubtitlesScreen(subtitles, session, editor, vlcDir = vlcDir, player = player, translate = translate,
+                        onEditorShown = { subtitlesEditor = it })
                 DubStep.SCRIPT -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.script != null -> Lock(block(gates.script, gates, script), target(gates.script), go)
