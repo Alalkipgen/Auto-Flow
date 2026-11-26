@@ -96,8 +96,11 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
         onNext = cues.getOrNull(i + 1)?.let { n -> { editing = n.id; editor.select(n.id) } },
         onClose = { editing = null })
     val preview: @Composable () -> Unit = {
-        SubtitlePreview(path, video, cues, s.view, playhead, player, if (wide) 0.45f else 0.34f)
-        CueStrip(cues, video.durationMs, playhead.positionMs, s.selected, s.issues)
+        // Group 5 G: the preview card; 🆕-2 its seek bar = the cue strip (tap / drag seeks, never retimes); the desktop has
+        // the time in the controls row (H 1), a phone on the video.
+        SubtitlePreview(path, video, cues, s.view, playhead, player, if (wide) 0.45f else 0.34f, timeOnVideo = !wide,
+            seekBar = { m, full -> CueStrip(cues, video.durationMs, playhead.positionMs, s.selected, s.issues, m, onSeek = playhead::seek,
+                tag = if (full) "subtitles-fullscreen" else "subtitles") })
     }
     val cueList: @Composable (Modifier, Boolean) -> Unit = { m, withPreview ->
         // One list: the header scrolls away with the lines, so a phone at font 2.0 still shows them (D-22) — with the video

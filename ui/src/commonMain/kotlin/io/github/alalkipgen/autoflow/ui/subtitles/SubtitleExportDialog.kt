@@ -100,7 +100,7 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
             val playhead = remember(doc) { Playhead().apply { seek(doc.cues.getOrNull(startLine ?: 0)?.startMs ?: 0) } }
             val burned = remember(doc, choice, s.look, s.size, s.fit) { burner.previewOverlays(doc, choice) }
             AfText(My.breakSyllables(tr(UiText.BURN_PREVIEW_HINT)), Modifier.testTag("burn-preview-hint"), muted = true)
-            SubtitlePreview(preview.path, preview.video, doc.cues, choice, playhead, preview.player, heightShare = 0.3f, tag = "burn", burned = burned)
+            SubtitlePreview(preview.path, preview.video, doc.cues, choice, playhead, preview.player, heightShare = 0.3f, tag = "burn", burned = burned, card = false)
         }
         AfText(My.breakSyllables(tr(UiText.V3_STYLE_LOOK)), color = AutoFlowColors.Muted)
         WrapRow {

@@ -58,8 +58,8 @@ object AfSize {
     val StepSegment = 4.dp
     val StepGap = 6.dp
     val AttentionBar = 4.dp
-    /** The Subtitles editor's display-only cue timeline (DESIGN.md §9.7, panel 5). */
-    val CueStrip = 28.dp
+    /** The Subtitles editor's cue strip track (DESIGN.md §9.7, panel 5); Group 5 🆕-2: 32 dp, the seek bar (48 dp touch row). */
+    val CueStrip = 32.dp
     /** Below 840 dp the Subtitles editor pins its video above the lines only when the list area is this tall × the font scale. */
     val SubtitlesPinMin = 440.dp
     val Badge = 19.dp

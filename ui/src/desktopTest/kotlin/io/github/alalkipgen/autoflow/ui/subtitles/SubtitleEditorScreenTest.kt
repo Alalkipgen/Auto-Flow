@@ -149,7 +149,9 @@ class SubtitleEditorScreenTest {
     @Test fun editThenSaveMakesANewVersionAndDiscardGoesBack() = runDesktopComposeUiTest(width = 412, height = 900) {
         val f = Fixture()
         show(f, 412, 1f, UiLanguage.ENGLISH, onBack = {}) // 🆕-8: Undo / Redo live in the top bar
-        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c3").fetchSemanticsNodes().isNotEmpty() }
+        // Group 5 G: the preview card (strip seek bar + controls row) pushes line 3 just below the fold.
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cues").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3")
         click("subtitles-cue-edit-c3")
         onNode(hasAnyAncestor(hasTestTag("subtitles-edit-text")) and hasSetTextAction()).performTextReplacement("The third line, typed")
         click("subtitles-done")
@@ -237,7 +239,7 @@ class SubtitleEditorScreenTest {
         assertEquals(5_500, f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.endMs)
         click("subtitles-play-line") // from 0:04.0; the clock passes the line's end → paused
         onNodeWithTag("subtitles-playhead").assertTextEquals("0:08.5")
-        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PLAY.en)
+        onNodeWithTag("subtitles-play").assertContentDescriptionEquals(UiText.SUB_PLAY.en)
     }
 
     @Test fun shiftTimesMovesAllOrFromTheSelectedLine() = runDesktopComposeUiTest(width = 412, height = 900) {
@@ -294,7 +296,7 @@ class SubtitleEditorScreenTest {
         host.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.S) } }
         assertNotEquals(f.first, f.saved())
         host.performKeyInput { pressKey(Key.Spacebar) }
-        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PAUSE.en)
+        onNodeWithTag("subtitles-play").assertContentDescriptionEquals(UiText.SUB_PAUSE.en)
     }
 
     /** Keys typed into a line's text stay text: Space and Enter are not shortcuts inside a field. */
@@ -305,7 +307,7 @@ class SubtitleEditorScreenTest {
         click("subtitles-cue-edit-c3")
         onNodeWithTag("subtitles-edit-text").performScrollTo().performMouseInput { click() }
         onNodeWithTag("subtitles-edit-text").performKeyInput { pressKey(Key.Spacebar); pressKey(Key.DirectionDown); pressKey(Key.Enter) }
-        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PLAY.en)
+        onNodeWithTag("subtitles-play").assertContentDescriptionEquals(UiText.SUB_PLAY.en)
         assertEquals(4_000, f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.startMs) // ↑/↓/Enter did nothing either
     }
 }

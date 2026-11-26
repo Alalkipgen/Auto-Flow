@@ -95,9 +95,14 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         init {
             update { p -> p.copy(subtitles = p.subtitles?.copy(video = p.subtitles!!.video!!.copy(file = "source/Dune.Part.Two.2024.mkv", fps = 23.976))) }
         }
+        /** No decoder (sample 11 state 4): the video cannot play here. */
+        var failing = false
         /** A paused decoder at the seek: a dusk picture (no VLC in the shots). */
         val player: SubtitlePlayer = { _, req, m, report ->
-            LaunchedEffect(req) { report(MovieSnapshot(positionMs = req.sourceMs, durationMs = DURATION, phase = MoviePhase.PAUSED)) }
+            LaunchedEffect(req) {
+                report(if (failing) MovieSnapshot(phase = MoviePhase.FAILED, problem = "no decoder")
+                    else MovieSnapshot(positionMs = req.sourceMs, durationMs = DURATION, phase = MoviePhase.PAUSED))
+            }
             Box(m.background(Brush.verticalGradient(listOf(Color(0xFF0E1630), Color(0xFF2A3A6A), Color(0xFF1A1420), Color(0xFF06080F)))))
         }
         fun update(change: (io.github.alalkipgen.autoflow.core.model.Project) -> io.github.alalkipgen.autoflow.core.model.Project) {
@@ -144,31 +149,39 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
     }
 
     /** #11 selected (a tap: select + seek), then the playhead at 0:42.3 (on #12), the list at #10. */
-    private fun ComposeUiTest.demoState() {
+    private fun ComposeUiTest.demoState() = demoState(42_300)
+
+    /** As [demoState] with the playhead at [atMs]; [play] = Play pressed (sample 01: playing, no big Play). */
+    private fun ComposeUiTest.demoState(atMs: Long, play: Boolean = false) {
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cues").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-cues").performScrollToKey("c11"); waitForIdle()
         click("subtitles-cue-c11")
         onNodeWithTag("subtitles-cues").performScrollToIndex(0); waitForIdle() // at font 2.0 the video tops the list
-        onAllNodesWithTag("subtitles-scrubber").onFirst().performSemanticsAction(SemanticsActions.SetProgress) { it((42_300 + .5f) / DURATION) }
+        onAllNodesWithTag("subtitles-scrubber").onFirst().performSemanticsAction(SemanticsActions.SetProgress) { it((atMs + .5f) / DURATION) }
         waitForIdle()
+        if (play) { click("subtitles-play"); onNodeWithTag("subtitles-cues").performScrollToIndex(0); waitForIdle() }
     }
 
     /**
      * One shot after [prep] and [open]: phone 360 × [height] dp (density 2), desktop 1440 × 900; [only] = that node with
      * 8 dp around it (full width); [crop] = from the top to that node's bottom + 8 dp.
      */
-    private fun shot(name: String, desktop: Boolean = false, dub: Boolean = false, height: Int = HEIGHT, prep: Demo.() -> Unit = {},
+    private fun shot(name: String, desktop: Boolean = false, dub: Boolean = false, height: Int = HEIGHT, width: Int = WIDTH,
+        failing: Boolean = false, window: Boolean = false, prep: Demo.() -> Unit = {},
         only: String? = null, crop: String? = null, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
-        val w = if (desktop) 1440 else WIDTH
+        val w = if (desktop) 1440 else width
         val h = if (desktop) 900 else height
         val scale = if (desktop) 1f else SCALE
         runDesktopComposeUiTest(width = (w * scale).toInt(), height = (h * scale).toInt()) {
             Demo(dub).use { d ->
-                d.prep()
                 d.f.editor.setView(TextChoice.BURMESE) // the samples show the Burmese view
+                d.prep()
+                if (failing) d.failing = true
                 setContent(screen(d, w, scale, dub)); waitForIdle(); open(); waitForIdle()
-                val image = onAllNodes(isRoot())[0].captureToImage().toAwtImage()
+                // [window]: the Fullscreen dialog (its own root, over the screen).
+                val roots = onAllNodes(isRoot())
+                val image = (if (window) roots[roots.fetchSemanticsNodes().lastIndex] else roots[0]).captureToImage().toAwtImage()
                 val tag = only?.split('|')?.firstOrNull { onAllNodesWithTag(it).fetchSemanticsNodes().isNotEmpty() }
                 if (tag != null) {
                     val box = onAllNodesWithTag(tag).onFirst().fetchSemanticsNode().boundsInRoot
@@ -182,6 +195,24 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
                 val problems = textFitProblems((w * scale).toInt(), font, strict = true, minNodes = 3).filterNot { KNOWN in it }
                 if (System.getenv("AUTOFLOW_SHOTS_BEFORE") == null) assertEquals(emptyList(), problems, "$name ${language.code()} $font")
             }
+        }
+    }
+
+    /** PR 2 (G, 🆕-1, 🆕-2; samples 01 / 11 / 11b / 11c / 12): the preview card in its states, Fullscreen portrait / landscape, desktop. */
+    @Test fun preview() {
+        val card = "subtitles-preview-card"
+        shot("01-editor-playing", prep = { dirty() }) { demoState(42_300, play = true) }
+        shot("11-playing", prep = { dirty() }, only = card) { demoState(42_300, play = true) }
+        shot("11-paused-between", prep = { dirty() }, only = card) { demoState(37_200) }
+        shot("11-view-original", prep = { dirty(); f.editor.setView(TextChoice.ORIGINAL) }, only = card) { demoState(42_300) }
+        shot("11-unavailable", prep = { dirty() }, failing = true, only = card) { demoState(42_300) }
+        if (font == 1f) shot("12-desktop-editor-playing", desktop = true, prep = { dirty() }) { demoState(42_300, play = true) }
+        // Last: there is no Fullscreen before Group 5 (the before shots then show the screen as it was).
+        shot("11b-fullscreen-portrait", prep = { dirty() }, window = true) {
+            demoState(42_300, play = true); clickIf("subtitles-preview-fullscreen")
+        }
+        shot("11c-fullscreen-landscape", width = 780, height = 360, prep = { dirty() }, window = true) {
+            demoState(42_300, play = true); clickIf("subtitles-preview-fullscreen")
         }
     }
 

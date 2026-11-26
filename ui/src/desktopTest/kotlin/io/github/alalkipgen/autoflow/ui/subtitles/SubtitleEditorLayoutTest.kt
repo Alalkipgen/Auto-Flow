@@ -90,7 +90,7 @@ class SubtitleEditorLayoutTest {
         onNodeWithTag("subtitles-strip-length").assertTextEquals("0:12.0")
         click("subtitles-cue-c3") // select + seek
         near(AutoFlowColors.PrimaryFill, 5_000, "the selected line: primary")
-        onNodeWithTag("subtitles-strip-now").assertTextEquals("0:04.0")
+        onNodeWithTag("subtitles-playhead").assertTextEquals("0:04.0") // Group 5: subtitles-strip-now retired (the same value)
         val width = onNodeWithTag("subtitles-strip-track").fetchSemanticsNode().size.width
         near(AutoFlowColors.Text, 4_000, "the playhead", px = (4_000f / 12_000 * width).toInt() + 1)
         click("subtitles-cue-c2")
@@ -147,7 +147,7 @@ class SubtitleEditorLayoutTest {
         click("subtitles-undo")
         assertEquals("Third line", f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.text)
         onNodeWithTag("subtitles-redo").assertIsEnabled()
-        onNode(hasTestTag("button-icon") and hasAnyAncestor(hasTestTag("subtitles-play")), useUnmergedTree = true).assertExists()
+        onNodeWithTag("subtitles-play").assertContentDescriptionEquals(UiText.SUB_PLAY.text(language)) // Group 5 🆕-1: the Play circle (icon only)
     }
 
     /** The video and its strip stay above the list only while the list keeps its room; else they top the list. */
