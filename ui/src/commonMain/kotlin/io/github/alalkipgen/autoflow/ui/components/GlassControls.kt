@@ -349,13 +349,14 @@ fun GlassButton(
             rememberTextMeasurer().measure(text, afTextStyle(ink, type.size, type.weight, LocalUiFontFamily.current), maxLines = 1).size.height.toDp()
         }
         // A tall fallback font (Windows' Myanmar Text at font 2.0) can make the label taller than the target itself.
-        val labelHeight = maxOf(line, if (icon != null) 18.dp else 0.dp).coerceAtMost(AfSize.Touch)
+        val labelHeight = maxOf(line, if (icon != null || trailingIcon != null) 18.dp else 0.dp).coerceAtMost(AfSize.Touch)
         Box(Modifier.touchOverflow(horizontal = padX, vertical = ((AfSize.Touch - labelHeight) / 2).coerceAtLeast(0.dp)).then(modifier)
             .touchTarget(interaction, enabled, Role.Button, labelHeight, onClick).interactionOverlay(interaction, shape).padding(horizontal = padX),
             contentAlignment = Alignment.Center) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (icon != null) AfIcon(icon, Modifier.testTag("button-icon"), tint = ink, size = if (small) 16.dp else AfSize.IconSmall)
                 AfText(text, color = ink, type = type)
+                if (trailingIcon != null) AfIcon(trailingIcon, tint = ink, size = if (small) 16.dp else AfSize.IconSmall)
             }
         }
         return

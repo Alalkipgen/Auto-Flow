@@ -62,7 +62,7 @@ fun HomeScreen(
     onNewVoice: (() -> Unit)? = null,
     /** Opens the picker for a new Dubbing project; null keeps the tile Planned (flag `labs.dubbing` off, D-84). */
     onNewDubbing: (() -> Unit)? = null,
-    /** "All ›" beside Continue. */
+    /** "All" + `caret-right` beside Continue. */
     onOpenProjects: () -> Unit = {},
     /** A project's thumbnail source by folder; null = placeholders only. */
     thumbSource: (suspend (dir: String) -> MediaThumbnails.Source?)? = null,
@@ -165,7 +165,7 @@ private fun HomeHeader(onOpenSettings: () -> Unit) {
     }
 }
 
-/** A section title (14 sp bold, with an optional "All ›") over its cards, 8 dp apart. */
+/** A section title (14 sp bold, with an optional "All" + `caret-right`) over its cards, 8 dp apart. */
 @Composable
 private fun HomeSection(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit) {
@@ -177,7 +177,7 @@ private fun HomeSection(title: String, modifier: Modifier = Modifier, action: (@
 
 @Composable
 private fun SeeAll(onClick: () -> Unit, tag: String) =
-    GlassButton(tr(UiText.HOME_SEE_ALL), onClick, Modifier.testTag(tag), kind = ButtonKind.Text, small = true)
+    GlassButton(tr(UiText.HOME_SEE_ALL), onClick, Modifier.testTag(tag), kind = ButtonKind.Text, small = true, trailingIcon = AfIcons.Regular.CaretRight)
 
 /**
  * The latest project, on a glass card tinted with its own frame: thumbnail 96 × 60 with its recorded duration, title,
@@ -344,7 +344,7 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepBySt
                         kind = ButtonKind.Primary, icon = AfIcons.Fill.Spark, small = !wide)
                 }
                 val stepByStep = @Composable { m: Modifier ->
-                    GlassButton(tr(UiText.V3_STEP_BY_STEP), onStepByStep, m.testTag("home-step-by-step"), small = !wide)
+                    GlassButton(tr(UiText.V3_STEP_BY_STEP), onStepByStep, m.testTag("home-step-by-step"), small = !wide, trailingIcon = AfIcons.Regular.ArrowRight)
                 }
                 // Desktop: the two buttons side by side at their own width; phone: both full width.
                 if (wide) WrapRow(Modifier.align(Alignment.CenterHorizontally)) { start(Modifier); stepByStep(Modifier) }
@@ -358,7 +358,8 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepBySt
                     }
                 }
                 WrapRow {
-                    AfButton(tr(UiText.HOME_NEXT_STYLE), { step = WizardStep.STYLE }, Modifier.testTag("quick-next-style"), kind = ButtonKind.Primary)
+                    AfButton(tr(UiText.HOME_NEXT_STYLE), { step = WizardStep.STYLE }, Modifier.testTag("quick-next-style"), kind = ButtonKind.Primary,
+                        trailingIcon = AfIcons.Regular.ArrowRight)
                     AfButton(tr(UiText.CANCEL), { step = WizardStep.IDLE })
                 }
             }
@@ -369,7 +370,8 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepBySt
                     AfChip(styleLabel(RecapStyle.COMMENTARY, LocalUiLanguage.current), style == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY })
                 }
                 WrapRow {
-                    AfButton("${tr(UiText.START)} →", { step = WizardStep.CONFIRM }, Modifier.testTag("quick-confirm"), kind = ButtonKind.Primary)
+                    AfButton(tr(UiText.START), { step = WizardStep.CONFIRM }, Modifier.testTag("quick-confirm"), kind = ButtonKind.Primary,
+                        trailingIcon = AfIcons.Regular.ArrowRight)
                     AfButton(tr(UiText.BACK), { step = WizardStep.LENGTH }, icon = AfIcons.Regular.Back)
                 }
             }

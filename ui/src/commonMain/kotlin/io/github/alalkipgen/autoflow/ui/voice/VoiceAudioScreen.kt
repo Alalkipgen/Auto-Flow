@@ -1,6 +1,5 @@
 package io.github.alalkipgen.autoflow.ui.voice
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
@@ -12,13 +11,15 @@ import io.github.alalkipgen.autoflow.core.model.VoiceTool
 import io.github.alalkipgen.autoflow.core.recap.VoiceLock
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
+import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesTopBar
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /**
  * Voice & Audio (specs/quick-tools.md §6): the task chooser (Text → voice, Clean up sound, Video sound), then Text → voice with the text, its counter and part count; once the project exists also the voice
- * lock, tone chips and the parts list (V-1d) with ▶ / ↻ and Speak (V-1e, [speak]); once every part is voiced Save m4a /
+ * lock, tone chips and the parts list (V-1d) with play / redo and Speak (V-1e, [speak]); once every part is voiced Save m4a /
  * Save wav (V-1f, [export]). Clean up sound (V-2b, [clean]). Video sound (V-3b, [video]). [onBack] leaves the tool.
  */
 @Composable
@@ -33,14 +34,23 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
     LaunchedEffect(open?.project) { model.sync() }
     DisposableEffect(Unit) { onDispose { model.flush() } }
     val back: (() -> Unit)? = if (s.fresh && s.task != null) model::backToChooser else onBack
-    Column(modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
+    // Group 6 A 1: the ambient background (Group 1), not the flat Background fill.
+    Column(modifier.fillMaxSize().ambientBackground(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // 🆕 VA-1: the glass project bar, fixed above the scroll — back (the same rule), the project (or Voice & Audio while
+        // fresh / on the chooser) and the task under it.
+        val task = when (s.task) {
+            VoiceTool.TASK_TEXT -> UiText.VA_TEXT_TO_VOICE
+            VoiceTool.TASK_CLEAN -> UiText.VA_CLEAN
+            VoiceTool.TASK_VIDEO_SOUND -> UiText.VA_VIDEO_SOUND
+            else -> null
+        }
+        SubtitlesTopBar(open?.project?.name?.takeIf { !s.fresh } ?: tr(UiText.V3_VOICE_AUDIO),
+            task?.let { My.breakSyllables(tr(it)) }, dirty = false, onBack = back, tag = "voice-top-bar", backTag = "voice-back")
         Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().weight(1f).paneScroll(rememberScrollState()).padding(screenPadding)
             .testTag("voice-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            WrapRow {
-                back?.let { AfButton(tr(UiText.PROJECTS_BACK), it, Modifier.heightIn(min = 48.dp).testTag("voice-back")) }
-                AfText(open?.project?.name?.takeIf { !s.fresh } ?: tr(UiText.V3_VOICE_AUDIO), bold = true)
-            }
-            s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("voice-notice"), color = AutoFlowColors.Failed) }
+            // Group 6 A 4: the notice = a red callout under the top bar.
+            s.notice?.let { GlassCallout(AfIcons.Fill.XCircle, My.breakSyllables(it.text(LocalUiLanguage.current)), AutoFlowColors.Failed,
+                textModifier = Modifier.testTag("voice-notice")) }
             when (s.task) {
                 null -> Chooser(model, clean, video, onOpened)
                 VoiceTool.TASK_CLEAN -> if (clean != null) CleanStep(clean, open?.project?.voice, s.dir, export, open?.project?.name.orEmpty())
@@ -51,7 +61,7 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
         }
         if (s.fresh && s.task == VoiceTool.TASK_TEXT) StickyActionBar(
             primary = StudioAction(My.breakSyllables(tr(UiText.VA_CONTINUE_TEXT)), { model.createWithText(onOpened) }, enabled = s.text.isNotBlank(),
-                tag = "voice-continue"),
+                tag = "voice-continue", trailingIcon = AfIcons.Regular.ArrowRight),
         ) else if (s.task == VoiceTool.TASK_CLEAN && clean != null && open?.project?.voice?.source != null) {
             val c by clean.state.collectAsState()
             val idle = c.busy == null || c.dir != s.dir
@@ -126,8 +136,8 @@ private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakM
                     muted = !row.voiced, color = if (row.voiced) AutoFlowColors.Green else null)
                 if (row.take != null) WrapRow {
                     model.takePath(row.take)?.let { AudioPlayButton(it, playing == row.id, { playing = if (playing == row.id) null else row.id }) }
-                    if (speak != null) AfButton(My.breakSyllables("↻ " + tr(UiText.VA_REDO_PART)), { speak.ask(setOf(row.id)) },
-                        Modifier.testTag("voice-redo-${row.id}"), enabled = idle)
+                    if (speak != null) AfButton(My.breakSyllables(tr(UiText.VA_REDO_PART)), { speak.ask(setOf(row.id)) },
+                        Modifier.testTag("voice-redo-${row.id}"), enabled = idle, icon = AfIcons.Regular.Redo)
                 }
             }
         }
