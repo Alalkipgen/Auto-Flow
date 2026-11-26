@@ -268,6 +268,35 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         }
     }
 
+    /** PR 4 (B; samples 03 / 03b): the Edit line panel under #12 (paused at 0:41.0), its panel alone, the first line (no Previous). */
+    @Test fun editLine() {
+        val tall = if (font == 1f) 1659 else 3400
+        fun ComposeUiTest.open(id: String, top: String) {
+            onNodeWithTag("subtitles-cues").performScrollToKey(id); waitForIdle()
+            click("subtitles-cue-edit-$id")
+            onNodeWithTag("subtitles-cues").performScrollToKey(top); waitForIdle()
+        }
+        shot("03-edit-line", height = 1659, prep = { dirty() }) { demoState(41_000); open("c12", "c11") }
+        shot("03-edit-panel", height = tall, prep = { dirty() }, only = "subtitles-edit-panel") { demoState(41_000); open("c12", "c12") }
+        shot("03b-first-line", height = tall, prep = { dirty() }, only = "subtitles-edit-panel") { demoState(41_000); open("c1", "c1") }
+    }
+
+    /** PR 4 (03b piece 2): a time that is not valid → the amber notice in the header, the old time kept. */
+    @Test fun editLineNotice() {
+        val tall = if (font == 1f) 1659 else 3400
+        fun ComposeUiTest.open(id: String, top: String) {
+            onNodeWithTag("subtitles-cues").performScrollToKey(id); waitForIdle()
+            click("subtitles-cue-edit-$id")
+            onNodeWithTag("subtitles-cues").performScrollToKey(top); waitForIdle()
+        }
+        shot("03b-time-notice", height = tall, prep = { dirty() }, only = "subtitles-editor-notice") {
+            demoState(41_000); open("c12", "c12")
+            val time = hasTestTag("subtitles-start-time") // the field itself now; before PR 4 its box
+            onNode(hasSetTextAction() and (time or hasAnyAncestor(time))).performTextReplacement("abc"); click("subtitles-done")
+            onNodeWithTag("subtitles-cues").performScrollToIndex(0); waitForIdle()
+        }
+    }
+
     @Test fun shell() {
         shot("01-editor", prep = { dirty() }) { demoState() }
         shot("01-editor-full", height = 1669, prep = { dirty() }) { demoState() }

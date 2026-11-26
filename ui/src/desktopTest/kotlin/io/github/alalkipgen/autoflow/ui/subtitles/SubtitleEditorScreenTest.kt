@@ -139,9 +139,11 @@ class SubtitleEditorScreenTest {
                         File(shots, "03-editor-$width-$font-${language.name.lowercase()}.png"))
                 }
                 // P9-12d: the edit panel's title and its Split / Add / Play line / Done buttons carry icons.
-                assertCardIcon("subtitles-edit-panel", My.breakSyllables(UiText.SUB_EDIT_LINE.text(language)))
-                listOf("subtitles-split" to UiText.SUB_SPLIT, "subtitles-add" to UiText.SUB_ADD_AFTER, "subtitles-play-line" to UiText.SUB_PLAY_LINE,
-                    "subtitles-done" to UiText.SUB_DONE).forEach { (tag, key) -> assertIconButton(tag, key, language) }
+                // Group 5 B: the 30 dp purple `pencil` tile before the title; the tools and the move row are small glass buttons (16 dp icons).
+                assertCardIcon("subtitles-edit-panel", My.breakSyllables(UiText.SUB_EDIT_LINE.text(language)), iconDp = 30f)
+                listOf("subtitles-split" to UiText.SUB_SPLIT, "subtitles-merge" to UiText.SUB_MERGE_NEXT, "subtitles-add" to UiText.SUB_ADD_AFTER,
+                    "subtitles-delete" to UiText.SUB_DELETE, "subtitles-play-line" to UiText.SUB_PLAY_LINE, "subtitles-done" to UiText.SUB_DONE)
+                    .forEach { (tag, key) -> assertIconButton(tag, key, language, iconDp = 16f) }
             }
         }
     }

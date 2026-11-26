@@ -263,6 +263,7 @@ fun AfSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modif
  * Text input; [placeholder] is also its content description. [secret] masks the value (API keys; the caller still
  * never echoes a saved secret). [lines] > 1 makes it multiline with that minimum height; [mono] off for prose.
  * [showPlaceholder] off = a labelled field (the label above it names it; Group 3 B): an empty field shows nothing.
+ * [multiline] = line breaks allowed (it grows past [lines]); by default only when [lines] > 1 (Group 5 B: a 1-line-high desktop field).
  */
 @Composable
 fun AfTextField(
@@ -277,6 +278,7 @@ fun AfTextField(
     glass: Boolean = false,
     error: Boolean = false,
     showPlaceholder: Boolean = true,
+    multiline: Boolean = lines > 1,
 ) {
     var focused by remember { mutableStateOf(false) }
     val shape = if (glass) GlassShapes.Field else ControlShape
@@ -298,7 +300,7 @@ fun AfTextField(
             onValueChange = onChange,
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },
             enabled = enabled,
-            singleLine = lines == 1,
+            singleLine = !multiline,
             minLines = lines,
             textStyle = afTextStyle(
                 if (enabled) AutoFlowColors.Text else AutoFlowColors.Muted,

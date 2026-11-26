@@ -18,10 +18,18 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.Role
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import io.github.alalkipgen.autoflow.ui.icons.afTooltip
 import io.github.alalkipgen.autoflow.core.config.ToolsConfig
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.CueIssue
@@ -95,10 +103,10 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
         true
     }
     @Composable
-    fun panel(i: Int, c: SubtitleCue) = EditPanel(c, editor, playhead,
+    fun panel(i: Int, c: SubtitleCue) = EditPanel(i + 1, c, editor, playhead,
         onPrev = cues.getOrNull(i - 1)?.let { p -> { editing = p.id; editor.select(p.id) } },
         onNext = cues.getOrNull(i + 1)?.let { n -> { editing = n.id; editor.select(n.id) } },
-        onClose = { editing = null })
+        wide = wide, onClose = { editing = null })
     val preview: @Composable () -> Unit = {
         // Group 5 G: the preview card; 🆕-2 its seek bar = the cue strip (tap / drag seeks, never retimes); the desktop has
         // the time in the controls row (H 1), a phone on the video.
@@ -304,9 +312,15 @@ private fun IssuesChip(text: String, onClick: () -> Unit) {
     }
 }
 
+/**
+ * The open line (Group 5 B): a purple glass card — the `pencil` tile + SUB_EDIT_LINE ([wide]: the "#n" pill at the
+ * right of the head); one small label above each field (§8.3: no label inside); Start / End = label + a stepper
+ * [ − | time | + ] + Use playhead ([wide]: side by side); a divider, the line tools, then the move row with Done at the
+ * end. Same edits, commit-on-move and Done rules as before.
+ */
 @Composable
-private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, playhead: Playhead, onPrev: (() -> Unit)?, onNext: (() -> Unit)?,
-    onClose: () -> Unit) {
+private fun EditPanel(n: Int, c: SubtitleCue, editor: SubtitleEditorModel, playhead: Playhead, onPrev: (() -> Unit)?, onNext: (() -> Unit)?,
+    wide: Boolean, onClose: () -> Unit) {
     var text by remember(c.id, c.text) { mutableStateOf(c.text) }
     var my by remember(c.id, c.textMy) { mutableStateOf(c.textMy.orEmpty()) }
     var start by remember(c.id, c.startMs) { mutableStateOf(TimeText.show(c.startMs)) }
@@ -322,52 +336,117 @@ private fun EditPanel(c: SubtitleCue, editor: SubtitleEditorModel, playhead: Pla
             else editor.edit { SubtitleOps.setTimes(it, c.id, a, b) }
         }
     }
-    AfCard(My.breakSyllables(tr(UiText.SUB_EDIT_LINE)), Modifier.testTag("subtitles-edit-panel"), icon = AfIcons.Regular.Edit) {
-        AfText(My.breakSyllables(tr(UiText.SUB_VIEW_ORIGINAL)), bold = true)
-        AfTextField(text, { text = it }, tr(UiText.SUB_VIEW_ORIGINAL), Modifier.fillMaxWidth().testTag("subtitles-edit-text"), lines = 2, mono = false)
-        AfText(My.breakSyllables(tr(UiText.SUB_VIEW_BURMESE)), bold = true)
-        AfTextField(my, { my = it }, tr(UiText.SUB_VIEW_BURMESE), Modifier.fillMaxWidth().testTag("subtitles-edit-my"), lines = 2, mono = false)
-        TimeRow(UiText.SUB_START, start, { start = it }, "start", nudge,
-            usePlayhead = { editor.edit { SubtitleOps.setTimes(it, c.id, playhead.positionMs, c.endMs) } }) { d ->
-            editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs + d, c.endMs) }
+    val title = My.breakSyllables(tr(UiText.SUB_EDIT_LINE))
+    GlassCard(Modifier.testTag("subtitles-edit-panel"), tint = AutoFlowColors.Purple, tintAlpha = .10f, gap = 10.dp) {
+        GlassCardHeader(title, { SoftTile(AfIcons.Fill.Edit, AutoFlowColors.Purple, Modifier.testTag("card-icon"), size = 30.dp) },
+            trailing = if (wide) ({ GlassPill("#$n") }) else null)
+        FieldLabel(UiText.SUB_VIEW_ORIGINAL)
+        AfTextField(text, { text = it }, tr(UiText.SUB_VIEW_ORIGINAL), Modifier.fillMaxWidth().testTag("subtitles-edit-text"),
+            lines = if (wide) 1 else 2, mono = false, glass = true, showPlaceholder = false, multiline = true)
+        FieldLabel(UiText.SUB_VIEW_BURMESE)
+        AfTextField(my, { my = it }, tr(UiText.SUB_VIEW_BURMESE), Modifier.fillMaxWidth().testTag("subtitles-edit-my"),
+            lines = if (wide) 1 else 2, mono = false, glass = true, showPlaceholder = false, multiline = true)
+        val startRow: @Composable (Modifier) -> Unit = { m ->
+            TimeRow(UiText.SUB_START, start, { start = it }, "start", nudge, m,
+                usePlayhead = { editor.edit { SubtitleOps.setTimes(it, c.id, playhead.positionMs, c.endMs) } }) { d ->
+                editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs + d, c.endMs) }
+            }
         }
-        TimeRow(UiText.SUB_END, end, { end = it }, "end", nudge,
-            usePlayhead = { editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, playhead.positionMs) } }) { d ->
-            editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, c.endMs + d) }
+        val endRow: @Composable (Modifier) -> Unit = { m ->
+            TimeRow(UiText.SUB_END, end, { end = it }, "end", nudge, m,
+                usePlayhead = { editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, playhead.positionMs) } }) { d ->
+                editor.edit { SubtitleOps.setTimes(it, c.id, c.startMs, c.endMs + d) }
+            }
         }
-        WrapRow {
-            AfButton(My.breakSyllables(tr(UiText.SUB_SPLIT)), { commit(); editor.splitAt(c.id, playhead.positionMs.takeIf { playhead.inside(c) }) }, Modifier.testTag("subtitles-split"),
-                icon = AfIcons.Regular.Scissors)
-            AfButton(My.breakSyllables(tr(UiText.SUB_MERGE_NEXT)), { commit(); editor.edit { SubtitleOps.merge(it, c.id) } }, Modifier.testTag("subtitles-merge"))
-            AfButton(My.breakSyllables(tr(UiText.SUB_ADD_AFTER)), { commit(); editor.edit { SubtitleOps.insertAfter(it, c.id) } }, Modifier.testTag("subtitles-add"),
-                icon = AfIcons.Regular.Plus)
-            AfButton(My.breakSyllables(tr(UiText.SUB_DELETE)), { editor.edit { SubtitleOps.delete(it, c.id) }; onClose() },
-                Modifier.testTag("subtitles-delete"), kind = ButtonKind.Danger)
+        // Desktop: Start and End side by side while each half still holds its stepper; else one under the other.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (wide && (maxWidth - 16.dp) / 2 >= stepperWidth()) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                startRow(Modifier.weight(1f)); endRow(Modifier.weight(1f))
+            } else Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { startRow(Modifier); endRow(Modifier) }
         }
-        WrapRow {
-            onPrev?.let { AfButton(My.breakSyllables(tr(UiText.SUB_PREV_LINE)), { commit(); it() }, Modifier.testTag("subtitles-prev")) }
-            AfButton(My.breakSyllables(tr(UiText.SUB_PLAY_LINE)), { playhead.playLine(c) }, Modifier.testTag("subtitles-play-line"),
-                icon = AfIcons.Fill.Play)
-            onNext?.let { AfButton(My.breakSyllables(tr(UiText.SUB_NEXT_LINE)), { commit(); it() }, Modifier.testTag("subtitles-next")) }
-            AfButton(My.breakSyllables(tr(UiText.SUB_DONE)), { commit(); onClose() }, Modifier.testTag("subtitles-done"), kind = ButtonKind.Primary,
-                icon = AfIcons.Regular.Check)
+        GlassHairline()
+        WrapRow(spacing = 8.dp) {
+            GlassButton(My.breakSyllables(tr(UiText.SUB_SPLIT)), { commit(); editor.splitAt(c.id, playhead.positionMs.takeIf { playhead.inside(c) }) },
+                Modifier.testTag("subtitles-split"), icon = AfIcons.Regular.Scissors, small = true)
+            GlassButton(My.breakSyllables(tr(UiText.SUB_MERGE_NEXT)), { commit(); editor.edit { SubtitleOps.merge(it, c.id) } },
+                Modifier.testTag("subtitles-merge"), icon = AfIcons.Regular.ArrowsMerge, small = true)
+            GlassButton(My.breakSyllables(tr(UiText.SUB_ADD_AFTER)), { commit(); editor.edit { SubtitleOps.insertAfter(it, c.id) } },
+                Modifier.testTag("subtitles-add"), icon = AfIcons.Regular.Plus, small = true)
+            GlassButton(My.breakSyllables(tr(UiText.SUB_DELETE)), { editor.edit { SubtitleOps.delete(it, c.id) }; onClose() },
+                Modifier.testTag("subtitles-delete"), kind = ButtonKind.Danger, icon = AfIcons.Regular.Trash, small = true)
+        }
+        // The move row: Previous · Play line · Next, then Done at the end of the row (on its own row, right, when it does not fit).
+        WrapRow(spacing = 8.dp) {
+            onPrev?.let { GlassButton(My.breakSyllables(tr(UiText.SUB_PREV_LINE)), { commit(); it() }, Modifier.testTag("subtitles-prev"),
+                icon = AfIcons.Regular.CaretLeft, small = true) }
+            GlassButton(My.breakSyllables(tr(UiText.SUB_PLAY_LINE)), { playhead.playLine(c) }, Modifier.testTag("subtitles-play-line"),
+                icon = AfIcons.Fill.Play, small = true)
+            onNext?.let { GlassButton(My.breakSyllables(tr(UiText.SUB_NEXT_LINE)), { commit(); it() }, Modifier.testTag("subtitles-next"),
+                trailingIcon = AfIcons.Regular.CaretRight, small = true) }
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                GlassButton(My.breakSyllables(tr(UiText.SUB_DONE)), { commit(); onClose() }, Modifier.testTag("subtitles-done"), kind = ButtonKind.Primary,
+                    icon = AfIcons.Regular.Check, small = true)
+            }
         }
     }
 }
 
-/** Start or End: typed `m:ss.t`, or ± one nudge at once (`subtitles.nudgeMs` in `config/tools.json`). */
+/** One small muted label above a field (Group 5 B 2, 11.5 sp). */
 @Composable
-private fun TimeRow(label: UiText, value: String, onChange: (String) -> Unit, key: String, step: Long, usePlayhead: () -> Unit,
+private fun FieldLabel(text: UiText) = AfText(My.breakSyllables(tr(text)), color = AutoFlowColors.Muted, size = 11.5.sp)
+
+/**
+ * Start or End (Group 5 B 3): a small label, then one glass pill [ − | typed `m:ss.t` (mono) | + ] (± one nudge at once,
+ * `subtitles.nudgeMs` in `config/tools.json`; the − / + descriptions say the amount) and the small Use playhead button.
+ */
+@Composable
+private fun TimeRow(label: UiText, value: String, onChange: (String) -> Unit, key: String, step: Long, modifier: Modifier, usePlayhead: () -> Unit,
     nudge: (Long) -> Unit) {
     val s = step / 1000.0
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        AfText(My.breakSyllables(tr(label)), bold = true)
-        WrapRow {
-            AfTextField(value, onChange, tr(label), Modifier.width(160.dp).testTag("subtitles-$key-time"))
-            AfButton("−$s", { nudge(-step) }, Modifier.testTag("subtitles-$key-minus"))
-            AfButton("+$s", { nudge(step) }, Modifier.testTag("subtitles-$key-plus"))
-            AfButton(My.breakSyllables(tr(UiText.SUB_USE_PLAYHEAD)), usePlayhead, Modifier.testTag("subtitles-$key-playhead"))
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FieldLabel(label)
+        WrapRow(spacing = 8.dp) {
+            TimeStepper(value, onChange, tr(label), key, "−$s s", "+$s s", { nudge(-step) }, { nudge(step) })
+            GlassButton(My.breakSyllables(tr(UiText.SUB_USE_PLAYHEAD)), usePlayhead, Modifier.testTag("subtitles-$key-playhead"),
+                icon = AfIcons.Regular.Crosshair, small = true)
         }
+    }
+}
+
+/** [ − | field | + ]: one glass pill (radius 12, 48 dp), 40 dp icon cells and hairlines between; the field mono, centred, cyan ring on focus. */
+@Composable
+private fun TimeStepper(value: String, onChange: (String) -> Unit, description: String, key: String, minus: String, plus: String,
+    onMinus: () -> Unit, onPlus: () -> Unit) {
+    val shape = GlassShapes.Field
+    var focused by remember { mutableStateOf(false) }
+    val fieldW = stepFieldWidth()
+    Row(Modifier.height(AfSize.Touch).clip(shape).background(GlassColors.FieldFill).border(1.dp, GlassColors.FieldBorder, shape),
+        verticalAlignment = Alignment.CenterVertically) {
+        StepCell(AfIcons.Regular.Minus, minus, onMinus, Modifier.testTag("subtitles-$key-minus"))
+        Box(Modifier.width(1.dp).fillMaxHeight().background(GlassColors.FieldBorder))
+        Box(Modifier.width(fieldW).fillMaxHeight().then(if (focused) Modifier.border(1.5.dp, AutoFlowColors.Cyan, RoundedCornerShape(8.dp)) else Modifier)
+            .onFocusChanged { focused = it.hasFocus }.padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+            BasicTextField(value, onChange, Modifier.fillMaxWidth().testTag("subtitles-$key-time").semantics { contentDescription = description },
+                singleLine = true, textStyle = afTextStyle(AutoFlowColors.Text, 14.sp, FontWeight.Normal, FontFamily.Monospace).copy(textAlign = TextAlign.Center),
+                cursorBrush = SolidColor(AutoFlowColors.Cyan))
+        }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(GlassColors.FieldBorder))
+        StepCell(AfIcons.Regular.Plus, plus, onPlus, Modifier.testTag("subtitles-$key-plus"))
+    }
+}
+
+/** The stepper's field: 96 dp × the font scale, at most 160 dp; the whole stepper = the field + two 40 dp cells + hairlines. */
+@Composable
+private fun stepFieldWidth() = (96.dp * LocalDensity.current.fontScale).coerceAtMost(160.dp)
+
+@Composable
+private fun stepperWidth() = stepFieldWidth() + 82.dp
+
+@Composable
+private fun StepCell(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit, modifier: Modifier) {
+    Box(modifier.width(40.dp).fillMaxHeight().afTooltip(label).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
+        contentAlignment = Alignment.Center) {
+        AfIcon(icon, tint = AutoFlowColors.Text, size = AfSize.IconSmall)
     }
 }
 
