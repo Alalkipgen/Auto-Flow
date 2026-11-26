@@ -20,4 +20,10 @@ class SubtitleJobErrorsTest {
     @Test fun anyOtherErrorStaysAsTheDetail() {
         assertEquals("Gemini: bad request", jobErrorText("Gemini: bad request", UiLanguage.BURMESE))
     }
+
+    @Test fun stoppedWithoutADetailHasNoDoubleSpace() = UiLanguage.entries.forEach { l -> // §8.2
+        val text = UiText.SUB_TRANSLATE_STOPPED.text(l).replace("{detail}", "").replace("{done}", "6").replace("{n}", "13").collapseSpaces()
+        assertFalse("  " in text, text)
+        assertEquals(if (l == UiLanguage.ENGLISH) "Stopped: 6 of 13 batches saved." else text, text)
+    }
 }

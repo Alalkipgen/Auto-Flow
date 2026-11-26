@@ -87,6 +87,13 @@ internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: Strin
             RecapJobProcessor({ null }, { null }, { job }), pacer = { RpmPacer(6_000) }), ToolsConfig(), scope)
     }
 
+    /** PR 6: Translate over [text] (null = Gemini not set up), [config] sets the batch size. */
+    fun translate(text: TextProvider?, config: ToolsConfig = ToolsConfig()): SubtitleTranslateModel {
+        val job = SubtitleTranslateJob(session, fs, text?.let(::SubtitleTranslator), config)
+        return SubtitleTranslateModel(session, job, DesktopAiJobRunner(AiJobStore(fs, "/app/ai-jobs"), scope,
+            RecapJobProcessor({ null }, { null }, { job }), pacer = { RpmPacer(6_000) }), config, scope)
+    }
+
     /**
      * Transcribe over [gemini] (each chunk's sound is "a-b" ms text), [pauses] found in the sound, the sound cut by
      * [cutter] (default: writes the chunk's ranges); [config] sets the chunk length.

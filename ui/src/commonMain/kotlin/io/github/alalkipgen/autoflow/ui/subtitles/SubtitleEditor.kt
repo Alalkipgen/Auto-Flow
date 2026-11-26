@@ -204,7 +204,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
             )
             else {
                 val toMy = translate?.takeIf { it.offers(draft.doc.lang) }?.let { m ->
-                    StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask(); scope.launch { list.animateScrollToItem(0) } },
+                    StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask() }, // 🆕-4: the confirm is a dialog, no jump to the top
                         enabled = idle, tag = "subtitles-translate", icon = AfIcons.Regular.Spark, accent = AutoFlowColors.Purple.takeIf { exporter != null })
                 }
                 val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open",

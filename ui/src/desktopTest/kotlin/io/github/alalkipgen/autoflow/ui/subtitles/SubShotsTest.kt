@@ -38,6 +38,9 @@ import kotlinx.coroutines.cancel
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.SceneSpan
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
+import io.github.alalkipgen.autoflow.ai.TextProvider
+import io.github.alalkipgen.autoflow.ai.JsonSchema
+import kotlinx.serialization.json.*
 import io.github.alalkipgen.autoflow.ai.Transcript as AiTranscript
 import io.github.alalkipgen.autoflow.ai.TranscriptSegment
 import io.github.alalkipgen.autoflow.ai.Usage
@@ -109,6 +112,8 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         var extract: suspend (String, Int, String) -> UiNotice? = { _, _, _ -> UiNotice(UiText.MOVIE_FFMPEG_UNAVAILABLE) }
         /** Transcribe (PR 5); null = not built here (the PlannedTile). */
         var transcribe: SubtitleTranscribeModel? = null
+        /** Translate (PR 6); null = the fixture's (no Gemini). */
+        var translate: SubtitleTranslateModel? = null
         val f = SubtitlesFixture(lines(), DURATION, "Dune: Part Two", scope, dub = dub, probe = { probe(it) },
             extract = { v, i, o -> extract(v, i, o) })
         /** The sample's 12:40 video is over Dubbing's 10 min default (`dubbing.maxSourceMs`): the shots allow 15 min. */
@@ -140,6 +145,10 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
             val usage = io.github.alalkipgen.autoflow.ai.usage.UsageCounter(f.fs, "/app/usage.json")
             kotlinx.coroutines.runBlocking { repeat(4) { usage.record("gemini-test") } } // the sample's "Today: 4 requests."
             transcribe = if (cutter == null) f.transcribe(gemini, config, pauses, usage = usage) else f.transcribe(gemini, config, pauses, cutter, usage)
+        }
+        /** PR 6: Translate over [gemini] in batches of 10 (the sample's 128 lines = 13 Gemini requests). */
+        fun translating(gemini: TextProvider = Tr()) {
+            translate = f.translate(gemini, ToolsConfig().let { it.copy(translate = it.translate.copy(batchLines = 10)) })
         }
         /** The editor the screen shows ([restoreOffer] swaps in a new one, as after a restart). */
         var editor = f.editor
@@ -185,9 +194,9 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         Locals(width, scale) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
                 if (dub) DubbingScreen(d.script, d.f.model, d.f.session, d.editor, onBack = {}, player = d.player, transcribe = d.transcribe,
-                    translate = d.f.translate)
+                    translate = d.translate ?: d.f.translate)
                 else SubtitlesScreen(d.f.model, d.f.session, d.editor, player = d.player, onBack = {}, exporter = d.f.exporter(width < 600),
-                    burner = d.f.burner(width < 600), transcribe = d.transcribe, translate = d.f.translate)
+                    burner = d.f.burner(width < 600), transcribe = d.transcribe, translate = d.translate ?: d.f.translate)
             }
         }
     }
@@ -417,6 +426,75 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         shot("06-cancelled", height = 1700, prep = { source(chunkMs = 60_000, gemini = Gemini(hold = 2)) }, only = "subtitles-transcribe-notice",
             pad = 26) {
             start(); waitTag("subtitles-transcribe-cancel"); click("subtitles-transcribe-cancel"); waitTag("subtitles-transcribe-notice")
+        }
+    }
+
+    /**
+     * A Gemini that answers each batch in Burmese, waits forever on request [hold], is busy (429) on request [busyAt],
+     * stops on request [failAt] with [failWith] ("" = no detail), and answers the batch that starts at line [bad] in the
+     * wrong order (asked again once, then that batch is not translated).
+     */
+    private class Tr(val hold: Int? = null, val busyAt: Int? = null, val failAt: Int? = null, val failWith: String? = null,
+        val bad: String? = null) : TextProvider {
+        @Volatile var n = 0
+        override suspend fun json(prompt: String, schema: JsonSchema, system: String?): AiResult<JsonElement> {
+            n++
+            if (n == hold) awaitCancellation()
+            if (n == busyAt) return AiResult.RateLimited(null, "429 Resource exhausted")
+            if (n == failAt) throw IllegalStateException(failWith)
+            val ids = Json.parseToJsonElement(prompt.substringBefore("\n\n")).jsonObject["lines"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content }
+            val out = if (ids.firstOrNull() == bad) ids.reversed() else ids
+            return AiResult.Ok(buildJsonObject { putJsonArray("lines") { out.forEach { id -> addJsonObject { put("id", id); put("textMy", "မြန်မာ $id") } } } },
+                Usage("gemini-test"))
+        }
+    }
+
+    /** PR 6 (E, 🆕-4; samples 07b / 08): the Translate dialog with two names; the job running / paused / stopped; the notices. */
+    @Test fun translateDialog() {
+        val tall = if (font == 1f) HEIGHT else 1700
+        shot("07b-dialog-translate", height = tall, prep = { translating() }, window = true, dialog = true) {
+            demoState(); click("subtitles-translate"); waitTag("subtitles-translate-confirm")
+            listOf("Paul" to "ပေါလ်", "Chani" to "ချာနီ").forEachIndexed { i, (from, my) ->
+                click("subtitles-translate-name-add")
+                fun type(tag: String, text: String) =
+                    onNode(hasSetTextAction() and (hasTestTag(tag) or hasAnyAncestor(hasTestTag(tag)))).performTextInput(text)
+                type("subtitles-translate-name-from-$i", from); type("subtitles-translate-name-my-$i", my); waitForIdle()
+            }
+        }
+    }
+
+    @Test fun translateJob() {
+        val job = "subtitles-translate-job"
+        fun ComposeUiTest.start() {
+            demoState(); click("subtitles-translate"); waitTag("subtitles-translate-start"); click("subtitles-translate-start")
+        }
+        val running = Tr(hold = 4)
+        shot("08-running", prep = { translating(running) }) {
+            start(); waitUntil(timeoutMillis = 15_000) { running.n >= 4 }; waitTag(job); waitTag("subtitles-translate-cancel")
+            onNodeWithTag("subtitles-cues").performScrollToIndex(0); waitForIdle()
+        }
+        val sticky = Tr(hold = 4)
+        shot("08-sticky", prep = { translating(sticky) }, only = "sticky-action-bar", pad = 0) {
+            start(); waitUntil(timeoutMillis = 15_000) { sticky.n >= 4 }; waitTag("subtitles-translate-cancel")
+        }
+        shot("08-paused-busy", height = 1700, prep = { translating(Tr(busyAt = 7)) }, only = job) { start(); waitTag("subtitles-translate-resume") }
+        shot("08-stopped-no-gemini", height = 1700, prep = { translating(Tr(failAt = 7, failWith = SubtitleTranslateJob.NO_GEMINI)) }, only = job) {
+            start(); waitTag("subtitles-translate-resume")
+        }
+        shot("08-stopped-no-detail", height = 1700, prep = { translating(Tr(failAt = 7, failWith = "")) }, only = job) { start(); waitTag("subtitles-translate-resume") }
+        shot("08-done", height = 1700, prep = { translating() }, only = "subtitles-translate-notice", pad = 26) {
+            start(); waitTag("subtitles-translate-notice")
+        }
+        shot("08-not-all", height = 1700, prep = { translating(Tr(bad = "c41")) }, only = "subtitles-translate-notice..subtitles-translate-retry") {
+            start(); waitTag("subtitles-translate-retry")
+        }
+        shot("08-nothing", height = 1700, prep = { translating() }, only = "subtitles-translate-notice", pad = 26) {
+            start(); waitTag("subtitles-translate-notice"); click("subtitles-translate"); waitForIdle()
+        }
+        val cancelled = Tr(hold = 2)
+        shot("08-cancelled", height = 1700, prep = { translating(cancelled) }, only = "subtitles-translate-notice", pad = 26) {
+            start(); waitUntil(timeoutMillis = 15_000) { cancelled.n >= 2 }; waitTag("subtitles-translate-cancel")
+            click("subtitles-translate-cancel"); waitTag("subtitles-translate-notice")
         }
     }
 

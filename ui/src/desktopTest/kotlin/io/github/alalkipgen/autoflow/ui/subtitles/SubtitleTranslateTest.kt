@@ -250,9 +250,13 @@ class SubtitleTranslateTest {
                 press("subtitles-translate")
                 waitTag("subtitles-translate-confirm")
                 tap("subtitles-translate-name-add")
-                assertCardIcon("subtitles-translate-confirm", My.breakSyllables(UiText.SUB_TRANSLATE.text(language)))
+                assertCardIcon("subtitles-translate-confirm", My.breakSyllables(UiText.SUB_TRANSLATE.text(language)), 44f, "glass-dialog-tile") // 🆕-4
                 assertIconOnly("subtitles-translate-name-remove-0", UiText.SUB_NAME_REMOVE, language)
-                assertIconButton("subtitles-translate-name-add", UiText.SUB_NAME_ADD, language)
+                // E 1: the names grid — the In Burmese label sits over the second field.
+                val label = onAllNodes(hasText(My.breakSyllables(UiText.SUB_NAME_MY.text(language))) and hasAnyAncestor(hasTestTag("subtitles-translate-confirm")),
+                    useUnmergedTree = true).onFirst().fetchSemanticsNode().boundsInRoot
+                assertEquals(onNodeWithTag("subtitles-translate-name-my-0").fetchSemanticsNode().boundsInRoot.left, label.left, 1f, "$width × $font × $language names grid")
+                assertIconButton("subtitles-translate-name-add", UiText.SUB_NAME_ADD, language, iconDp = 16f) // E 1: a small glass button
                 assertIconButton("subtitles-translate-start", UiText.START, language)
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language confirm")
                 tap("subtitles-translate-name-remove-0")
