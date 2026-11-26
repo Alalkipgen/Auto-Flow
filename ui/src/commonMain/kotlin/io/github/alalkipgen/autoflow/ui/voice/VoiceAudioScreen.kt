@@ -14,7 +14,6 @@ import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
-import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesTopBar
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.GlassColors
@@ -26,8 +25,11 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesTopBar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.stateDescription
@@ -95,11 +97,14 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
                 enabled = idle && v.dir == s.dir && v.sound != null, tag = "video-sound-make"))
         } else if (s.task == VoiceTool.TASK_TEXT && job == null) {
             val n = s.rows.count { !it.voiced }
+            // Group 6 D 3: all voiced → Save wav · Save m4a (download-simple); else Speak n parts (microphone) + 🆕 VA-6 "3 of 5 parts voiced".
             if (n == 0 && s.rows.isNotEmpty() && export != null) StickyActionBar(
-                primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { export.saveM4a() }, tag = "voice-save-m4a"),
-                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { export.saveWav() }, tag = "voice-save-wav"),
+                primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { export.saveM4a() }, tag = "voice-save-m4a", icon = AfIcons.Regular.DownloadSimple),
+                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { export.saveWav() }, tag = "voice-save-wav", icon = AfIcons.Regular.DownloadSimple),
             ) else if (speak != null) StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to n)), { speak.ask() }, enabled = n > 0,
-                tag = "voice-speak"))
+                tag = "voice-speak", icon = AfIcons.Fill.Microphone),
+                caption = My.breakSyllables(tr(UiText.VA_PARTS_CAPTION, "done" to s.rows.size - n, "n" to s.rows.size)).takeIf { s.rows.isNotEmpty() },
+                captionTag = "voice-parts-caption")
         }
     }
 }
@@ -180,29 +185,68 @@ private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakM
     WrapRow {
         TONES.forEach { (id, label) -> GlassFilterChip(My.breakSyllables(tr(label)), s.tone == id, { model.setTone(id) }, Modifier.testTag("voice-tone-$id"), enabled = idle) }
     }
-    AfText(My.breakSyllables(tr(UiText.VA_TAKE_RULE)), muted = true)
-    s.dir?.let { dir -> speak?.let { SpeakPanel(it, dir, job) } }
+    s.dir?.let { dir -> speak?.let { SpeakPanel(it, dir, job, s, model.edgeVoices()) } }
     s.dir?.let { dir -> export?.let { ExportPanel(it, dir, title) } }
-    AfText(My.breakSyllables(tr(UiText.VA_PARTS, "n" to s.rows.size)), bold = true)
+    PartsCard(model, s, speak, job)
+}
+
+/**
+ * Group 6 D 1–2: the parts card — the list-numbers tile (Amber), "5 parts" and ⓘ (VA-4: the take rule) — and one glass row
+ * per part: the number tile, the text, the status pill (Voiced · Not voiced yet · Running for the part being spoken), and
+ * for a voiced part play + speak again (40 dp icon buttons). The playing row has the cyan outline.
+ */
+@Composable
+private fun PartsCard(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?) {
+    val idle = job == null
+    val speaking = job?.takeIf { it.state == io.github.alalkipgen.autoflow.core.recap.AiJobState.RUNNING }?.items?.firstOrNull()
     var playing by remember { mutableStateOf<String?>(null) }
-    s.rows.forEachIndexed { i, row ->
-        Row(Modifier.fillMaxWidth().testTag("voice-part-${row.id}"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("${i + 1}.", muted = true)
-            Column(Modifier.weight(1f)) {
-                AfText(My.breakSyllables(row.text))
-                AfText(My.breakSyllables(tr(if (row.voiced) UiText.VA_VOICED else UiText.VA_NOT_VOICED)), Modifier.testTag("voice-part-${row.id}-status"),
-                    muted = !row.voiced, color = if (row.voiced) AutoFlowColors.Green else null)
-                if (row.take != null) WrapRow {
-                    model.takePath(row.take)?.let { AudioPlayButton(it, playing == row.id, { playing = if (playing == row.id) null else row.id }) }
-                    if (speak != null) AfButton(My.breakSyllables(tr(UiText.VA_REDO_PART)), { speak.ask(setOf(row.id)) },
-                        Modifier.testTag("voice-redo-${row.id}"), enabled = idle, icon = AfIcons.Regular.Redo)
+    var rule by remember { mutableStateOf(false) }
+    val language = LocalUiLanguage.current
+    GlassCard(Modifier.fillMaxWidth(), gap = 10.dp) {
+        val title = tr(UiText.VA_PARTS, "n" to s.rows.size)
+        val ruleState = tr(if (rule) UiText.V3_EXPANDED else UiText.V3_COLLAPSED)
+        GlassCardHeader(title, { SoftTile(AfIcons.Fill.ListNumbers, AutoFlowColors.Amber, size = 30.dp) }, trailing = {
+            GlassIconButton(AfIcons.Regular.Info, title, { rule = !rule },
+                Modifier.testTag("voice-info-parts").semantics { stateDescription = ruleState },
+                size = GlassShapes.IconButtonHeader, selected = rule)
+        })
+        if (rule) AfText(My.breakSyllables(tr(UiText.VA_TAKE_RULE)), muted = true, size = 12.sp)
+        s.rows.forEachIndexed { i, row ->
+            val shape = RoundedCornerShape(14.dp)
+            val on = playing == row.id
+            Row(Modifier.fillMaxWidth().clip(shape).background(Color.White.copy(alpha = .04f))
+                .border(if (on) 1.5.dp else 1.dp, if (on) AutoFlowColors.Cyan.copy(alpha = .55f) else Color.White.copy(alpha = .08f), shape)
+                .padding(12.dp).testTag("voice-part-${row.id}"), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                val tint = if (row.voiced) AutoFlowColors.Green else AutoFlowColors.Muted
+                // 28 dp; it grows with a large font (2.0) so the number is never cut.
+                Box(Modifier.defaultMinSize(28.dp, 28.dp).clip(RoundedCornerShape(8.dp)).background(tint.copy(alpha = .16f)).padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center) {
+                    AfText("${i + 1}", color = if (row.voiced) AutoFlowColors.Green else AutoFlowColors.Muted, size = 13.sp, mono = true, bold = true)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AfText(My.breakSyllables(row.text), size = 14.sp)
+                    val (icon, tone, text) = when {
+                        speaking == row.id -> Triple(AfIcons.Regular.Redo, AutoFlowColors.Cyan, StudioStatus.RUNNING.label(language))
+                        row.voiced -> Triple(AfIcons.Fill.CheckCircle, AutoFlowColors.Green, tr(UiText.VA_VOICED))
+                        else -> Triple(AfIcons.Regular.CircleDashed, AutoFlowColors.Muted, tr(UiText.VA_NOT_VOICED))
+                    }
+                    WrapRow(spacing = 8.dp) {
+                        io.github.alalkipgen.autoflow.ui.shots.TonePill(tone, icon, text, Modifier.align(Alignment.CenterVertically)
+                            .testTag("voice-part-${row.id}-status").semantics(mergeDescendants = true) {})
+                        if (row.take != null) {
+                            model.takePath(row.take)?.let { AudioPlayButton(it, on, { playing = if (on) null else row.id }, glass = true,
+                                glassIcon = AfIcons.Fill.Play, playingIcon = AfIcons.Fill.Pause, playingTone = AutoFlowColors.Cyan) }
+                            if (speak != null) GlassIconButton(AfIcons.Regular.Redo, tr(UiText.VA_REDO_PART), { speak.ask(setOf(row.id)) },
+                                Modifier.testTag("voice-redo-${row.id}"), size = GlassShapes.IconButtonHeader, enabled = idle)
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-private val TONES = listOf("calm" to UiText.VA_TONE_CALM, "lively" to UiText.VA_TONE_LIVELY, "news" to UiText.VA_TONE_NEWS,
+internal val TONES = listOf("calm" to UiText.VA_TONE_CALM, "lively" to UiText.VA_TONE_LIVELY, "news" to UiText.VA_TONE_NEWS,
     "story" to UiText.VA_TONE_STORY)
 
 /**

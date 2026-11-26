@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
+import io.github.alalkipgen.autoflow.ui.jobs.jobErrorText
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment

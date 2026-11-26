@@ -128,7 +128,20 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         var planned = false
         val clean by lazy { VoiceCleanModel(session, fs, dashboard, files, tasks, export, config, scope, probe = { probe(it) }, ffmpeg = { _, _, _ -> null }) }
         val video by lazy { VideoSoundModel(session, fs, dashboard, files, tasks, export, config, scope, probe = { probe(it) }) }
-        val speak by lazy { VoiceSpeakModel(session, null, null, scope) }
+        /** The app's AI jobs (a stand-in runner: nothing runs; [job] sets the open project's Speak job). */
+        val jobs = kotlinx.coroutines.flow.MutableStateFlow<List<io.github.alalkipgen.autoflow.core.recap.AiJob>>(emptyList())
+        val runner = object : io.github.alalkipgen.autoflow.core.recap.AiJobRunner {
+            override val jobs = this@Demo.jobs
+            override suspend fun enqueue(job: io.github.alalkipgen.autoflow.core.recap.AiJob): String = job.id
+            override suspend fun cancel(id: String) = Unit
+            override suspend fun refresh() = Unit
+        }
+        val speak by lazy { VoiceSpeakModel(session, VoiceSpeakJob(session, fs, io.github.alalkipgen.autoflow.ai.fake.FakeTtsProvider(), config), runner, scope) }
+        /** The Speak job of the open Text → voice project: parts [left] still to speak (p4, p5 of the sample). */
+        fun job(state: io.github.alalkipgen.autoflow.core.recap.AiJobState, left: List<String> = listOf("p4", "p5"), error: String? = null) {
+            jobs.value = listOf(io.github.alalkipgen.autoflow.core.recap.AiJob("speak-1", io.github.alalkipgen.autoflow.core.recap.AiJobKind.TEXT_TTS,
+                session.open!!.dir, left, state, error, initialItemCount = 2))
+        }
         /** Home instead of Voice & Audio. */
         var home = false
 
@@ -293,5 +306,23 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         shot("06-no-voice", prep = { text(voiced = 0, lock = null) }, crop = "voice-tone-calm")
         shot("06-no-models", prep = { models = emptyList(); text() }, crop = "voice-tone-calm")
         shot("06-voice-info", prep = { text() }, crop = "voice-tone-calm") { click("voice-expand"); click("voice-info-models"); click("voice-info-edge") }
+    }
+
+    /** PR 4 (D, E, 🆕 VA-3, VA-6): the parts card and rows, the take rule ⓘ, the sticky + caption, the Speak dialog, the job card, notices. */
+    @Test fun partsSpeak() {
+        val running = io.github.alalkipgen.autoflow.core.recap.AiJobState.RUNNING
+        val paused = io.github.alalkipgen.autoflow.core.recap.AiJobState.PAUSED
+        val failed = io.github.alalkipgen.autoflow.core.recap.AiJobState.FAILED
+        shot("07-parts-info", prep = { text() }) { click("voice-info-parts") }
+        shot("07-all-voiced", prep = { text(voiced = 5) })
+        shot("07a-dialog-edge", prep = { text() }, dialog = true) { click("voice-speak") }
+        shot("07b-dialog-gemini", prep = { text(lock = KORE) }, dialog = true) { click("voice-speak") }
+        shot("07c-dialog-redo", prep = { text() }, dialog = true) { click("voice-redo-p2") }
+        shot("08-speaking", prep = { text(); job(running) })
+        shot("08-paused", prep = { text(); job(paused, error = "Edge TTS is busy (rate limited). Resume to go on.") }, crop = "voice-speak-job")
+        shot("08-stopped", prep = { text(); job(failed, error = "Edge: the connection closed.") }, crop = "voice-speak-job")
+        shot("08-notice-ok", prep = { text(voiced = 5); speak.ask() }, crop = "voice-speak-notice")
+        shot("08-notice-warn", prep = { text(); job(running); speak.ask(); jobs.value = emptyList() }, crop = "voice-speak-notice")
+        if (font == 1f) shot("12-desktop-dialog", desktop = true, prep = { text() }, dialog = true) { click("voice-speak") }
     }
 }

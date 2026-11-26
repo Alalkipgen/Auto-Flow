@@ -1332,7 +1332,10 @@ enum class UiText(val en: String, val my: String?) {
     VA_TONE_NEWS("News", "သတင်းကြေညာသလို"),
     VA_TONE_STORY("Storytelling", "ပုံပြင်ပြောသလို"),
     VA_PARTS("{n} parts", "အပိုင်း {n} ပိုင်း"),
-    VA_VOICED("✓ Voiced", "✓ အသံထုတ်ပြီး"),
+    // Group 6 🆕 VA-6: the sticky caption; 🆕 VA-3: the Speak dialog title.
+    VA_PARTS_CAPTION("{done} of {n} parts voiced", "အပိုင်း {n} ပိုင်းမှာ {done} ပိုင်း အသံထုတ်ပြီး"),
+    VA_SPEAK_TITLE("Speak {n} parts?", "အပိုင်း {n} ပိုင်း အသံထုတ်မလား။"),
+    VA_VOICED("Voiced", "အသံထုတ်ပြီး"), // Group 6 D 2: the green status pill draws check-circle (no "✓ ")
     VA_NOT_VOICED("Not voiced yet", "အသံ မထုတ်ရသေး"),
     VA_TAKE_RULE("Changing the text, voice or tone only affects the parts it changes. Nothing is spoken until Speak.",
         "စာ၊ အသံ (သို့) လေသံ ပြောင်းရင် ပြောင်းတဲ့ အပိုင်းတွေပဲ သက်ရောက်မယ်။ အသံထုတ်မယ် မနှိပ်မချင်း ဘာမှ အသံမထုတ်ပါ။"),
@@ -1408,6 +1411,9 @@ enum class UiText(val en: String, val my: String?) {
     // Group 5 §8.1: the Transcribe / Translate jobs' known English errors, said in the UI language (`jobErrorText`).
     V3_GEMINI_BUSY_RESUME("Gemini is busy. Resume a little later.", "Gemini အလုပ်များနေသည်။ ခဏနေမှ ဆက်လုပ်ပါ။"),
     V3_SUB_NO_GEMINI("Gemini is not set up. Add a key in Settings.", "Gemini မသတ်မှတ်ရသေးပါ။ Settings မှာ key ထည့်ပါ။"),
+    // Group 6 §8.2: the Speak job's busy pause ({name} = Edge TTS / Gemini TTS) and no TTS key, said in the UI language (`jobErrorText`).
+    V3_VOICE_BUSY_RESUME("{name} is busy. Resume a little later.", "{name} အလုပ်များနေသည်။ ခဏနေမှ ဆက်လုပ်ပါ။"),
+    V3_VA_NO_TTS("Text to speech is not set up. Add a key in Settings.", "စာမှ အသံ မသတ်မှတ်ရသေးပါ။ Settings မှာ key ထည့်ပါ။"),
     V3_SUB_NO_FFMPEG("ffmpeg is not available, so the video’s sound cannot be cut.", "ffmpeg မရနိုင်သဖြင့် ဗီဒီယိုအသံကို ဖြတ်မရပါ။"),
     V3_SUB_VIDEO_CHANGED("The video changed after this started. Transcribe again.", "စတင်ပြီးနောက် ဗီဒီယို ပြောင်းသွားသည်။ စာသား ပြန်ပြောင်းပါ။"),
     SUB_RESTORE_DRAFT("Unsaved changes from {time}", "{time} က မသိမ်းခဲ့တဲ့ ပြင်ဆင်ချက်"),
