@@ -453,7 +453,7 @@ private fun StudioV2App(
                         } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.DUBBING && screen == DUBBING_SCREEN) {
                             io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { openProjectScreen(null) }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject(), voice = koinInject(), shorten = koinInject(), export = koinInject())
                         } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES && screen == SUBTITLES_SCREEN) {
-                            io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject(), onBack = { openProjectScreen(null) })
+                            io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject(), onBack = { openProjectScreen(null) }, backHandler = backHandler)
                         } else if (isRecap && screen in listOf("Recap", "Export")) {
                             val nativeBlocks = screen == "Export" || screen == "Recap" && nav.recapStep in listOf(
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE,

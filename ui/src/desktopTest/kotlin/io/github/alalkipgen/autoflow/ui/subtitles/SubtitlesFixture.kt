@@ -41,7 +41,13 @@ import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.recap.SceneAudioCutter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import io.github.alalkipgen.autoflow.media.tool.ToolRunner
+import io.github.alalkipgen.autoflow.platform.ToolLocator
+import io.github.alalkipgen.autoflow.ui.export.RecapFrames
+import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -114,11 +120,36 @@ internal class SubtitlesFixture(lines: List<Line>, durationMs: Long, name: Strin
         override fun observe(id: String) = emptyFlow<RenderState>()
         override fun cancel(id: String) {}
     }, scope), share = share(phone))
+    /** PR 7: a render queue the shots move by hand (job1, job2, … start Queued; Cancel = Cancelled). */
+    class Queue : RenderQueue {
+        val jobs = mutableListOf<RenderJob>(); val states = mutableMapOf<String, MutableStateFlow<RenderState>>()
+        override fun enqueue(job: RenderJob): String = "job${jobs.size + 1}".also { jobs += job; states[it] = MutableStateFlow(RenderState.Queued) }
+        override fun observe(id: String): Flow<RenderState> = states.getValue(id)
+        override fun cancel(id: String) { states.getValue(id).value = RenderState.Cancelled }
+    }
+
+    /** PR 7: Export's video part over [queue]; Check one frame runs [frames] (null = no ffmpeg); [font] = a Burmese font in Settings. */
+    fun burner(phone: Boolean, queue: RenderQueue, frames: ToolRunner?, font: ByteArray?): SubtitleBurnModel {
+        val settings = SettingsStore(fs, "/app/s.json")
+        if (font != null) {
+            fs.createDirectories("/fonts"); fs.writeDurably("/fonts/my.ttf", font)
+            settings.update { it.copy(fontPaths = listOf("/fonts/my.ttf")) }
+        }
+        val locator = object : ToolLocator {
+            override fun findFfmpeg() = "ffmpeg"
+            override fun findVlc(): String? = null
+            override fun isVlcDir(dir: String) = false
+        }
+        return SubtitleBurnModel(session, fs, MediaTasks(queue, scope), RecapFrames(session, settings, fs), MediaTools(settings, locator, frames),
+            share = share(phone), audioCodec = { _, _ -> "aac" })
+    }
+
     private fun share(phone: Boolean) = object : FileShare {
         override val sharesFiles = phone
         override fun open(path: String, mime: String) = PlatformResult.Ok(Unit)
         override fun share(path: String, mime: String, title: String) = PlatformResult.Ok(Unit)
-        override suspend fun saveToGallery(path: String, mime: String, displayName: String) = PlatformResult.Ok(displayName)
+        override suspend fun saveToGallery(path: String, mime: String, displayName: String) = PlatformResult.Ok("Movies/AutoFlow/$displayName")
+        override suspend fun saveToDownloads(path: String, mime: String, displayName: String) = PlatformResult.Ok("Download/AutoFlow/$displayName")
         override fun openFolder(path: String) = PlatformResult.Ok(Unit)
     }
 }

@@ -38,10 +38,13 @@ internal fun ComposeUiTest.assertIconButton(tag: String, key: UiText, language: 
     assertTrue(icon.right <= text.left, "$tag: the icon before the label")
 }
 
-/** P9-12d: the icon-only button tagged [tag] — no text, [key]'s label as its description (and tooltip), a 48 dp target. */
+/**
+ * P9-12d: the icon-only button tagged [tag] — no text, [key]'s label as its description (and tooltip), a 48 dp target;
+ * [scroll] = false for a button outside a scroll (a top bar).
+ */
 @OptIn(ExperimentalTestApi::class)
-internal fun ComposeUiTest.assertIconOnly(tag: String, key: UiText, language: UiLanguage) {
-    val node = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
+internal fun ComposeUiTest.assertIconOnly(tag: String, key: UiText, language: UiLanguage, scroll: Boolean = true) {
+    val node = onNodeWithTag(tag).let { if (scroll) it.performScrollTo() else it }.assertIsDisplayed().fetchSemanticsNode()
     assertEquals(listOf(key.text(language)), node.config[SemanticsProperties.ContentDescription], tag)
     assertFalse(SemanticsProperties.Text in node.config, "$tag: no text glyph")
     assertTrue(node.boundsInRoot.width >= 48f && node.boundsInRoot.height >= 48f, "$tag: 48 dp target ${node.boundsInRoot}")

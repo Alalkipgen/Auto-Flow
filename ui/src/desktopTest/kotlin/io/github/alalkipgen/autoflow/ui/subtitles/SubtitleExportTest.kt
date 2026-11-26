@@ -156,14 +156,18 @@ class SubtitleExportTest {
                 onNodeWithTag("subtitles-export-open").performMouseInput { click() }
                 onNodeWithTag("subtitles-export-srt").assertExists()
                 // P9-12d: the .srt card's icon, and the desktop's Save / Open folder and Close with theirs (Share has none).
-                assertCardIcon("subtitles-export-srt", My.breakSyllables(UiText.SUB_EXPORT_SRT.text(language)))
+                // Group 5 F 3: a 30 dp Blue `subtitles` tile; Save .srt / Open folder are small glass buttons (16 dp icons).
+                assertCardIcon("subtitles-export-srt", My.breakSyllables(UiText.SUB_EXPORT_SRT.text(language)), 30f, "card-tile")
                 if (width >= 840) {
-                    assertIconButton("subtitles-export-save", UiText.SUB_SAVE_SRT, language)
-                    assertIconButton("subtitles-export-folder", UiText.OPEN_FOLDER, language)
+                    assertIconButton("subtitles-export-save", UiText.SUB_SAVE_SRT, language, iconDp = 16f)
+                    assertIconButton("subtitles-export-folder", UiText.OPEN_FOLDER, language, iconDp = 16f)
                 }
-                assertIconButton("subtitles-export-close", UiText.CLOSE, language)
+                // Group 5 F 1: a full page; Close is the top bar's back button (no other close button), the screen's bar hidden.
+                assertIconOnly("subtitles-export-close", UiText.BACK, language, scroll = false)
+                onNodeWithTag("subtitles-back").assertDoesNotExist()
+                onNodeWithTag("subtitles-export-page").assertExists()
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language")
-                onNodeWithTag("subtitles-export-close").performScrollTo().performMouseInput { click() }
+                onNodeWithTag("subtitles-export-close").performMouseInput { click() }
                 f.editor.shift(500)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-save").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("subtitles-export-open").assertDoesNotExist()

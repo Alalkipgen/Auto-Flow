@@ -56,6 +56,9 @@ import java.io.File
 import io.github.alalkipgen.autoflow.core.config.ToolsConfig
 import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
 import javax.imageio.ImageIO
+import io.github.alalkipgen.autoflow.media.render.RenderState
+import io.github.alalkipgen.autoflow.media.tool.ToolExec
+import io.github.alalkipgen.autoflow.media.tool.ToolRunner
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -99,12 +102,38 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         /** PR 5: the sample's video — 12:40, 1920 × 1080, 23.98 fps, with sound; text tracks 3 (eng, Recommended) and 4 (spa), a picture track 5. */
         val INFO = MediaInfo(DURATION, 1920, 1080, 23.976, "h264", "aac", listOf(
             SubtitleTrack(3, "subrip", "eng", "English (SDH)"), SubtitleTrack(4, "subrip", "spa", "Español"), SubtitleTrack(5, "hdmv_pgs_subtitle")))
+        /** A Burmese font for the burn (Settings → Fonts). */
+        val FONT: ByteArray by lazy {
+            java.util.Base64.getMimeDecoder().decode(SubShotsTest::class.java.getResourceAsStream("/fonts/NotoSansMyanmar-subset.ttf.b64")!!.readBytes())
+        }
+        /** Check one frame's picture (no ffmpeg in the shots): the dusk frame with [line] burned in, Boxed. */
+        fun frame(line: String): ByteArray {
+            val w = 1280; val h = 720
+            val img = java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB)
+            img.createGraphics().run {
+                setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON)
+                setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+                paint = java.awt.LinearGradientPaint(0f, 0f, 0f, h.toFloat(), floatArrayOf(0f, .45f, .75f, 1f),
+                    arrayOf(java.awt.Color(0x0E1630), java.awt.Color(0x2A3A6A), java.awt.Color(0x1A1420), java.awt.Color(0x06080F)))
+                fillRect(0, 0, w, h)
+                color = java.awt.Color(0xF2F0E6); fillOval(820, 150, 70, 70)
+                val dir = generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "fonts") }
+                    .first { File(it, "Pyidaungsu-Regular.ttf.b64").isFile }
+                font = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, java.io.ByteArrayInputStream(
+                    java.util.Base64.getMimeDecoder().decode(File(dir, "Pyidaungsu-Regular.ttf.b64").readBytes()))).deriveFont(44f)
+                val m = fontMetrics; val tw = m.stringWidth(line); val x = (w - tw) / 2; val y = h - 90
+                color = java.awt.Color(0, 0, 0, 190); fillRect(x - 18, y - m.ascent - 6, tw + 36, m.ascent + m.descent + 12)
+                color = java.awt.Color.WHITE; drawString(line, x, y)
+                dispose()
+            }
+            return java.io.ByteArrayOutputStream().also { ImageIO.write(img, "png", it) }.toByteArray()
+        }
         const val EDIT12 = "ငါ မင်းကို ဘယ်တော့မှ ထားခဲ့မှာ မဟုတ်ဘူး"
     }
     private val out = System.getenv("AUTOFLOW_GLASS_SHOTS_DIR")?.let(::File)
 
     /** The demo project and its models (nothing touches the disk). */
-    private inner class Demo(dub: Boolean = false) : AutoCloseable {
+    private inner class Demo(dub: Boolean = false, cues: List<Line> = lines()) : AutoCloseable {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         /** What ffprobe says of the video (PR 5: [INFO], its 3 tracks); null = cannot be read here. */
         var probe: suspend (String) -> MediaInfo? = { null }
@@ -114,7 +143,7 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         var transcribe: SubtitleTranscribeModel? = null
         /** Translate (PR 6); null = the fixture's (no Gemini). */
         var translate: SubtitleTranslateModel? = null
-        val f = SubtitlesFixture(lines(), DURATION, "Dune: Part Two", scope, dub = dub, probe = { probe(it) },
+        val f = SubtitlesFixture(cues, DURATION, "Dune: Part Two", scope, dub = dub, probe = { probe(it) },
             extract = { v, i, o -> extract(v, i, o) })
         /** The sample's 12:40 video is over Dubbing's 10 min default (`dubbing.maxSourceMs`): the shots allow 15 min. */
         val script by lazy { DubScriptModel(f.session, f.fs, ToolsConfig().let { it.copy(dubbing = it.dubbing.copy(maxSourceMs = 900_000)) }) }
@@ -131,6 +160,27 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
             }
             Box(m.background(Brush.verticalGradient(listOf(Color(0xFF0E1630), Color(0xFF2A3A6A), Color(0xFF1A1420), Color(0xFF06080F)))))
         }
+        /** Export (PR 7): [shares] overrides the phone / desktop file buttons; [noBurner] = no video export here (PlannedTile). */
+        var shares: Boolean? = null
+        var noBurner = false
+        /** A Burmese font in Settings (else Make video says "No Burmese font"); Check one frame waits forever with [holdFrame]. */
+        var font = true
+        var holdFrame = false
+        val queue = SubtitlesFixture.Queue()
+        /** The Render package card at the bottom of Export (no packing in the shots). */
+        val packages = io.github.alalkipgen.autoflow.ui.pack.RenderPackageModel(f.session, f.fs, io.github.alalkipgen.autoflow.platform.JvmRenderPackages(),
+            null, { io.github.alalkipgen.autoflow.core.recap.Lexicon(emptyList()) }, null, scope)
+        private var exporter: SubtitleExportModel? = null
+        private var burner: SubtitleBurnModel? = null
+        fun exporter(phone: Boolean) = exporter ?: f.exporter(shares ?: phone).also { exporter = it }
+        fun burner(phone: Boolean): SubtitleBurnModel? = if (noBurner) null else burner ?: f.burner(shares ?: phone, queue,
+            ToolRunner { command, workDir, _, _, _ ->
+                if (holdFrame) awaitCancellation()
+                f.fs.writeDurably("$workDir/${command.last()}", frame(lines()[11].my!!))
+                ToolExec.Done(0, "", emptyList(), 1, false)
+            }, if (font) FONT else null).also { burner = it }
+        /** The last started video's job → [state]. */
+        fun job(state: RenderState) { queue.states.getValue("job${queue.jobs.size}").value = state }
         fun update(change: (io.github.alalkipgen.autoflow.core.model.Project) -> io.github.alalkipgen.autoflow.core.model.Project) {
             val open = f.session.open!!
             check(f.session.update(open.dir, open.project.id, change) is CoreResult.Ok)
@@ -192,11 +242,13 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
     /** The screen as `AppShell` draws it (the Projects tab with an open editor). */
     private fun screen(d: Demo, width: Int, scale: Float, dub: Boolean): @Composable () -> Unit = {
         Locals(width, scale) {
+            CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.pack.LocalRenderPackages provides d.packages) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
                 if (dub) DubbingScreen(d.script, d.f.model, d.f.session, d.editor, onBack = {}, player = d.player, transcribe = d.transcribe,
                     translate = d.translate ?: d.f.translate)
-                else SubtitlesScreen(d.f.model, d.f.session, d.editor, player = d.player, onBack = {}, exporter = d.f.exporter(width < 600),
-                    burner = d.f.burner(width < 600), transcribe = d.transcribe, translate = d.translate ?: d.f.translate)
+                else SubtitlesScreen(d.f.model, d.f.session, d.editor, player = d.player, onBack = {}, exporter = d.exporter(width < 600),
+                    burner = d.burner(width < 600), transcribe = d.transcribe, translate = d.translate ?: d.f.translate)
+            }
             }
         }
     }
@@ -220,14 +272,15 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
      * 8 dp around it (full width); [crop] = from the top to that node's bottom + 8 dp.
      */
     private fun shot(name: String, desktop: Boolean = false, dub: Boolean = false, height: Int = HEIGHT, width: Int = WIDTH,
-        failing: Boolean = false, window: Boolean = false, dialog: Boolean = false, pad: Int = 8, view: TextChoice = TextChoice.BURMESE, prep: Demo.() -> Unit = {},
+        failing: Boolean = false, window: Boolean = false, dialog: Boolean = false, pad: Int = 8, view: TextChoice = TextChoice.BURMESE,
+        cues: List<Line> = lines(), prep: Demo.() -> Unit = {},
         only: String? = null, crop: String? = null, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         val w = if (desktop) 1440 else width
         val h = if (desktop) 900 else height
         val scale = if (desktop) 1f else SCALE
         runDesktopComposeUiTest(width = (w * scale).toInt(), height = (h * scale).toInt()) {
-            Demo(dub).use { d ->
+            Demo(dub, cues).use { d ->
                 d.f.editor.setView(TextChoice.BURMESE) // the samples show the Burmese view
                 d.prep()
                 if (failing) d.failing = true
@@ -247,8 +300,8 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
                 val tag = only?.split('|')?.firstOrNull { onAllNodesWithTag(it.substringBefore("..")).fetchSemanticsNodes().isNotEmpty() }
                 if (tag != null && ".." in tag) { // from the top of the first node to the bottom of the second
                     val (a, b) = tag.split("..")
-                    val top = (onAllNodesWithTag(a).onFirst().fetchSemanticsNode().boundsInRoot.top - 8 * scale).toInt().coerceAtLeast(0)
-                    val bottom = (onAllNodesWithTag(b).onFirst().fetchSemanticsNode().boundsInRoot.bottom + 8 * scale).toInt().coerceAtMost(image.height)
+                    val top = (onAllNodesWithTag(a).onFirst().fetchSemanticsNode().boundsInRoot.top - pad * scale).toInt().coerceAtLeast(0)
+                    val bottom = (onAllNodesWithTag(b).onFirst().fetchSemanticsNode().boundsInRoot.bottom + pad * scale).toInt().coerceAtMost(image.height)
                     write(name, image.getSubimage(0, top, image.width, bottom - top))
                 } else if (tag != null) { // [pad] dp around it (more when the tag is on a text inside its card)
                     val box = onAllNodesWithTag(tag).onFirst().fetchSemanticsNode().boundsInRoot
@@ -496,6 +549,78 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
             start(); waitUntil(timeoutMillis = 15_000) { cancelled.n >= 2 }; waitTag("subtitles-translate-cancel")
             click("subtitles-translate-cancel"); waitTag("subtitles-translate-notice")
         }
+    }
+
+    /**
+     * PR 7 (F 1–7, 🆕-5; samples 09 / 10 / 12c): the Export page, the video's job / done / cancelled / failed, Check one
+     * frame, the `.srt` and video notices, Original, the PlannedTile, the preview hint open; the desktop page.
+     */
+    @Test fun export() {
+        val tall = if (font == 1f) 1700 else 3400
+        var demo: Demo? = null
+        fun Demo.keep() { demo = this }
+        fun ComposeUiTest.openExport(lines: Boolean = true) {
+            if (lines) {
+                demoState(); onNodeWithTag("subtitles-cues").performScrollToKey("c12"); waitForIdle(); click("subtitles-cue-c12")
+            } else waitTag("subtitles-export-open")
+            click("subtitles-export-open"); waitTag("subtitles-export")
+        }
+        fun ComposeUiTest.see(tag: String) { waitTag(tag); onNodeWithTag(tag).performScrollTo(); waitForIdle() }
+        fun ComposeUiTest.make(then: RenderState? = null) {
+            click("subtitles-burn-make"); waitUntil(timeoutMillis = 5_000) { demo!!.queue.jobs.isNotEmpty() }
+            then?.let { demo!!.job(it); waitForIdle() }
+        }
+        fun done() = RenderState.Done("${demo!!.f.dir}/" + demo!!.queue.jobs.last().mediaTask!!.output, 1, 60_000, null)
+        shot("09-export", height = if (font == 1f) 1500 else 2600, window = true, dialog = true, prep = { keep() }) { openExport() }
+        shot("10-making", height = tall, window = true, prep = { keep() }, only = "subtitles-burn-job") {
+            openExport(); make(RenderState.Running(0.46, 1.0)); see("subtitles-burn-job")
+        }
+        shot("10-sticky-off", height = tall, window = true, prep = { keep() }, only = "subtitles-burn-make", pad = 12) {
+            openExport(); make(RenderState.Running(0.46, 1.0)); waitTag("subtitles-burn-job")
+        }
+        shot("10-done-phone", height = tall, window = true, prep = { keep() }, only = "subtitles-burn-done..subtitles-burn-gallery", pad = 24) {
+            openExport(); make(); demo!!.job(done()); see("subtitles-burn-gallery")
+        }
+        shot("10-done-desktop", height = tall, window = true, prep = { keep(); shares = false }, only = "subtitles-burn-done..subtitles-burn-folder", pad = 24) {
+            openExport(); make(); demo!!.job(done()); see("subtitles-burn-folder")
+        }
+        shot("10-cancelled", height = tall, window = true, prep = { keep() }, only = "subtitles-burn-cancelled", pad = 20) {
+            openExport(); make(RenderState.Running(0.46, 1.0)); see("subtitles-burn-cancel"); click("subtitles-burn-cancel"); see("subtitles-burn-cancelled")
+        }
+        shot("10-failed", height = tall, window = true, prep = { keep() }, only = "subtitles-burn-failed", pad = 20) {
+            openExport(); make(RenderState.Failed("ffmpeg exited with code 1.")); see("subtitles-burn-failed")
+        }
+        shot("10-checking", height = tall, window = true, prep = { keep(); holdFrame = true }, only = "subtitles-check-prev..subtitles-check-frame", pad = 20) {
+            openExport(); see("subtitles-check-frame"); click("subtitles-check-frame"); waitUntil(timeoutMillis = 5_000) { demo!!.burner(false)!!.state.value.checking }
+        }
+        shot("10-frame", height = tall, window = true, prep = { keep() }, only = "subtitles-check-prev..subtitles-check-image", pad = 48) {
+            openExport(); see("subtitles-check-frame"); click("subtitles-check-frame"); see("subtitles-check-image")
+        }
+        shot("10-srt-saved", height = tall, window = true, only = "subtitles-export-srt") {
+            openExport(); click("subtitles-export-downloads"); see("subtitles-export-notice")
+        }
+        val bad = lines().mapIndexed { i, l -> if (i == 11) l.copy(endMs = l.startMs - 400) else l }
+        shot("10-srt-bad-times", height = tall, window = true, cues = bad, only = "subtitles-export-notice", pad = 20) {
+            openExport(); click("subtitles-export-downloads"); see("subtitles-export-notice")
+        }
+        shot("10-srt-no-lines", height = tall, window = true, cues = emptyList(), only = "subtitles-export-notice", pad = 20) {
+            openExport(lines = false); click("subtitles-export-downloads"); see("subtitles-export-notice")
+        }
+        shot("10-srt-desktop", height = tall, window = true, prep = { shares = false }, only = "subtitles-export-srt") {
+            openExport(); click("subtitles-export-save"); see("subtitles-export-notice")
+        }
+        shot("10-original", window = true, dialog = true) { openExport(); click("subtitles-export-ORIGINAL") }
+        shot("10-no-font", height = tall, window = true, prep = { keep(); font = false }, only = "subtitles-burn-notice", pad = 20) {
+            openExport(); click("subtitles-burn-make"); see("subtitles-burn-notice")
+        }
+        shot("10-gallery", height = tall, window = true, prep = { keep() }, only = "subtitles-burn-notice", pad = 20) {
+            openExport(); make(); demo!!.job(done()); see("subtitles-burn-gallery"); click("subtitles-burn-gallery"); see("subtitles-burn-notice")
+        }
+        shot("10-planned", height = tall, window = true, prep = { noBurner = true }, only = "subtitles-export-video-planned") { openExport() }
+        shot("10-hint-open", height = tall, window = true, only = "subtitles-export-video") {
+            openExport(); clickIf("burn-preview-info"); see("subtitles-export-video")
+        }
+        if (font == 1f) shot("12c-desktop-export", desktop = true, window = true, dialog = true) { openExport() }
     }
 
     @Test fun shell() {

@@ -43,7 +43,8 @@ import io.github.alalkipgen.autoflow.ui.theme.*
 fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel, modifier: Modifier = Modifier,
     vlcDir: String? = null, player: SubtitlePlayer = moviePlayer(vlcDir), onBack: (() -> Unit)? = null,
     exporter: SubtitleExportModel? = null, burner: SubtitleBurnModel? = null, transcribe: SubtitleTranscribeModel? = null,
-    translate: SubtitleTranslateModel? = null, onEditorShown: ((Boolean) -> Unit)? = null) {
+    translate: SubtitleTranslateModel? = null, onEditorShown: ((Boolean) -> Unit)? = null,
+    backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> }) {
     val all by model.state.collectAsState()
     val open by session.state.collectAsState()
     val ed by editor.state.collectAsState()
@@ -52,6 +53,8 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     val video = tool?.video
     var choosing by remember(open?.dir, tool?.current) { mutableStateOf(false) }
     var leaving by remember { mutableStateOf(false) }
+    // Group 5 F 1 (🆕-5): Export is a full page in place of the editor, under its own top bar (this bar hides meanwhile).
+    var exporting by remember(open?.dir) { mutableStateOf(false) }
     LaunchedEffect(open?.dir, tool?.current) { model.refresh(); editor.open() }
     val draft = ed.draft?.takeIf { ed.dir == open?.dir && it.base == tool?.current }
     val back = onBack?.let { b -> { if (draft?.dirty == true) leaving = true else b() } }
@@ -76,7 +79,7 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     // Group 5 A 2: the ambient background (Group 1), not the flat Background fill.
     Column(modifier.fillMaxSize().ambientBackground()) {
         // DESIGN.md §9.7 panel 5: a pinned top bar — the tool, the project, and a warning dot while edits are unsaved.
-        if (back != null) {
+        if (back != null && !(editing && exporting && exporter != null && draft?.dirty == false)) {
             val name = open?.project?.name.orEmpty()
             val dirty = draft?.dirty == true
             SubtitlesTopBar(tr(UiText.V3_SUBTITLES), My.breakSyllables(if (dirty) "${tr(UiText.SUB_NOT_SAVED)} · $name" else name), dirty, back) {
@@ -98,7 +101,8 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
                             }
                             VideoFacts(video, Modifier.padding(start = 26.dp), size = 12.sp)
                         }
-                    }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner, translate = translate)
+                    }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner, translate = translate,
+                        exporting = exporting, onExporting = { exporting = it }, project = open?.project?.name.orEmpty(), backHandler = backHandler)
                 }
             } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding)
                 .testTag("subtitles-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -123,13 +127,14 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
  * 6 dp amber dot and the text in WarningText — then [actions] (Undo / Redo, 🆕-8) at the right.
  */
 @Composable
-internal fun SubtitlesTopBar(title: String, subtitle: String, dirty: Boolean, onBack: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
+internal fun SubtitlesTopBar(title: String, subtitle: String, dirty: Boolean, onBack: () -> Unit, tag: String = "subtitles-top-bar",
+    backTag: String = "subtitles-back", actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().drawBehind {
             drawRect(Brush.verticalGradient(listOf(GlassColors.TopBarTop, GlassColors.TopBarBottom)))
             drawRect(GlassColors.TopBarLine, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
-        }.padding(horizontal = GlassShapes.TopBarPadX, vertical = GlassShapes.TopBarPadY).testTag("subtitles-top-bar"),
+        }.padding(horizontal = GlassShapes.TopBarPadX, vertical = GlassShapes.TopBarPadY).testTag(tag),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        GlassIconButton(AfIcons.Regular.Back, tr(UiText.BACK), onBack, Modifier.testTag("subtitles-back"), size = GlassShapes.IconButtonHeader)
+        GlassIconButton(AfIcons.Regular.Back, tr(UiText.BACK), onBack, Modifier.testTag(backTag), size = GlassShapes.IconButtonHeader)
         Column(Modifier.weight(1f)) {
             AfText(title, Modifier.semantics { contentDescription = title }, type = AfType.TopBarTitle, weight = FontWeight.Bold, maxLines = 1, ellipsis = true)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -57,7 +57,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: SourceVideo, player: SubtitlePlayer,
     header: @Composable ColumnScope.() -> Unit, onChangeSource: () -> Unit, exporter: SubtitleExportModel? = null,
-    burner: SubtitleBurnModel? = null, translate: SubtitleTranslateModel? = null) {
+    burner: SubtitleBurnModel? = null, translate: SubtitleTranslateModel? = null, exporting: Boolean = false, onExporting: (Boolean) -> Unit = {},
+    project: String = "", backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> }) {
     val s by editor.state.collectAsState()
     val draft = s.draft ?: return
     val cues = draft.doc.cues
@@ -65,7 +66,6 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     val scope = rememberCoroutineScope()
     var editing by remember(s.dir) { mutableStateOf<String?>(null) }
     var shifting by remember(s.dir) { mutableStateOf(false) }
-    var exporting by remember(s.dir) { mutableStateOf(false) }
     val translating = translate?.jobOf(s.dir, translate.jobs.collectAsState().value) // S-6b: read-only while it runs
     val idle = s.offer == null && translating == null
     val playhead = remember(s.dir) { Playhead() }
@@ -163,9 +163,10 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     }) else null
     // The editor's video waits while the export's own preview plays (one sound at a time).
     LaunchedEffect(exporting) { if (exporting) playhead.playing = false }
-    if (exporting && exporter != null && !draft.dirty) SubtitleExportDialog(exporter, draft.doc, draft.base, { exporting = false }, burner,
-        cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 }, BurnPreviewVideo(path, video, player))
-    ProjectShortcutHost(onKey = onKey) {
+    // Group 5 F 1 (🆕-5): Export is a full page in place of the editor (the editor's list, playhead and selection wait).
+    if (exporting && exporter != null && !draft.dirty) SubtitleExportPage(exporter, draft.doc, draft.base, project, { onExporting(false) }, burner,
+        cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 }, BurnPreviewVideo(path, video, player), backHandler)
+    else ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
             // D4: the video, its strip and the open line's panel left; the lines in a 460 dp pane right.
             if (wide) EditorPanes(windowWidthDp(), main = {
@@ -207,7 +208,7 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask() }, // 🆕-4: the confirm is a dialog, no jump to the top
                         enabled = idle, tag = "subtitles-translate", icon = AfIcons.Regular.Spark, accent = AutoFlowColors.Purple.takeIf { exporter != null })
                 }
-                val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open",
+                val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { onExporting(true) }, enabled = idle, tag = "subtitles-export-open",
                     icon = AfIcons.Regular.Export, hug = toMy != null) }
                 if (export != null) StickyActionBar(primary = export, secondary = toMy, keys = keys, glass = true)
                 else if (toMy != null) StickyActionBar(primary = toMy, keys = keys, glass = true)

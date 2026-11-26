@@ -198,15 +198,18 @@ class SubtitleBurnTest {
         onNodeWithTag("subtitles-export-open").performMouseInput { click() }
         onNodeWithTag("subtitles-export-video-planned").assertDoesNotExist()
         // F-6 (D-95): the burn card previews the video before Make video; without a decoder it says so and the card goes on.
+        // Group 5 F 4: the hint is behind the card's `info` button (Group 4 rule), shown only while it is open.
+        onNodeWithTag("burn-preview-hint").assertDoesNotExist()
+        onNodeWithTag("burn-preview-info").performMouseInput { click() }
         onNodeWithTag("burn-preview-hint").assertExists()
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("burn-preview-unavailable").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-CLEAN").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "selected"))
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-notice").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-notice").assertTextContains("Burmese font", substring = true)
         onNodeWithTag("subtitles-export-ORIGINAL").performScrollTo().performMouseInput { click() }
         onNodeWithTag("subtitles-burn-OUTLINE").performScrollTo().performMouseInput { click() }
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-job").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(f.out(TextChoice.ORIGINAL, "outline-medium-1l-short"), f.task().output)
         f.queue.states.getValue("job1").value = RenderState.Running(0.42, 1.0)
@@ -228,11 +231,11 @@ class SubtitleBurnTest {
         show(f)
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-export-open").performMouseInput { click() }
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-cancel").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-cancel").performScrollTo().performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-cancelled").fetchSemanticsNodes().isNotEmpty() }
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { f.queue.jobs.size == 2 }
         val out = "$dir/" + f.task(1).output
         f.queue.states.getValue("job2").value = RenderState.Done(out, 1, 60_000, null)
@@ -249,14 +252,14 @@ class SubtitleBurnTest {
                 show(f, font, language)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("subtitles-export-open").performMouseInput { click() }
-                onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+                onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { f.queue.jobs.size == 1 }
                 f.queue.states.getValue("job1").value = RenderState.Running(0.5, 1.0)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-cancel").fetchSemanticsNodes().isNotEmpty() }
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language running")
                 f.queue.states.getValue("job1").value = RenderState.Done("$dir/" + f.task().output, 1, 60_000, null)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-done").fetchSemanticsNodes().isNotEmpty() }
-                if (width >= 840) assertIconButton("subtitles-burn-folder", UiText.OPEN_FOLDER, language) // as the .srt's Open folder
+                if (width >= 840) assertIconButton("subtitles-burn-folder", UiText.OPEN_FOLDER, language, iconDp = 16f) // as the .srt's Open folder
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language done")
             }
         }
@@ -313,12 +316,12 @@ class SubtitleBurnTest {
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("subtitles-export-open").performMouseInput { click() }
                 // P9-12d: ‹ › are chevron icon buttons with their names; Check one frame = picture, Make video = film.
-                assertCardIcon("subtitles-export-video", My.breakSyllables(UiText.SUB_EXPORT_VIDEO.text(language)))
+                assertCardIcon("subtitles-export-video", My.breakSyllables(UiText.SUB_EXPORT_VIDEO.text(language)), 30f, "card-tile")
                 assertIconOnly("subtitles-check-prev", UiText.SUB_PREV_LINE, language)
                 assertIconOnly("subtitles-check-next", UiText.SUB_NEXT_LINE, language)
                 onAllNodes(hasText("‹", substring = true) or hasText("›", substring = true), useUnmergedTree = true).assertCountEquals(0)
                 assertIconButton("subtitles-check-frame", UiText.SUB_CHECK_FRAME, language)
-                assertIconButton("subtitles-burn-make", UiText.SUB_MAKE_VIDEO, language)
+                assertIconButton("subtitles-burn-make", UiText.SUB_MAKE_VIDEO, language, scroll = false) // F 5: the sticky
                 onNodeWithTag("subtitles-check-frame").performScrollTo().performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-check-image").fetchSemanticsNodes().isNotEmpty() }
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language")
