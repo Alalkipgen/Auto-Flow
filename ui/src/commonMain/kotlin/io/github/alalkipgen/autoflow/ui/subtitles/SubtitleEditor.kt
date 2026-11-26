@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +19,9 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.Role
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.core.config.ToolsConfig
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.CueIssue
@@ -116,25 +120,27 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                         GlassCallout(if (s.ok) AfIcons.Fill.CheckCircle else AfIcons.Fill.Warn, My.breakSyllables(it.text(LocalUiLanguage.current)),
                             if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber, textModifier = Modifier.testTag("subtitles-editor-notice"))
                     }
-                    WrapRow {
-                        Segmented(TextChoice.entries.map { tr(viewLabel(it)) }, TextChoice.entries.indexOf(s.view),
-                            { editor.setView(TextChoice.entries[it]) }, tags = TextChoice.entries.map { "subtitles-view-${it.name}" })
-                        if (s.issues.isNotEmpty()) AfChip(My.breakSyllables(tr(UiText.SUB_TO_CHECK, "n" to s.issues.size)), false, {
+                    // Group 5 A 5: the glass view switch (as wide as its labels) + the amber "3 to check" chip; then two small glass
+                    // buttons (Shift times = the purple look while its card is open). 🆕-8: Undo / Redo are in the top bar (SubtitleUndoRedo).
+                    WrapRow(spacing = 10.dp) {
+                        GlassSegmented(TextChoice.entries.map { GlassSegment(tr(viewLabel(it)), "subtitles-view-${it.name}") },
+                            TextChoice.entries.indexOf(s.view), { editor.setView(TextChoice.entries[it]) }, hug = true)
+                        if (s.issues.isNotEmpty()) IssuesChip(My.breakSyllables(tr(UiText.SUB_TO_CHECK, "n" to s.issues.size))) {
                             editor.nextIssue()?.let { id -> scope.launch { list.animateScrollToItem(1 + cues.indexOfFirst { it.id == id }.coerceAtLeast(0)) } }
-                        }, Modifier.testTag("subtitles-issues"), icon = AfIcons.Fill.Warn)
-                        // 🆕-8: Undo / Redo are in the top bar now (SubtitleUndoRedo).
+                        }
                     }
-                    WrapRow {
-                        AfButton(My.breakSyllables(tr(UiText.SUB_CHANGE_SOURCE)), onChangeSource, Modifier.testTag("subtitles-change-source"), enabled = !draft.dirty && translating == null)
-                        AfButton(My.breakSyllables(tr(UiText.SUB_SHIFT)), { shifting = !shifting }, Modifier.testTag("subtitles-shift"), enabled = idle,
-                            icon = AfIcons.Regular.Clock)
+                    WrapRow(spacing = 10.dp) {
+                        GlassButton(My.breakSyllables(tr(UiText.SUB_CHANGE_SOURCE)), onChangeSource, Modifier.testTag("subtitles-change-source"),
+                            enabled = !draft.dirty && translating == null, icon = AfIcons.Regular.Swap, small = true)
+                        GlassButton(My.breakSyllables(tr(UiText.SUB_SHIFT)), { shifting = !shifting }, Modifier.testTag("subtitles-shift"), enabled = idle,
+                            icon = AfIcons.Regular.Clock, small = true, accent = AutoFlowColors.Purple.takeIf { shifting && idle })
                     }
                     if (shifting && idle) ShiftCard(editor, cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 })
                 }
             }
             itemsIndexed(cues, key = { _, c -> c.id }) { i, c ->
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CueRow(i + 1, c, s.view, s.issues[c.id], s.selected == c.id || i == live, editing == c.id, idle, editor.config,
+                    CueRow(i + 1, c, s.view, s.issues[c.id], s.selected == c.id, i == live, editing == c.id, idle, editor.config,
                         onTap = { editor.select(c.id); playhead.seek(c.startMs) },
                         onEdit = { editing = if (editing == c.id) null else c.id; editor.select(c.id) })
                     if (!wide && editing == c.id && idle) panel(i, c)
@@ -174,23 +180,29 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     cueList(Modifier.weight(1f).fillMaxWidth(), !pin)
                 }
             }
+            // Group 5 A 10: the glass sticky bar. Translating = Cancel job (danger) + the lock caption; dirty = Discard (hugs its
+            // label) + Save (the room) + 🆕-6 "4 lines edited · not saved yet"; saved = Translate (purple outline, the room) + Export
+            // (hugs), or Export alone; Dubbing (no exporter) = Translate primary only.
             if (translating != null) StickyActionBar(
-                primary = StudioAction(tr(UiText.CANCEL_JOB), { translate.cancel(translating) }, tag = "subtitles-translate-cancel"),
-                caption = My.breakSyllables(tr(UiText.SUB_TRANSLATE_LOCKED)),
+                primary = StudioAction(tr(UiText.CANCEL_JOB), { translate.cancel(translating) }, tag = "subtitles-translate-cancel",
+                    icon = AfIcons.Regular.Close, danger = true),
+                caption = My.breakSyllables(tr(UiText.SUB_TRANSLATE_LOCKED)), glass = true, captionIcon = AfIcons.Regular.Lock,
             )
             else if (draft.dirty) StickyActionBar(
                 primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save", icon = AfIcons.Regular.Check),
-                secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard"),
-                caption = My.breakSyllables(tr(UiText.SUB_NOT_SAVED)), keys = keys,
+                secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard", icon = AfIcons.Regular.Trash, hug = true),
+                caption = My.breakSyllables(tr(UiText.V3_SUB_EDITED_CAPTION, "n" to draft.changedLines)), keys = keys, glass = true,
+                captionIcon = AfIcons.Regular.Edit, captionColour = AutoFlowColors.WarningText, captionTag = "subtitles-edited-caption",
             )
             else {
-                val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open") }
                 val toMy = translate?.takeIf { it.offers(draft.doc.lang) }?.let { m ->
                     StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask(); scope.launch { list.animateScrollToItem(0) } },
-                        enabled = idle, tag = "subtitles-translate", icon = AfIcons.Regular.Spark)
+                        enabled = idle, tag = "subtitles-translate", icon = AfIcons.Regular.Spark, accent = AutoFlowColors.Purple.takeIf { exporter != null })
                 }
-                if (export != null) StickyActionBar(primary = export, secondary = toMy, keys = keys)
-                else if (toMy != null) StickyActionBar(primary = toMy, keys = keys)
+                val export = exporter?.let { StudioAction(tr(UiText.EXPORT), { exporting = true }, enabled = idle, tag = "subtitles-export-open",
+                    icon = AfIcons.Regular.Export, hug = toMy != null) }
+                if (export != null) StickyActionBar(primary = export, secondary = toMy, keys = keys, glass = true)
+                else if (toMy != null) StickyActionBar(primary = toMy, keys = keys, glass = true)
             }
         }
     }
@@ -208,17 +220,19 @@ private fun windowWidthDp(): Float = with(LocalDensity.current) { LocalWindowInf
 private fun ShiftCard(editor: SubtitleEditorModel, selected: Int?) {
     var fromLine by remember { mutableStateOf(false) }
     val from = fromLine && selected != null
-    AfCard(My.breakSyllables(tr(UiText.SUB_SHIFT)), Modifier.testTag("subtitles-shift-card")) {
-        WrapRow {
-            AfChip(My.breakSyllables(tr(UiText.SUB_SHIFT_ALL)), !from, { fromLine = false }, Modifier.testTag("subtitles-shift-all"))
-            AfChip(My.breakSyllables(tr(UiText.SUB_SHIFT_FROM, "n" to (selected ?: 0) + 1)), from, { fromLine = true },
+    // Group 5 A 6: a glass card with the cyan `clock` tile, the All / From line N filter chips and the four amounts.
+    GlassCard(Modifier.testTag("subtitles-shift-card"), tint = AutoFlowColors.Cyan, tintAlpha = .10f, gap = 10.dp) {
+        GlassCardHeader(My.breakSyllables(tr(UiText.SUB_SHIFT)), { SoftTile(AfIcons.Fill.Clock, AutoFlowColors.Cyan, size = 30.dp) })
+        WrapRow(spacing = 8.dp) {
+            GlassFilterChip(My.breakSyllables(tr(UiText.SUB_SHIFT_ALL)), !from, { fromLine = false }, Modifier.testTag("subtitles-shift-all"))
+            GlassFilterChip(My.breakSyllables(tr(UiText.SUB_SHIFT_FROM, "n" to (selected ?: 0) + 1)), from, { fromLine = true },
                 Modifier.testTag("subtitles-shift-from"), enabled = selected != null)
         }
-        WrapRow {
+        WrapRow(spacing = 8.dp) {
             SHIFT_STEPS_MS.forEach { d ->
                 val label = (if (d < 0) "−" else "+") + kotlin.math.abs(d) / 1000.0 + " s"
-                AfButton(label, { editor.shift(d, if (from) editor.state.value.draft?.doc?.cues?.getOrNull(selected!!)?.id else null) },
-                    Modifier.testTag("subtitles-shift-${if (d < 0) "m" else "p"}${kotlin.math.abs(d)}"))
+                GlassButton(label, { editor.shift(d, if (from) editor.state.value.draft?.doc?.cues?.getOrNull(selected!!)?.id else null) },
+                    Modifier.testTag("subtitles-shift-${if (d < 0) "m" else "p"}${kotlin.math.abs(d)}"), small = true)
             }
         }
     }
@@ -227,36 +241,46 @@ private fun ShiftCard(editor: SubtitleEditorModel, selected: Int?) {
 @Composable
 private fun RestoreCard(offer: DraftFile, editor: SubtitleEditorModel) {
     val time = localStamp(Instant.fromEpochMilliseconds(offer.savedAtMs))
-    AfCard(My.breakSyllables(tr(UiText.SUB_RESTORE_DRAFT, "time" to time)), Modifier.testTag("subtitles-restore")) {
-        WrapRow {
-            AfButton(My.breakSyllables(tr(UiText.SUB_RESTORE)), editor::restore, Modifier.testTag("subtitles-restore-yes"), kind = ButtonKind.Primary)
-            AfButton(My.breakSyllables(tr(UiText.DISCARD)), editor::dismissOffer, Modifier.testTag("subtitles-restore-no"))
+    // Group 5 A 7: an amber glass card, the `clock-counter-clockwise` tile; Restore (primary) + Discard (`trash`).
+    GlassCard(Modifier.testTag("subtitles-restore"), tint = AutoFlowColors.Amber, tintAlpha = .12f, gap = 10.dp) {
+        GlassCardHeader(My.breakSyllables(tr(UiText.SUB_RESTORE_DRAFT, "time" to time)),
+            { SoftTile(AfIcons.Fill.ClockCounterClockwise, AutoFlowColors.Amber, size = 30.dp) })
+        WrapRow(spacing = 8.dp) {
+            GlassButton(My.breakSyllables(tr(UiText.SUB_RESTORE)), editor::restore, Modifier.testTag("subtitles-restore-yes"), kind = ButtonKind.Primary,
+                icon = AfIcons.Regular.ClockCounterClockwise, small = true)
+            GlassButton(My.breakSyllables(tr(UiText.DISCARD)), editor::dismissOffer, Modifier.testTag("subtitles-restore-no"), icon = AfIcons.Regular.Trash,
+                small = true)
         }
     }
 }
 
 /**
- * One line (DESIGN.md §9.7, panel 5): "#n start → end · length" in tabular figures with its checks as tone chips (red =
- * not translated, amber = the rest; the card's left bar the same), the Edit icon button, then the text — in Both, the
- * original (smaller, muted) above the Burmese line, in the export's order.
+ * One line (DESIGN.md §9.7, panel 5; Group 5 A 9): a glass card — "#n" (14 sp bold) and "start → end · length" (mono 12 sp
+ * muted) with its checks as tone chips (red = not translated, amber = the rest; the card's left bar the same), the 40 dp
+ * glass Edit button, then the text — in Both, the original (smaller, muted) above the Burmese line, in the export's order.
+ * 🆕-3: [selected] (tapped) = purple tint .10 + purple outline; [live] (under the playhead) = a cyan .5 outline; purple wins.
  */
 @Composable
-private fun CueRow(n: Int, c: SubtitleCue, view: TextChoice, issues: Set<CueIssue>?, selected: Boolean, editing: Boolean, idle: Boolean,
+private fun CueRow(n: Int, c: SubtitleCue, view: TextChoice, issues: Set<CueIssue>?, selected: Boolean, live: Boolean, editing: Boolean, idle: Boolean,
     config: ToolsConfig, onTap: () -> Unit, onEdit: () -> Unit) {
     val dur = ((c.endMs - c.startMs) / 100) / 10.0
     val tone = when { issues.isNullOrEmpty() -> null; CueIssue.NOT_TRANSLATED in issues -> Tone.Error; else -> Tone.Warning }
-    AfCard(Modifier.testTag("subtitles-cue-${c.id}"), selected, attention = tone, onClick = onTap) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AfSpace.S)) {
-            WrapRow(Modifier.weight(1f)) {
-                AfText("#$n", color = if (selected) AutoFlowColors.PrimaryText else AutoFlowColors.Muted, type = AfType.Numbers, weight = FontWeight.SemiBold)
-                AfText("${TimeText.show(c.startMs)} → ${TimeText.show(c.endMs)} · $dur s", color = AutoFlowColors.Muted, type = AfType.Numbers)
+    GlassCard(Modifier.testTag("subtitles-cue-${c.id}"), attention = tone, onClick = onTap,
+        tint = AutoFlowColors.Purple.takeIf { selected }, tintAlpha = .10f,
+        padding = PaddingValues(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 12.dp), gap = 4.dp,
+        outline = when { selected -> AutoFlowColors.Purple; live -> AutoFlowColors.Cyan.copy(alpha = .5f); else -> null }) {
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+            WrapRow(Modifier.weight(1f).padding(top = 6.dp), spacing = 8.dp) {
+                AfText("#$n", color = if (selected) AutoFlowColors.PrimaryText else AutoFlowColors.Text, type = AfType.Button, weight = FontWeight.Bold)
+                AfText("${TimeText.show(c.startMs)} → ${TimeText.show(c.endMs)} · $dur s", color = AutoFlowColors.Muted, mono = true, size = 12.sp)
                 issues?.forEach {
                     val untranslated = it == CueIssue.NOT_TRANSLATED
                     ToneChip(issueText(it, config), if (untranslated) Tone.Error else Tone.Warning, Modifier.testTag("subtitles-issue-${c.id}-${it.name}"),
                         AfIcons.Fill.Warn.takeIf { !untranslated })
                 }
             }
-            AfIconButton(AfIcons.Regular.Edit, tr(UiText.SUB_EDIT_LINE), onEdit, Modifier.testTag("subtitles-cue-edit-${c.id}"), selected = editing, enabled = idle)
+            GlassIconButton(AfIcons.Regular.Edit, tr(UiText.SUB_EDIT_LINE), onEdit, Modifier.testTag("subtitles-cue-edit-${c.id}"),
+                size = GlassShapes.IconButtonHeader, selected = editing, enabled = idle)
         }
         val my = c.textMy?.takeIf { it.isNotBlank() }
         when {
@@ -264,6 +288,19 @@ private fun CueRow(n: Int, c: SubtitleCue, view: TextChoice, issues: Set<CueIssu
             view == TextChoice.BURMESE || my == null -> AfText(My.breakSyllables(my ?: c.text), muted = my == null, type = AfType.Body)
             else -> { AfText(My.breakSyllables(c.text), muted = true, type = AfType.Caption); AfText(My.breakSyllables(my), type = AfType.Body) }
         }
+    }
+}
+
+/** The amber "3 to check" chip (Group 5 A 5): `warning` Fill 15 dp, amber .12 fill and .45 border; tap = the next line with a check. */
+@Composable
+private fun IssuesChip(text: String, onClick: () -> Unit) {
+    val shape = GlassShapes.Pill
+    Row(Modifier.touchOverflow(vertical = (AfSize.Touch - AfSize.FilterChip) / 2).testTag("subtitles-issues")
+        .heightIn(min = AfSize.FilterChip).clip(shape).background(AutoFlowColors.Amber.copy(alpha = .12f))
+        .border(1.dp, AutoFlowColors.Amber.copy(alpha = .45f), shape).clickable(role = Role.Button, onClick = onClick)
+        .padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        AfIcon(AfIcons.Fill.Warn, tint = AutoFlowColors.Amber, size = 15.dp)
+        AfText(text, color = AutoFlowColors.WarningText, type = AfType.ButtonSmall)
     }
 }
 

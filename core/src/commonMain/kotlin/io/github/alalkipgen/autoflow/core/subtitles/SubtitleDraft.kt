@@ -20,6 +20,17 @@ class SubtitleDraft private constructor(
     val canUndo: Boolean get() = undos.isNotEmpty()
     val canRedo: Boolean get() = redos.isNotEmpty()
 
+    /**
+     * How many lines the unsaved edits touch (Group 5 🆕-6, the sticky caption): lines that are new or differ from the
+     * saved version, plus saved lines that were deleted. Read-only; 0 when not [dirty].
+     */
+    val changedLines: Int get() {
+        if (doc == saved) return 0
+        val before = saved.cues.associateBy { it.id }
+        val now = doc.cues.mapTo(HashSet()) { it.id }
+        return doc.cues.count { before[it.id] != it } + saved.cues.count { it.id !in now }
+    }
+
     /** Applies [edit]; a refused edit leaves the draft as it was and is returned for the UI to explain. */
     fun apply(edit: (SubtitleDoc) -> Edit): Pair<SubtitleDraft, EditRefusal?> = when (val r = edit(doc)) {
         is Edit.Refused -> this to r.reason

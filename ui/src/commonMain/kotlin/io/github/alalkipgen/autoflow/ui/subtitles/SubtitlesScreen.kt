@@ -18,11 +18,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
@@ -83,9 +85,15 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
                 Box(Modifier.widthIn(max = 1400.dp).fillMaxSize()) { // two panes from 840 dp
                     SubtitleEditor(editor, joinPath(open!!.dir, video.file), video, player, header = {
                         header()
-                        AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),
-                            Modifier.testTag("subtitles-doc-facts"), bold = true)
-                        VideoFacts(video)
+                        // Group 5 A 4: the `subtitles` icon + the doc facts 14 sp bold, the video facts 12 sp muted under the text.
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AfIcon(AfIcons.Regular.Subtitles, tint = AutoFlowColors.Muted, size = 18.dp)
+                                AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),
+                                    Modifier.testTag("subtitles-doc-facts"), type = AfType.Button, weight = FontWeight.Bold)
+                            }
+                            VideoFacts(video, Modifier.padding(start = 26.dp), size = 12.sp)
+                        }
                     }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner, translate = translate)
                 }
             } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding)
@@ -177,12 +185,12 @@ private fun VideoCard(video: SourceVideo) {
 }
 
 @Composable
-private fun VideoFacts(video: SourceVideo) {
+private fun VideoFacts(video: SourceVideo, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.TextUnit = 13.sp) {
     val fps = video.fps?.let { ((it * 100).toLong() / 100.0).toString().removeSuffix(".0") } ?: "?"
     AfText(My.breakSyllables(tr(UiText.SUBTITLES_VIDEO_FACTS, "duration" to RecapModel.clock(video.durationMs),
         "width" to video.width, "height" to video.height, "fps" to fps,
         "sound" to tr(if (video.hasAudio) UiText.SUBTITLES_SOUND_YES else UiText.SUBTITLES_SOUND_NO))),
-        Modifier.testTag("subtitles-video-facts"), muted = true)
+        modifier.testTag("subtitles-video-facts"), muted = true, size = size)
 }
 
 /** Where the lines come from: a text track, an `.srt` file, or the speech (S-5b, Gemini). */

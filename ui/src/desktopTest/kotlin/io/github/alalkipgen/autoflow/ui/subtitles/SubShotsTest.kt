@@ -110,6 +110,18 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
             check(f.session.update(open.dir, open.project.id, change) is CoreResult.Ok)
         }
         fun noLines() = update { it.copy(subtitles = it.subtitles?.copy(current = null)) }
+        /** The editor the screen shows ([restoreOffer] swaps in a new one, as after a restart). */
+        var editor = f.editor
+        /** Sample 02 state 5: unsaved edits from an earlier session — a draft file, then a new editor that offers it back. */
+        fun restoreOffer() {
+            f.editor.open()
+            val draft = f.editor.state.value.draft!!
+            val changed = (SubtitleOps.setTextMy(draft.doc, "c12", EDIT12) as io.github.alalkipgen.autoflow.core.subtitles.Edit.Done).doc
+            val file = io.github.alalkipgen.autoflow.core.subtitles.DraftFile(base = draft.base, savedAtMs = 1_764_191_640_000, doc = changed)
+            f.fs.writeDurably("${f.dir}/.cache/st-draft.json", io.github.alalkipgen.autoflow.core.model.CoreJson.encodeToString(
+                io.github.alalkipgen.autoflow.core.subtitles.DraftFile.serializer(), file).encodeToByteArray())
+            editor = SubtitleEditorModel(f.session, f.fs, scope)
+        }
         /** The samples' 4 edited, unsaved lines (#12 the Burmese line the sample shows). */
         fun dirty() {
             f.editor.open()
@@ -141,8 +153,8 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
     private fun screen(d: Demo, width: Int, scale: Float, dub: Boolean): @Composable () -> Unit = {
         Locals(width, scale) {
             StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), Modifier.background(AutoFlowColors.Background), editor = true) {
-                if (dub) DubbingScreen(d.script, d.f.model, d.f.session, d.f.editor, onBack = {}, player = d.player, translate = d.f.translate)
-                else SubtitlesScreen(d.f.model, d.f.session, d.f.editor, player = d.player, onBack = {}, exporter = d.f.exporter(width < 600),
+                if (dub) DubbingScreen(d.script, d.f.model, d.f.session, d.editor, onBack = {}, player = d.player, translate = d.f.translate)
+                else SubtitlesScreen(d.f.model, d.f.session, d.editor, player = d.player, onBack = {}, exporter = d.f.exporter(width < 600),
                     burner = d.f.burner(width < 600), translate = d.f.translate)
             }
         }
@@ -167,7 +179,7 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
      * 8 dp around it (full width); [crop] = from the top to that node's bottom + 8 dp.
      */
     private fun shot(name: String, desktop: Boolean = false, dub: Boolean = false, height: Int = HEIGHT, width: Int = WIDTH,
-        failing: Boolean = false, window: Boolean = false, prep: Demo.() -> Unit = {},
+        failing: Boolean = false, window: Boolean = false, view: TextChoice = TextChoice.BURMESE, prep: Demo.() -> Unit = {},
         only: String? = null, crop: String? = null, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
         val w = if (desktop) 1440 else width
@@ -178,12 +190,18 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
                 d.f.editor.setView(TextChoice.BURMESE) // the samples show the Burmese view
                 d.prep()
                 if (failing) d.failing = true
-                setContent(screen(d, w, scale, dub)); waitForIdle(); open(); waitForIdle()
+                // [view] after the editor opened (opening sets its own view): the samples show the Burmese view.
+                setContent(screen(d, w, scale, dub)); waitForIdle(); d.editor.setView(view); waitForIdle(); open(); waitForIdle()
                 // [window]: the Fullscreen dialog (its own root, over the screen).
                 val roots = onAllNodes(isRoot())
                 val image = (if (window) roots[roots.fetchSemanticsNodes().lastIndex] else roots[0]).captureToImage().toAwtImage()
-                val tag = only?.split('|')?.firstOrNull { onAllNodesWithTag(it).fetchSemanticsNodes().isNotEmpty() }
-                if (tag != null) {
+                val tag = only?.split('|')?.firstOrNull { onAllNodesWithTag(it.substringBefore("..")).fetchSemanticsNodes().isNotEmpty() }
+                if (tag != null && ".." in tag) { // from the top of the first node to the bottom of the second
+                    val (a, b) = tag.split("..")
+                    val top = (onAllNodesWithTag(a).onFirst().fetchSemanticsNode().boundsInRoot.top - 8 * scale).toInt().coerceAtLeast(0)
+                    val bottom = (onAllNodesWithTag(b).onFirst().fetchSemanticsNode().boundsInRoot.bottom + 8 * scale).toInt().coerceAtMost(image.height)
+                    write(name, image.getSubimage(0, top, image.width, bottom - top))
+                } else if (tag != null) {
                     val box = onAllNodesWithTag(tag).onFirst().fetchSemanticsNode().boundsInRoot
                     val top = (box.top - 8 * scale).toInt().coerceAtLeast(0)
                     write(name, image.getSubimage(0, top, image.width, ((box.bottom + 8 * scale).toInt().coerceAtMost(image.height)) - top))
@@ -204,7 +222,7 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         shot("01-editor-playing", prep = { dirty() }) { demoState(42_300, play = true) }
         shot("11-playing", prep = { dirty() }, only = card) { demoState(42_300, play = true) }
         shot("11-paused-between", prep = { dirty() }, only = card) { demoState(37_200) }
-        shot("11-view-original", prep = { dirty(); f.editor.setView(TextChoice.ORIGINAL) }, only = card) { demoState(42_300) }
+        shot("11-view-original", view = TextChoice.ORIGINAL, prep = { dirty() }, only = card) { demoState(42_300) }
         shot("11-unavailable", prep = { dirty() }, failing = true, only = card) { demoState(42_300) }
         if (font == 1f) shot("12-desktop-editor-playing", desktop = true, prep = { dirty() }) { demoState(42_300, play = true) }
         // Last: there is no Fullscreen before Group 5 (the before shots then show the screen as it was).
@@ -216,7 +234,40 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         }
     }
 
+    /** PR 3 (A 4–7, A 9–10, 🆕-3, 🆕-6; samples 01 / 02): the list as opened, the sticky bars, Shift times open, the Restore card, the views. */
+    @Test fun list() {
+        val bar = "sticky-action-bar"
+        shot("01-list", height = 1669, prep = { dirty() }) {
+            demoState(42_300, play = true); onNodeWithTag("subtitles-cues").performScrollToKey("c10"); waitForIdle()
+        }
+        shot("02-sticky-saved", only = bar) { demoState() }
+        shot("02-sticky-dirty", prep = { dirty() }, only = bar) { demoState() }
+        shot("02-shift-open", height = 1100, prep = { dirty() }, only = "subtitles-view-ORIGINAL..subtitles-shift-card") {
+            demoState() // From line 11 (the selected line)
+            onNodeWithTag("subtitles-cues").performScrollToIndex(0); waitForIdle()
+            onNodeWithTag("subtitles-cues").performScrollToNode(hasTestTag("subtitles-shift")); waitForIdle()
+            click("subtitles-shift"); clickIf("subtitles-shift-from")
+            onNodeWithTag("subtitles-cues").performScrollToNode(hasTestTag("subtitles-shift-card")); waitForIdle()
+        }
+        shot("02-view-original", view = TextChoice.ORIGINAL, prep = { dirty() }, only = "subtitles-cue-c12") {
+            demoState(); onNodeWithTag("subtitles-cues").performScrollToKey("c12"); waitForIdle()
+        }
+        shot("02-view-both", view = TextChoice.BOTH, prep = { dirty() }, only = "subtitles-cue-c12") {
+            demoState(); onNodeWithTag("subtitles-cues").performScrollToKey("c12"); waitForIdle()
+        }
+        shot("02-checks", height = if (font == 1f) 1100 else 2200, prep = { dirty() }, only = "subtitles-cue-c13..subtitles-cue-c16") {
+            demoState(); onNodeWithTag("subtitles-cues").performScrollToKey("c13"); waitForIdle()
+        }
+    }
+
     /** PR 1 (A 1–2, A 8, 🆕-8; samples 01 / 02 / 13a / 13b / 12): the top bar dirty + Undo / Redo, clean, the notice callout; Dubbing steps 1–2. */
+    /** PR 3 (A 10): the Restore card as after a restart (below the preview card: a taller window at font 2.0). */
+    @Test fun listRestore() {
+        shot("02-restore", height = if (font == 1f) HEIGHT else 2200, prep = { restoreOffer() }, only = "subtitles-restore") {
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-restore").fetchSemanticsNodes().isNotEmpty() }
+        }
+    }
+
     @Test fun shell() {
         shot("01-editor", prep = { dirty() }) { demoState() }
         shot("01-editor-full", height = 1669, prep = { dirty() }) { demoState() }

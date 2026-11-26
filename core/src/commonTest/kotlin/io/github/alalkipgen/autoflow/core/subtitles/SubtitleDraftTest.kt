@@ -35,6 +35,20 @@ class SubtitleDraftTest {
     }
 
     @Test
+    fun changedLinesCountsNewChangedAndDeletedLines() {
+        var d = SubtitleDraft.of(base, saved)
+        assertEquals(0, d.changedLines)
+        d = d.apply { SubtitleOps.split(it, "c1", 1_000, textCut = "ဒီည ထွက်သွားရမယ်။".length) }.first
+        assertEquals(2, d.changedLines) // c1 shortened + the new line
+        d = d.undo()
+        assertEquals(0, d.changedLines)
+        d = d.apply { SubtitleOps.merge(it, "c1") }.first
+        assertEquals(2, d.changedLines) // c1 longer + "Two" deleted
+        d = SubtitleDraft.of(base, saved).apply { SubtitleOps.shift(it, 500, null) }.first
+        assertEquals(saved.cues.size, d.changedLines) // Shift all = every line
+    }
+
+    @Test
     fun refusedAndNoOpEditsLeaveHistoryAlone() {
         val d = SubtitleDraft.of(base, saved)
         val (same, why) = d.apply { SubtitleOps.setTimes(it, "c1", 5_000, 1_000) }

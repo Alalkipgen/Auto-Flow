@@ -300,40 +300,46 @@ class GlassSegment(val label: String, val tag: String?, val enabled: Boolean = t
  * (38 dp, radius 9, in a 48 dp target); the selected one = the primary gradient, a white check 15 and white label.
  */
 @Composable
-fun GlassSegmented(segments: List<GlassSegment>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun GlassSegmented(segments: List<GlassSegment>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, hug: Boolean = false) {
+    // [hug] (Subtitles' view switch, Group 5 A 5): each segment as wide as its label, the track as wide as its segments; at a
+    // large font the segments wrap inside the track instead of cutting a word.
     val shape = GlassShapes.SegmentTrack
-    Row(modifier.fillMaxWidth().clip(shape).background(GlassColors.SegmentFill).border(1.dp, GlassColors.SegmentBorder, shape)
-        .padding(3.dp).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        segments.forEachIndexed { i, segment ->
-            val on = i == selected
-            val interaction = remember { MutableInteractionSource() }
-            val item = GlassShapes.SegmentItem
-            Box(
-                Modifier.weight(1f).fillMaxHeight().touchOverflow(vertical = (AfSize.Touch - GlassShapes.SegmentItemHeight) / 2)
-                    .then(segment.tag?.let { Modifier.testTag(it) } ?: Modifier)
-                    .selectable(on, interaction, null, enabled = segment.enabled, role = Role.RadioButton) { onSelect(i) }
-                    .padding(vertical = (AfSize.Touch - GlassShapes.SegmentItemHeight) / 2)
-                    .heightIn(min = GlassShapes.SegmentItemHeight)
-                    .alpha(if (segment.enabled) 1f else .45f)
-                    .then(if (on) Modifier.shadow(4.dp, item, ambientColor = GlassColors.PrimaryGlow, spotColor = GlassColors.PrimaryGlow) else Modifier)
-                    .clip(item)
-                    .drawBehind { if (on) drawRect(primaryBrush()) }
-                    .drawWithContent { drawContent(); if (on) drawRect(GlassColors.PrimaryHighlight, size = Size(size.width, 1.dp.toPx())) }
-                    .interactionOverlay(interaction, item)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                val lead: (@Composable () -> Unit)? = when {
-                    segment.icon != null -> { { AfIcon(segment.icon, tint = if (on) Color.White else AutoFlowColors.Muted, size = AfSize.IconXs) } }
-                    on -> { { AfIcon(AfIcons.Regular.Check, tint = Color.White, size = AfSize.IconXs) } }
-                    else -> null
-                }
-                SegmentLabel(lead) {
-                    AfText(My.breakSyllables(segment.label), color = if (on) Color.White else AutoFlowColors.Text, type = AfType.ButtonSmall,
-                        textAlign = TextAlign.Center)
-                }
+    val item = @Composable { i: Int, segment: GlassSegment, m: Modifier ->
+        val on = i == selected
+        val interaction = remember { MutableInteractionSource() }
+        val itemShape = GlassShapes.SegmentItem
+        Box(
+            m.touchOverflow(vertical = (AfSize.Touch - GlassShapes.SegmentItemHeight) / 2)
+                .then(segment.tag?.let { Modifier.testTag(it) } ?: Modifier)
+                .selectable(on, interaction, null, enabled = segment.enabled, role = Role.RadioButton) { onSelect(i) }
+                .padding(vertical = (AfSize.Touch - GlassShapes.SegmentItemHeight) / 2)
+                .heightIn(min = GlassShapes.SegmentItemHeight)
+                .alpha(if (segment.enabled) 1f else .45f)
+                .then(if (on) Modifier.shadow(4.dp, itemShape, ambientColor = GlassColors.PrimaryGlow, spotColor = GlassColors.PrimaryGlow) else Modifier)
+                .clip(itemShape)
+                .drawBehind { if (on) drawRect(primaryBrush()) }
+                .drawWithContent { drawContent(); if (on) drawRect(GlassColors.PrimaryHighlight, size = Size(size.width, 1.dp.toPx())) }
+                .interactionOverlay(interaction, itemShape)
+                .padding(horizontal = if (hug) 12.dp else 8.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val lead: (@Composable () -> Unit)? = when {
+                segment.icon != null -> { { AfIcon(segment.icon, tint = if (on) Color.White else AutoFlowColors.Muted, size = AfSize.IconXs) } }
+                on && !hug -> { { AfIcon(AfIcons.Regular.Check, tint = Color.White, size = AfSize.IconXs) } }
+                else -> null
+            }
+            SegmentLabel(lead) {
+                AfText(My.breakSyllables(segment.label), color = if (on) Color.White else AutoFlowColors.Text, type = AfType.ButtonSmall,
+                    textAlign = TextAlign.Center)
             }
         }
+    }
+    val track = Modifier.clip(shape).background(GlassColors.SegmentFill).border(1.dp, GlassColors.SegmentBorder, shape).padding(3.dp)
+    if (hug) FlowRow(modifier.then(track), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        segments.forEachIndexed { i, segment -> item(i, segment, Modifier) }
+    }
+    else Row(modifier.fillMaxWidth().then(track).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        segments.forEachIndexed { i, segment -> item(i, segment, Modifier.weight(1f).fillMaxHeight()) }
     }
 }
 

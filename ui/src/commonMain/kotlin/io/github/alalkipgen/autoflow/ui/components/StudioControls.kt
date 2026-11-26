@@ -42,15 +42,21 @@ import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
 import io.github.alalkipgen.autoflow.ui.theme.Tone
 
-/** UI callback, not a persisted command or engine state. [trailingIcon] = after the label (glass bars: Next →). */
+/**
+ * UI callback, not a persisted command or engine state. [trailingIcon] = after the label (glass bars: Next →). [danger] = the
+ * Danger button (Cancel job); [accent] = a glass Secondary with that outline ([GlassButton]); [hug] = on a phone's sticky bar
+ * this button takes its label's width and the other one the rest (Group 5 A 10: Discard + Save, Translate + Export).
+ */
 data class StudioAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val tag: String? = null,
-    val icon: ImageVector? = null, val trailingIcon: ImageVector? = null)
+    val icon: ImageVector? = null, val trailingIcon: ImageVector? = null, val danger: Boolean = false, val accent: Color? = null,
+    val hug: Boolean = false)
 
 @Composable
 private fun Action(action: StudioAction, primary: Boolean = false, modifier: Modifier = Modifier, glass: Boolean = false) {
     val m = modifier.then(action.tag?.let { Modifier.testTag(it) } ?: Modifier)
-    val kind = if (primary) ButtonKind.Primary else ButtonKind.Secondary
-    if (glass) GlassButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon)
+    val kind = when { action.danger -> ButtonKind.Danger; primary -> ButtonKind.Primary; else -> ButtonKind.Secondary }
+    if (glass) GlassButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon,
+        accent = action.accent)
     else AfButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon)
 }
 
@@ -128,7 +134,8 @@ fun StickyActionBar(primary: StudioAction, secondary: StudioAction? = null, capt
     Column(modifier.fillMaxWidth().background(AutoFlowColors.TitleBar).imePadding().testTag("sticky-action-bar")) {
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
         Box(Modifier.padding(horizontal = if (LocalCompact.current) 12.dp else 16.dp, vertical = 12.dp)) {
-            StickyActions({ Action(primary, true, it, glass) }, secondary?.let { s -> { Action(s, modifier = it, glass = glass) } }, caption, leading, keys, captionIcon, captionColour, captionTag)
+            StickyActions({ Action(primary, true, it, glass) }, secondary?.let { s -> { Action(s, modifier = it, glass = glass) } }, caption, leading, keys, captionIcon, captionColour, captionTag,
+                hug = when { secondary?.hug == true -> 0; primary.hug && secondary != null -> 1; else -> -1 })
         }
     }
 }
