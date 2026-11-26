@@ -78,6 +78,7 @@ class VoicePartsTest {
         tap("voice-tone-news")
         assertNull(saved().tone, "the chosen tone again clears it")
 
+        tap("voice-expand") // VA-2: the voice card is closed while a voice is chosen
         tap("voice-saved-v1")
         assertEquals(narrator, saved().lock)
         tap("voice-voice-Kore")

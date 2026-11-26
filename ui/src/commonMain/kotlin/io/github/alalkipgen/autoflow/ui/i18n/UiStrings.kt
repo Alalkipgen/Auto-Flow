@@ -1402,6 +1402,9 @@ enum class UiText(val en: String, val my: String?) {
     V3_SUB_EDITED_CAPTION("{n} lines edited · not saved yet", "စာကြောင်း {n} ကြောင်း ပြင်ထား · မသိမ်းရသေး"),
     // Group 5 🆕-7: the desktop list pane's header ("Lines · #12 / 128").
     V3_SUB_LINES("Lines", "စာကြောင်းများ"),
+    // Group 6 (Voice & Audio, PLAN §4): the short voice-card labels; the long texts sit behind ⓘ (VA-4).
+    V3_TTS_MODELS_SHORT("Burmese models", "မြန်မာ model များ"),
+    V3_EDGE_VOICES_SHORT("Edge voices · free", "Edge အသံများ · အခမဲ့"),
     // Group 5 §8.1: the Transcribe / Translate jobs' known English errors, said in the UI language (`jobErrorText`).
     V3_GEMINI_BUSY_RESUME("Gemini is busy. Resume a little later.", "Gemini အလုပ်များနေသည်။ ခဏနေမှ ဆက်လုပ်ပါ။"),
     V3_SUB_NO_GEMINI("Gemini is not set up. Add a key in Settings.", "Gemini မသတ်မှတ်ရသေးပါ။ Settings မှာ key ထည့်ပါ။"),

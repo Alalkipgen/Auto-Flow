@@ -184,6 +184,8 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
             LocalUiFontFamily provides BurmeseTestFont.family, content = content)
 
     fun ComposeUiTest.click(tag: String) {
+        // "Before" shots run on older code that may not have this control yet.
+        if (System.getenv("AUTOFLOW_SHOTS_BEFORE") != null && onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty()) return
         onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick)
         waitForIdle()
     }
@@ -281,5 +283,15 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
             click("voice-task-video")
         }
         shot("03b-no-dialogs", prep = { chooser(); files.unsupported = true }, crop = "voice-task-video") { click("voice-task-clean") }
+    }
+
+    /** PR 3 (C): the voice card (VA-2) closed / open / Gemini / no voice / no models, the ⓘ hints (VA-4), the tone chips. */
+    @Test fun voiceTop() {
+        // 05-text-voice (closed card, as opened): in [shell].
+        shot("06-voice-open", prep = { text() }, crop = "voice-tone-calm") { click("voice-expand") }
+        shot("06-voice-gemini", prep = { text(lock = KORE) }, crop = "voice-tone-calm") { click("voice-expand") }
+        shot("06-no-voice", prep = { text(voiced = 0, lock = null) }, crop = "voice-tone-calm")
+        shot("06-no-models", prep = { models = emptyList(); text() }, crop = "voice-tone-calm")
+        shot("06-voice-info", prep = { text() }, crop = "voice-tone-calm") { click("voice-expand"); click("voice-info-models"); click("voice-info-edge") }
     }
 }
