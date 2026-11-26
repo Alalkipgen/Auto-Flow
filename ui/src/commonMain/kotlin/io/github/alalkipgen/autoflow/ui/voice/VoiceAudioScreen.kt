@@ -16,6 +16,16 @@ import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
 import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesTopBar
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.AfType
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
 
 /**
  * Voice & Audio (specs/quick-tools.md §6): the task chooser (Text → voice, Clean up sound, Video sound), then Text → voice with the text, its counter and part count; once the project exists also the voice
@@ -89,23 +99,61 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
 
 @Composable
 private fun Chooser(model: VoiceAudioModel, clean: VoiceCleanModel?, video: VideoSoundModel?, onOpened: () -> Unit) {
-    AfH2(My.breakSyllables(tr(UiText.VA_CHOOSE)))
-    OptionCard(My.breakSyllables(tr(UiText.VA_TEXT_TO_VOICE)), My.breakSyllables(tr(UiText.VA_TEXT_TO_VOICE_INFO)), false,
-        { model.choose(VoiceTool.TASK_TEXT) }, Modifier.fillMaxWidth().testTag("voice-task-text"))
-    if (clean == null) PlannedTile(My.breakSyllables(tr(UiText.VA_CLEAN)), modifier = Modifier.fillMaxWidth().testTag("voice-task-clean"))
+    // Group 6 B 1: the title H2 (22 sp bold).
+    AfText(My.breakSyllables(tr(UiText.VA_CHOOSE)), type = AfType.ScreenTitle)
+    // B 2: three glass task cards (tile, title, info, caret-right); B 3: a task not built here = the planned card.
+    TaskCard(AfIcons.Fill.Microphone, GlassColors.RecapPink, UiText.VA_TEXT_TO_VOICE, UiText.VA_TEXT_TO_VOICE_INFO,
+        { model.choose(VoiceTool.TASK_TEXT) }, "voice-task-text")
+    if (clean == null) PlannedTaskCard(AfIcons.Fill.Broom, UiText.VA_CLEAN, "voice-task-clean")
     else {
-        OptionCard(My.breakSyllables(tr(UiText.VA_CLEAN)), My.breakSyllables(tr(UiText.VA_CLEAN_INFO)), false, { clean.start(onOpened) },
-            Modifier.fillMaxWidth().testTag("voice-task-clean"))
+        TaskCard(AfIcons.Fill.Broom, GlassColors.RecapTeal, UiText.VA_CLEAN, UiText.VA_CLEAN_INFO, { clean.start(onOpened) }, "voice-task-clean")
         val c by clean.state.collectAsState()
-        c.notice?.takeIf { c.dir == null }?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("voice-clean-notice"), color = AutoFlowColors.Amber) }
+        c.notice?.takeIf { c.dir == null }?.let { ChooserNotice(it, "voice-clean-notice") }
     }
-    if (video == null) PlannedTile(My.breakSyllables(tr(UiText.VA_VIDEO_SOUND)), modifier = Modifier.fillMaxWidth().testTag("voice-task-video"))
+    if (video == null) PlannedTaskCard(AfIcons.Fill.FileVideo, UiText.VA_VIDEO_SOUND, "voice-task-video")
     else {
-        OptionCard(My.breakSyllables(tr(UiText.VA_VIDEO_SOUND)), My.breakSyllables(tr(UiText.VA_VIDEO_SOUND_INFO)), false, { video.start(onOpened) },
-            Modifier.fillMaxWidth().testTag("voice-task-video"))
+        TaskCard(AfIcons.Fill.FileVideo, GlassColors.ExportBlue, UiText.VA_VIDEO_SOUND, UiText.VA_VIDEO_SOUND_INFO, { video.start(onOpened) },
+            "voice-task-video")
         val v by video.state.collectAsState()
-        v.notice?.takeIf { v.dir == null }?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("video-sound-notice"), color = AutoFlowColors.Amber) }
+        v.notice?.takeIf { v.dir == null }?.let { ChooserNotice(it, "video-sound-notice") }
     }
+}
+
+/** One task of the chooser (Group 6 B 2): a glass card tinted with its tile colour (α .14), radius 20, min 96 dp. */
+@Composable
+private fun TaskCard(icon: ImageVector, colour: Color, title: UiText, info: UiText, onClick: () -> Unit, tag: String) {
+    GlassCard(Modifier.fillMaxWidth().heightIn(min = 96.dp).testTag(tag).semantics { role = Role.Button }, onClick = onClick, tint = colour,
+        tintAlpha = .14f) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            FilledTile(icon, colour, size = 48.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                AfText(My.breakSyllables(tr(title)), size = 16.sp, bold = true)
+                AfText(My.breakSyllables(tr(info)), muted = true, size = 13.sp) // no 3-line cap: at font 2.0 the Burmese info needs more (never cut)
+            }
+            AfIcon(AfIcons.Regular.CaretRight, tint = AutoFlowColors.Muted, size = 20.dp)
+        }
+    }
+}
+
+/** A task not built here (B 3, the Group 3 planned look): dashed frame, grey tile with the task's icon, the Planned pill. */
+@Composable
+private fun PlannedTaskCard(icon: ImageVector, title: UiText, tag: String) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 96.dp).glassDashedBox(20.dp).padding(16.dp).testTag(tag).semantics { disabled() },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        FilledTile(icon, AutoFlowColors.Surface3, size = 48.dp, ink = AutoFlowColors.Muted)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            AfText(My.breakSyllables(tr(title)), size = 16.sp, bold = true, muted = true)
+            StatusChip(StudioStatus.PLANNED)
+        }
+    }
+}
+
+/** A chooser notice right under its card (B 4): amber `warning`, or red `x-circle` when the file cannot be read / the step failed. */
+@Composable
+private fun ChooserNotice(notice: UiNotice, tag: String) {
+    val failed = notice.key == UiText.VA_UNREADABLE || notice.key == UiText.RESULT_DETAIL
+    GlassCallout(if (failed) AfIcons.Fill.XCircle else AfIcons.Fill.Warn, My.breakSyllables(notice.text(LocalUiLanguage.current)),
+        if (failed) AutoFlowColors.Failed else AutoFlowColors.Amber, textModifier = Modifier.testTag(tag))
 }
 
 @Composable

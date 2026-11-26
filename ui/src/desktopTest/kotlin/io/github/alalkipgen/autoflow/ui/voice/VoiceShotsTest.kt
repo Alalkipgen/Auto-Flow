@@ -120,8 +120,14 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         val model by lazy { VoiceAudioModel(session, dashboard, config, scope, models = models, edgeVoices = { edge }) }
         val tasks = MediaTasks(null, scope)
         val export by lazy { VoiceExportModel(session, fs, tasks, config, null, scope) }
-        val clean by lazy { VoiceCleanModel(session, fs, dashboard, FakePicker(), tasks, export, config, scope, probe = { null }, ffmpeg = { _, _, _ -> null }) }
-        val video by lazy { VideoSoundModel(session, fs, dashboard, FakePicker(), tasks, export, config, scope, probe = { null }) }
+        /** The file dialog of Clean up / Video sound ([FakePicker.files] = the picked file). */
+        val files = FakePicker("/projects")
+        /** What ffprobe says of a picked file; null = cannot be read here. */
+        var probe: suspend (String) -> io.github.alalkipgen.autoflow.media.probe.MediaInfo? = { null }
+        /** Clean up / Video sound not built here (the planned cards). */
+        var planned = false
+        val clean by lazy { VoiceCleanModel(session, fs, dashboard, files, tasks, export, config, scope, probe = { probe(it) }, ffmpeg = { _, _, _ -> null }) }
+        val video by lazy { VideoSoundModel(session, fs, dashboard, files, tasks, export, config, scope, probe = { probe(it) }) }
         val speak by lazy { VoiceSpeakModel(session, null, null, scope) }
         /** Home instead of Voice & Audio. */
         var home = false
@@ -190,7 +196,8 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
                     ProjectEntry("/projects/$TEXT_NAME.autoflow", TEXT_NAME, Mode.VOICE_AUDIO, Ratio.R16_9, 0, 0, kotlin.time.Instant.fromEpochMilliseconds(1_764_000_000_000))))
             }
             else StudioV2Shell(StudioV2Dest.PROJECTS, {}, 0, width.toFloat(), editor = true) {
-                Box { VoiceAudioScreen(d.model, d.session, onBack = {}, speak = d.speak, export = d.export, clean = d.clean, video = d.video) }
+                Box { VoiceAudioScreen(d.model, d.session, onBack = {}, speak = d.speak, export = d.export, clean = d.clean.takeIf { !d.planned },
+                    video = d.video.takeIf { !d.planned }) }
             }
         }
     }
@@ -259,5 +266,20 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         shot("01-home-length", prep = { home = true }, only = "home-quick") { click("home-quick-start") }
         shot("01-home-style", prep = { home = true }, only = "home-quick") { click("home-quick-start"); click("quick-next-style") }
         shot("02-home-all", prep = { home = true }, only = "home-continue")
+    }
+
+    /** PR 2 (B): the chooser — glass task cards, the planned cards, the chooser notices (amber; red when the step failed). */
+    @Test fun chooser() {
+        // 03-chooser: in [shell].
+        shot("03b-planned", prep = { planned = true; chooser() })
+        shot("03b-no-sound", prep = { chooser(); files.files = listOf("/in/silent_clip.mp4")
+            probe = { io.github.alalkipgen.autoflow.media.probe.MediaInfo(60_000, 1920, 1080, 30.0, "h264", null) } }, crop = "voice-task-video") {
+            click("voice-task-clean")
+        }
+        shot("03b-not-video", prep = { chooser(); files.files = listOf("/in/song.m4a")
+            probe = { io.github.alalkipgen.autoflow.media.probe.MediaInfo(60_000, null, null, null, null, "aac") } }, crop = "video-sound-notice") {
+            click("voice-task-video")
+        }
+        shot("03b-no-dialogs", prep = { chooser(); files.unsupported = true }, crop = "voice-task-video") { click("voice-task-clean") }
     }
 }
