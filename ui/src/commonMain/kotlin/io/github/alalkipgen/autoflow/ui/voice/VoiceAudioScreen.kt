@@ -84,8 +84,9 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
         ) else if (s.task == VoiceTool.TASK_CLEAN && clean != null && open?.project?.voice?.source != null) {
             val c by clean.state.collectAsState()
             val idle = c.busy == null || c.dir != s.dir
-            StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { clean.save("m4a") }, enabled = idle, tag = "voice-clean-m4a"),
-                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { clean.save("wav") }, enabled = idle, tag = "voice-clean-wav"))
+            // Group 6 G 5: both download-simple.
+            StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { clean.save("m4a") }, enabled = idle, tag = "voice-clean-m4a", icon = AfIcons.Regular.DownloadSimple),
+                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { clean.save("wav") }, enabled = idle, tag = "voice-clean-wav", icon = AfIcons.Regular.DownloadSimple))
         } else if (s.task == VoiceTool.TASK_VIDEO_SOUND && video != null && open?.project?.voice?.source != null) {
             val v by video.state.collectAsState()
             val idle = v.busy == null || v.dir != s.dir

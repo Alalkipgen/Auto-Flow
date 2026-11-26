@@ -118,15 +118,31 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         /** Edge voices offered; null = none. */
         var edge: EdgeTtsConfig? = EDGE
         val model by lazy { VoiceAudioModel(session, dashboard, config, scope, models = models, edgeVoices = { edge }) }
-        val tasks = MediaTasks(null, scope)
-        val export by lazy { VoiceExportModel(session, fs, tasks, config, null, scope) }
+        /** The media queue (a stand-in: nothing runs; [render] is every task's state). */
+        val render = kotlinx.coroutines.flow.MutableStateFlow<io.github.alalkipgen.autoflow.media.render.RenderState>(
+            io.github.alalkipgen.autoflow.media.render.RenderState.Queued)
+        val queue = object : io.github.alalkipgen.autoflow.media.render.RenderQueue {
+            override fun enqueue(job: io.github.alalkipgen.autoflow.media.render.RenderJob) = "task-1"
+            override fun observe(id: String) = render
+            override fun cancel(id: String) = Unit
+        }
+        val tasks = MediaTasks(queue, scope)
+        /** The phone's share sheet / Music folder; null = a computer (Open folder). */
+        var share: io.github.alalkipgen.autoflow.platform.FileShare? = null
+        val export by lazy { VoiceExportModel(session, fs, tasks, config, share, scope) }
+        /** The last task's output, done. */
+        fun done() {
+            render.value = io.github.alalkipgen.autoflow.media.render.RenderState.Done(tasks.runs.value.last().output, 0, 0, null)
+        }
         /** The file dialog of Clean up / Video sound ([FakePicker.files] = the picked file). */
         val files = FakePicker("/projects")
         /** What ffprobe says of a picked file; null = cannot be read here. */
         var probe: suspend (String) -> io.github.alalkipgen.autoflow.media.probe.MediaInfo? = { null }
         /** Clean up / Video sound not built here (the planned cards). */
         var planned = false
-        val clean by lazy { VoiceCleanModel(session, fs, dashboard, files, tasks, export, config, scope, probe = { probe(it) }, ffmpeg = { _, _, _ -> null }) }
+        /** ffmpeg for Clean up's listen / Before–After: null = cannot run here (the default). */
+        var ffmpeg: suspend () -> Pair<Int, String>? = { null }
+        val clean by lazy { VoiceCleanModel(session, fs, dashboard, files, tasks, export, config, scope, probe = { probe(it) }, ffmpeg = { _, _, _ -> ffmpeg() }) }
         val video by lazy { VideoSoundModel(session, fs, dashboard, files, tasks, export, config, scope, probe = { probe(it) }) }
         /** The app's AI jobs (a stand-in runner: nothing runs; [job] sets the open project's Speak job). */
         val jobs = kotlinx.coroutines.flow.MutableStateFlow<List<io.github.alalkipgen.autoflow.core.recap.AiJob>>(emptyList())
@@ -171,10 +187,10 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         }
 
         /** Clean up "အင်တာဗျူး အသံ": interview_2025-11-20.m4a, 12:40 (a video file with [video]). */
-        fun clean(video: Boolean = false) {
+        fun clean(video: Boolean = false, choice: io.github.alalkipgen.autoflow.core.model.CleanChoice = io.github.alalkipgen.autoflow.core.model.CleanChoice()) {
             val file = if (video) "source/interview_2025-11-20.mp4" else "source/interview_2025-11-20.m4a"
             open(CLEAN_NAME, VoiceTool(task = VoiceTool.TASK_CLEAN, source = SourceVideo(file, 18_400_000, 760_000,
-                width = if (video) 1920 else 0, height = if (video) 1080 else 0)))
+                width = if (video) 1920 else 0, height = if (video) 1080 else 0), clean = choice))
         }
 
         /** Video sound "Bagan Vlog": Bagan_Vlog.mp4, 3:12, 1920 × 1080, with sound ([sound] false = without). */
@@ -324,5 +340,34 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         shot("08-notice-ok", prep = { text(voiced = 5); speak.ask() }, crop = "voice-speak-notice")
         shot("08-notice-warn", prep = { text(); job(running); speak.ask(); jobs.value = emptyList() }, crop = "voice-speak-notice")
         if (font == 1f) shot("12-desktop-dialog", desktop = true, prep = { text() }, dialog = true) { click("voice-speak") }
+    }
+
+    /** PR 5 (F, G): the export job / callouts / saved card (phone and computer), Clean up's file, switches, Before / After, busy, notice. */
+    @Test fun exportClean() {
+        val running = io.github.alalkipgen.autoflow.media.render.RenderState.Running(.45, 1.0)
+        val phone = object : io.github.alalkipgen.autoflow.platform.FileShare {
+            override val sharesFiles = true
+            override fun open(path: String, mime: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+            override fun share(path: String, mime: String, title: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+            override suspend fun saveToGallery(path: String, mime: String, displayName: String) =
+                io.github.alalkipgen.autoflow.platform.PlatformResult.Ok("Music/AutoFlow/$displayName")
+            override fun openFolder(path: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+        }
+        shot("09-export-running", prep = { text(voiced = 5); export.saveM4a(); render.value = running }, crop = "voice-m4a-job")
+        shot("09-export-cancelled", prep = { text(voiced = 5); export.saveM4a(); render.value = io.github.alalkipgen.autoflow.media.render.RenderState.Cancelled },
+            crop = "voice-m4a-cancelled")
+        shot("09-export-failed", prep = { text(voiced = 5); export.saveM4a()
+            render.value = io.github.alalkipgen.autoflow.media.render.RenderState.Failed("ffmpeg exited with code 1") }, crop = "voice-m4a-failed")
+        shot("09-export-saved-phone", prep = { share = phone; text(voiced = 5); export.saveM4a(); done() }, crop = "voice-share")
+        shot("09-export-saved-desktop", prep = { text(voiced = 5); export.saveM4a(); done() }, crop = "voice-folder")
+        shot("09-save-notice", prep = { share = phone; text(voiced = 5); export.saveM4a(); done() }, crop = "voice-save-notice") { click("voice-music") }
+        shot("10-clean", prep = { clean() })
+        shot("10-clean-video", prep = { clean(video = true) })
+        shot("10-clean-last-on", prep = { clean(choice = io.github.alalkipgen.autoflow.core.model.CleanChoice(pauses = false, noise = true, loudness = false)) })
+        shot("10-clean-busy", prep = { ffmpeg = { kotlinx.coroutines.awaitCancellation() }; clean() }) { click("voice-clean-preview") }
+        shot("10-clean-before-after", prep = { ffmpeg = { 0 to "" }; clean() }) { click("voice-clean-preview") }
+        shot("10-clean-notice", prep = { clean() }) { click("voice-clean-preview") }
+        shot("10-clean-saving", prep = { ffmpeg = { 0 to "" }; clean(); render.value = running }) { click("voice-clean-m4a") }
+        if (font == 1f) shot("12-desktop-clean", desktop = true, prep = { ffmpeg = { 0 to "" }; clean() }) { click("voice-clean-preview") }
     }
 }
