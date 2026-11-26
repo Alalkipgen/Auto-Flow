@@ -245,6 +245,41 @@ class SubtitleBurnTest {
         assertEquals(listOf("folder $dir/exports"), f.share.calls)
     }
 
+    /** H 3 (P9-G5-8): on the desktop the Export page is two panes — the video card left; language, .srt, Look, the job, the package right. */
+    @Test fun desktopExportIsTwoPanes() {
+        for (language in UiLanguage.entries) runDesktopComposeUiTest(width = 1440, height = 900) {
+            val f = Fixture(shares = false, withFont = true)
+            show(f, language = language)
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+            val main = hasAnyAncestor(hasTestTag("editor-main")); val side = hasAnyAncestor(hasTestTag("editor-side"))
+            onNode(hasTestTag("subtitles-export-video") and main).assertExists()
+            onNode(hasTestTag("subtitles-check-frame") and main, useUnmergedTree = true).assertExists()
+            for (tag in listOf("subtitles-export-BURMESE", "subtitles-export-srt", "subtitles-export-look", "subtitles-burn-BOXED", "subtitles-burn-LARGE", "subtitles-burn-lines-2"))
+                onNode(hasTestTag(tag) and side, useUnmergedTree = true).assertExists()
+            onNode(hasTestTag("subtitles-burn-BOXED") and hasAnyAncestor(hasTestTag("subtitles-export-video")), useUnmergedTree = true).assertDoesNotExist()
+            assertCardIcon("subtitles-export-look", My.breakSyllables(UiText.V3_STYLE_LOOK.text(language)), 30f, "card-tile")
+            val video = onNodeWithTag("subtitles-export-video").fetchSemanticsNode().boundsInRoot
+            val srt = onNodeWithTag("subtitles-export-srt").fetchSemanticsNode().boundsInRoot
+            assertTrue(video.right < srt.left, "video card left of the .srt card")
+            assertTrue(kotlin.math.abs(onNodeWithTag("editor-side").fetchSemanticsNode().boundsInRoot.width - 540f) < 1f, "right pane 540 dp")
+            assertTrue(kotlin.math.abs(onNodeWithTag("subtitles-burn-make").fetchSemanticsNode().boundsInRoot.width - 300f) < 1f, "Make video 300 dp")
+            onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-job").fetchSemanticsNodes().isNotEmpty() }
+            onNode(hasTestTag("subtitles-burn-job") and side).assertExists()
+        }
+        // A phone keeps the one column: the choices and the job inside the video card, no Look card.
+        runDesktopComposeUiTest(width = 360, height = 900) {
+            val f = Fixture(shares = true, withFont = true)
+            show(f)
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+            onNodeWithTag("subtitles-export-look").assertDoesNotExist()
+            onNodeWithTag("editor-side").assertDoesNotExist()
+            onNode(hasTestTag("subtitles-burn-BOXED") and hasAnyAncestor(hasTestTag("subtitles-export-video")), useUnmergedTree = true).assertExists()
+        }
+    }
+
     @Test fun videoCardFits() {
         for (width in listOf(360, 1440)) for (font in listOf(1f, 2f)) for (language in UiLanguage.entries) {
             runDesktopComposeUiTest(width = width, height = 900) {

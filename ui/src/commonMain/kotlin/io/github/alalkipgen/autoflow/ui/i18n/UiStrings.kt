@@ -1400,6 +1400,8 @@ enum class UiText(val en: String, val my: String?) {
     SUB_TO_CHECK("{n} to check", "စစ်ရန် {n} ခု"),
     SUB_NOT_SAVED("Not saved yet", "မသိမ်းရသေးပါ"),
     V3_SUB_EDITED_CAPTION("{n} lines edited · not saved yet", "စာကြောင်း {n} ကြောင်း ပြင်ထား · မသိမ်းရသေး"),
+    // Group 5 🆕-7: the desktop list pane's header ("Lines · #12 / 128").
+    V3_SUB_LINES("Lines", "စာကြောင်းများ"),
     // Group 5 §8.1: the Transcribe / Translate jobs' known English errors, said in the UI language (`jobErrorText`).
     V3_GEMINI_BUSY_RESUME("Gemini is busy. Resume a little later.", "Gemini အလုပ်များနေသည်။ ခဏနေမှ ဆက်လုပ်ပါ။"),
     V3_SUB_NO_GEMINI("Gemini is not set up. Add a key in Settings.", "Gemini မသတ်မှတ်ရသေးပါ။ Settings မှာ key ထည့်ပါ။"),

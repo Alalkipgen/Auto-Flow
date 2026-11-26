@@ -44,7 +44,7 @@ import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
 @Composable
 internal fun SubtitleExportPage(exporter: SubtitleExportModel, doc: SubtitleDoc, version: ArtifactId?, project: String, onClose: () -> Unit,
     burner: SubtitleBurnModel? = null, line: Int? = null, preview: BurnPreviewVideo? = null,
-    backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> }) {
+    backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> }, wide: Float? = null) {
     val s by exporter.state.collectAsState()
     var choice by remember(version) { mutableStateOf(SubtitleExport.defaultChoice(doc)) }
     val shareTitle = tr(UiText.SUB_EXPORT_SRT)
@@ -54,46 +54,78 @@ internal fun SubtitleExportPage(exporter: SubtitleExportModel, doc: SubtitleDoc,
     Column(Modifier.fillMaxSize().testTag("subtitles-export")) {
         // F 1: the Group 2 top bar — back = close (`subtitles-export-close`), Export, "Subtitles · project"; no Undo / Redo.
         SubtitlesTopBar(tr(UiText.EXPORT), My.breakSyllables("${tr(UiText.V3_SUBTITLES)} · $project"), false, onClose, backTag = "subtitles-export-close")
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        // F 2: Subtitle language — Teal `translate` tile, Burmese / Original filter chips.
+        val language: @Composable () -> Unit = {
+            TileCard(My.breakSyllables(tr(UiText.SUB_EXPORT_TEXT)), CardTile(AfIcons.Fill.Translate, GlassColors.ExportTeal)) {
+                WrapRow {
+                    listOf(TextChoice.BURMESE, TextChoice.ORIGINAL).forEach { c ->
+                        GlassFilterChip(My.breakSyllables(tr(viewLabel(c))), choice == c, { choice = c; exporter.clear(); burner?.clearFrame() },
+                            Modifier.testTag("subtitles-export-${c.name}"), leading = checkMark(choice == c))
+                    }
+                }
+            }
+        }
+        // F 3: .srt file — Blue `subtitles` tile; small secondary glass buttons (the page's one primary is Make video).
+        val srt: @Composable () -> Unit = {
+            TileCard(My.breakSyllables(tr(UiText.SUB_EXPORT_SRT)), CardTile(AfIcons.Fill.Subtitles, GlassColors.ExportBlue), Modifier.testTag("subtitles-export-srt")) {
+                WrapRow {
+                    if (exporter.sharesFiles) {
+                        GlassButton(My.breakSyllables(tr(UiText.SHARE)), { exporter.share(doc, version, choice, shareTitle) },
+                            Modifier.testTag("subtitles-export-share"), icon = AfIcons.Regular.Share, small = true)
+                        GlassButton(My.breakSyllables(tr(UiText.SUB_SAVE_DOWNLOADS)), { exporter.saveToDownloads(doc, version, choice) },
+                            Modifier.testTag("subtitles-export-downloads"), enabled = !s.busy, icon = AfIcons.Regular.DownloadSimple, small = true)
+                    } else {
+                        GlassButton(My.breakSyllables(tr(UiText.SUB_SAVE_SRT)), { exporter.save(doc, version, choice) },
+                            Modifier.testTag("subtitles-export-save"), icon = AfIcons.Regular.DownloadSimple, small = true)
+                        GlassButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { exporter.openFolder(doc, version, choice) },
+                            Modifier.testTag("subtitles-export-folder"), icon = AfIcons.Regular.FolderOpen, small = true)
+                    }
+                }
+                s.notice?.let { Notice(it, s.ok, "subtitles-export-notice") }
+            }
+        }
+        // F 6: the render package — the Group 2–4 collapsible card at the bottom of the page (same plan as before).
+        val pack: @Composable () -> Unit = {
+            if (burner != null) {
+                val b by burner.state.collectAsState()
+                RenderPackageCard({
+                    val fit = burner.fit()
+                    RenderPlan(mode = Mode.SUBTITLES, look = b.look.name, size = b.size.name, lines = fit.lines, length = fit.length.name,
+                        text = choice.name, docVersion = version?.value, doc = doc)
+                }, tile = CardTile(AfIcons.Fill.Box, GlassColors.ExportTeal))
+            }
+        }
+        val planned: @Composable () -> Unit = {
+            PlannedTile(tr(UiText.SUB_EXPORT_VIDEO), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-export-video-planned"))
+        }
+        if (wide != null && widthClass(wide) == WidthClass.EXPANDED) {
+            // H 3 (desktop): left = the video card (burn preview + Check one frame); right = language, .srt, Look, the job / done card,
+            // the render package.
+            EditorPanes(wide, main = {
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(start = screenPadding, top = screenPadding, bottom = screenPadding)
+                    .testTag("subtitles-export-page"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (burner != null) BurnVideoCard(burner, doc, version, choice, line, preview, desktop = true) else planned()
+                }
+            }, side = {
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(end = screenPadding, top = screenPadding, bottom = screenPadding)
+                    .testTag("subtitles-export-side"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    language()
+                    srt()
+                    if (burner != null) {
+                        TileCard(My.breakSyllables(tr(UiText.V3_STYLE_LOOK)), CardTile(AfIcons.Fill.SlidersHorizontal, AutoFlowColors.Purple),
+                            Modifier.testTag("subtitles-export-look")) { BurnChoices(burner) }
+                        BurnOutcome(burner)
+                    }
+                    pack()
+                }
+            }, Modifier.weight(1f), sideWidth = 540.dp)
+        } else Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 900.dp).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding)
                 .testTag("subtitles-export-page"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // F 2: Subtitle language — Teal `translate` tile, Burmese / Original filter chips.
-                TileCard(My.breakSyllables(tr(UiText.SUB_EXPORT_TEXT)), CardTile(AfIcons.Fill.Translate, GlassColors.ExportTeal)) {
-                    WrapRow {
-                        listOf(TextChoice.BURMESE, TextChoice.ORIGINAL).forEach { c ->
-                            GlassFilterChip(My.breakSyllables(tr(viewLabel(c))), choice == c, { choice = c; exporter.clear(); burner?.clearFrame() },
-                                Modifier.testTag("subtitles-export-${c.name}"), leading = checkMark(choice == c))
-                        }
-                    }
-                }
-                // F 3: .srt file — Blue `subtitles` tile; small secondary glass buttons (the page's one primary is Make video).
-                TileCard(My.breakSyllables(tr(UiText.SUB_EXPORT_SRT)), CardTile(AfIcons.Fill.Subtitles, GlassColors.ExportBlue), Modifier.testTag("subtitles-export-srt")) {
-                    WrapRow {
-                        if (exporter.sharesFiles) {
-                            GlassButton(My.breakSyllables(tr(UiText.SHARE)), { exporter.share(doc, version, choice, shareTitle) },
-                                Modifier.testTag("subtitles-export-share"), icon = AfIcons.Regular.Share, small = true)
-                            GlassButton(My.breakSyllables(tr(UiText.SUB_SAVE_DOWNLOADS)), { exporter.saveToDownloads(doc, version, choice) },
-                                Modifier.testTag("subtitles-export-downloads"), enabled = !s.busy, icon = AfIcons.Regular.DownloadSimple, small = true)
-                        } else {
-                            GlassButton(My.breakSyllables(tr(UiText.SUB_SAVE_SRT)), { exporter.save(doc, version, choice) },
-                                Modifier.testTag("subtitles-export-save"), icon = AfIcons.Regular.DownloadSimple, small = true)
-                            GlassButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { exporter.openFolder(doc, version, choice) },
-                                Modifier.testTag("subtitles-export-folder"), icon = AfIcons.Regular.FolderOpen, small = true)
-                        }
-                    }
-                    s.notice?.let { Notice(it, s.ok, "subtitles-export-notice") }
-                }
-                if (burner != null) BurnCard(burner, doc, version, choice, line, preview)
-                else PlannedTile(tr(UiText.SUB_EXPORT_VIDEO), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-export-video-planned"))
-                // F 6: the render package — the Group 2–4 collapsible card at the bottom of the page (same plan as before).
-                if (burner != null) {
-                    val b by burner.state.collectAsState()
-                    RenderPackageCard({
-                        val fit = burner.fit()
-                        RenderPlan(mode = Mode.SUBTITLES, look = b.look.name, size = b.size.name, lines = fit.lines, length = fit.length.name,
-                            text = choice.name, docVersion = version?.value, doc = doc)
-                    }, tile = CardTile(AfIcons.Fill.Box, GlassColors.ExportTeal))
-                }
+                language()
+                srt()
+                if (burner != null) BurnVideoCard(burner, doc, version, choice, line, preview, desktop = false) else planned()
+                pack()
             }
         }
         // F 5: Make video is the sticky (off while the video is queued / being made); its progress stays in the video card.
@@ -102,7 +134,8 @@ internal fun SubtitleExportPage(exporter: SubtitleExportModel, doc: SubtitleDoc,
             val b by burner.state.collectAsState()
             val state = remember(runs, b.output) { burner.run() }?.state
             StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.SUB_MAKE_VIDEO)), { scope.launch { burner.start(doc, version, choice) } },
-                enabled = state !is RenderState.Queued && state !is RenderState.Running, tag = "subtitles-burn-make", icon = AfIcons.Regular.FilmStrip),
+                enabled = state !is RenderState.Queued && state !is RenderState.Running, tag = "subtitles-burn-make", icon = AfIcons.Regular.FilmStrip,
+                desktopWidth = 300.dp),
                 glass = true)
         }
     }
@@ -128,14 +161,9 @@ internal class BurnPreviewVideo(val path: String, val video: SourceVideo, val pl
  * (green card: Play · Share · Save to Gallery / Play · Open folder), cancelled (amber) or failed (red).
  */
 @Composable
-private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice, startLine: Int?,
-    preview: BurnPreviewVideo? = null) {
+private fun BurnVideoCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice, startLine: Int?,
+    preview: BurnPreviewVideo?, desktop: Boolean) {
     val s by burner.state.collectAsState()
-    val runs by burner.runs.collectAsState()
-    val run = remember(runs, s.output) { burner.run() }
-    val scope = rememberCoroutineScope()
-    val shareTitle = tr(UiText.SUB_EXPORT_VIDEO)
-    val state = run?.state
     var hintOpen by remember { mutableStateOf(false) }
     val title = tr(UiText.SUB_EXPORT_VIDEO)
     TileCard(My.breakSyllables(title), CardTile(AfIcons.Fill.FilmStrip, AutoFlowColors.Purple), Modifier.testTag("subtitles-export-video"),
@@ -148,58 +176,82 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
             if (hintOpen) AfText(My.breakSyllables(tr(UiText.BURN_PREVIEW_HINT)), Modifier.testTag("burn-preview-hint"), muted = true, size = 12.sp)
             val playhead = remember(doc) { Playhead().apply { seek(doc.cues.getOrNull(startLine ?: 0)?.startMs ?: 0) } }
             val burned = remember(doc, choice, s.look, s.size, s.fit) { burner.previewOverlays(doc, choice) }
-            SubtitlePreview(preview.path, preview.video, doc.cues, choice, playhead, preview.player, heightShare = 0.3f, tag = "burn", burned = burned, card = false)
+            SubtitlePreview(preview.path, preview.video, doc.cues, choice, playhead, preview.player, heightShare = if (desktop) 0.45f else 0.3f,
+                tag = "burn", burned = burned, card = false)
             GlassHairline()
         }
-        AfText(My.breakSyllables(tr(UiText.V3_STYLE_LOOK)), muted = true, size = 12.sp)
-        WrapRow {
-            listOf(BurnLook.CLEAN to UiText.V3_CAPTION_CLEAN, BurnLook.BOXED to UiText.V3_CAPTION_BOXED, BurnLook.OUTLINE to UiText.V3_CAPTION_OUTLINE)
-                .forEach { (look, label) ->
-                    GlassFilterChip(My.breakSyllables(tr(label)), s.look == look, { burner.setLook(look) }, Modifier.testTag("subtitles-burn-${look.name}"),
-                        leading = checkMark(s.look == look))
-                }
+        // On the desktop the choices sit in the Look card and the job / done card in the right pane (H 3).
+        if (!desktop) {
+            BurnChoices(burner)
+            GlassHairline()
         }
-        BurnSizeChips(s.size, burner::setSize, "subtitles-burn", glass = true)
-        BurnFitChips(burner.fit(), burner::setFit, "subtitles-burn", glass = true)
-        GlassFact(AfIcons.Regular.Info, My.breakSyllables(tr(UiText.SUB_BURN_KEEPS)), colour = AutoFlowColors.Muted, caption = true)
-        GlassHairline()
         CheckFrame(burner, doc, version, choice, startLine)
-        when (state) {
-            is RenderState.Queued, is RenderState.Running -> JobCard(title,
-                if (state is RenderState.Running) StudioStatus.RUNNING else StudioStatus.QUEUED,
-                My.breakSyllables(tr(UiText.SUB_BURN_RUNNING, "percent" to ((state as? RenderState.Running)?.fraction ?: 0.0).times(100).toInt())),
-                Modifier.testTag("subtitles-burn-job"), progress = (state as? RenderState.Running)?.fraction?.toFloat(),
-                indeterminate = state is RenderState.Queued, tile = CardTile(AfIcons.Fill.FilmStrip, AutoFlowColors.Purple)) {
-                GlassButton(My.breakSyllables(tr(UiText.CANCEL)), burner::cancel, Modifier.testTag("subtitles-burn-cancel"), kind = ButtonKind.Danger,
-                    icon = AfIcons.Regular.Close, small = true)
-            }
-            is RenderState.Done -> GlassCard(tint = AutoFlowColors.Green, tintAlpha = .12f, outline = AutoFlowColors.Green.copy(alpha = .45f),
-                outlineWidth = 1.dp, gap = 10.dp) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SoftTile(AfIcons.Fill.CheckCircle, AutoFlowColors.Green, size = 30.dp)
-                    AfText(My.breakSyllables(tr(UiText.SUB_BURN_DONE, "path" to state.output)), Modifier.weight(1f).padding(top = 4.dp)
-                        .testTag("subtitles-burn-done"), weight = FontWeight.Bold)
-                }
-                WrapRow {
-                    GlassButton(My.breakSyllables(tr(UiText.PLAY)), { burner.open() }, Modifier.testTag("subtitles-burn-play"), kind = ButtonKind.Primary,
-                        icon = AfIcons.Fill.Play, small = true)
-                    if (burner.sharesFiles) {
-                        GlassButton(My.breakSyllables(tr(UiText.SHARE)), { burner.share(shareTitle) }, Modifier.testTag("subtitles-burn-share"),
-                            icon = AfIcons.Regular.Share, small = true)
-                        GlassButton(My.breakSyllables(tr(UiText.SAVE_GALLERY)), { scope.launch { burner.saveToGallery() } },
-                            Modifier.testTag("subtitles-burn-gallery"), icon = AfIcons.Regular.DownloadSimple, small = true)
-                    } else GlassButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { burner.openFolder() }, Modifier.testTag("subtitles-burn-folder"),
-                        icon = AfIcons.Regular.FolderOpen, small = true)
-                }
-            }
-            is RenderState.Cancelled -> GlassCallout(AfIcons.Fill.Warn, My.breakSyllables(tr(UiText.SUB_BURN_CANCELLED)), AutoFlowColors.Amber,
-                textModifier = Modifier.testTag("subtitles-burn-cancelled"))
-            is RenderState.Failed -> GlassCallout(AfIcons.Fill.XCircle, My.breakSyllables(tr(UiText.RESULT_DETAIL, "detail" to state.reason)),
-                AutoFlowColors.Failed, textModifier = Modifier.testTag("subtitles-burn-failed"))
-            else -> {}
-        }
-        s.notice?.let { Notice(it, s.ok, "subtitles-burn-notice") }
+        if (!desktop) BurnOutcome(burner)
     }
+}
+
+/** Look · Size · Lines on screen · Line length, the fit hint and what the video keeps (S-4c). */
+@Composable
+private fun BurnChoices(burner: SubtitleBurnModel) {
+    val s by burner.state.collectAsState()
+    AfText(My.breakSyllables(tr(UiText.V3_STYLE_LOOK)), muted = true, size = 12.sp)
+    WrapRow {
+        listOf(BurnLook.CLEAN to UiText.V3_CAPTION_CLEAN, BurnLook.BOXED to UiText.V3_CAPTION_BOXED, BurnLook.OUTLINE to UiText.V3_CAPTION_OUTLINE)
+            .forEach { (look, label) ->
+                GlassFilterChip(My.breakSyllables(tr(label)), s.look == look, { burner.setLook(look) }, Modifier.testTag("subtitles-burn-${look.name}"),
+                    leading = checkMark(s.look == look))
+            }
+    }
+    BurnSizeChips(s.size, burner::setSize, "subtitles-burn", glass = true)
+    BurnFitChips(burner.fit(), burner::setFit, "subtitles-burn", glass = true)
+    GlassFact(AfIcons.Regular.Info, My.breakSyllables(tr(UiText.SUB_BURN_KEEPS)), colour = AutoFlowColors.Muted, caption = true)
+}
+
+/** The video's job (Jobs card look, Cancel), done (green card), cancelled (amber) or failed (red), then the burn notice. */
+@Composable
+private fun BurnOutcome(burner: SubtitleBurnModel) {
+    val s by burner.state.collectAsState()
+    val runs by burner.runs.collectAsState()
+    val run = remember(runs, s.output) { burner.run() }
+    val scope = rememberCoroutineScope()
+    val shareTitle = tr(UiText.SUB_EXPORT_VIDEO)
+    val state = run?.state
+    val title = tr(UiText.SUB_EXPORT_VIDEO)
+    when (state) {
+        is RenderState.Queued, is RenderState.Running -> JobCard(title,
+            if (state is RenderState.Running) StudioStatus.RUNNING else StudioStatus.QUEUED,
+            My.breakSyllables(tr(UiText.SUB_BURN_RUNNING, "percent" to ((state as? RenderState.Running)?.fraction ?: 0.0).times(100).toInt())),
+            Modifier.testTag("subtitles-burn-job"), progress = (state as? RenderState.Running)?.fraction?.toFloat(),
+            indeterminate = state is RenderState.Queued, tile = CardTile(AfIcons.Fill.FilmStrip, AutoFlowColors.Purple)) {
+            GlassButton(My.breakSyllables(tr(UiText.CANCEL)), burner::cancel, Modifier.testTag("subtitles-burn-cancel"), kind = ButtonKind.Danger,
+                icon = AfIcons.Regular.Close, small = true)
+        }
+        is RenderState.Done -> GlassCard(tint = AutoFlowColors.Green, tintAlpha = .12f, outline = AutoFlowColors.Green.copy(alpha = .45f),
+            outlineWidth = 1.dp, gap = 10.dp) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SoftTile(AfIcons.Fill.CheckCircle, AutoFlowColors.Green, size = 30.dp)
+                AfText(My.breakSyllables(tr(UiText.SUB_BURN_DONE, "path" to state.output)), Modifier.weight(1f).padding(top = 4.dp)
+                    .testTag("subtitles-burn-done"), weight = FontWeight.Bold)
+            }
+            WrapRow {
+                GlassButton(My.breakSyllables(tr(UiText.PLAY)), { burner.open() }, Modifier.testTag("subtitles-burn-play"), kind = ButtonKind.Primary,
+                    icon = AfIcons.Fill.Play, small = true)
+                if (burner.sharesFiles) {
+                    GlassButton(My.breakSyllables(tr(UiText.SHARE)), { burner.share(shareTitle) }, Modifier.testTag("subtitles-burn-share"),
+                        icon = AfIcons.Regular.Share, small = true)
+                    GlassButton(My.breakSyllables(tr(UiText.SAVE_GALLERY)), { scope.launch { burner.saveToGallery() } },
+                        Modifier.testTag("subtitles-burn-gallery"), icon = AfIcons.Regular.DownloadSimple, small = true)
+                } else GlassButton(My.breakSyllables(tr(UiText.OPEN_FOLDER)), { burner.openFolder() }, Modifier.testTag("subtitles-burn-folder"),
+                    icon = AfIcons.Regular.FolderOpen, small = true)
+            }
+        }
+        is RenderState.Cancelled -> GlassCallout(AfIcons.Fill.Warn, My.breakSyllables(tr(UiText.SUB_BURN_CANCELLED)), AutoFlowColors.Amber,
+            textModifier = Modifier.testTag("subtitles-burn-cancelled"))
+        is RenderState.Failed -> GlassCallout(AfIcons.Fill.XCircle, My.breakSyllables(tr(UiText.RESULT_DETAIL, "detail" to state.reason)),
+            AutoFlowColors.Failed, textModifier = Modifier.testTag("subtitles-burn-failed"))
+        else -> {}
+    }
+    s.notice?.let { Notice(it, s.ok, "subtitles-burn-notice") }
 }
 
 /**

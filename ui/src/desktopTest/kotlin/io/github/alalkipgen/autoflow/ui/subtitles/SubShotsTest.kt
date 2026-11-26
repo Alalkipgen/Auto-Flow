@@ -623,6 +623,24 @@ class SubShotsTest(val language: UiLanguage, val font: Float) {
         if (font == 1f) shot("12c-desktop-export", desktop = true, window = true, dialog = true) { openExport() }
     }
 
+    /**
+     * PR 8 (H 1–3, 🆕-7; samples 12 / 12b / 12c): the desktop editor (the Lines header, the bar's caption and fixed buttons), the
+     * open Edit line, the Export page in two panes — 1440 × 900 at font 1.0 and 2.0.
+     */
+    @Test fun desktop() {
+        shot("12-desktop-lines", desktop = true, prep = { dirty() }) { demoState() }
+        shot("12b-desktop-edit-line", desktop = true, prep = { dirty() }) {
+            demoState(41_000); onNodeWithTag("subtitles-cues").performScrollToKey("c12"); waitForIdle(); click("subtitles-cue-edit-c12")
+        }
+        var demo: Demo? = null
+        shot("12c-desktop-export-job", desktop = true, window = true, dialog = true, prep = { demo = this }) {
+            demoState(); onNodeWithTag("subtitles-cues").performScrollToKey("c12"); waitForIdle(); click("subtitles-cue-c12")
+            click("subtitles-export-open"); waitTag("subtitles-export")
+            click("subtitles-burn-make"); waitUntil(timeoutMillis = 5_000) { demo!!.queue.jobs.isNotEmpty() }
+            demo!!.job(RenderState.Running(0.46, 1.0)); waitTag("subtitles-burn-job")
+        }
+    }
+
     @Test fun shell() {
         shot("01-editor", prep = { dirty() }) { demoState() }
         shot("01-editor-full", height = 1669, prep = { dirty() }) { demoState() }

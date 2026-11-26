@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -165,7 +166,8 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
     LaunchedEffect(exporting) { if (exporting) playhead.playing = false }
     // Group 5 F 1 (🆕-5): Export is a full page in place of the editor (the editor's list, playhead and selection wait).
     if (exporting && exporter != null && !draft.dirty) SubtitleExportPage(exporter, draft.doc, draft.base, project, { onExporting(false) }, burner,
-        cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 }, BurnPreviewVideo(path, video, player), backHandler)
+        cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 }, BurnPreviewVideo(path, video, player), backHandler,
+        wide = if (wide) windowWidthDp() else null)
     else ProjectShortcutHost(onKey = onKey) {
         Column(Modifier.fillMaxSize().testTag("subtitles-editor")) {
             // D4: the video, its strip and the open line's panel left; the lines in a 460 dp pane right.
@@ -178,8 +180,12 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                 }
             }, side = {
                 val pane = RoundedCornerShape(AfDesktop.PaneRadius)
-                Box(Modifier.fillMaxSize().clip(pane).background(AutoFlowColors.Panel).border(AutoFlowShapes.Border, AutoFlowColors.Line, pane)
-                    .testTag("subtitles-list-pane")) { cueList(Modifier.fillMaxSize(), false) }
+                Column(Modifier.fillMaxSize().clip(pane).background(AutoFlowColors.Panel).border(AutoFlowShapes.Border, AutoFlowColors.Line, pane)
+                    .testTag("subtitles-list-pane")) {
+                    // 🆕-7: "Lines" + "#12 / 128" pinned over the pane's list.
+                    LinesHeader(cues.indexOfFirst { it.id == s.selected }.takeIf { it >= 0 }?.plus(1), cues.size)
+                    cueList(Modifier.weight(1f).fillMaxWidth(), false)
+                }
             }, Modifier.weight(1f).padding(start = screenPadding, end = screenPadding, top = AfSpace.L, bottom = AfSpace.L).testTag("subtitles-wide"))
             else BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val pin = maxHeight >= AfSize.SubtitlesPinMin * LocalDensity.current.fontScale
@@ -197,12 +203,18 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
                     icon = AfIcons.Regular.Close, danger = true),
                 caption = My.breakSyllables(tr(UiText.SUB_TRANSLATE_LOCKED)), glass = true, captionIcon = AfIcons.Regular.Lock,
             )
-            else if (draft.dirty) StickyActionBar(
-                primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save", icon = AfIcons.Regular.Check),
-                secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard", icon = AfIcons.Regular.Trash, hug = true),
-                caption = My.breakSyllables(tr(UiText.V3_SUB_EDITED_CAPTION, "n" to draft.changedLines)), keys = keys, glass = true,
-                captionIcon = AfIcons.Regular.Edit, captionColour = AutoFlowColors.WarningText, captionTag = "subtitles-edited-caption",
-            )
+            else if (draft.dirty) {
+                // Group 5 H 2: on the desktop the keys left, then 🆕-6's caption right before Discard 170 dp + Save 200 dp.
+                val edited = My.breakSyllables(tr(UiText.V3_SUB_EDITED_CAPTION, "n" to draft.changedLines))
+                StickyActionBar(
+                    primary = StudioAction(tr(UiText.SAVE), { editor.save() }, enabled = idle, tag = "subtitles-save", icon = AfIcons.Regular.Check,
+                        desktopWidth = 200.dp),
+                    secondary = StudioAction(tr(UiText.DISCARD), editor::discard, tag = "subtitles-discard", icon = AfIcons.Regular.Trash, hug = true,
+                        desktopWidth = 170.dp),
+                    caption = edited.takeIf { !wide }, leading = if (wide) ({ EditedCaption(edited) }) else null, keys = keys, glass = true,
+                    captionIcon = AfIcons.Regular.Edit, captionColour = AutoFlowColors.WarningText, captionTag = "subtitles-edited-caption",
+                )
+            }
             else {
                 val toMy = translate?.takeIf { it.offers(draft.doc.lang) }?.let { m ->
                     StudioAction(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), { m.ask() }, // 🆕-4: the confirm is a dialog, no jump to the top
@@ -216,6 +228,30 @@ internal fun SubtitleEditor(editor: SubtitleEditorModel, path: String, video: So
         }
     }
 }
+
+/**
+ * 🆕-7: the desktop list pane's header — "Lines" 14 sp bold and, mono muted at the end, "#12 / 128" (the selected line /
+ * all lines; all lines alone while none is selected), a hairline under it.
+ */
+@Composable
+private fun LinesHeader(selected: Int?, total: Int) {
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.testTag("subtitles-lines-header").drawBehind {
+            drawRect(GlassColors.TopBarLine, androidx.compose.ui.geometry.Offset(0f, size.height - 1.dp.toPx()),
+                androidx.compose.ui.geometry.Size(size.width, 1.dp.toPx()))
+        }.padding(horizontal = screenPadding, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AfText(My.breakSyllables(tr(UiText.V3_SUB_LINES)), Modifier.weight(1f), size = 14.sp, weight = FontWeight.Bold)
+        AfText(if (selected != null) "#$selected / $total" else "$total", mono = true, muted = true, size = 12.sp)
+    }
+}
+
+/** 🆕-6's caption beside the desktop bar's buttons (Group 5 H 2): `pencil-simple` + the text in WarningText. */
+@Composable
+private fun EditedCaption(text: String) =
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        AfIcon(AfIcons.Regular.Edit, tint = AutoFlowColors.WarningText, size = 15.dp)
+        AfText(text, Modifier.widthIn(max = 320.dp).testTag("subtitles-edited-caption"), color = AutoFlowColors.WarningText, type = AfType.Caption)
+    }
 
 /** The window's width in dp (the 840 dp breakpoint is the window, not the pane left after the rail). */
 @Composable

@@ -49,11 +49,14 @@ import io.github.alalkipgen.autoflow.ui.theme.Tone
  */
 data class StudioAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val tag: String? = null,
     val icon: ImageVector? = null, val trailingIcon: ImageVector? = null, val danger: Boolean = false, val accent: Color? = null,
-    val hug: Boolean = false)
+    val hug: Boolean = false,
+    /** The button's width in a desktop sticky bar (Group 5 H 2: Discard 170, Save 200, Make video 300); null = its label's (≥ 150 dp). */
+    val desktopWidth: androidx.compose.ui.unit.Dp? = null)
 
 @Composable
 private fun Action(action: StudioAction, primary: Boolean = false, modifier: Modifier = Modifier, glass: Boolean = false) {
-    val m = modifier.then(action.tag?.let { Modifier.testTag(it) } ?: Modifier)
+    val m = modifier.then(action.desktopWidth?.takeIf { !LocalCompact.current }?.let { Modifier.width(it) } ?: Modifier)
+        .then(action.tag?.let { Modifier.testTag(it) } ?: Modifier)
     val kind = when { action.danger -> ButtonKind.Danger; primary -> ButtonKind.Primary; else -> ButtonKind.Secondary }
     if (glass) GlassButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon,
         accent = action.accent)
