@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 
 /** One Voice row (specs/dubbing.md §4): the line, its slot, its current take (null = none or an old one) and the fit. */
 data class DubVoiceRow(val n: Int, val id: String, val startMs: Long, val endMs: Long, val slotMs: Long, val spoken: String,
-    val take: DubTake?, val old: Boolean, val fit: DubFit?)
+    val take: DubTake?, val old: Boolean, val fit: DubFit?, val source: String = "")
 
 data class DubVoiceUi(val dir: String? = null, val confirm: DubSpeakRequest? = null, val notice: UiNotice? = null, val ok: Boolean = false)
 
@@ -71,7 +71,7 @@ class DubVoiceModel(
         return doc.cues.mapIndexed { i, c ->
             val take = DubRules.currentTake(tool, c, lex)
             DubVoiceRow(i + 1, c.id, c.startMs, c.endMs, slots[i], DubRules.sayText(c, lex), take, take == null && tool?.takes?.containsKey(c.id) == true,
-                take?.let { DubFit.of(it.ms, c.endMs - c.startMs, slots[i], config.dubbing.maxVoiceSpeed) })
+                take?.let { DubFit.of(it.ms, c.endMs - c.startMs, slots[i], config.dubbing.maxVoiceSpeed) }, c.text)
         }
     }
 
@@ -82,6 +82,9 @@ class DubVoiceModel(
     fun setTone(tone: String?) = change { it.copy(tone = tone?.takeIf { t -> t in VoiceTakes.TONES && t != it.tone }) }
 
     /** Original sound under the dub (D-83): Lower keeps `dubbing.originalVolume`, Mute is 0. */
+    /** The original-sound volume that Lower sets (the Lower segment shows it while Mute is on, not 0 %). */
+    val lowerVolume: Double get() = config.dubbing.originalVolume
+
     fun setOriginal(mode: String) = change {
         it.copy(original = if (mode == DubOriginal.MUTE) DubOriginal(DubOriginal.MUTE, 0.0) else DubOriginal(DubOriginal.LOWER, config.dubbing.originalVolume))
     }
@@ -125,6 +128,9 @@ class DubVoiceModel(
     }
 
     /** The file of take [take] of the open project, for ▶. */
+    /** A take's loudness for the desktop waveform card (Group 4 H): null when its file is not plain 16-bit PCM. */
+    fun takePeaks(take: ArtifactId): List<Float>? = session.artifacts()?.readBytes(take)?.getOrNull()?.let { wavePeaks(it) }
+
     fun takePath(take: ArtifactId): String? = session.artifacts()?.get(take)?.getOrNull()?.let {
         joinPath(joinPath(session.open?.dir ?: return null, ArtifactStore.ARTIFACTS_DIR), it.file)
     }

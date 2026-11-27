@@ -30,6 +30,7 @@ import io.github.alalkipgen.autoflow.media.render.Overlay
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.export.RecapFrames
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiNotice
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.media.MediaTaskRun
@@ -45,6 +46,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** A line on the preview's scrubber (Group 4 🆕-1): its number, its subtitle time and how it sounds now. */
+data class DubTick(val n: Int, val startMs: Long, val endMs: Long, val kind: DubTickKind, val voiceEndMs: Long = startMs)
+enum class DubTickKind { VOICED, NO_VOICE, TOO_LONG }
 
 /** Export (D-3b): the runs of the last start in order ([runs], of [total] tasks), the files it makes, and why it stopped. */
 data class DubExportUi(val dir: String? = null, val wav: Boolean = false, val runs: List<String> = emptyList(), val total: Int = 0,
@@ -67,6 +72,8 @@ class DubExportModel(
     private val config: ToolsConfig = ToolsConfig(),
     private val share: FileShare? = null,
     private val lexicon: () -> Lexicon = { Lexicon.EMPTY },
+    /** The owner's UI language: the Jobs title of each step is written in it (§8.2), not always in English. */
+    private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
     private val _state = MutableStateFlow(DubExportUi())
     val state: StateFlow<DubExportUi> = _state.asStateFlow()
@@ -76,6 +83,9 @@ class DubExportModel(
     fun check(open: OpenProject?, doc: SubtitleDoc): DubExportCheck? = open?.project?.subtitles?.video?.let {
         DubExport.check(open.project.dubbing, doc, it.durationMs, config.dubbing.minGapMs, config.dubbing.maxVoiceSpeed, lexicon())
     }
+
+    /** The lines that have something to say (as [check] counts them): "All 40 lines have a voice" on the checklist. */
+    fun spokenLines(doc: SubtitleDoc): Int = lexicon().let { lex -> doc.cues.count { io.github.alalkipgen.autoflow.core.dubbing.DubRules.sayText(it, lex).isNotEmpty() } }
 
     /** Burmese subtitles on the video: saved in the project (`burnSubtitles`). */
     fun setBurn(on: Boolean) {
@@ -112,6 +122,29 @@ class DubExportModel(
             .filter { fs.exists(it.file) }
     }
 
+    /**
+     * Group 4 🆕-1: one scrubber tick per line of the dub script (its start), with how the line sounds now —
+     * [DubTickKind.NO_VOICE] without a current take, [DubTickKind.TOO_LONG] when the take does not fit even at the top speed.
+     * Read only (the same [DubRules] / [DubFit] the Voice step shows).
+     */
+    fun previewTicks(open: OpenProject?, doc: SubtitleDoc): List<DubTick> {
+        val tool = open?.project?.dubbing
+        val slots = io.github.alalkipgen.autoflow.core.dubbing.DubRules.slots(doc, open?.project?.subtitles?.video?.durationMs ?: 0, config.dubbing.minGapMs)
+        val lex = lexicon()
+        return doc.cues.mapIndexed { i, c ->
+            val take = io.github.alalkipgen.autoflow.core.dubbing.DubRules.currentTake(tool, c, lex)
+            val fit = take?.let { io.github.alalkipgen.autoflow.core.dubbing.DubFit.of(it.ms, c.endMs - c.startMs, slots[i], config.dubbing.maxVoiceSpeed) }
+            val kind = when {
+                take == null || fit == null -> DubTickKind.NO_VOICE
+                fit.kind == io.github.alalkipgen.autoflow.core.dubbing.DubFitKind.TOO_LONG -> DubTickKind.TOO_LONG
+                else -> DubTickKind.VOICED
+            }
+            // Where the voice stops in the mix: its length at its speed, cut at the line's slot (as the mixer cuts it).
+            val voiceEnd = if (take == null || fit == null) c.startMs else c.startMs + minOf((take.ms / fit.speed).toLong(), slots[i])
+            DubTick(i + 1, c.startMs, c.endMs, kind, voiceEnd)
+        }
+    }
+
     /** F-6: the Burmese subtitles exactly as the burn draws them now (boxed, the chosen size, lines and line length). */
     fun previewCaptions(open: OpenProject?, doc: SubtitleDoc): List<Overlay> {
         val video = open?.project?.subtitles?.video ?: return emptyList()
@@ -145,7 +178,7 @@ class DubExportModel(
         val open = session.open ?: return null
         val video = open.project.subtitles?.video ?: return null
         val tool = open.project.dubbing ?: return null
-        if (!tasks.available) return say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to "This app cannot make videos here."))
+        if (!tasks.available) return say(open.dir, UiNotice(UiText.V3_DUB_CANNOT_MAKE)) // §8.1: in the owner's language
         val lines = DubExport.lines(tool, doc, video.durationMs, config.dubbing.minGapMs, config.dubbing.maxVoiceSpeed, lexicon())
             ?: return say(open.dir, UiNotice(UiText.DUB_EXPORT_NOT_READY))
         val store = session.artifacts() ?: return null
@@ -171,7 +204,8 @@ class DubExportModel(
             voice = keep?.let { MediaTaskJob.absolute(open.dir, it.output) }, busy = true, size = kept?.size ?: BurnSize.MEDIUM, fit = kept?.fit)
         return scope.launch {
             for (t in all) {
-                val title = "${open.project.name} · ${(if (t.kind == DubMixer.EXPORT) UiText.DUB_EXPORT_MAKING else UiText.DUB_EXPORT_MIXING).en}"
+                // §8.2: the Jobs / notification title in the owner's language (was always `.en`).
+                val title = "${open.project.name} · ${(if (t.kind == DubMixer.EXPORT) UiText.DUB_EXPORT_MAKING else UiText.DUB_EXPORT_MIXING).text(uiLanguage())}"
                 val run = tasks.start(t, open.dir, title, DUBBING_SCREEN) ?: break
                 _state.update { it.copy(runs = it.runs + run.id) }
                 val end = tasks.runs.first { l -> l.firstOrNull { it.id == run.id }?.state?.finished == true }.first { it.id == run.id }.state

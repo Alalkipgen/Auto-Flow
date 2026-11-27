@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.voice
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -11,6 +12,7 @@ import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.recap.VoiceLock
 import io.github.alalkipgen.autoflow.media.audio.SongAudio
 import io.github.alalkipgen.autoflow.ui.components.AfChip
+import io.github.alalkipgen.autoflow.ui.components.GlassFilterChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.i18n.My
@@ -51,15 +53,24 @@ object EdgeVoices {
 
 /** Thiha / Nilar chips; a tap locks to that Edge voice ([tag] prefixes the test tags). */
 @Composable
-fun EdgeVoiceChips(edge: EdgeTtsConfig, lock: VoiceLock?, enabled: Boolean, tag: String, onPick: (VoiceLock) -> Unit) {
-    AfText(My.breakSyllables(tr(UiText.EDGE_VOICES)), muted = true)
+fun EdgeVoiceChips(edge: EdgeTtsConfig, lock: VoiceLock?, enabled: Boolean, tag: String, glass: Boolean = false, onPick: (VoiceLock) -> Unit) {
+    // [glass] (Dubbing, Group 4 F 1): a small 12 sp muted label and glass filter chips; Voice & Audio keeps its look.
+    if (glass) AfText(My.breakSyllables(tr(UiText.EDGE_VOICES)), muted = true, size = 12.sp)
+    else AfText(My.breakSyllables(tr(UiText.EDGE_VOICES)), muted = true)
     WrapRow {
         edge.voicesFor("my").forEach { v ->
-            AfChip(My.breakSyllables("${v.name} · Edge"), lock?.provider == EdgeVoices.PROVIDER && lock.voice == v.id,
-                { onPick(VoiceLock(EdgeVoices.PROVIDER, edge.model, v.id, "my")) }, Modifier.testTag("$tag-edge-${v.name}"), enabled = enabled)
+            val on = lock?.provider == EdgeVoices.PROVIDER && lock.voice == v.id
+            val pick = { onPick(VoiceLock(EdgeVoices.PROVIDER, edge.model, v.id, "my")) }
+            if (glass) GlassFilterChip(My.breakSyllables("${v.name} · Edge"), on, pick, Modifier.testTag("$tag-edge-${v.name}"), enabled = enabled)
+            else AfChip(My.breakSyllables("${v.name} · Edge"), on, pick, Modifier.testTag("$tag-edge-${v.name}"), enabled = enabled)
         }
     }
 }
+
+/** "Nilar · Edge" / "Charon · Gemini": a voice lock as people say it (not the raw id and model, §8.4). */
+fun voiceLabel(lock: VoiceLock, edge: EdgeTtsConfig?): String =
+    if (lock.provider == EdgeVoices.PROVIDER) "${edge?.voicesFor(lock.lang.ifBlank { "my" })?.firstOrNull { it.id == lock.voice }?.name ?: lock.voice} · Edge"
+    else "${lock.voice} · Gemini"
 
 /**
  * Edge sends mp3; takes and joins need PCM WAV (D-86). ffmpeg decodes it through two fixed files in [dir] (one decode

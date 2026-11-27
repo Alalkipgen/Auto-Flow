@@ -351,7 +351,13 @@ internal fun RenderCard(state: ExportUiState, model: ExportModel, studio: Boolea
             if (studio && i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(GlassColors.Divider))
             LastRenderStatus(last, model, glass = studio)
         }
-        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
+        state.message?.let {
+            val text = state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it)
+            // Saved to Gallery: green with the check-circle (the string has no "✓", Group 4 §4).
+            if (state.messageOk && state.notice?.key == UiText.EXPORT_GALLERY_SAVED)
+                io.github.alalkipgen.autoflow.ui.components.GlassFact(AfIcons.Fill.CheckCircle, text, colour = AutoFlowColors.Green, iconColour = AutoFlowColors.Green)
+            else AfText(text, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber)
+        }
     }
 }
 

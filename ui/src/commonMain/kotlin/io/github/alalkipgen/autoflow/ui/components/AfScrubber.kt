@@ -25,11 +25,12 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
  * Foundation-only Af control: output fraction, not a second player or timeline. Vertical scrolling stays free.
  * [glass] = the glass preview look (track White .12, Cyan → Purple fill, 16 dp white knob with a Purple .35 ring);
  * [ticks] = 2 × 10 dp White .28 marks at these fractions (block starts); [onTap] = a tap's fraction goes there instead of
- * [onChange] (e.g. to snap to a tick); drags, keys and TalkBack still use [onChange].
+ * [onChange] (e.g. to snap to a tick); drags, keys and TalkBack still use [onChange]. [tickColors] = one colour per tick
+ * (missing ones stay White .28; e.g. Dubbing's too-long lines in Amber).
  */
 @Composable
 fun AfScrubber(value: Float, label: String, onChange: (Float) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
-    glass: Boolean = false, ticks: List<Float> = emptyList(), onTap: ((Float) -> Unit)? = null) {
+    glass: Boolean = false, ticks: List<Float> = emptyList(), onTap: ((Float) -> Unit)? = null, tickColors: List<Color> = emptyList()) {
     val fraction = value.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
     val change by rememberUpdatedState(onChange)
     val tap by rememberUpdatedState(onTap ?: onChange)
@@ -75,9 +76,9 @@ fun AfScrubber(value: Float, label: String, onChange: (Float) -> Unit, modifier:
             drawLine(Color.White.copy(alpha = .12f), start, end, 4.dp.toPx(), StrokeCap.Round)
             if (enabled && thumb.x > start.x) drawLine(Brush.horizontalGradient(listOf(AutoFlowColors.Cyan, AutoFlowColors.Purple), start.x, thumb.x),
                 start, thumb, 4.dp.toPx(), StrokeCap.Round)
-            ticks.forEach { t ->
+            ticks.forEachIndexed { i, t ->
                 val x = start.x + (end.x - start.x) * t.coerceIn(0f, 1f)
-                drawRoundRect(Color.White.copy(alpha = .28f), Offset(x - 1.dp.toPx(), start.y - 5.dp.toPx()), Size(2.dp.toPx(), 10.dp.toPx()),
+                drawRoundRect(tickColors.getOrNull(i) ?: Color.White.copy(alpha = .28f), Offset(x - 1.dp.toPx(), start.y - 5.dp.toPx()), Size(2.dp.toPx(), 10.dp.toPx()),
                     CornerRadius(1.dp.toPx()))
             }
             if (enabled) drawCircle(AutoFlowColors.Purple.copy(alpha = .35f), 12.dp.toPx(), thumb)

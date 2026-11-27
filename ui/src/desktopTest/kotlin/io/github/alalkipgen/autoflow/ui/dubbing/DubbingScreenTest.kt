@@ -203,13 +203,14 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-step-VOICE").assert(chosen) // approved → lands on Voice
                     onNodeWithTag("dub-voice-rows").performScrollToKey("c1")
                     onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_NO_VOICE.text(language)))
-                    onNodeWithTag("dub-voice-rows").performScrollToKey("settings")
+                    // Desktop (Group 4 H): the voice card and Speak are on the right pane, not in the lines list.
+                    if (width < 840) onNodeWithTag("dub-voice-rows").performScrollToKey("settings")
                     onNodeWithTag("dub-voice-Kore").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.lock?.voice == "Kore" }
                     onNodeWithTag("dub-original-mute").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.original.mode == "mute" }
                     onNodeWithTag("dub-speak").assertIsEnabled().performMouseInput { click() }
-                    onNodeWithTag("dub-voice-rows").performScrollToKey("speak")
+                    if (width < 840) onNodeWithTag("dub-voice-rows").performScrollToKey("speak")
                     onNodeWithTag("dub-speak-confirm").assertIsDisplayed()
                     onNodeWithTag("dub-speak-start").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 10_000) { current.state.value!!.project.dubbing!!.takes.size == 2 }
@@ -218,6 +219,8 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-fit-c1").assertTextEquals(My.breakSyllables(UiText.V3_FITS.text(language)))
                     onNodeWithTag("dub-voice-rows").performScrollToKey("c2")
                     onNodeWithTag("dub-fit-c2").assertTextEquals(My.breakSyllables(UiText.DUB_USES_PAUSE.text(language)))
+                    // Desktop: the selected line opens in place with Speak this line again.
+                    if (width >= 840) onNodeWithTag("dub-voice-head-c2").performMouseInput { click() }
                     onNodeWithTag("dub-redo-c2").assertIsEnabled()
                     onNodeWithTag("dub-go-export").assertIsDisplayed()
                     assertEquals(emptyList(), textFitProblems(width, font))
@@ -325,15 +328,19 @@ class DubbingScreenTest {
                     }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-go-export").fetchSemanticsNodes().isNotEmpty() }
                     // F-6 (D-95): Voice and Export show the dubbed video before any render, both spoken lines in it.
+                    // Group 4 🆕-1: the scope caption names the voices; the long hint opens behind ⓘ.
+                    onNodeWithTag("dub-preview-scope").assertTextEquals(My.breakSyllables(UiText.V3_DUB_PREVIEW_SCOPE.text(language, "n" to 2)))
+                    onNodeWithTag("dub-preview-hint").assertDoesNotExist()
+                    onNodeWithTag("dub-preview-info").performScrollTo().performMouseInput { click() }
                     onNodeWithTag("dub-preview-hint").assertTextEquals(My.breakSyllables(UiText.DUB_PREVIEW_HINT.text(language, "n" to 2)))
-                    onNodeWithTag("dub-preview").assertIsDisplayed()
+                    onNodeWithTag("dub-preview").performScrollTo().assertIsDisplayed()
                     onNodeWithTag("dub-go-export").performMouseInput { click() }
                     onNodeWithTag("dub-step-EXPORT").assert(chosen)
                     onNodeWithTag("dub-preview").assertIsDisplayed()
                     onNodeWithTag("dub-play").performScrollTo().assertIsDisplayed()
                     onNodeWithTag("dub-export-original").performScrollTo()
                     onNodeWithTag("dub-export-blocks").assertDoesNotExist()
-                    onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.DUB_LOWER.text(language)))
+                    onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.V3_DUB_LOWER.text(language, "percent" to 15)))
                     onNodeWithTag("dub-burn-lines-1").assertDoesNotExist()
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isNotEmpty() }

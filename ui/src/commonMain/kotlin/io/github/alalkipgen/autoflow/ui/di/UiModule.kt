@@ -99,7 +99,8 @@ val uiModule = module {
         edgeRpm = getOrNull<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()?.tts?.edge?.rpm ?: io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig().rpm) }
     single { io.github.alalkipgen.autoflow.ui.dubbing.DubShortenModel(getOrNull(), MainScope()) }
     single { io.github.alalkipgen.autoflow.ui.dubbing.DubExportModel(get(), get(), get(), MainScope(), frames = getOrNull(), config = get(),
-        share = getOrNull(), lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
+        share = getOrNull(), lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value },
+        uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     single { io.github.alalkipgen.autoflow.ui.dubbing.DubVoiceModel(get(), getOrNull(), getOrNull(), MainScope(), config = get(),
         lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value },
         models = getOrNull<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()?.tts?.chainFor("my").orEmpty(),

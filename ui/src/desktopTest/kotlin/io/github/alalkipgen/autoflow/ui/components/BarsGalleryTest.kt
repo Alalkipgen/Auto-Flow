@@ -51,10 +51,10 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
         }
     }
 
-    @Composable private fun Gallery(onStep: (Int) -> Unit = {}) = TooltipHost(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+    @Composable private fun Gallery(glass: Boolean, onStep: (Int) -> Unit = {}) = TooltipHost(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             ProjectTopBar(LONG, 3, tr(UiText.VOICE), {}, options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), {})),
-                steps = recapStepLabels())
+                steps = recapStepLabels(), glass = glass)
             Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 AfTopBar(tr(Mode.DUBBING.label()), subtitle = tr(DubStep.SCRIPT.text), status = Tone.Success, onBack = {}) {
                     AfIconButton(AfIcons.Fill.Play, tr(UiText.PROJECT_PAGE_PREVIEW), {})
@@ -64,7 +64,7 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
                 StepBar(recapStepLabels(), 1)
                 StepBar(recapStepLabels(), 5)
                 GroupLabel(tr(Mode.DUBBING.label()))
-                StepBar(DubStep.entries.map { tr(it.text) }, 2, onSelect = onStep, tags = DubStep.entries.map { "tab-${it.name}" })
+                StepBar(DubStep.entries.map { tr(it.text) }, 2, onSelect = onStep, tags = DubStep.entries.map { "tab-${it.name}" }, glass = glass)
                 StepBar(emptyList(), 4, count = 5)
                 Row { AfIconButton(AfIcons.Regular.Back, tr(UiText.BACK), {}); AfIconButton(AfIcons.Regular.Edit, tr(UiText.EDIT), {}, selected = true) }
             }
@@ -73,11 +73,16 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
 
     private fun recapLabels(language: UiLanguage) = RecapStep.entries.map { My.breakSyllables(it.textKey.text(language)) }
 
-    @Test fun barsFitAndKeep48dpTargets() = runDesktopComposeUiTest(width = width, height = if (font > 1f) 1500 else 900) {
+    @Test fun barsFitAndKeep48dpTargets() = check(glass = false)
+
+    /** P9-G4-1: the glass bar (Dubbing) keeps the same contract — fit, 48 dp tabs, roles, tags, progress semantics. */
+    @Test fun glassBarsKeepTheSameContract() = check(glass = true)
+
+    private fun check(glass: Boolean) = runDesktopComposeUiTest(width = width, height = if (font > 1f) 1500 else 900) {
         var picked = -1
         setContent {
             CompositionLocalProvider(LocalCompact provides (width < 600), LocalDensity provides Density(1f, font),
-                LocalUiLanguage provides language, LocalUiFontFamily provides BurmeseTestFont.family) { Gallery { picked = it } }
+                LocalUiLanguage provides language, LocalUiFontFamily provides BurmeseTestFont.family) { Gallery(glass) { picked = it } }
         }
         // Step labels are never cut: one line each, or (large fonts on a phone) none — the subtitle names the step.
         assertEquals(emptyList(), textFitProblems(width, font, strict = true))
@@ -105,8 +110,8 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
         onNodeWithTag("tab-EXPORT").performMouseInput { click() }
         assertEquals(4, picked)
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "gallery").apply { mkdirs() }
-        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "bars-$width-$font-${language.name.lowercase()}.png"))
-        System.getenv("AUTOFLOW_PR_SHOTS_DIR")?.let { if (language == UiLanguage.BURMESE)
+        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "bars-$width-$font-${language.name.lowercase()}${if (glass) "-glass" else ""}.png"))
+        System.getenv("AUTOFLOW_PR_SHOTS_DIR")?.let { if (language == UiLanguage.BURMESE && !glass)
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(File(it).apply { mkdirs() }, "bars-${if (width < 600) "phone-$font" else "desktop-$font"}.png")) }
     }
 }

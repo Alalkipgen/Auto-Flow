@@ -71,7 +71,8 @@ class DubExportModelTest {
 
     private val font: ByteArray = Base64.getMimeDecoder().decode(javaClass.getResourceAsStream("/fonts/NotoSansMyanmar-subset.ttf.b64")!!.readBytes())
 
-    private inner class Fixture(takes: Boolean = true, withFont: Boolean = false) {
+    private inner class Fixture(takes: Boolean = true, withFont: Boolean = false,
+        language: io.github.alalkipgen.autoflow.ui.i18n.UiLanguage = io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH, tasks: Boolean = true) {
         val fs = InMemoryFileSystem(); val store = ProjectStore(fs); val current = CurrentProject()
         val dir = "/p/Dub film.autoflow"
         val session = ProjectSession(fs, store, ProjectIndex(fs, "/app/projects.json"), current)
@@ -94,9 +95,36 @@ class DubExportModelTest {
                 video = SourceVideo("source/movie.mp4", 9, 65_000, 1920, 1080, 25.0), current = st))) as CoreResult.Ok).value))
             if (withFont) { fs.createDirectories("/fonts"); fs.writeDurably("/fonts/noto.ttf", font); settings.update { it.copy(fontPaths = listOf("/fonts/noto.ttf")) } }
         }
-        val model = DubExportModel(session, fs, MediaTasks(queue, MainScope()), MainScope(), RecapFrames(session, settings, fs), share = share)
+        val model = DubExportModel(session, fs, MediaTasks(queue.takeIf { tasks }, MainScope()), MainScope(), RecapFrames(session, settings, fs), share = share,
+            uiLanguage = { language })
         fun args(i: Int) = queue.task(i).args
         fun graph(i: Int) = args(i)[args(i).indexOf("-filter_complex") + 1]
+    }
+
+    /** Group 4 §8.1: without the media tools the export says so in the owner's language (was an English-only text). */
+    @Test fun noMediaToolsSaysSoInTheOwnersLanguage() {
+        val f = Fixture(tasks = false)
+        assertNull(f.model.start(f.doc))
+        assertEquals(UiText.V3_DUB_CANNOT_MAKE, f.model.state.value.notice?.key)
+        assertEquals("ဒီနေရာမှာ ဗီဒီယို ထုတ်လို့ မရပါ။", f.model.state.value.notice?.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE))
+    }
+
+    /** Group 4 §8.2: the Jobs / notification title of each step is in the owner's language (was always English). */
+    @Test fun theJobsTitleIsInTheOwnersLanguage() {
+        val f = Fixture(language = io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE)
+        f.model.start(f.doc)
+        assertEquals("Dub film · ${UiText.DUB_EXPORT_MIXING.my}", f.queue.jobs.single().title)
+        val en = Fixture()
+        en.model.start(en.doc)
+        assertEquals("Dub film · ${UiText.DUB_EXPORT_MIXING.en}", en.queue.jobs.single().title)
+    }
+
+    /** Group 4 §G 1: the checklist's "All {n} lines have a voice" counts the lines that are spoken. */
+    @Test fun spokenLinesCountsTheLinesWithWords() {
+        val f = Fixture()
+        assertEquals(2, f.model.spokenLines(f.doc))
+        assertEquals(1, f.model.spokenLines(f.doc.copy(cues = f.doc.cues + SubtitleCue("c3", 7_000, 8_000, "", textMy = "")).let { d ->
+            d.copy(cues = d.cues.drop(1)) }))
     }
 
     @Test fun nothingStartsUntilEveryLineHasAVoice() {

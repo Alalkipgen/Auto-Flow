@@ -108,6 +108,8 @@ fun AfText(
     ellipsis: Boolean = false,
     weight: FontWeight? = null,
     textAlign: TextAlign? = null,
+    /** A line through or under the text (Shorten's old line is struck through). */
+    decoration: androidx.compose.ui.text.style.TextDecoration? = null,
 ) {
     // The bundled Burmese fonts do not contain U+21BB, and a system symbol font is
     // not guaranteed. Draw that decoration only; retain the exact label/semantics and prose font.
@@ -128,7 +130,8 @@ fun AfText(
             weight ?: type?.weight ?: if (bold) FontWeight.Bold else FontWeight.Normal,
             if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
             numbers = type?.numbers == true,
-        ).let { if (textAlign != null) it.copy(textAlign = textAlign) else it },
+        ).let { if (textAlign != null) it.copy(textAlign = textAlign) else it }
+            .let { if (decoration != null) it.copy(textDecoration = decoration) else it },
         overflow = if (ellipsis) TextOverflow.Ellipsis else TextOverflow.Clip,
         maxLines = maxLines,
         inlineContent = if ('↻' !in text) emptyMap() else mapOf(

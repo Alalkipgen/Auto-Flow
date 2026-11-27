@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
@@ -55,32 +57,54 @@ private fun Action(action: StudioAction, primary: Boolean = false, modifier: Mod
 /**
  * Project editor header (DESIGN.md §9.4): [AfTopBar] (back, project name, "step k/5 · label", page preview and ⋮ as
  * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels); with [onStep] its steps are
- * tabs tagged [stepTags] (Dubbing moves between its steps there).
+ * tabs tagged [stepTags] (Dubbing moves between its steps there). [glass] (Dubbing, Group 4 A 1–2): the glass panel
+ * (White .08 → .03 with a White .08 line under it, as the Music Video project bar), the 40 dp glass back button, the
+ * name 17 sp bold on one line, and the glass [StepBar].
  */
 @Composable
 fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit,
     modifier: Modifier = Modifier, options: List<StudioAction> = emptyList(), saveState: StudioStatus? = null,
-    steps: List<String> = emptyList(), onStep: ((Int) -> Unit)? = null, stepTags: List<String> = emptyList(),
+    steps: List<String> = emptyList(), onStep: ((Int) -> Unit)? = null, stepTags: List<String> = emptyList(), glass: Boolean = false,
 ) {
     require(step in 1..5)
     var open by remember(name) { mutableStateOf(false) }
     val page = LocalProjectPreviewPage.current?.takeIf { it.available }
-    Column(modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 6.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        // Right-click on the bar opens the same ⋮ options (DESIGN.md §9.8).
-        AfTopBar(name, if (options.isEmpty()) Modifier else Modifier.onSecondaryClick { open = true },
-            subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step)), onBack = onBack,
-            backModifier = Modifier.testTag("project-back")) {
-            if (page != null) AfIconButton(if (page.shown) AfIcons.Regular.Edit else AfIcons.Fill.Play,
-                tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW), { page.shown = !page.shown },
-                Modifier.testTag(if (page.shown) "project-page-edit" else "project-page-preview"), selected = page.shown)
-            if (options.isNotEmpty()) AfIconButton(AfIcons.Regular.More, tr(UiText.V3_MORE_OPTIONS), { open = !open },
-                Modifier.testTag("project-overflow"), selected = open)
+    val panel = if (glass) Modifier.drawBehind {
+        drawRect(Brush.verticalGradient(listOf(GlassColors.TopBarTop, GlassColors.TopBarBottom)))
+        drawRect(GlassColors.TopBarLine, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
+    }.padding(horizontal = 12.dp, vertical = 8.dp) else Modifier.background(AutoFlowColors.Panel).padding(horizontal = 6.dp, vertical = 6.dp)
+    Column(modifier.fillMaxWidth().then(panel), verticalArrangement = Arrangement.spacedBy(if (glass) 8.dp else 6.dp)) {
+        val subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step))
+        val actions: @Composable RowScope.() -> Unit = {
+            if (page != null) {
+                val icon = if (page.shown) AfIcons.Regular.Edit else AfIcons.Fill.Play
+                val label = tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW)
+                val tag = Modifier.testTag(if (page.shown) "project-page-edit" else "project-page-preview")
+                if (glass) GlassIconButton(icon, label, { page.shown = !page.shown }, tag, size = GlassShapes.IconButtonHeader, selected = page.shown)
+                else AfIconButton(icon, label, { page.shown = !page.shown }, tag, selected = page.shown)
+            }
+            if (options.isNotEmpty()) {
+                if (glass) GlassIconButton(AfIcons.Regular.More, tr(UiText.V3_MORE_OPTIONS), { open = !open }, Modifier.testTag("project-overflow"),
+                    size = GlassShapes.IconButtonHeader, selected = open)
+                else AfIconButton(AfIcons.Regular.More, tr(UiText.V3_MORE_OPTIONS), { open = !open }, Modifier.testTag("project-overflow"), selected = open)
+            }
         }
-        StepBar(steps, step, Modifier.padding(horizontal = 6.dp).testTag("project-progress"), count = 5, onSelect = onStep, tags = stepTags)
+        // Right-click on the bar opens the same ⋮ options (DESIGN.md §9.8).
+        val menu = if (options.isEmpty()) Modifier else Modifier.onSecondaryClick { open = true }
+        if (glass) Row(menu.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlassIconButton(AfIcons.Regular.Back, tr(UiText.BACK), onBack, Modifier.testTag("project-back"), size = GlassShapes.IconButtonHeader)
+            Column(Modifier.weight(1f)) {
+                AfText(name, Modifier.semantics { contentDescription = name }, type = AfType.TopBarTitle, weight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    maxLines = 1, ellipsis = true)
+                AfText(subtitle, color = AutoFlowColors.Muted, type = AfType.Caption)
+            }
+            actions()
+        } else AfTopBar(name, menu, subtitle = subtitle, onBack = onBack, backModifier = Modifier.testTag("project-back"), actions = actions)
+        StepBar(steps, step, Modifier.padding(horizontal = if (glass) 0.dp else 6.dp).testTag("project-progress"), count = 5, onSelect = onStep,
+            tags = stepTags, glass = glass)
         saveState?.let { StatusChip(it) } // callers omit this when no reliable save state exists
         // ⋮ actions (Group 2 D 25a): small glass buttons with their icons, inline under the step bar.
-        if (open) WrapRow(Modifier.padding(horizontal = 6.dp), spacing = 8.dp) { options.forEach { action ->
+        if (open) WrapRow(Modifier.padding(horizontal = if (glass) 0.dp else 6.dp), spacing = 8.dp) { options.forEach { action ->
             GlassButton(action.label, { open = false; action.onClick() }, action.tag?.let { Modifier.testTag(it) } ?: Modifier,
                 enabled = action.enabled, icon = action.icon, small = true)
         } }
@@ -91,15 +115,17 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
  * A measured sibling of the scrolling content, not an overlay with a guessed bottom spacer: bar colour with a top
  * divider, above the keyboard. [caption] is the hint (centred below on a phone, left on the desktop); [leading] is an
  * optional control before the buttons; [keys] = desktop keyboard hints above the caption (DESIGN.md §9.4, §9.8).
- * [glass] = glass buttons with their icons (Movie Recap steps, Group 2 A §2).
+ * [glass] = glass buttons with their icons (Movie Recap steps, Group 2 A §2). [captionIcon] / [captionColour]: an icon before the
+ * caption and its colour (default Muted); [captionTag] the caption's test tag.
  */
 @Composable
 fun StickyActionBar(primary: StudioAction, secondary: StudioAction? = null, caption: String? = null, modifier: Modifier = Modifier,
-    leading: (@Composable () -> Unit)? = null, keys: (@Composable () -> Unit)? = null, glass: Boolean = false) {
+    leading: (@Composable () -> Unit)? = null, keys: (@Composable () -> Unit)? = null, glass: Boolean = false,
+    captionIcon: ImageVector? = null, captionColour: Color? = null, captionTag: String? = null) {
     Column(modifier.fillMaxWidth().background(AutoFlowColors.TitleBar).imePadding().testTag("sticky-action-bar")) {
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
         Box(Modifier.padding(horizontal = if (LocalCompact.current) 12.dp else 16.dp, vertical = 12.dp)) {
-            StickyActions({ Action(primary, true, it, glass) }, secondary?.let { s -> { Action(s, modifier = it, glass = glass) } }, caption, leading, keys)
+            StickyActions({ Action(primary, true, it, glass) }, secondary?.let { s -> { Action(s, modifier = it, glass = glass) } }, caption, leading, keys, captionIcon, captionColour, captionTag)
         }
     }
 }
@@ -258,9 +284,20 @@ fun FilterChipRow(items: List<FilterChipItem>, selected: Int, onSelect: (Int) ->
 fun PresetTile(title: String, explanation: String, selected: Boolean, onSelect: () -> Unit, modifier: Modifier = Modifier) =
     OptionCard(title, explanation, selected, onSelect, modifier)
 
+/**
+ * A part that is not built here yet (Group 4 B, the glass empty-state look): a 56 dp soft tile `hourglass` (Muted), the
+ * [title], the muted Planned pill and the [explanation], centred on a glass card; disabled for screen readers.
+ */
 @Composable
 fun PlannedTile(title: String, explanation: String? = null, modifier: Modifier = Modifier) {
-    AfCard(title, modifier.semantics { disabled() }) { StatusChip(StudioStatus.PLANNED); explanation?.let { AfText(My.breakSyllables(it), muted = true) } }
+    GlassCard(modifier.semantics { disabled() }) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SoftTile(AfIcons.Duotone.Hourglass, AutoFlowColors.Muted, size = 56.dp)
+            AfText(title, type = AfType.RowTitle, weight = androidx.compose.ui.text.font.FontWeight.Bold, textAlign = TextAlign.Center)
+            StatusChip(StudioStatus.PLANNED)
+            explanation?.let { AfText(My.breakSyllables(it), muted = true, textAlign = TextAlign.Center) }
+        }
+    }
 }
 
 /**
