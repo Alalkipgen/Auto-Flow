@@ -7,43 +7,79 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 /**
  * Loads and saves [AiJob] records to `<jobsDir>/<id>.json` (5A-5).
  * [jobsDir] = `filesDir/ai-jobs`.
+ *
+ * Audit F11: a save is atomic — `<id>.json.tmp` forced to storage, then renamed over `<id>.json` — so a crash or a
+ * power cut mid-write leaves the previous state, never a truncated file; [update] is a read-modify-write under the
+ * folder lock, so a Cancel and a runner's checkpoint never overwrite each other. A file that cannot be read is
+ * [Read.Damaged] (kept as it is and listed by [damaged]), not the same as a missing job.
  */
 class AiJobStore(
     private val fs: FileSystem,
     private val jobsDir: String,
 ) {
+    sealed interface Read {
+        data object Missing : Read
+        data class Damaged(val reason: String) : Read
+        data class Ok(val job: AiJob) : Read
+    }
+
     fun save(job: AiJob) {
         fs.createDirectories(jobsDir)
-        val path = joinPath(jobsDir, "${job.id}.json")
-        fs.writeDurably(path, CoreJson.encodeToString(AiJob.serializer(), job).encodeToByteArray())
+        fs.withFolderLock(jobsDir) { write(job) }
     }
 
-    fun load(id: String): AiJob? {
-        val path = joinPath(jobsDir, "$id.json")
-        if (!fs.exists(path)) return null
-        return runCatching {
-            CoreJson.decodeFromString(AiJob.serializer(), fs.read(path).decodeToString())
-        }.getOrNull()
+    /** The job file [id] as it is on disk now. */
+    fun read(id: String): Read {
+        val path = pathOf(id)
+        if (!fs.exists(path)) return Read.Missing
+        val text = try {
+            fs.read(path).decodeToString()
+        } catch (e: Exception) {
+            return Read.Damaged("cannot read $id.json: ${e.message}")
+        }
+        return try {
+            Read.Ok(CoreJson.decodeFromString(AiJob.serializer(), text))
+        } catch (e: Exception) {
+            Read.Damaged("$id.json is not a job file: ${e.message?.take(160)}")
+        }
     }
 
-    fun loadAll(): List<AiJob> {
-        if (!fs.exists(jobsDir)) return emptyList()
-        return fs.list(jobsDir)
-            .filter { it.endsWith(".json") }
-            .mapNotNull { name ->
-                runCatching {
-                    CoreJson.decodeFromString(AiJob.serializer(), fs.read(joinPath(jobsDir, name)).decodeToString())
-                }.getOrNull()
-            }
-            .sortedBy { it.id }
+    /** The job, or null when it is missing or damaged (see [read] to tell them apart). */
+    fun load(id: String): AiJob? = (read(id) as? Read.Ok)?.job
+
+    /**
+     * [change] applied to job [id] as it is on disk now, saved, under the folder lock; null when there is no readable
+     * job [id] (nothing is written then).
+     */
+    fun update(id: String, change: (AiJob) -> AiJob): AiJob? {
+        if (!fs.exists(jobsDir)) return null
+        return fs.withFolderLock(jobsDir) {
+            val now = load(id) ?: return@withFolderLock null
+            change(now).also { if (it != now) write(it) }
+        }
     }
+
+    fun loadAll(): List<AiJob> = ids().mapNotNull { load(it) }.sortedBy { it.id }
+
+    /** Ids of job files that cannot be read: left untouched, for the Jobs screen and a bug report. */
+    fun damaged(): List<String> = ids().filter { read(it) is Read.Damaged }.sorted()
 
     fun delete(id: String) {
         // FileSystem has no delete; we mark the job CANCELLED instead.
-        val path = joinPath(jobsDir, "$id.json")
-        if (fs.exists(path)) {
-            val job = load(id) ?: return
-            save(job.copy(state = AiJobState.CANCELLED))
-        }
+        update(id) { it.copy(state = AiJobState.CANCELLED) }
     }
+
+    private fun ids(): List<String> {
+        if (!fs.exists(jobsDir)) return emptyList()
+        return fs.list(jobsDir).filter { it.endsWith(".json") }.map { it.removeSuffix(".json") }
+    }
+
+    private fun write(job: AiJob) {
+        val path = pathOf(job.id)
+        val tmp = "$path.tmp"
+        fs.writeDurably(tmp, CoreJson.encodeToString(AiJob.serializer(), job).encodeToByteArray())
+        fs.atomicMove(tmp, path)
+    }
+
+    private fun pathOf(id: String) = joinPath(jobsDir, "$id.json")
 }

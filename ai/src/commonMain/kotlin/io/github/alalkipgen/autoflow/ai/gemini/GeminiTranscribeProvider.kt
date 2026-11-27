@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ai.gemini
 
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.JsonSchema
+import io.github.alalkipgen.autoflow.ai.SceneSpan
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.ai.Transcript
 import io.github.alalkipgen.autoflow.ai.TranscriptSegment
@@ -58,9 +59,83 @@ class GeminiTranscribeProvider(
         }
     }
 
+    /**
+     * 5B-1 / D-44 scene mode: the joined scene audio inline, the prompt listing "scene i: start–end s" in this audio's
+     * time, the answer `{scenes:[{scene, lines:[{start, end, text}]}]}`. A missing or repeated scene, or a line outside
+     * its scene (more than [SCENE_TOLERANCE_MS]), is asked once more, then fails ("invalid_scenes", not a busy model).
+     */
+    override suspend fun transcribeScenes(audio: ByteArray, mime: String, scenes: List<SceneSpan>, lang: String?): AiResult<List<List<TranscriptSegment>>> {
+        val key = apiKey()?.trim().orEmpty()
+        if (key.isEmpty()) return AiResult.Failed("no_api_key", "Add a Gemini API key in Settings")
+        if (audio.isEmpty()) return AiResult.Failed("empty_audio", "Audio is empty")
+        if (scenes.isEmpty()) return AiResult.Failed("no_scenes", "No scenes to transcribe")
+        if (audio.size > MAX_AUDIO_BYTES) {
+            return AiResult.Failed("audio_too_big", "The scenes' sound is too big to send (${audio.size / 1_000_000} MB, at most ${MAX_AUDIO_BYTES / 1_000_000} MB)")
+        }
+        val body = GeminiWire.request(scenesPrompt(scenes, lang), SCENES_SCHEMA, system = null, temperature = null, media = mime to audio).toString()
+        var invalid = 0
+        return chain.run<List<List<TranscriptSegment>>>(candidates) { model ->
+            when (val a: Attempt<JsonElement> = GeminiWire.post(http, baseUrl, model, key, body)) {
+                is Attempt.Success -> {
+                    val lines = sceneLines(a.value, scenes)
+                    when {
+                        lines != null -> Attempt.Success(lines, a.promptTokens, a.outputTokens)
+                        ++invalid < 2 -> Attempt.Transient("invalid_scenes", "$model did not give every scene's lines inside its time")
+                        else -> Attempt.Fatal("invalid_scenes", "$model did not give every scene's lines inside its time (asked twice)")
+                    }
+                }
+                is Attempt.Transient -> a
+                is Attempt.Limited -> a
+                is Attempt.Unavailable -> a
+                is Attempt.Fatal -> a
+            }
+        }
+    }
+
     companion object {
         /** Inline request data is limited to 20 MB; base64 adds a third. */
         const val MAX_AUDIO_BYTES = 14_000_000
+
+        /** How far a line may lie outside its scene (rounding of one-decimal seconds) before the answer is invalid. */
+        const val SCENE_TOLERANCE_MS = 500L
+
+        internal fun scenesPrompt(scenes: List<SceneSpan>, lang: String?): String = buildString {
+            append("The audio joins ").append(scenes.size).append(if (scenes.size == 1) " scene" else " scenes")
+            append(" of a movie, one after another. Their times in this audio, in seconds:\n")
+            scenes.forEachIndexed { i, s -> append("scene ").append(i + 1).append(": ").append(secs(s.startMs)).append('–').append(secs(s.endMs)).append(" s\n") }
+            append("\nTranscribe what the people say in each scene, in the language they speak (do not translate")
+            if (!lang.isNullOrBlank()) append("; it is probably ").append(lang)
+            append("). For every spoken line give its text and when it starts (start) and ends (end), in seconds from ")
+            append("the beginning of this audio with one decimal; every line lies inside its scene's times. Music, sound ")
+            append("effects and silence are not lines: a scene without speech has an empty list. Answer every scene ")
+            append("number exactly once.")
+        }
+
+        /** One decimal, rounded: 42_480 → "42.5". */
+        private fun secs(ms: Long): String { val d = (ms + 50) / 100; return "${d / 10}.${d % 10}" }
+
+        /** Each scene's lines (audio time, kept inside the scene), or null when the answer is not usable. */
+        internal fun sceneLines(value: JsonElement, scenes: List<SceneSpan>): List<List<TranscriptSegment>>? {
+            val items = ((value as? JsonObject)?.get("scenes") as? JsonArray) ?: return null
+            val byScene = mutableMapOf<Int, List<TranscriptSegment>>()
+            for (item in items) {
+                val o = item as? JsonObject ?: return null
+                val n = o.num("scene")?.toInt() ?: return null
+                if (n !in 1..scenes.size || n in byScene) return null
+                val span = scenes[n - 1]
+                val lines = (o["lines"] as? JsonArray) ?: return null
+                byScene[n] = lines.mapNotNull { line ->
+                    val l = line as? JsonObject ?: return null
+                    val text = (l["text"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+                    val start = ((l.num("start") ?: return null) * 1000).roundToLong()
+                    val end = maxOf(start, ((l.num("end") ?: return null) * 1000).roundToLong())
+                    if (start < span.startMs - SCENE_TOLERANCE_MS || end > span.endMs + SCENE_TOLERANCE_MS) return null
+                    if (text.isEmpty()) null else TranscriptSegment(start.coerceIn(span.startMs, span.endMs), end.coerceIn(span.startMs, span.endMs), text)
+                }.sortedBy { it.startMs }
+            }
+            if (byScene.size != scenes.size) return null
+            return scenes.indices.map { byScene.getValue(it + 1) }
+        }
 
         internal fun alignPrompt(lang: String, lines: List<String>): String = buildString {
             append("The audio is a song (language: ").append(lang).append("). Below are its lyric lines, numbered, in the order they are sung; ")
@@ -111,6 +186,12 @@ class GeminiTranscribeProvider(
         internal val LINES_SCHEMA = schema(
             """{"type":"object","properties":{"lines":{"type":"array","items":{"type":"object","properties":{""" +
                 """"line":{"type":"integer"},"start":{"type":"number"},"end":{"type":"number"}},"required":["line","start","end"]}}},"required":["lines"]}""",
+        )
+        internal val SCENES_SCHEMA = schema(
+            """{"type":"object","properties":{"scenes":{"type":"array","items":{"type":"object","properties":{""" +
+                """"scene":{"type":"integer"},"lines":{"type":"array","items":{"type":"object","properties":{""" +
+                """"start":{"type":"number"},"end":{"type":"number"},"text":{"type":"string"}},"required":["start","end","text"]}}},""" +
+                """"required":["scene","lines"]}}},"required":["scenes"]}""",
         )
         internal val SEGMENTS_SCHEMA = schema(
             """{"type":"object","properties":{"segments":{"type":"array","items":{"type":"object","properties":{""" +

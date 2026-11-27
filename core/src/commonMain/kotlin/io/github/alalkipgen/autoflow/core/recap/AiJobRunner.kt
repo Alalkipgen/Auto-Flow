@@ -27,9 +27,18 @@ interface AiJobRunner {
 
 /** Item processor called by the runner for each item in a job. */
 fun interface AiItemProcessor {
-    /** Process one [item]; throw on failure. */
+    /** Process one [item]; throw on failure ([AiItemPaused] = for now, [UnsupportedAiJob] / anything else = FAILED). */
     suspend fun process(job: AiJob, item: String)
+
+    /**
+     * True when [item]'s result is already in the job's project (e.g. a current take for the block, spec §5: "finished
+     * items are found from the project, not only from the file"): the runner then checks it off without a request.
+     */
+    suspend fun alreadyDone(job: AiJob, item: String): Boolean = false
 }
+
+/** Thrown by an [AiItemProcessor] for a job kind it does not run: the job FAILS (never a silent Done, audit F11). */
+class UnsupportedAiJob(kind: AiJobKind) : Exception("$kind jobs cannot run in this app yet")
 
 /**
  * Thrown by an [AiItemProcessor] when the item could not run *for now* (the locked model is busy: 429 / 5xx after

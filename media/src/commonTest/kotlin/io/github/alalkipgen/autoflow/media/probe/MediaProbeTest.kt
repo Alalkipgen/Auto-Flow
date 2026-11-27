@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class MediaProbeTest {
@@ -45,6 +46,26 @@ class MediaProbeTest {
         assertEquals(MediaInfo(20_000, null, null, null, null, "mp3"), mp3)
         assertNull(MediaProbe.parse("not json"))
         assertNull(MediaProbe.parse("""{"streams":[],"format":{"duration":"1"}}"""))
+    }
+
+    @Test
+    fun subtitleTracksKeepTheirStreamIndexAndTags() {
+        // Audit F14: the index and the language / title tags are read; a stream without an index is left out.
+        val json = """
+            { "streams": [
+                { "index": 0, "codec_name": "h264", "codec_type": "video", "width": 320, "height": 180, "avg_frame_rate": "25/1" },
+                { "index": 1, "codec_name": "aac", "codec_type": "audio" },
+                { "index": 2, "codec_name": "subrip", "codec_type": "subtitle", "tags": { "language": "eng", "title": "English" } },
+                { "index": 3, "codec_name": "subrip", "codec_type": "subtitle", "tags": { "language": "mya", "title": "Burmese" } },
+                { "codec_name": "subrip", "codec_type": "subtitle" }
+              ], "format": { "duration": "2.0" } }
+        """.trimIndent()
+        val tracks = MediaProbe.parse(json)!!.subtitleTracks
+        assertEquals(listOf(2, 3), tracks.map { it.index })
+        assertEquals(listOf("eng", "mya"), tracks.map { it.language })
+        assertEquals(listOf("English", "Burmese"), tracks.map { it.title })
+        assertTrue(MediaProbe.args("a.mkv").any { "stream=index," in it && "stream_tags=rotate,language,title" in it })
+        assertEquals(listOf("-map", "0:3"), MediaProbe.extractSubtitleArgs("m.mkv", 3, "s.srt").let { it.subList(it.indexOf("-map"), it.indexOf("-map") + 2) })
     }
 
     @Test

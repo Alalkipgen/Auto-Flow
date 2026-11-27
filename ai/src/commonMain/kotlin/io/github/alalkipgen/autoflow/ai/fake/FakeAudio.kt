@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ai.fake
 
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.Availability
+import io.github.alalkipgen.autoflow.ai.SceneSpan
 import io.github.alalkipgen.autoflow.ai.Transcript
 import io.github.alalkipgen.autoflow.ai.TranscriptSegment
 import io.github.alalkipgen.autoflow.ai.TranscribeProvider
@@ -93,6 +94,21 @@ class FakeTranscribeProvider(
             )
         }
         return AiResult.Ok(Transcript(lang, segments), Usage(model = MODEL, latencyMs = delayMs))
+    }
+
+    /** Offline scene mode (5B-1): one fixture line per [segmentMs] inside each scene, in the scene's own time. */
+    override suspend fun transcribeScenes(audio: ByteArray, mime: String, scenes: List<SceneSpan>, lang: String?): AiResult<List<List<TranscriptSegment>>> {
+        calls++
+        if (delayMs > 0) delay(delayMs)
+        if (audio.isEmpty()) return AiResult.Failed("empty_audio", "Audio is empty")
+        val pool = this.lines.ifEmpty { FakeFixtures.pool(lang ?: "my") }
+        val step = segmentMs.coerceAtLeast(1)
+        var n = 0
+        val perScene = scenes.map { s ->
+            generateSequence(s.startMs) { it + step }.takeWhile { it < s.endMs }
+                .map { start -> TranscriptSegment(start, minOf(s.endMs, start + step), pool[n++ % pool.size]) }.toList()
+        }
+        return AiResult.Ok(perScene, Usage(model = MODEL, latencyMs = delayMs))
     }
 
     companion object {

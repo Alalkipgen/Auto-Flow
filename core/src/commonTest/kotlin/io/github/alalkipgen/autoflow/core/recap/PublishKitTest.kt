@@ -46,4 +46,26 @@ class PublishKitTest {
         assertEquals("ရုပ်ရှင် အကျဉ်း။\n\n0:00 အစ\n1:01 အဆုံး\n\n#recap", PublishKitText.description(kit))
         assertEquals("exports/night-train.publish.txt", PublishKitText.path("night-train"))
     }
+
+    @Test
+    fun chaptersComeFromTheBlocksWhenTheKitHasNone() {
+        val auto = PublishKitText.chaptersFromBlocks(
+            listOf(4_200, 65_000, 3_000),
+            listOf("ကောင်လေး ရထားပေါ်တက်တယ်။ ပြီးတော့ အိပ်ပျော်သွားတယ်။", "  \nShe wakes up. Then she runs!", ""),
+        )
+        // Starts in the export, the first sentence of each block; a block without text gets no chapter.
+        assertEquals(listOf(PublishChapter(0, "ကောင်လေး ရထားပေါ်တက်တယ်"), PublishChapter(4_200, "She wakes up")), auto)
+        val own = PublishKit(chapters = listOf(PublishChapter(0, "Mine")))
+        assertEquals(own, PublishKitText.withChapters(own, auto), "the kit's own chapters win")
+        assertEquals(auto, PublishKitText.withChapters(PublishKit(), auto).chapters)
+        assertEquals("0:00 ကောင်လေး ရထားပေါ်တက်တယ်\n0:04 She wakes up", PublishKitText.chapterLines(auto).joinToString("\n"))
+    }
+
+    @Test
+    fun longChapterTitlesAreCut() {
+        assertEquals("a".repeat(40) + "…", PublishKitText.chapterTitle("a".repeat(60)))
+        assertEquals("short", PublishKitText.chapterTitle("short"))
+        assertEquals("", PublishKitText.chapterTitle("   "))
+        assertEquals("exports/export.thumb.jpg", PublishKitText.thumbPath("export"))
+    }
 }

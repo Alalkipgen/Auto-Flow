@@ -15,6 +15,14 @@ data class BackupProgress(val doneBytes: Long, val totalBytes: Long) {
 data class BackupResult(val location: String, val zipBytes: Long, val projects: Int, val files: Int, val ref: String)
 
 /**
+ * One project folder put back by [ProjectBackup.restore]: [folder] is its name in the projects folder now,
+ * [original] its name in the zip. They differ when a folder of that name already existed and was kept untouched.
+ */
+data class RestoredProject(val folder: String, val original: String) {
+    val renamed: Boolean get() = folder != original
+}
+
+/**
  * Settings → "Back up all projects" (D-25, D-27): one zip with every project folder, saved where uninstalling the app
  * does not delete it, then offered to the share sheet. Android binds it; desktop has none (projects live in folders
  * the user picked). Cancelling the coroutine deletes the half-written zip.
@@ -26,8 +34,9 @@ interface ProjectBackup {
     fun share(result: BackupResult): PlatformResult<Unit>
 
     /**
-     * Restores a backup zip at [zipPath] into [destDir]. Returns the list of restored project folder names.
-     * [zipPath] is a plain file path (already copied from the content URI by the file picker).
+     * Restores a backup zip at [zipPath] into [destDir] and returns the restored project folders. Never replaces an
+     * existing folder (a same-named one gets `Name (restored).autoflow`), and a damaged or unsafe zip changes
+     * nothing (audit F01). [zipPath] is a plain file path (already copied from the content URI by the file picker).
      */
-    fun restore(zipPath: String, destDir: String): PlatformResult<List<String>>
+    suspend fun restore(zipPath: String, destDir: String): PlatformResult<List<RestoredProject>>
 }

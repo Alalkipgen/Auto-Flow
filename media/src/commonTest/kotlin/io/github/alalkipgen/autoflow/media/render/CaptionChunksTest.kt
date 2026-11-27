@@ -80,4 +80,27 @@ class CaptionChunksTest {
         assertEquals(listOf("ဟုတ်ကဲ့။", "ဒါပေမဲ့ 3.5 နာရီကြာတယ်။"), CaptionChunks.sentences("ဟုတ်ကဲ့။ ဒါပေမဲ့ 3.5 နာရီကြာတယ်။"))
         assertEquals(listOf("ဟုတ်ကဲ့။\nဒါပေမဲ့ 3.5 နာရီကြာတယ်။"), CaptionChunks.chunks("ဟုတ်ကဲ့။ ဒါပေမဲ့ 3.5 နာရီကြာတယ်။", 28))
     }
+
+    @Test
+    fun chunkEdgesTimeTheChunksInTakeTime() {
+        val text = "The hero walks into the city. He looks for his old friend. Nobody knows him there."
+        val chunks = CaptionChunks.chunks(text, 20)
+        assertTrue(chunks.size >= 2, chunks.toString())
+        // One edge per chunk start plus the last end: each chunk exactly there.
+        val edges = (0..chunks.size).map { 100L + it * 700L }
+        val exact = CaptionChunks.timed(text, 10_000, edges, 20)
+        assertEquals(chunks, exact.map { it.text })
+        assertEquals(edges.zipWithNext(), exact.map { it.startMs to it.endMs })
+        // Just [start, end]: the chunks share that window, one after the other.
+        val window = CaptionChunks.timed(text, 10_000, listOf(500L, 4_500L), 20)
+        assertEquals(500L, window.first().startMs)
+        assertEquals(4_500L, window.last().endMs)
+        assertTrue(window.zipWithNext().all { (a, b) -> a.endMs == b.startMs })
+        // Invalid edges (past the take, not increasing, too few): automatic over the whole take.
+        val automatic = CaptionChunks.timed(text, 3_000, null, 20)
+        assertEquals(0L to 3_000L, automatic.first().startMs to automatic.last().endMs)
+        for (bad in listOf(listOf(500L, 4_500L), listOf(900L, 400L), listOf(100L), listOf(-1L, 800L))) {
+            assertEquals(automatic, CaptionChunks.timed(text, 3_000, bad, 20), bad.toString())
+        }
+    }
 }

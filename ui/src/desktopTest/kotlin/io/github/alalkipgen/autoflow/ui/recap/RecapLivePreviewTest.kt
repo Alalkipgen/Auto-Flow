@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -26,6 +27,7 @@ import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.MainScope
@@ -62,6 +64,9 @@ class RecapLivePreviewTest {
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
         val node = onNodeWithTag(MASK_PREVIEW_TAG)
+        // No video player on the desktop (no new dependency, D-65): the still frame stays, no play button.
+        assertFalse(io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported)
+        onNodeWithTag(PLAYBACK_TAG).assertDoesNotExist()
         // Touch the middle of the bottom strip (y 0.8–0.97) and drag up by 30 % of the preview height.
         node.performTouchInput {
             val start = Offset(width * 0.3f, height * 0.88f)
@@ -75,7 +80,7 @@ class RecapLivePreviewTest {
         assertTrue(near(0.5f, moved[1]), "strip dragged up ≈ 0.3: $moved")
         assertTrue(near(1f, moved[2]) && near(0.17f, moved[3]), "same size: $moved")
         assertEquals(MaskPreset.LOGO_TR.rect, rect(MaskPreset.LOGO_TR), "the other box is untouched")
-        onNodeWithText("Bottom strip (subtitles): drag to move · pinch or mouse wheel to resize").assertExists()
+        onNodeWithText(boxHint(MaskPreset.BOTTOM)).assertExists()
     }
 
     @Test
@@ -124,7 +129,8 @@ class RecapLivePreviewTest {
             val open by current.state.collectAsState()
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
-        onNodeWithText("Exact frame").performClick()
+        // A semantics click: with a tall Myanmar fallback font (Windows CI) the button can sit below the test window.
+        onNodeWithText(EXACT_FRAME).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         waitUntil(timeoutMillis = 5_000) { onAllNodes(androidx.compose.ui.test.hasText("ffmpeg was not found", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 }

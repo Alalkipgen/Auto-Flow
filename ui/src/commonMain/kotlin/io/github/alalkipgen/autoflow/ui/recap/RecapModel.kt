@@ -14,8 +14,13 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.recap.AiItemPaused
+import io.github.alalkipgen.autoflow.core.recap.AiJob
+import io.github.alalkipgen.autoflow.core.recap.AiJobKind
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.Look
-import io.github.alalkipgen.autoflow.media.audio.AudioFilters
+import io.github.alalkipgen.autoflow.media.audio.SilenceTrim
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.core.recap.BlockTake
@@ -27,11 +32,11 @@ import io.github.alalkipgen.autoflow.core.recap.RecapScene
 import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
 import io.github.alalkipgen.autoflow.core.recap.Lexicon
+import io.github.alalkipgen.autoflow.core.recap.SpokenText
 import io.github.alalkipgen.autoflow.core.recap.RecapRegister
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.core.recap.Srt
 import io.github.alalkipgen.autoflow.core.recap.VoiceSource
-import io.github.alalkipgen.autoflow.core.recap.VoiceTake
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.audio.PcmWav
 import io.github.alalkipgen.autoflow.platform.VoiceRecorder
@@ -50,12 +55,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import io.github.alalkipgen.autoflow.core.library.LibraryStore
 import io.github.alalkipgen.autoflow.ui.library.LibraryModel
 import kotlinx.coroutines.withContext
+import kotlin.time.Clock
 
 /** What the Movie Recap screen shows besides the project itself. [job] = a long step is running ([progress] 0…1 when known). */
 data class RecapUiState(
@@ -68,6 +75,13 @@ data class RecapUiState(
     val messageOk: Boolean = false,
     /** The current `rs` artifact, null when none or unreadable. */
     val script: RecapScript? = null,
+    /**
+     * The story (v2) [script] is shown from: rules — current take (chosen, else newest), stale, fit, caption timing —
+     * read it by block id (audit F05 / F07), never the v1 shape.
+     */
+    val story: RecapStory? = null,
+    /** The same Library pronunciation snapshot used by synthesis and export; captions remain written. */
+    val lexicon: Lexicon = Lexicon.EMPTY,
     /** `source/summary.txt`. */
     val summary: String = "",
     /** Segment being recorded now. */
@@ -83,12 +97,64 @@ data class RecapUiState(
     val speakAllEta: SpeakAllEta? = null,
     /** Subtitle tracks found in the imported movie (5B-1). Populated after movie import or on demand. */
     val movieSubtitleTracks: List<io.github.alalkipgen.autoflow.core.recap.SubtitleTrack> = emptyList(),
+    /** "Transcribe picked scenes" (5B-1): what is left, the confirm card and the project's last unfinished job. */
+    val transcribe: TranscribeUi = TranscribeUi(),
 ) {
     val busy: Boolean get() = job != null
 }
 
+/**
+ * The Script card's Transcribe section (5B-1, D-44). [todoScenes] picked scenes have no `.srt` line and no
+ * transcript yet ([requests] requests); [lines] / [transcribedScenes] are in the project's transcript. [confirm] =
+ * the card shown before anything is sent; [job] = this project's TRANSCRIBE job that is running, paused or failed
+ * (Cancel / Retry), null when none.
+ */
+data class TranscribeUi(
+    val available: Boolean = false,
+    val todoScenes: Int = 0,
+    val requests: Int = 0,
+    val transcribedScenes: Int = 0,
+    val lines: Int = 0,
+    val confirm: TranscribeConfirm? = null,
+    val job: AiJob? = null,
+)
+
+/** Shown before Transcribe sends anything: [scenes] scenes, [requests] requests, [audioMs] of sound, [usedToday] requests so far today (null = not known). */
+data class TranscribeConfirm(val scenes: Int, val requests: Int, val audioMs: Long, val usedToday: Int? = null)
+
 /** ETA shown before Speak All starts (5A-5). */
 data class SpeakAllEta(val count: Int, val etaSeconds: Long?)
+
+/** The take that plays for story block [index] — chosen, else newest, when not stale (audit F06 / F07); null = none. */
+fun RecapUiState.currentTake(index: Int): BlockTake? {
+    val r = recap ?: return null
+    val block = story?.blocks?.getOrNull(index) ?: return null
+    return RecapRulesV2.currentTake(r, block, lexicon)
+}
+
+/** Block [index] has a take, but for another text (⚠ Stale). */
+fun RecapUiState.isStale(index: Int): Boolean {
+    val r = recap ?: return false
+    val block = story?.blocks?.getOrNull(index) ?: return false
+    return RecapRulesV2.isStale(r, block, lexicon)
+}
+
+/**
+ * Block [index]'s caption window in take time (audit F05): the owner's `captions.chunkEdits` (first … last edge),
+ * else automatic — 0 … the take (or, before a take, the block). Null without such a block.
+ */
+fun RecapUiState.captionWindow(index: Int): Pair<Long, Long>? {
+    val block = story?.blocks?.getOrNull(index) ?: return null
+    val edges = recap?.captions?.chunkEdits?.get(block.id)?.takeIf { it.size >= 2 }
+    if (edges != null) return edges.first() to edges.last()
+    return 0L to (recap?.takeFor(block.id)?.durationMs ?: block.durationMs)
+}
+
+/** True when block [index] has the owner's caption timing (not automatic). */
+fun RecapUiState.hasCaptionTiming(index: Int): Boolean {
+    val block = story?.blocks?.getOrNull(index) ?: return false
+    return recap?.captions?.chunkEdits?.containsKey(block.id) == true
+}
 
 /**
  * Movie Recap logic (docs/specs/recap.md, D-33): movie import, scenes and picks; script, voice and fit are added
@@ -104,20 +170,46 @@ class RecapModel(
     private val generator: RecapScriptGenerator? = null,
     private val tts: TtsProvider? = null,
     private val recorder: VoiceRecorder? = null,
-    /** Pronunciation fixes applied before TTS (5B-7); empty until Library is wired (5A-7). */
+    /** Initial pronunciation snapshot for callers without a Library (e.g. isolated tests). */
     private val lexicon: Lexicon = Lexicon.EMPTY,
     /** Library for Brand Kit save/apply and BGM picker (D-51: 5B-3, 5B-4, 5B-8). */
     private val library: LibraryModel? = null,
     /** Exact frames from the export compiler (D-42, 5A-8); null = this app cannot render stills. */
     private val frames: io.github.alalkipgen.autoflow.ui.export.RecapFrames? = null,
+    /** Take times (`BlockTake.createdAt`) and artifact times. */
+    private val clock: Clock = Clock.System,
+    /**
+     * The app's AI job runner (5A-5, audit F11): Speak All becomes a persistent, paced, resumable TTS_ALL job there.
+     * null only where no runner exists (tests): Speak All then runs the same per-block step in this model's scope.
+     */
+    private val jobs: AiJobRunner? = null,
+    /** Production supplies LibraryStore.lexicon; each request captures its value before suspending. */
+    private val lexicons: StateFlow<Lexicon>? = null,
+    modelConfig: io.github.alalkipgen.autoflow.ai.config.ModelConfig? = null,
+    /** 5B-1 scene transcription (Gemini audio input, D-44); null = not offered here. */
+    transcriber: io.github.alalkipgen.autoflow.ai.TranscribeProvider? = null,
+    /** Today's request counts, shown on the Transcribe confirm card. */
+    private val usage: io.github.alalkipgen.autoflow.ai.usage.UsageCounter? = null,
+    /** Cuts the scenes' sound for Transcribe; null = ffmpeg from [media]. */
+    sceneAudio: SceneAudioCutter? = null,
 ) {
+    private val pronunciation: Lexicon get() = lexicons?.value ?: lexicon
+    private val scenesTx = SceneTranscriber(session, fs, media, transcriber, sceneAudio, clock)
     private val _state = MutableStateFlow(RecapUiState())
     val state: StateFlow<RecapUiState> = _state.asStateFlow()
+    val voiceSettings = RecapVoiceSettings(session, modelConfig, jobs, ::refresh)
     private val thumbs = Mutex()
     private var scriptJob: Job? = null
 
+    /**
+     * Where the running recording belongs (audit F03): fixed when it started, not when it stops. While it runs it
+     * stays on screen (and can be stopped) even when another project is opened; it is saved to its own project.
+     */
+    private var recordingInto: Pair<VoiceTarget, String>? = null
+
     init {
         refresh()
+        lexicons?.let { changes -> scope.launch { changes.collect { refresh() } } }
     }
 
     /** Re-reads the open project (the screen calls it when it opens). A running job of the same project stays. */
@@ -125,15 +217,19 @@ class RecapModel(
         val open = session.open
         val keep = _state.value.takeIf { it.projectDir == open?.dir }
         val recap = open?.project?.recap
+        val story = recap?.story?.let { id -> session.readJson(id, RecapStory.serializer()) }
         _state.value = RecapUiState(
             projectDir = open?.dir,
             recap = recap,
-            script = recap?.story?.let { id -> storyToScript(session.readJson(id, io.github.alalkipgen.autoflow.core.recap.RecapStory.serializer())) },
+            lexicon = pronunciation,
+            script = story?.let(::storyToScript),
+            story = (story as? CoreResult.Ok)?.value,
             summary = if (open == null) "" else session.readSource(SUMMARY_FILE),
-            recording = keep?.recording,
-            takeFiles = takeFiles(open?.dir, recap),
+            recording = if (recordingInto != null) _state.value.recording else keep?.recording,
+            takeFiles = takeFiles(open?.dir, recap, (story as? CoreResult.Ok)?.value),
             bgmName = recap?.audio?.bgm?.let { id -> session.artifacts()?.get(id)?.let { (it as? CoreResult.Ok)?.value?.inputs?.get(BGM_NAME_INPUT) } },
             movieName = session.moviePath()?.substringAfterLast('/'),
+            transcribe = transcribeUi(open?.dir, recap, keep?.transcribe),
             job = keep?.job,
             progress = keep?.progress,
             message = keep?.message,
@@ -218,6 +314,13 @@ class RecapModel(
      * JPEG of the frame in the middle of [scene] (`.cache/thumbs/<movie size>-<startMs>.jpg`, made once, one ffmpeg
      * at a time); null without ffmpeg or when it fails.
      */
+    /** The movie file on disk (the Recap preview plays it under the boxes on Android, 5A-8), or null. */
+    fun moviePath(): String? {
+        val movie = recap()?.movie ?: return null
+        val dir = session.open?.dir ?: return null
+        return joinPath(dir, movie.file)
+    }
+
     suspend fun thumbnail(scene: RecapScene): ByteArray? = withContext(Dispatchers.Default) {
         val movie = recap()?.movie ?: return@withContext null
         val dir = session.open?.dir ?: return@withContext null
@@ -295,11 +398,8 @@ class RecapModel(
             val sourceDir = io.github.alalkipgen.autoflow.core.io.joinPath(dir, ProjectSession.SOURCE_DIR)
             val outPath = io.github.alalkipgen.autoflow.core.io.joinPath(sourceDir, SUBTITLES_FILE)
             fs.createDirectories(sourceDir)
-            val args = listOf(
-                ffmpeg, "-y", "-i", moviePath,
-                "-map", "0:${track.index}", "-c:s", "srt",
-                outPath,
-            )
+            // The track's own stream index from the probe (audit F14).
+            val args = listOf(ffmpeg) + io.github.alalkipgen.autoflow.media.probe.MediaProbe.extractSubtitleArgs(moviePath, track.index, outPath)
             val r = withContext(kotlinx.coroutines.Dispatchers.Default) {
                 runner.run(args, dir, 120_000L, keepOutput = true) {}
             }
@@ -317,6 +417,168 @@ class RecapModel(
             }
         }
     }
+
+    // --- Transcribe picked scenes (5B-1, D-44, spec §7) ----------------------------------------------------------
+
+    private fun transcribeUi(dir: String?, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2?, keep: TranscribeUi?): TranscribeUi {
+        if (dir == null || recap == null) return TranscribeUi(available = scenesTx.available)
+        val transcript = scenesTx.transcriptOf(dir, recap)
+        val plan = scenesTx.plan(dir, recap)
+        val unfinished = jobs?.jobs?.value?.lastOrNull { it.project == dir && it.kind == AiJobKind.TRANSCRIBE && it.state !in FINISHED_JOB_STATES }
+        return TranscribeUi(
+            available = scenesTx.available,
+            todoScenes = plan?.scenes?.size ?: 0,
+            requests = plan?.requests ?: 0,
+            transcribedScenes = transcript?.scenes?.size ?: 0,
+            lines = transcript?.lines?.size ?: 0,
+            confirm = keep?.confirm,
+            job = unfinished ?: keep?.job?.takeIf { it.project == dir && it.state !in FINISHED_JOB_STATES },
+        )
+    }
+
+    private fun setTranscribe(change: (TranscribeUi) -> TranscribeUi) {
+        _state.value = _state.value.copy(transcribe = change(_state.value.transcribe))
+    }
+
+    /**
+     * "Transcribe picked scenes": the picked scenes without `.srt` lines and not transcribed yet. First call shows the
+     * confirm card (scenes, requests, today's usage); call again with [confirmed] = true after Start.
+     *
+     * With the app's [jobs] runner this is a TRANSCRIBE job of this project (audit F11, spec §5): one item per request,
+     * paced, resumable, cancelled from here or from Jobs; the lines are saved into this project even when another one
+     * is opened, and a scene already transcribed is never sent again. Without a runner the same items run here.
+     */
+    fun transcribeScenes(confirmed: Boolean = false): Job? {
+        val open = session.open ?: return null
+        val recap = open.project.recap ?: return null
+        if (!scenesTx.available) { say(SceneTranscriber.UNAVAILABLE); return null }
+        val movie = recap.movie ?: run { say("Import the movie first"); return null }
+        if (!movie.hasAudio) { say(SceneTranscriber.NO_SOUND); return null }
+        if (_state.value.busy || _state.value.recording != null) return null
+        val plan = scenesTx.plan(open.dir, recap) ?: return null
+        if (plan.scenes.isEmpty()) {
+            say(if (RecapRulesV2.pickedScenes(recap).isEmpty()) "Pick scenes first." else "Every picked scene already has subtitles or a transcript.")
+            return null
+        }
+        if (!confirmed) {
+            setTranscribe { it.copy(confirm = TranscribeConfirm(plan.scenes.size, plan.requests, plan.audioMs)) }
+            val counter = usage ?: return null
+            return scope.launch {
+                val today = runCatching { counter.today().values.sum() }.getOrNull()
+                setTranscribe { t -> t.copy(confirm = t.confirm?.copy(usedToday = today)) }
+            }
+        }
+        setTranscribe { it.copy(confirm = null) }
+        busy(TRANSCRIBING, 0.0)
+        val runner = jobs
+        val items = plan.items
+        return scope.launch {
+            try {
+                if (runner != null) {
+                    val job = AiJob(
+                        id = "tx-${open.project.id}-${clock.now().toEpochMilliseconds()}-${kotlin.random.Random.nextInt(0x1000000).toString(16)}",
+                        kind = AiJobKind.TRANSCRIBE, project = open.dir, items = items, rpm = TRANSCRIBE_RPM,
+                    )
+                    return@launch followTranscribeJob(runner, open.dir, open.project, job)
+                }
+                for ((n, item) in items.withIndex()) {
+                    if (session.open?.dir != open.dir) return@launch done("Transcribe stopped: another project was opened ($n of ${items.size} requests done).")
+                    _state.value = _state.value.copy(job = "Transcribing: request ${n + 1} of ${items.size}…", progress = n.toDouble() / items.size)
+                    try {
+                        scenesTx.runItem(open.dir, item)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        refresh()
+                        return@launch done(e.message)
+                    }
+                }
+                refresh()
+                done(transcribedMessage(), ok = true)
+            } finally {
+                if (_state.value.job != null) done(null)
+            }
+        }.also { scriptJob = it }
+    }
+
+    /** Closes the Transcribe confirm card; nothing is sent. */
+    fun dismissTranscribe() = setTranscribe { it.copy(confirm = null) }
+
+    /** Stops Transcribe: the job is cancelled (scenes already saved stay in the project). */
+    fun cancelTranscribe() {
+        val runner = jobs
+        val id = _state.value.transcribe.job?.id
+        if (runner != null && id != null) {
+            scope.launch { runner.cancel(id) }
+        } else if (_state.value.job?.startsWith(TRANSCRIBING_PREFIX) == true) {
+            scriptJob?.cancel()
+            scriptJob = null
+            refresh()
+            done("Transcribe stopped. Scenes already transcribed stay.")
+        }
+    }
+
+    /** Retry / Resume this project's paused or failed Transcribe job: only its remaining requests are sent. */
+    fun retryTranscribe(): Job? {
+        val open = session.open ?: return null
+        val runner = jobs ?: return null
+        val job = _state.value.transcribe.job?.takeIf { it.project == open.dir && (it.state == AiJobState.FAILED || it.state == AiJobState.PAUSED) } ?: return null
+        if (_state.value.busy || _state.value.recording != null) return null
+        busy(TRANSCRIBING, 0.0)
+        return scope.launch {
+            try {
+                followTranscribeJob(runner, open.dir, open.project, job)
+            } finally {
+                if (_state.value.job != null) done(null)
+            }
+        }.also { scriptJob = it }
+    }
+
+    /** Enqueues (or resumes) [job] and shows its progress here until it ends or another project is opened. */
+    private suspend fun followTranscribeJob(runner: AiJobRunner, dir: String, project: Project, job: AiJob) {
+        val total = job.items.size.coerceAtLeast(1)
+        val id = runner.enqueue(job)
+        setTranscribe { it.copy(job = job.copy(id = id)) }
+        var seen: AiJob? = null
+        var left = false
+        runner.jobs.first { list ->
+            val j = list.firstOrNull { it.id == id }
+            if (session.open?.dir != dir) { left = true; return@first true }
+            if (j != null) {
+                seen = j
+                val n = total - j.items.size
+                _state.value = _state.value.copy(
+                    job = "Transcribing: request ${minOf(n + 1, total)} of $total… (Jobs)", progress = n.toDouble() / total,
+                    transcribe = _state.value.transcribe.copy(job = j),
+                )
+            }
+            (j == null && seen != null) || j?.state in ENDED_JOB_STATES
+        }
+        val end = runner.jobs.value.firstOrNull { it.id == id }
+        if (left) return done("Transcribe goes on for ${project.name}: see Jobs.")
+        setTranscribe { it.copy(job = end?.takeIf { e -> e.state !in FINISHED_JOB_STATES }) }
+        refresh()
+        when {
+            end == null || end.state == AiJobState.CANCELLED -> done("Transcribe cancelled. Scenes already transcribed stay.")
+            end.state == AiJobState.DONE -> done(transcribedMessage(), ok = true)
+            end.state == AiJobState.PAUSED -> done(end.error ?: "Gemini is busy. Retry later: only the scenes left are sent.")
+            else -> done((end.error ?: "Transcribe stopped.") + " Retry sends only the scenes left.")
+        }
+    }
+
+    private fun transcribedMessage(): String {
+        val t = _state.value.transcribe
+        return "Transcribed: ${t.lines} lines from ${t.transcribedScenes} scene(s). The script writer uses them like subtitles."
+    }
+
+    /** One TRANSCRIBE job item of the project in [dir] ([RecapJobProcessor], both platforms); see [SceneTranscriber.runItem]. */
+    suspend fun transcribeJobItem(dir: String, item: String) {
+        scenesTx.runItem(dir, item)
+        if (session.open?.dir == dir) refresh()
+    }
+
+    /** Whether [item]'s scenes are already in the transcript of the project in [dir] (no request then). */
+    fun isTranscribeItemDone(dir: String, item: String): Boolean = scenesTx.isItemDone(dir, item)
 
     // style/register are now per-story; kept as local state until writeScript() is called
     private var _style: RecapStyle = RecapStyle.PLAIN
@@ -347,7 +609,9 @@ class RecapModel(
         val summary = _state.value.summary
         val subtitlePath = recap.sources.subtitles
         val cues = subtitlePath?.let { Srt.parse(session.readSource(SUBTITLES_FILE)) }.orEmpty()
-        val gate = RecapRulesV2.canGenerateScript(recap, summary, if (cues.isEmpty()) "" else "srt")
+        // 5B-1: transcribed scene lines are used like `.srt` lines (spec §7, ≤ 600 characters per scene).
+        val transcript = session.open?.dir?.let { scenesTx.transcriptOf(it, recap) }?.takeIf { it.lines.isNotEmpty() }
+        val gate = RecapRulesV2.canGenerateScript(recap, summary, if (cues.isEmpty() && transcript == null) "" else "srt")
         gate.blockers.firstOrNull()?.let { say(it.text()); return null }
         val gen = generator ?: run { say("Gemini is not available here"); return null }
         if (_state.value.busy) return null
@@ -361,7 +625,10 @@ class RecapModel(
             summary = summary,
             style = _style,
             register = _register,
-            scenes = picked.map { SceneBrief(it.startMs, it.endMs, Srt.textIn(cues, it.startMs, it.endMs, RecapPrompts.DIALOGUE_CHARS)) },
+            scenes = picked.map { s ->
+                val dialogue = Srt.textIn(cues, s.startMs, s.endMs, RecapPrompts.DIALOGUE_CHARS)
+                SceneBrief(s.startMs, s.endMs, dialogue.ifEmpty { transcript?.textIn(s.startMs, s.endMs, RecapPrompts.DIALOGUE_CHARS).orEmpty() })
+            },
             names = names,
             hookStyle = recap.hookStyle,
             creditLine = recap.creditLine,
@@ -427,23 +694,30 @@ class RecapModel(
     }
 
     /**
-     * Edit the timing of segment [index] (per-chunk caption timing, D-52): shifts [startMs] and [endMs].
+     * Caption timing of block [index] (per-chunk caption timing, D-53; audit F05): saves
+     * `recap.captions.chunkEdits[block id] = [startMs, endMs]` — ms into the block's voice take (studio-v2 §2) — the
+     * window its caption chunks share (burned in and in `.srt`, the same cues). The story is not touched: its clips
+     * (the movie cuts), text and approval stay as they are. With a take, [endMs] must lie inside it.
      */
     fun saveSegmentTiming(index: Int, startMs: Long, endMs: Long): Boolean {
-        val story = currentStory() ?: run {
-            val script = _state.value.script ?: return false
-            if (index !in script.segments.indices) return false
-            if (endMs <= startMs) { say("End must be after start"); return false }
-            val clamped = startMs.coerceAtLeast(0L)
-            val segments = script.segments.mapIndexed { i, s -> if (i == index) s.copy(startMs = clamped, endMs = endMs) else s }
-            return if (saveScript(script.copy(segments = segments))) { say("Timing saved"); true } else false
-        }
-        if (index !in story.blocks.indices) return false
-        if (endMs <= startMs) { say("End must be after start"); return false }
-        val clamped = startMs.coerceAtLeast(0L)
-        val clip = io.github.alalkipgen.autoflow.core.recap.RecapClip(clamped, endMs)
-        val blocks = story.blocks.mapIndexed { i, b -> if (i == index) b.copy(clips = listOf(clip)) else b }
-        return if (saveStory(story.copy(blocks = blocks))) { say("Timing saved"); true } else false
+        if (_state.value.busy) return false
+        val recap = recap() ?: return false
+        val block = currentStory()?.blocks?.getOrNull(index) ?: return false
+        val start = startMs.coerceAtLeast(0L)
+        if (endMs <= start) { say("End must be after start"); return false }
+        val take = recap.takeFor(block.id)
+        if (take != null && endMs > take.durationMs) { say("End must be inside the voice (${seconds(take.durationMs)})"); return false }
+        val saved = update { it.copy(captions = it.captions.copy(chunkEdits = it.captions.chunkEdits + (block.id to listOf(start, endMs)))) }
+        if (saved) say("Caption timing saved")
+        return saved
+    }
+
+    /** Block [index]'s captions back to automatic timing (its chunk edges are removed, audit F05). */
+    fun resetCaptionTiming(index: Int): Boolean {
+        if (_state.value.busy) return false
+        val block = currentStory()?.blocks?.getOrNull(index) ?: return false
+        if (recap()?.captions?.chunkEdits?.containsKey(block.id) != true) return true
+        return update { it.copy(captions = it.captions.copy(chunkEdits = it.captions.chunkEdits - block.id)) }
     }
 
     /** ✓ Approve script. */
@@ -502,28 +776,32 @@ class RecapModel(
         update { r -> r.copy(voiceLock = r.voiceLock?.copy(voice = voice) ?: io.github.alalkipgen.autoflow.core.recap.VoiceLock(provider = "gemini", model = "", voice = voice, lang = "my")) }
     }
 
-    /** ● Record segment [index] into `.cache/` (stopped with [stopRecording]). */
+    /** ● Record segment [index] into the project's `.cache/` (stopped with [stopRecording]). */
     fun startRecording(index: Int): Job? {
-        val text = voiceText(index) ?: return null
         val rec = recorder ?: run { say("Recording is not available here; use Import file"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
-        val path = session.cacheFile("rec-$index.${rec.extension}") ?: return null
+        val target = voiceTarget(index) ?: return null
+        val path = cachePath(target.dir, "rec-${target.blockId}.${rec.extension}") ?: return null
         return scope.launch {
             when (val r = rec.start(path)) {
-                is PlatformResult.Ok -> _state.value = _state.value.copy(recording = index, message = "● Recording #${index + 1}… read: $text", messageOk = true)
+                is PlatformResult.Ok -> {
+                    recordingInto = target to path
+                    _state.value = _state.value.copy(recording = index, message = "● Recording #${index + 1}… read: ${target.spoken}", messageOk = true)
+                }
                 is PlatformResult.Failed -> say(r.reason)
                 is PlatformResult.Unsupported -> say(r.reason)
             }
         }
     }
 
-    /** ■ Stop: the recording becomes the segment's newest take. */
+    /** ■ Stop: the recording becomes the segment's newest take (of the project and block it was started for). */
     fun stopRecording(): Job? {
         val index = _state.value.recording ?: return null
         val rec = recorder ?: return null
-        val path = session.cacheFile("rec-$index.${rec.extension}") ?: return null
+        val (target, path) = recordingInto ?: return null
         return scope.launch {
             _state.value = _state.value.copy(recording = null)
+            recordingInto = null
             val ms = when (val r = rec.stop()) {
                 is PlatformResult.Ok -> r.value
                 is PlatformResult.Failed -> return@launch say(r.reason)
@@ -532,20 +810,22 @@ class RecapModel(
             val bytes = withContext(Dispatchers.Default) { session.readFile(path) }?.takeIf { it.isNotEmpty() }
                 ?: return@launch say("The recording is empty")
             val duration = durationOf(path, bytes) ?: ms
-            if (saveTake(index, bytes, rec.extension, VoiceSource.RECORDED, duration)) say("Saved #${index + 1}: ${seconds(duration)}.").also { ok() }
+            saveTake(target, bytes, rec.extension, TakeSource.RECORDED, duration, Provenance.UNKNOWN)
+                ?.let { say(it) } ?: say("Saved #${index + 1}: ${seconds(duration)}.").also { ok() }
         }
     }
 
     fun cancelRecording() {
         recorder?.cancel()
+        recordingInto = null
         _state.value = _state.value.copy(recording = null, message = null)
     }
 
     /** Import file: any audio file becomes the segment's newest take. */
     fun importTake(index: Int): Job? {
-        voiceText(index) ?: return null
         val p = picker ?: run { say("Choosing files is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
+        val target = voiceTarget(index) ?: return null
         return scope.launch {
             val from = when (val r = p.pickFiles("Choose the narration for scene ${index + 1}", AUDIO_EXTENSIONS)) {
                 is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
@@ -556,33 +836,70 @@ class RecapModel(
                 ?: return@launch say("Cannot read this file")
             val duration = durationOf(from, bytes) ?: return@launch say("This file has no sound that can be read (ffprobe).")
             val ext = from.substringAfterLast('.', "m4a").lowercase().takeIf { it in AUDIO_EXTENSIONS } ?: "m4a"
-            if (saveTake(index, bytes, ext, VoiceSource.RECORDED, duration)) say("Saved #${index + 1}: ${seconds(duration)}.").also { ok() }
+            saveTake(target, bytes, ext, TakeSource.RECORDED, duration, Provenance.UNKNOWN)
+                ?.let { say(it) } ?: say("Saved #${index + 1}: ${seconds(duration)}.").also { ok() }
         }
     }
 
     /**
-     * Called by [AiWorker] (5A-5, D-51) to speak one segment from a WorkManager AI job.
-     * Throws on failure so the worker can mark the job FAILED.
+     * One item of a TTS_ALL job (audit F11, spec §5; [RecapJobProcessor] on both platforms): speaks block [blockId]
+     * of the project in [dir] — that project as it is on disk, whichever project is open now — with that project's
+     * voice lock and style, and stores the take there. Returns when the take is saved or there is nothing to do (the
+     * block is gone or has no text, or it already has a current take: [isJobItemDone]). Throws [AiItemPaused] when the
+     * locked model is busy (429 / 5xx after retries: the job pauses, never another model, spec §3), otherwise an
+     * exception with the reason (the job fails).
      */
-    suspend fun speakForJob(index: Int) {
-        val msg = speakOne(index) ?: return
-        // Locked model busy (429 / 5xx after retries) → the job pauses, never another model (spec §3).
-        if (lastSpeakBusy) throw io.github.alalkipgen.autoflow.core.recap.AiItemPaused(msg)
+    suspend fun speakJobItem(dir: String, blockId: String) {
+        if (isJobItemDone(dir, blockId)) return
+        val (target, lock, style) = jobTarget(dir, blockId) ?: return
+        val msg = speakInto(target, lock, style) ?: return
+        if (msg == BLOCK_GONE) return
+        if (lastSpeakBusy) throw AiItemPaused(msg)
         error(msg)
     }
 
-    /** True when the last [speakOne] failure was a busy model (job pauses) rather than a hard failure. */
+    /**
+     * Whether block [blockId] of the project in [dir] needs no voice now (spec §5: "finished items are found from the
+     * project"): it has a current take (its spoken text has not changed since), no text, or is no longer in the story.
+     * False when the project cannot be read (the item then fails with the reason).
+     */
+    fun isJobItemDone(dir: String, blockId: String): Boolean {
+        val recap = session.projectAt(dir)?.recap ?: return false
+        val story = storyOf(dir, recap) ?: return false
+        val block = story.blocks.firstOrNull { it.id == blockId } ?: return true
+        val lexicon = pronunciation
+        if (SpokenText.of(block, lexicon).isEmpty()) return true
+        return recap.takeFor(blockId)?.let {
+            !SpokenText.isStale(it, block, lexicon) && it.voiceStatus(recap.voiceLock) !in setOf(TakeVoiceStatus.DIFFERENT, TakeVoiceStatus.UNKNOWN)
+        } == true
+    }
+
+    /** The voice target of a job item, from the project on disk; null = the block is gone or has no text. */
+    private fun jobTarget(dir: String, blockId: String): Triple<VoiceTarget, io.github.alalkipgen.autoflow.core.recap.VoiceLock?, RecapStyle>? {
+        val project = session.projectAt(dir) ?: error("The project in $dir cannot be read")
+        val recap = project.recap ?: error("${project.name} is not a Movie Recap")
+        val story = storyOf(dir, recap)
+        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { error("${project.name}: ${it.text()}") }
+        val block = story!!.blocks.firstOrNull { it.id == blockId } ?: return null
+        val spoken = SpokenText.of(block, pronunciation).takeIf { it.isNotEmpty() } ?: return null
+        val target = VoiceTarget(dir, project.id, block.id, spoken, RecapRules.textHash(spoken), recap.audio.trimSilence)
+        return Triple(target, recap.voiceLock, story.style)
+    }
+
+    /** True when the last [speakInto] failure was a busy model (job pauses) rather than a hard failure. */
     private var lastSpeakBusy = false
 
     /** 🔊 one segment with Gemini TTS. */
     fun speak(index: Int): Job? {
-        voiceText(index) ?: return null
         if (tts == null) { say("Text to speech is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
+        val target = voiceTarget(index) ?: return null
+        val lock = recap()?.voiceLock
+        val style = currentStory()?.style ?: _style
         busy("Speaking #${index + 1}…")
         return scope.launch {
             try {
-                val msg = speakOne(index)
+                val msg = speakInto(target, lock, style)
                 done(msg ?: "Spoken #${index + 1}.", ok = msg == null)
             } finally {
                 if (_state.value.job != null) done(null)
@@ -590,42 +907,91 @@ class RecapModel(
         }
     }
 
-    /** 🔊 Speak all: every segment without a current take, in order; stops at the first failure. */
     /**
+     * 🔊 Speak all: every scene with text and without a current take — none, or one whose spoken text has changed
+     * since ([SpokenText.isStale], audit F10) — in order.
      * Shows an ETA card ("N scenes, ~T s — Start / Cancel") before beginning (5A-5, D-51).
      * Call again with [confirmed]=true after the user taps Start.
+     *
+     * Audit F11: with the app's [jobs] runner this is a TTS_ALL job of this project and these block ids (spec §5):
+     * saved, paced per model, resumed after a restart, cancelled from Jobs, each take stored in this project even
+     * when another one is opened. The returned coroutine follows the job until it ends (or another project is
+     * opened: the job goes on, see Jobs). Without a runner the same per-block step ([speakJobItem]) runs here,
+     * stopping at the first failure.
      */
-    fun speakAll(confirmed: Boolean = false): Job? {
-        val recap = recap() ?: return null
-        RecapRulesV2.canVoice(recap, currentStory()).blockers.firstOrNull()?.let { say(it.text()); return null }
-        val script = _state.value.script ?: return null
+    fun speakAll(confirmed: Boolean = false, includeDifferentVoice: Boolean = false): Job? {
+        val open = session.open ?: return null
+        val recap = open.project.recap ?: return null
+        val story = currentStory()
+        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { say(it.text()); return null }
         if (tts == null) { say("Text to speech is not available here"); return null }
         if (_state.value.busy || _state.value.recording != null) return null
-        val todo = script.segments.indices.filter { i ->
-            val blockId = recap.story?.let { storyId -> (session.readJson(storyId, RecapStory.serializer()) as? CoreResult.Ok)?.value?.blocks?.getOrNull(i)?.id }
-            (if (blockId != null) RecapRulesV2.currentTakeFor(recap, blockId) else null) == null && script.segments[i].textMy.isNotBlank()
-        }
+        val lexicon = pronunciation
+        val todo = story!!.blocks.withIndex().filter { (_, b) ->
+            SpokenText.of(b, lexicon).isNotEmpty() && recap.takeFor(b.id).let {
+                it == null || SpokenText.isStale(it, b, lexicon) ||
+                    (includeDifferentVoice && it.voiceStatus(recap.voiceLock) in setOf(TakeVoiceStatus.DIFFERENT, TakeVoiceStatus.UNKNOWN))
+            }
+        }.map { it.index }
         if (todo.isEmpty()) { say("Every scene already has its voice."); return null }
         // Show ETA card first; user confirms before the loop starts (5A-5).
         if (!confirmed) {
-            val rpm = 3L // free-tier TTS is ~3 req/min; shown as a rough ETA
-            val etaSec = todo.size * 60L / rpm
+            val etaSec = todo.size * 60L / TTS_RPM // spec §5: remaining items × 60 / rpm
             _state.value = _state.value.copy(speakAllEta = SpeakAllEta(todo.size, etaSec))
             return null
         }
         _state.value = _state.value.copy(speakAllEta = null)
         busy("Speaking…", 0.0)
+        val blocks = todo.map { story.blocks[it].id }
+        val runner = jobs
         return scope.launch {
             try {
-                for ((n, i) in todo.withIndex()) {
-                    _state.value = _state.value.copy(job = "Speaking #${i + 1} (${n + 1} of ${todo.size})…", progress = n.toDouble() / todo.size)
-                    speakOne(i)?.let { return@launch done(it) }
+                if (runner != null) return@launch followSpeakAllJob(runner, open.dir, open.project, blocks)
+                for ((n, id) in blocks.withIndex()) {
+                    if (session.open?.dir != open.dir) return@launch done("Speak All stopped: another project was opened ($n of ${blocks.size} spoken).")
+                    _state.value = _state.value.copy(job = "Speaking #${todo[n] + 1} (${n + 1} of ${blocks.size})…", progress = n.toDouble() / blocks.size)
+                    try {
+                        speakJobItem(open.dir, id)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        return@launch done(e.message)
+                    }
                 }
-                done("🔊 Spoken ${todo.size} scenes.", ok = true)
+                done("🔊 Spoken ${blocks.size} scenes.", ok = true)
             } finally {
                 if (_state.value.job != null) done(null)
             }
         }.also { scriptJob = it }
+    }
+
+    /** Enqueues Speak All as a TTS_ALL job and shows its progress here until it ends (see [speakAll]). */
+    private suspend fun followSpeakAllJob(runner: AiJobRunner, dir: String, project: Project, blocks: List<String>) {
+        val job = AiJob(
+            id = "tts-${project.id}-${clock.now().toEpochMilliseconds()}-${kotlin.random.Random.nextInt(0x1000000).toString(16)}",
+            kind = AiJobKind.TTS_ALL, project = dir,
+            items = blocks, rpm = TTS_RPM,
+        )
+        val id = runner.enqueue(job)
+        var seen: AiJob? = null
+        var left = false
+        runner.jobs.first { list ->
+            val j = list.firstOrNull { it.id == id }
+            if (j != null) seen = j
+            if (session.open?.dir != dir) { left = true; return@first true }
+            j?.let {
+                val n = blocks.size - it.items.size
+                _state.value = _state.value.copy(job = "Speaking ${n + 1} of ${blocks.size}… (Jobs)", progress = n.toDouble() / blocks.size)
+            }
+            (j == null && seen != null) || j?.state in ENDED_JOB_STATES
+        }
+        val end = runner.jobs.value.firstOrNull { it.id == id }
+        when {
+            left -> done("Speak All goes on for ${project.name}: see Jobs.")
+            end == null -> done("Speak All cancelled.")
+            end.state == AiJobState.DONE -> done("🔊 Spoken ${blocks.size} scenes.", ok = true)
+            else -> done(end.error ?: "Speak All stopped (${end.state}).")
+        }
     }
 
     /** Dismiss the Speak All ETA card without starting. */
@@ -633,33 +999,36 @@ class RecapModel(
         _state.value = _state.value.copy(speakAllEta = null)
     }
 
-    /** null when done, else the message. */
-    private suspend fun speakOne(index: Int): String? {
-        val recap = recap() ?: return "No project is open"
-        val text = voiceText(index) ?: return _state.value.message
+    /** Speaks [target] with Gemini TTS under [lock] and stores the take in [target]'s project. null = saved. */
+    private suspend fun speakInto(target: VoiceTarget, lock: io.github.alalkipgen.autoflow.core.recap.VoiceLock?, storyStyle: RecapStyle): String? {
         val provider = tts ?: return "Text to speech is not available here"
-        val story = currentStory()
-        val style = when (story?.style ?: _style) {
+        val style = when (storyStyle) {
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.PLAIN -> "calm, clear movie recap narrator"
             io.github.alalkipgen.autoflow.core.recap.RecapStyle.COMMENTARY -> "lively movie recap narrator with feeling"
         }
         // Voice lock (D-35, spec §3): pass the locked model so the provider never switches. A lock made by a voice
         // chip before any take has model "" — that means "no model yet" (the provider uses the default lock), never
         // a model called "".
-        val lockedModel = recap.voiceLock?.model?.takeIf { it.isNotBlank() }
-        val ttsVoice = recap.voiceLock?.voice ?: "Kore"
-        val r = provider.speak(text, VoiceRef(ttsVoice), "my", style, lockedModel)
+        val lockedModel = lock?.model?.takeIf { it.isNotBlank() }
+        val ttsVoice = lock?.voice ?: "Kore"
+        // The speak-as text with the lexicon (SpokenText, audit F10): the same text the take's hash is made of.
+        val r = provider.speak(target.spoken, VoiceRef(ttsVoice), "my", style, lockedModel)
         lastSpeakBusy = r.isBusy()
         return when (r) {
             is AiResult.Ok -> {
                 val ms = PcmWav.parse(r.value)?.durationMs ?: return "The speech audio cannot be read"
-                if (!saveTake(index, r.value, "wav", VoiceSource.TTS, ms)) return _state.value.message ?: "Cannot save the voice"
-                // The first TTS take sets the lock if it is empty (spec §3): the model that answered + this voice.
-                val answered = r.usage?.model
-                if (lockedModel == null && !answered.isNullOrBlank()) {
-                    update { rc -> rc.copy(voiceLock = io.github.alalkipgen.autoflow.core.recap.VoiceLock("gemini", answered, ttsVoice, "my")) }
-                }
-                null
+                // Provenance of this answer (F10): the model that answered (the locked one when the provider does not
+                // say), the voice it spoke with, now. The first TTS take sets the lock if it has no model yet.
+                val answered = r.usage?.model?.takeIf { it.isNotBlank() }
+                val made = Provenance(
+                    provider = lock?.provider?.takeIf { it.isNotBlank() } ?: TTS_PROVIDER,
+                    model = answered ?: lockedModel,
+                    voice = ttsVoice,
+                    lockIfNone = if (lockedModel == null && answered != null) {
+                        io.github.alalkipgen.autoflow.core.recap.VoiceLock(TTS_PROVIDER, answered, ttsVoice, "my")
+                    } else null,
+                )
+                saveTake(target, r.value, "wav", TakeSource.TTS, ms, made)
             }
             is AiResult.RateLimited -> "${lockedModel ?: "Gemini TTS"} is busy · Resume (${RATE_LIMITED})"
             is AiResult.Failed -> if (lastSpeakBusy) "${lockedModel ?: "Gemini TTS"} is busy · Resume (${r.msg})"
@@ -668,62 +1037,130 @@ class RecapModel(
         }
     }
 
-    /** The segment's text when voicing is allowed now (else the blocker is shown and null returned). */
-    private fun voiceText(index: Int): String? {
-        val recap = recap() ?: return null
-        val script = _state.value.script
-        RecapRulesV2.canVoice(recap, currentStory()).blockers.firstOrNull()?.let { say(it.text()); return null }
-        val written = script!!.segments.getOrNull(index)?.textMy?.trim().orEmpty()
-        if (written.isEmpty()) { say("Scene ${index + 1} has no narration text"); return null }
-        // Apply lexicon substitutions before TTS (5B-7): captions show the written text, TTS speaks the spoken form.
-        return lexicon.apply(written)
+    /**
+     * Where a voice take belongs, fixed before any work suspends (audit F03): the folder and id of the project, the
+     * block, and the exact text it speaks ([SpokenText]: the speak-as text, else the written text, with the
+     * lexicon, F10). The user may open another project or edit the script while TTS, a recording, an import or a
+     * clean runs: the result then still goes to this project — or is dropped when this block is gone — and never
+     * into whatever project happens to be open.
+     */
+    private data class VoiceTarget(
+        val dir: String,
+        val projectId: String,
+        val blockId: String,
+        val spoken: String,
+        val hash: String,
+        val trimSilence: Boolean,
+    )
+
+    /** Who made a take (F10). [UNKNOWN] for recordings / imports: no provider, model or voice is invented. */
+    private data class Provenance(
+        val provider: String?,
+        val model: String?,
+        val voice: String?,
+        val lockIfNone: io.github.alalkipgen.autoflow.core.recap.VoiceLock? = null,
+    ) {
+        companion object {
+            val UNKNOWN = Provenance(null, null, null)
+        }
     }
 
-    /** A new take: long pauses cut first when Sound → "Cut long pauses" is on (5B-4), then saved. */
-    private suspend fun saveTake(index: Int, bytes: ByteArray, ext: String, source: VoiceSource, durationMs: Long): Boolean {
-        val (b, e, ms) = trimPauses(index, bytes, ext, durationMs)
-        return storeTake(index, b, e, source, ms)
+    /** The target for scene [index] when voicing is allowed now (else the blocker is shown and null returned). */
+    private fun voiceTarget(index: Int): VoiceTarget? {
+        val open = session.open ?: return null
+        val recap = open.project.recap ?: return null
+        val story = currentStory()
+        RecapRulesV2.canVoice(recap, story).blockers.firstOrNull()?.let { say(it.text()); return null }
+        val block = story!!.blocks.getOrNull(index) ?: run { say("Scene ${index + 1} is not in the script"); return null }
+        val spoken = SpokenText.of(block, pronunciation)
+        if (spoken.isEmpty()) { say("Scene ${index + 1} has no narration text"); return null }
+        return VoiceTarget(open.dir, open.project.id, block.id, spoken, RecapRules.textHash(spoken), recap.audio.trimSilence)
+    }
+
+    /** A new take: long pauses cut first when Sound → "Cut long pauses" is on (5B-4), then saved. null = saved. */
+    private suspend fun saveTake(t: VoiceTarget, bytes: ByteArray, ext: String, source: TakeSource, durationMs: Long, made: Provenance): String? {
+        val (b, e, ms) = trimPauses(t, bytes, ext, durationMs)
+        return storeTake(t, b, e, source, ms, made)
     }
 
     /**
-     * The take with every pause longer than 0.35 s cut to 0.2 s ([AudioFilters.trimSilence]) as a WAV, when
-     * `recap.audio.trimSilence` is on; the take as it was when it is off, ffmpeg is missing or the result is empty.
+     * The take with every pause longer than 0.35 s cut to 0.2 s ([SilenceTrim], audit F09) as a WAV, when the
+     * target asks for it; the take as it was when it does not, no pause is that long, ffmpeg is missing or fails, or
+     * the result is empty. Works in the target project's `.cache/`.
      */
-    private suspend fun trimPauses(index: Int, bytes: ByteArray, ext: String, durationMs: Long): Triple<ByteArray, String, Long> {
+    private suspend fun trimPauses(t: VoiceTarget, bytes: ByteArray, ext: String, durationMs: Long): Triple<ByteArray, String, Long> {
         val asIs = Triple(bytes, ext, durationMs)
-        if (recap()?.audio?.trimSilence != true) return asIs
+        if (!t.trimSilence) return asIs
         val runner = media?.runner ?: return asIs
         val ffmpeg = media.ffmpeg() ?: return asIs
-        val dir = session.open?.dir ?: return asIs
-        val src = session.cacheFile("trim-in-$index.$ext") ?: return asIs
-        val out = session.cacheFile("trim-out-$index.wav") ?: return asIs
+        val src = cachePath(t.dir, "trim-in-${t.blockId}.$ext") ?: return asIs
+        val out = cachePath(t.dir, "trim-out-${t.blockId}.wav") ?: return asIs
         return withContext(Dispatchers.Default) {
             runCatching { fs.writeDurably(src, bytes) }.getOrElse { return@withContext asIs }
-            val r = runner.run(listOf(ffmpeg) + AudioFilters.trimArgs(src, out), dir, TRIM_TIMEOUT_MS, keepOutput = false) {}
-            val ok = r is io.github.alalkipgen.autoflow.media.tool.ToolExec.Done && r.exitCode == 0 && !r.timedOut
-            val trimmed = if (ok) session.readFile(out) else null
+            val r = SilenceTrim(runner, ffmpeg).trim(src, out, t.dir, TRIM_TIMEOUT_MS)
+            val trimmed = if (r is SilenceTrim.Result.Trimmed) session.readFile(out) else null
             val ms = trimmed?.let { PcmWav.parse(it)?.durationMs }
             if (trimmed == null || ms == null || ms < MIN_TRIMMED_MS) asIs else Triple(trimmed, "wav", ms)
         }
     }
 
-    private fun storeTake(index: Int, bytes: ByteArray, ext: String, source: VoiceSource, durationMs: Long): Boolean {
-        val text = _state.value.script?.segments?.getOrNull(index)?.textMy ?: return false
-        val store = session.artifacts() ?: return false
-        val hash = RecapRules.textHash(text)
-        val story = currentStory()
-        val blockId = story?.blocks?.getOrNull(index)?.id ?: "b_seg$index"
-        val inputs = mapOf("segment" to index.toString(), "textHash" to hash)
-        val ttsSource = when (source) {
-            VoiceSource.TTS, VoiceSource.REPLICATED -> TakeSource.TTS
-            VoiceSource.RECORDED -> TakeSource.RECORDED
+    /**
+     * Stores the audio in the target project's artifacts and appends the take to that project (audit F03 / F06):
+     * read-modify-write of the target folder under its lock, so takes already there — older recordings, other
+     * generations — stay; the new take becomes the block's chosen one; the same audio twice is one take. Dropped
+     * (message, nothing referenced) when the block is no longer in that project's story. null = saved.
+     */
+    private fun storeTake(t: VoiceTarget, bytes: ByteArray, ext: String, source: TakeSource, durationMs: Long, made: Provenance): String? {
+        if (!hasBlock(t.dir, t.projectId, t.blockId)) return BLOCK_GONE
+        val inputs = mapOf("block" to t.blockId, "textHash" to t.hash)
+        val audio = when (val r = ArtifactStore(fs, t.dir, clock).put(
+            bytes, ArtifactKind.AUDIO, ext, inputs = inputs, provider = made.provider ?: source.name.lowercase(), model = made.model,
+        )) {
+            is CoreResult.Ok -> r.value.id
+            is CoreResult.Err -> return r.error.message
         }
-        return when (val r = store.put(bytes, io.github.alalkipgen.autoflow.core.model.ArtifactKind.AUDIO, ext, inputs = inputs, provider = source.name.lowercase())) {
-            is CoreResult.Ok -> {
-                val take = BlockTake(block = blockId, audio = r.value.id, source = ttsSource, durationMs = durationMs, spokenHash = hash)
-                update { recap -> recap.copy(takes = recap.takes.filter { it.block != blockId } + take) }
+        val take = BlockTake(
+            block = t.blockId, audio = audio, source = source, provider = made.provider, model = made.model,
+            voice = made.voice, durationMs = durationMs, spokenHash = t.hash, createdAt = clock.now(),
+        )
+        var gone = false
+        val r = session.update(t.dir, t.projectId) { p ->
+            val recap = p.recap
+            if (recap == null || storyOf(t.dir, recap)?.blocks?.any { it.id == t.blockId } != true) {
+                gone = true
+                return@update p
             }
-            is CoreResult.Err -> { say(r.error.message); false }
+            val takes = if (recap.takes.any { it.block == t.blockId && it.audio == audio }) recap.takes else recap.takes + take
+            val lock = made.lockIfNone?.takeIf { recap.voiceLock?.model.isNullOrBlank() } ?: recap.voiceLock
+            p.copy(recap = recap.copy(takes = takes, chosenTakes = recap.chosenTakes + (t.blockId to audio), voiceLock = lock))
+        }
+        if (gone) return BLOCK_GONE
+        return when (r) {
+            is CoreResult.Ok -> { if (session.open?.dir == t.dir) refresh(); null }
+            is CoreResult.Err -> r.error.message
+        }
+    }
+
+    /** Whether block [blockId] is in the story of project [projectId] in [dir] as it is on disk now. */
+    private fun hasBlock(dir: String, projectId: String, blockId: String): Boolean {
+        val project = session.projectAt(dir)?.takeIf { it.id == projectId } ?: return false
+        val recap = project.recap ?: return false
+        return storyOf(dir, recap)?.blocks?.any { it.id == blockId } == true
+    }
+
+    private fun storyOf(dir: String, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2): RecapStory? {
+        val id = recap.story ?: return null
+        val bytes = (ArtifactStore(fs, dir, clock).readBytes(id) as? CoreResult.Ok)?.value ?: return null
+        return runCatching { CoreJson.decodeFromString(RecapStory.serializer(), bytes.decodeToString()) }.getOrNull()
+    }
+
+    private fun cachePath(dir: String, name: String): String? {
+        val cache = joinPath(dir, ProjectSession.CACHE_DIR)
+        return try {
+            fs.createDirectories(cache)
+            joinPath(cache, name)
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -805,10 +1242,10 @@ class RecapModel(
         update { it.copy(captions = it.captions.copy(burn = on)) }
     }
 
-    /** Sets the Smart Fit choice for segment [index] (5A-8, studio-v2 §8). */
-    fun setFitChoice(index: Int, choice: io.github.alalkipgen.autoflow.core.recap.FitChoice) {
+    /** Sets the Smart Fit choice of story block [blockId] (5A-8, studio-v2 §8; by block id, audit F07). */
+    fun setFitChoice(blockId: String, choice: io.github.alalkipgen.autoflow.core.recap.FitChoice) {
         if (_state.value.busy) return
-        val blockId = currentStory()?.blocks?.getOrNull(index)?.id ?: "b_seg$index"
+        if (currentStory()?.blocks?.any { it.id == blockId } != true) return
         update { it.copy(fit = it.fit + (blockId to choice.name)) }
     }
 
@@ -890,30 +1327,32 @@ class RecapModel(
     // --- Clean tab (D-54) ---------------------------------------------------------------------------
 
     /**
-     * Polish a recorded take: re-runs [trimPauses] on the existing take file and saves the result.
-     * Shows a busy indicator while running.
+     * Polish a take: cuts its long pauses ([trimPauses], whatever the Sound switch says — this is the explicit
+     * "clean" action) and adds the result as a new take of the same block, keeping the original take, its spoken
+     * hash and provenance (audit F03 / F06: bound to the project and block it was started for).
      */
     fun cleanTake(index: Int): Job? {
         if (_state.value.busy || _state.value.recording != null) return null
         val recap = recap() ?: return null
-        val blockId = currentStory()?.blocks?.getOrNull(index)?.id ?: "b_seg$index"
-        val take = RecapRulesV2.currentTakeFor(recap, blockId)
+        val open = session.open ?: return null
+        val block = currentStory()?.blocks?.getOrNull(index) ?: return say("Scene ${index + 1} is not in the script").let { null }
+        val take = RecapRulesV2.currentTakeFor(recap, block.id)
             ?: return say("No take for this block").let { null }
-        val dir = session.open?.dir ?: return null
-        val artifactStore = ArtifactStore(fs, dir)
-        val artifactFile = (artifactStore.get(take.audio) as? CoreResult.Ok)?.value?.file
+        val artifactFile = (ArtifactStore(fs, open.dir).get(take.audio) as? CoreResult.Ok)?.value?.file
             ?: return say("Take file not found").let { null }
-        val file = joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), artifactFile)
+        val file = joinPath(joinPath(open.dir, ArtifactStore.ARTIFACTS_DIR), artifactFile)
         if (!fs.exists(file)) return say("Take file not found").let { null }
+        val target = VoiceTarget(open.dir, open.project.id, block.id, SpokenText.of(block, pronunciation), take.spokenHash, trimSilence = true)
+        val made = Provenance(take.provider, take.model, take.voice)
         return scope.launch {
             busy("Cleaning take ${ index + 1 }…")
             val bytes = withContext(Dispatchers.Default) { runCatching { fs.read(file) }.getOrNull() }
                 ?: return@launch done("Cannot read take file")
             val ext = file.substringAfterLast('.', "wav")
-            val (cleaned, cleanExt, cleanMs) = trimPauses(index, bytes, ext, take.durationMs)
-            val srcVoice = if (take.source == TakeSource.RECORDED) VoiceSource.RECORDED else VoiceSource.TTS
-            if (!storeTake(index, cleaned, cleanExt, srcVoice, cleanMs))
-                return@launch done("Could not save the cleaned take")
+            val (cleaned, cleanExt, cleanMs) = trimPauses(target, bytes, ext, take.durationMs)
+            if (cleaned === bytes) return@launch done("Nothing was cut (ffmpeg is missing or there are no long pauses)")
+            val source = if (take.source == TakeSource.RECORDED) TakeSource.RECORDED else TakeSource.POLISHED
+            storeTake(target, cleaned, cleanExt, source, cleanMs, made)?.let { return@launch done(it) }
             done("Take ${ index + 1 } cleaned: silence trimmed", ok = true)
         }
     }
@@ -954,6 +1393,10 @@ class RecapModel(
     /** Set watermark anchor position (D-56). */
     fun setWatermarkAnchor(anchor: io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor) =
         setVisual { it.copy(watermarkAnchor = anchor) }
+
+    /** The video's shape: the Recap's own choice, else the project's (the preview draws the captions for it). */
+    fun outputRatio(recap: io.github.alalkipgen.autoflow.core.recap.RecapV2): io.github.alalkipgen.autoflow.core.model.Ratio =
+        recap.visual.outputRatio ?: session.open?.project?.settings?.ratio ?: io.github.alalkipgen.autoflow.core.model.Ratio.R9_16
 
     /** Set the output video ratio for Movie Recap (D-56). Null = follow project setting (default 9:16). */
     fun setOutputRatio(ratio: io.github.alalkipgen.autoflow.core.model.Ratio?) =
@@ -1003,12 +1446,13 @@ class RecapModel(
     private suspend fun durationOf(path: String, bytes: ByteArray): Long? =
         PcmWav.parse(bytes)?.durationMs ?: probe(path)?.takeIf { it.hasAudio && it.durationMs > 0 }?.durationMs
 
-    private fun takeFiles(dir: String?, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2?): Map<Int, String> {
-        if (dir == null || recap == null || recap.takes.isEmpty()) return emptyMap()
+    /** Scene index → file of its current take (chosen, else newest; audit F06: the take list is a history). */
+    private fun takeFiles(dir: String?, recap: io.github.alalkipgen.autoflow.core.recap.RecapV2?, story: RecapStory?): Map<Int, String> {
+        if (dir == null || recap == null || story == null || recap.takes.isEmpty()) return emptyMap()
         val store = ArtifactStore(fs, dir)
-        // Map block index (position in story blocks) to file path for playback
-        return recap.takes.mapIndexedNotNull { i, t ->
-            (store.get(t.audio) as? CoreResult.Ok)?.value?.file?.let { i to joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), it) }
+        return story.blocks.withIndex().mapNotNull { (i, b) ->
+            val take = recap.takeFor(b.id) ?: return@mapNotNull null
+            (store.get(take.audio) as? CoreResult.Ok)?.value?.file?.let { i to joinPath(joinPath(dir, ArtifactStore.ARTIFACTS_DIR), it) }
         }.toMap()
     }
 
@@ -1024,7 +1468,11 @@ class RecapModel(
 
     private fun io.github.alalkipgen.autoflow.core.recap.RecapV2?.orEmptyScenes(): List<RecapScene> = this?.scenes.orEmpty()
 
-    /** Applies [change] to `project.recap` and saves; false (with the message shown) when saving failed. */
+    /**
+     * Applies [change] to `project.recap` of the open project and saves; false (with the message shown) when saving
+     * failed — e.g. [io.github.alalkipgen.autoflow.core.CoreError.Conflict] when another window saved this project
+     * since it was opened here (audit F04; nothing is overwritten).
+     */
     internal fun update(change: (io.github.alalkipgen.autoflow.core.recap.RecapV2) -> io.github.alalkipgen.autoflow.core.recap.RecapV2): Boolean {
         val project = session.open?.project ?: return false
         val recap = project.recap ?: return false
@@ -1061,6 +1509,17 @@ class RecapModel(
         const val SUBTITLES_FILE = "subtitles.srt"
         const val WRITING = "Gemini is writing the script…"
         const val RATE_LIMITED = "The free-tier limit is reached; try again later"
+        /** The provider of every TTS take and voice lock this app makes (Gemini TTS, spec §3). */
+        const val TTS_PROVIDER = "gemini"
+        const val BLOCK_GONE = "This scene was removed or replaced while its voice was made; the take was not saved"
+        /** TTS requests per minute per model (spec §3 `tts.rpm`): the Speak All job's pacing and its ETA. */
+        const val TTS_RPM = 3
+        private val ENDED_JOB_STATES = setOf(AiJobState.DONE, AiJobState.PAUSED, AiJobState.FAILED, AiJobState.CANCELLED)
+        private val FINISHED_JOB_STATES = setOf(AiJobState.DONE, AiJobState.CANCELLED)
+        private const val TRANSCRIBING_PREFIX = "Transcribing"
+        const val TRANSCRIBING = "$TRANSCRIBING_PREFIX picked scenes…"
+        /** Requests per minute for TRANSCRIBE jobs (text model with audio input). */
+        const val TRANSCRIBE_RPM = 10
         /** Movie sound chips (spec §6). */
         val MOVIE_VOLUMES = listOf("Off" to 0.0, "Low" to Recap.MOVIE_VOLUME_LOW, "Full" to 1.0)
 

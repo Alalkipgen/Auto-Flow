@@ -52,3 +52,14 @@ tasks.withType<Test>().configureEach {
     environment("LC_ALL", "C.UTF-8")
 }
 
+// Explicit offline copy-only recovery, using the same migration as the app. Never run automatically.
+val desktopMain = kotlin.targets.getByName("desktop").compilations.getByName("main")
+tasks.register<JavaExec>("recoverV1Copy") {
+    group = "application"
+    description = "Recover an original v1 backup into a separate, non-existing project folder"
+    dependsOn(desktopMain.compileTaskProvider)
+    classpath(desktopMain.output.allOutputs, desktopMain.runtimeDependencyFiles)
+    mainClass.set("io.github.alalkipgen.autoflow.platform.RecoverV1Copy")
+    args(providers.gradleProperty("recoverySource").orElse("").get(), providers.gradleProperty("recoveryDestination").orElse("").get())
+}
+

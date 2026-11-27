@@ -49,7 +49,8 @@ class LayerFfmpegRenderTest {
 
     /** Draws one frame of [src] through [layers] (LayerCompiler output exactly as RenderCompiler appends it). */
     private fun renderFrame(bin: String, dir: File, name: String, vararg layers: Layer): BufferedImage {
-        val r = LayerCompiler.compile(layers.toList(), out, totalMs = 1_000, resolveImage = { null }, baseInputCount = 1)
+        val r = LayerCompiler.compile(layers.toList(), out, totalMs = 1_000, resolveImage = { null }, baseInputCount = 1,
+            textFilter = { _, _ -> error("This fixture has no TEXT layers") })
         val graph = (listOf("[0:v]null[vseq]") + r.chains).joinToString(";")
         val png = File(dir, "$name.png")
         val (code, log) = run(listOf(bin, "-hide_banner", "-y", "-nostdin", "-f", "lavfi", "-i", src,

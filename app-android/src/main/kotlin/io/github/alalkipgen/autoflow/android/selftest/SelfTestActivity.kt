@@ -45,10 +45,14 @@ import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.settings.PreviewFeaturesCard
+import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
+import org.koin.android.ext.android.inject
 import java.io.File
 
 /** PLAN S6 Self-test screen (Settings → About → long-press the version). */
 class SelfTestActivity : ComponentActivity() {
+    private val settingsModel: SettingsModel by inject()
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -117,6 +121,7 @@ class SelfTestActivity : ComponentActivity() {
                     enabled = !idle,
                 )
             }
+            PreviewFeaturesCard(settingsModel)
             if (ui.progress.isNotEmpty()) AfText(ui.progress, color = AutoFlowColors.Cyan)
             if (ui.steps.isNotEmpty()) {
                 AfCard("Steps") {

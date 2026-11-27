@@ -35,6 +35,14 @@ sealed interface CoreError {
         override val message: String get() = "$path has schemaVersion $found; this app supports up to $supported"
     }
 
+    /**
+     * A save based on an older version of [path]: another save went in after this copy was read (audit F04). Nothing
+     * was written; re-read and apply the change again (e.g. with `ProjectStore.update`).
+     */
+    data class Conflict(val path: String) : CoreError {
+        override val message: String get() = "$path was changed by another save after this copy was read; nothing was written"
+    }
+
     data class Io(val path: String, val reason: String) : CoreError {
         override val message: String get() = "I/O error on $path: $reason"
     }

@@ -17,18 +17,20 @@ import io.github.alalkipgen.autoflow.core.recap.AiJobKind
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.AiJobStore
 import io.github.alalkipgen.autoflow.core.recap.AiItemProcessor
-import io.github.alalkipgen.autoflow.core.recap.RpmPacer
+import io.github.alalkipgen.autoflow.core.recap.AiJobExecutor
+import io.github.alalkipgen.autoflow.core.recap.RpmPacers
 import io.github.alalkipgen.autoflow.platform.JvmFs
 import java.io.File
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * WorkManager worker for one AI job item batch (5A-5, D-51).
+ * WorkManager worker for one AI job (5A-5, D-51).
  *
- * Runs in the unique "ai" WorkManager chain (see [WorkManagerAiJobRunner]).
- * Shows a foreground notification (dataSync type) so it keeps running with the screen off.
- * Each worker processes ALL remaining items of a single [AiJob], resuming where a previous
- * process left off (items list shrinks on each success).
+ * Runs in the one "ai" WorkManager chain (see [WorkManagerAiJobRunner]): one job at a time, so the shared per-model
+ * pacer ([RpmPacers]) holds for all of them. Shows a foreground notification (dataSync type) so it keeps running
+ * with the screen off. The loop is the shared [AiJobExecutor] (audit F11, the same as desktop): checkpoints after
+ * every item, items already done in the job's project are checked off without a request, a CANCELLED state is never
+ * overwritten, busy → PAUSED, other errors → FAILED. A job file that cannot be read is left as it is and reported
+ * (never treated as a finished job); a missing one means there is nothing to do.
  *
  * [AiItemProcessor] is resolved from [AiWorkerRegistry] so it survives process recreation.
  */
@@ -40,44 +42,20 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         val jobId = inputData.getString(KEY_JOB_ID) ?: return Result.failure()
         val jobsDir = File(applicationContext.filesDir, "autoflow/ai-jobs").absolutePath
         val store = AiJobStore(JvmFs(), jobsDir)
-        val job = store.load(jobId) ?: return Result.success()
-
+        val job = when (val r = store.read(jobId)) {
+            AiJobStore.Read.Missing -> return Result.success()
+            is AiJobStore.Read.Damaged -> {
+                // Kept on disk for the Jobs screen / a bug report; the chain goes on with the other jobs.
+                android.util.Log.w("AiWorker", r.reason)
+                return Result.success()
+            }
+            is AiJobStore.Read.Ok -> r.job
+        }
         if (job.state == AiJobState.CANCELLED || job.state == AiJobState.DONE) return Result.success()
 
         setForeground(buildForeground(labelFor(job), "Starting…"))
-
-        val processor = AiWorkerRegistry.processor ?: run {
-            store.save(job.copy(state = AiJobState.FAILED, error = "AI processor not available (app restart required)"))
-            return Result.success()
-        }
-
-        val pacer = RpmPacer(job.rpm)
-        var current = job.copy(state = AiJobState.RUNNING)
-        store.save(current)
-
-        for (item in job.items.toList()) {
-            if (store.load(jobId)?.state == AiJobState.CANCELLED) return Result.success()
-            try { pacer.pace() } catch (e: CancellationException) { throw e }
-            val t0 = System.currentTimeMillis()
-            try {
-                processor.process(current, item)
-                val elapsed = System.currentTimeMillis() - t0
-                current = current.copy(items = current.items - item, msPerItem = elapsed)
-                store.save(current)
-                updateNotification(labelFor(current), "${current.items.size} items left")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: io.github.alalkipgen.autoflow.core.recap.AiItemPaused) {
-                // Locked model busy (spec §3): keep the remaining items, Resume re-enqueues.
-                store.save(current.copy(state = AiJobState.PAUSED, error = e.message))
-                return Result.success()
-            } catch (e: Throwable) {
-                store.save(current.copy(state = AiJobState.FAILED, error = e.message))
-                return Result.success()
-            }
-        }
-
-        store.save(current.copy(state = AiJobState.DONE, items = emptyList()))
+        // No processor (not registered in this process) → the executor FAILS the job with a reason; never DONE.
+        AiJobExecutor(store, AiWorkerRegistry.processor, onChange = { updateNotification(labelFor(it), "${it.items.size} items left") }).run(jobId)
         return Result.success()
     }
 

@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.android.render
 
 import androidx.work.Data
 import androidx.work.WorkInfo
+import io.github.alalkipgen.autoflow.media.audio.LoudnessMeasurement
 import io.github.alalkipgen.autoflow.media.render.FfmpegProgress
 import io.github.alalkipgen.autoflow.media.render.RenderState
 
@@ -22,6 +23,12 @@ object RenderData {
     const val KEY_REASON = "reason"
     const val KEY_TAIL = "tail"
     const val KEY_FOREGROUND = "foreground"
+
+    /** 5B-4: how the loudness target was met — the target, the five pass-1 numbers (two-pass) or the fallback note. */
+    const val KEY_LOUDNESS_TARGET = "loudnessTarget"
+    const val KEY_LOUDNESS_MEASURED = "loudnessMeasured"
+    const val KEY_LOUDNESS_NOTE = "loudnessNote"
+    const val LOUDNESS_UNREADABLE = "the loudness numbers of this render could not be read back"
     const val DONE = "done"
     const val FAILED = "failed"
     const val CANCELLED = "cancelled"
@@ -37,8 +44,15 @@ object RenderData {
         val d = Data.Builder()
         foreground?.let { d.putString(KEY_FOREGROUND, it.take(MAX_LINE * 2)) }
         when (state) {
-            is RenderState.Done -> d.putString(KEY_OUTCOME, DONE).putString(KEY_OUTPUT, state.output).putLong(KEY_WALL_MS, state.wallMs)
-                .putLong(KEY_DURATION_MS, state.durationMs).putLong(KEY_RSS_KB, state.maxRssKb ?: -1)
+            is RenderState.Done -> {
+                d.putString(KEY_OUTCOME, DONE).putString(KEY_OUTPUT, state.output).putLong(KEY_WALL_MS, state.wallMs)
+                    .putLong(KEY_DURATION_MS, state.durationMs).putLong(KEY_RSS_KB, state.maxRssKb ?: -1)
+                state.loudness?.let { l ->
+                    d.putDouble(KEY_LOUDNESS_TARGET, l.targetLufs)
+                    l.measured?.let { m -> d.putDoubleArray(KEY_LOUDNESS_MEASURED, doubleArrayOf(m.inputI, m.inputTp, m.inputLra, m.inputThresh, m.targetOffset)) }
+                    l.note?.let { d.putString(KEY_LOUDNESS_NOTE, it.take(MAX_LINE * 2)) }
+                }
+            }
             is RenderState.Failed -> d.putString(KEY_OUTCOME, FAILED).putString(KEY_REASON, state.reason.take(MAX_LINE * 4))
                 .putStringArray(KEY_TAIL, state.tail.takeLast(MAX_TAIL).map { it.take(MAX_LINE) }.toTypedArray())
             else -> d.putString(KEY_OUTCOME, CANCELLED)
@@ -68,10 +82,24 @@ object RenderData {
             d.getLong(KEY_WALL_MS, 0),
             d.getLong(KEY_DURATION_MS, 0),
             d.getLong(KEY_RSS_KB, -1).takeIf { it >= 0 },
+            loudness(d),
         )
         CANCELLED -> RenderState.Cancelled
         else -> RenderState.Failed(d.getString(KEY_REASON) ?: "the render stopped", tail(d))
     }
 
     private fun tail(d: Data) = d.getStringArray(KEY_TAIL)?.toList().orEmpty()
+
+    /**
+     * Null when no loudness target was asked, or the result is from an app before 5B-4 (no keys: nothing is made up).
+     * Pass-1 numbers that are missing a value or not finite read as "not two-pass" with a note saying so.
+     */
+    private fun loudness(d: Data): RenderState.Loudness? {
+        if (!d.hasKeyWithValueOfType(KEY_LOUDNESS_TARGET, Double::class.javaObjectType)) return null
+        val target = d.getDouble(KEY_LOUDNESS_TARGET, Double.NaN).takeIf { it.isFinite() } ?: return null
+        val raw = d.getDoubleArray(KEY_LOUDNESS_MEASURED)
+        val measured = raw?.takeIf { it.size == 5 && it.all(Double::isFinite) }?.let { LoudnessMeasurement(it[0], it[1], it[2], it[3], it[4]) }
+        val note = d.getString(KEY_LOUDNESS_NOTE) ?: LOUDNESS_UNREADABLE.takeIf { raw != null && measured == null }
+        return RenderState.Loudness(target, measured, note)
+    }
 }

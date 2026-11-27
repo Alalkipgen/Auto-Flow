@@ -12,13 +12,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapRegister
-import io.github.alalkipgen.autoflow.core.recap.RecapRules
-import io.github.alalkipgen.autoflow.core.recap.toV1
+import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -38,9 +39,9 @@ const val APPROVE_SCRIPT = "✓ Approve script"
 
 /** Card 3 · Script (docs/specs/recap.md §4): summary, subtitles, style, Gemini or manual script, edit, approve. */
 @Composable
-internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, blockIndex: Int? = null) {
     AfCard("3 · Script") {
-        RecapRules.canWriteManually(recap.toV1()).blockers.firstOrNull()?.let {
+        RecapRulesV2.canWriteManually(recap).blockers.firstOrNull()?.let {
             AfText(it.text(), muted = true)
             return@AfCard
         }
@@ -83,6 +84,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
                 AfText("No embedded subtitle tracks found in this movie.", muted = true, size = 12.sp)
             }
         }
+        TranscribeSection(model, state, recap)
         AfText("Style", muted = true, size = 12.sp)
         WrapRow {
             AfChip("Plain", recap.style == RecapStyle.PLAIN, onClick = { model.setStyle(RecapStyle.PLAIN) })
@@ -137,7 +139,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
                 AfButton("Back", { confirming = null })
             }
         } else {
-            val gate = RecapRules.canGenerateScript(recap.toV1(), state.summary, if (recap.subtitles != null) "srt" else "")
+            val gate = RecapRulesV2.canGenerateScript(recap, state.summary, if (recap.subtitles != null || state.transcribe.lines > 0) "srt" else "")
             if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
             WrapRow {
                 AfButton(WRITE_SCRIPT, { if (script == null) model.writeScript() else confirming = WRITE_SCRIPT },
@@ -146,26 +148,79 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2) 
             }
         }
         if (script == null) return@AfCard
-        val current = RecapRules.isCurrent(recap.toV1(), script)
-        if (!current) AfText(RecapRules.canApproveScript(recap.toV1(), script).blockers.first().text(), color = AutoFlowColors.Amber, bold = true)
-        script.segments.forEachIndexed { i, seg -> SegmentRow(model, i, seg, enabled = current && !state.busy) }
+        // v2 rules on the story (audit F05): outdated only when a clip lies outside the movie.
+        val story = state.story
+        val current = story != null && RecapRulesV2.isCurrent(recap, story)
+        if (!current) AfText(RecapRulesV2.canApproveScript(recap, story).blockers.first().text(), color = AutoFlowColors.Amber, bold = true)
+        script.segments.forEachIndexed { i, seg -> if (blockIndex == null || i == blockIndex) SegmentRow(model, state, i, seg, enabled = current && !state.busy) }
         if (recap.scriptApproved && current) {
             AfText("✓ Script approved. Next: Voice.", color = AutoFlowColors.Green, bold = true)
         } else if (current) {
-            val gate = RecapRules.canApproveScript(recap.toV1(), script)
+            val gate = RecapRulesV2.canApproveScript(recap, story)
             if (!gate.allowed) AfText(gate.blockers.first().text(), muted = true, size = 12.sp)
             AfButton(APPROVE_SCRIPT, { model.approveScript() }, kind = ButtonKind.Primary, enabled = gate.allowed && !state.busy)
         }
     }
 }
 
+/**
+ * "Transcribe picked scenes" (5B-1, D-44): offered for picked scenes without `.srt` lines; a confirm card (scenes,
+ * requests, today's usage) before anything is sent; progress with Cancel; Retry for a paused or failed job (only the
+ * requests left are sent).
+ */
 @Composable
-private fun SegmentRow(model: RecapModel, index: Int, seg: RecapSegment, enabled: Boolean) {
+private fun TranscribeSection(model: RecapModel, state: RecapUiState, recap: RecapV2) {
+    val t = state.transcribe
+    if (!t.available || recap.movie == null) return
+    if (t.lines > 0 || t.transcribedScenes > 0) {
+        AfText(transcriptSummary(t.lines, t.transcribedScenes), Modifier.testTag("transcribe-summary"), color = AutoFlowColors.Green)
+    }
+    val running = state.job?.startsWith("Transcribing") == true
+    val confirm = t.confirm
+    val job = t.job
+    when {
+        running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText(state.job.orEmpty(), Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+        }
+        confirm != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            AfText(
+                transcribeConfirmText(confirm.scenes, confirm.requests) + " အသံ ${clock(confirm.audioMs)}။ " +
+                    "ဒီပြကွက်တွေရဲ့ အသံကိုပဲ ပို့မယ် — ရုပ်ပုံ ဒါမှမဟုတ် ရုပ်ရှင်တစ်ကားလုံးကို ဘယ်တော့မှ မပို့ပါ။ " +
+                    "ယနေ့အထိ: request ${confirm.usedToday?.toString() ?: "…"} ခု။",
+                Modifier.testTag("transcribe-confirm"), color = AutoFlowColors.Amber,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.START, { model.transcribeScenes(confirmed = true) }, Modifier.testTag("transcribe-confirm-start"), kind = ButtonKind.Primary)
+                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, { model.dismissTranscribe() }, Modifier.testTag("transcribe-confirm-back"))
+            }
+        }
+        job != null && (job.state == AiJobState.FAILED || job.state == AiJobState.PAUSED) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            AfText(
+                (job.error ?: "စာသားပြောင်းခြင်း ရပ်သွားတယ်။") + " request ${job.items.size} ခု ကျန်။",
+                Modifier.testTag("transcribe-failed"), color = AutoFlowColors.Amber,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.RETRY, { model.retryTranscribe() }, Modifier.testTag("transcribe-retry"), kind = ButtonKind.Primary, enabled = !state.busy)
+                AfButton("အလုပ် ပယ်ဖျက်မယ်", { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+            }
+        }
+        job != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText("စာသားပြောင်းနေတယ် (request ${job.items.size} ခု ကျန်): အလုပ်များ မှာ ကြည့်ပါ။", Modifier.weight(1f).testTag("transcribe-progress"), muted = true, size = 12.sp)
+            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { model.cancelTranscribe() }, Modifier.testTag("transcribe-cancel"), kind = ButtonKind.Danger)
+        }
+        t.todoScenes > 0 -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            AfText("ရွေးထားသော ပြကွက် ${t.todoScenes} ခုမှာ စာတန်း မရှိပါ။ Gemini က သူတို့ရဲ့ အသံကိုပဲ script အတွက် စာသားပြောင်းပေးနိုင်တယ်။", muted = true, size = 12.sp)
+            AfButton("🎙 ရွေးထားသော ပြကွက်များကို စာသားပြောင်းမယ်", { model.transcribeScenes() }, Modifier.testTag("transcribe-start"), enabled = !state.busy)
+        }
+    }
+}
+
+@Composable
+private fun SegmentRow(model: RecapModel, state: RecapUiState, index: Int, seg: RecapSegment, enabled: Boolean) {
     var editing by remember(seg) { mutableStateOf(false) }
     var editTiming by remember(seg) { mutableStateOf(false) }
     var draft by remember(seg) { mutableStateOf(seg.textMy) }
-    var startDraft by remember(seg) { mutableStateOf(mmss(seg.startMs)) }
-    var endDraft by remember(seg) { mutableStateOf(mmss(seg.endMs)) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("#${index + 1} · ${clock(seg.startMs)}–${clock(seg.endMs)} · ${(seg.durationMs + 500) / 1000} s", Modifier.weight(1f), muted = true, size = 12.sp)
@@ -174,20 +229,17 @@ private fun SegmentRow(model: RecapModel, index: Int, seg: RecapSegment, enabled
                 AfButton("⏱", { editTiming = true }, enabled = enabled)
             }
         }
+        TakeVoiceLabel(state.recap?.takeFor(state.story!!.blocks[index].id), state.recap?.voiceLock)
         if (editTiming) {
-            AfText("Timing (mm:ss or hh:mm:ss)", muted = true, size = 11.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                io.github.alalkipgen.autoflow.ui.components.AfTextField(startDraft, { startDraft = it }, "Start", Modifier.weight(1f))
-                io.github.alalkipgen.autoflow.ui.components.AfTextField(endDraft, { endDraft = it }, "End", Modifier.weight(1f))
+            // Caption timing (D-53, audit F05): in the voice take, saved as captions.chunkEdits; the movie clip
+            // shown above is not changed.
+            val window = state.captionWindow(index)
+            if (window != null) {
+                TimingEditRow(window.first, window.second, state.hasCaptionTiming(index), { model.resetCaptionTiming(index) }) { s, e ->
+                    model.saveSegmentTiming(index, s, e).also { if (it) editTiming = false }
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfButton("Save timing", {
-                    val s = parseMs(startDraft) ?: return@AfButton
-                    val e = parseMs(endDraft) ?: return@AfButton
-                    if (model.saveSegmentTiming(index, s, e)) editTiming = false
-                }, kind = ButtonKind.Primary)
-                AfButton("Back", { editTiming = false; startDraft = mmss(seg.startMs); endDraft = mmss(seg.endMs) })
-            }
+            AfButton("Back", { editTiming = false })
         } else if (editing) {
             AfTextField(draft, { draft = it }, "Narration for scene ${index + 1}", Modifier.fillMaxWidth(), lines = 3, mono = false)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -205,18 +257,9 @@ private fun clock(ms: Long): String {
     val s = ms / 1000; return "${s / 3600}:${(s / 60 % 60).toString().padStart(2,'0')}:${(s % 60).toString().padStart(2,'0')}"
 }
 
-/** Format ms as `mm:ss` for editing (simpler for short clips). */
-private fun mmss(ms: Long): String {
-    val s = ms / 1000; return "${s / 60}:${(s % 60).toString().padStart(2,'0')}"
-}
+/** "Transcribe picked scenes" summary once lines are saved (5B-1, 5B-13 Burmese). */
+internal fun transcriptSummary(lines: Int, scenes: Int): String = "🎙 Transcript ✓ ပြကွက် $scenes ခုမှ $lines ကြောင်း"
 
-/** Parse `[[h:]m:]ss` → ms; returns null on bad input. */
-private fun parseMs(input: String): Long? {
-    val parts = input.trim().split(':').mapNotNull { it.toLongOrNull() }
-    return when (parts.size) {
-        1 -> parts[0] * 1000
-        2 -> (parts[0] * 60 + parts[1]) * 1000
-        3 -> (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000
-        else -> null
-    }
-}
+/** First sentence of the Transcribe confirm card: picked scenes without subtitles and the Gemini requests. */
+internal fun transcribeConfirmText(scenes: Int, requests: Int): String =
+    "စာတန်းမရှိသော ရွေးထားသည့် ပြကွက် $scenes ခုကို စာသားပြောင်းမယ်: Gemini request $requests ခု။"

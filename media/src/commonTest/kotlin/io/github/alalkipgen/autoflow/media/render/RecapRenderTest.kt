@@ -10,6 +10,7 @@ import io.github.alalkipgen.autoflow.core.recap.MaskPreset
 import io.github.alalkipgen.autoflow.core.recap.MaskStrength
 import io.github.alalkipgen.autoflow.core.recap.RecapMask
 import io.github.alalkipgen.autoflow.core.recap.RecapVisual
+import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
 import io.github.alalkipgen.autoflow.core.recap.Recap
 import io.github.alalkipgen.autoflow.core.recap.RecapAudio
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
@@ -19,6 +20,7 @@ import io.github.alalkipgen.autoflow.core.recap.RecapScript
 import io.github.alalkipgen.autoflow.core.recap.RecapSegment
 import io.github.alalkipgen.autoflow.core.recap.VoiceSource
 import io.github.alalkipgen.autoflow.core.recap.VoiceTake
+import io.github.alalkipgen.autoflow.core.recap.toV2
 import io.github.alalkipgen.autoflow.media.render.RenderCompiler.ClipMedia
 import io.github.alalkipgen.autoflow.media.render.RenderCompiler.Compiled
 import kotlin.test.Test
@@ -149,6 +151,44 @@ class RecapRenderTest {
         assertTrue("[bf0]" !in ffc)
         // Fill frame on a 16:9 movie in 9:16 crops the box's centre out of view only when it leaves the frame: here it stays.
         assertEquals(RecapRender.captionY(wide.copy(visual = visual, looks = listOf(Look.FILL)), fill.output), fill.overlays.first().centerY)
+    }
+
+    @Test
+    fun captionsOnACustomBoxAreCentredOnItAcross() {
+        val wide = recap.copy(movie = RecapMovie("source/movie.mp4", 9, 120_000, width = 1920, height = 1080), looks = emptyList())
+        val visual = RecapVisual(masks = listOf(RecapMask(MaskPreset.CUSTOM, listOf(0.06f, 0.6f, 0.44f, 0.22f))))
+        val g = RecapRender.graph(wide.copy(visual = visual), script, Ratio.R1_1, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        // 16:9 picture across a square frame (full width, bars above / below): the box centre 0.28 stays 0.28 across.
+        val o = g.overlays.first()
+        assertEquals(0.28f, assertNotNull(o.centerX), 0.001f)
+        val ass = assertIs<Compiled.Ok>(RenderCompiler.compile(g, env)).ass.orEmpty()
+        assertTrue("\\an5\\pos(${(g.output.width * o.centerX!!).toInt()},${(g.output.height * o.centerY!!).toInt()})" in ass, ass)
+        // A full-width strip keeps the frame's centre; no caption box = no centre (the usual bottom place).
+        val strip = RecapRender.graph(wide.copy(visual = RecapVisual(masks = listOf(RecapMask(MaskPreset.BOTTOM, MaskPreset.BOTTOM.rect)))), script, Ratio.R1_1, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        assertEquals(0.5f, assertNotNull(strip.overlays.first().centerX), 0.001f)
+        assertNull(RecapRender.graph(wide, script, Ratio.R1_1, Quality.PREVIEW, files, "Noto Sans Myanmar").overlays.first().centerX)
+        // The preview's terms (S10): back in 0–1 of the picture, the caption em over the picture height.
+        val v2 = wide.copy(visual = visual).toV2(script).first
+        val spot = assertNotNull(RecapRender.captionSpot(v2, g.output))
+        assertEquals(0.28f, spot.x, 0.002f)
+        assertEquals(0.71f, spot.y, 0.002f)
+        assertEquals(false, spot.bottom)
+        assertEquals(RecapRender.captionSizePx(g.output, v2.captionStyle) / (540f * 1080 / 1920), spot.emOfPicture, 0.001f)
+        // The usual bottom place of a 9:16 frame lies on the background under a 16:9 picture: the preview cannot show it.
+        assertNull(RecapRender.captionSpot(wide.toV2(script).first, RenderPresets.preview(Ratio.R9_16)))
+        // Mirror + Fill: the box is flipped to 0.72 of the picture, the 1920-wide picture is cropped to the square.
+        val flipped = wide.copy(visual = visual, looks = listOf(Look.MIRROR, Look.FILL))
+        val fg = RecapRender.graph(flipped, script, Ratio.R1_1, Quality.PREVIEW, files, "Noto Sans Myanmar")
+        assertEquals((-210f + 0.72f * 960) / 540, assertNotNull(fg.overlays.first().centerX), 0.002f)
+        assertEquals(0.28f, assertNotNull(RecapRender.captionSpot(flipped.toV2(script).first, fg.output)).x, 0.002f, "the preview shows the unflipped picture")
+        // outputX / movieX and outputY / movieY are inverses (bars, Fill, Zoom).
+        for ((zoom, fill) in listOf(false to false, false to true, true to false)) {
+            val x = RecapVisuals.outputX(0.3f, 480, 360, 960, 540, zoom, fill)
+            assertEquals(0.3f, RecapVisuals.movieX(x, 480, 360, 960, 540, zoom, fill), 0.0001f)
+            val y = RecapVisuals.outputY(0.7f, 1920, 1080, 540, 960, zoom, fill)
+            assertEquals(0.7f, RecapVisuals.movieY(y, 1920, 1080, 540, 960, zoom, fill), 0.0001f)
+        }
+        assertEquals((960 - 720) / 2f / 960, RecapVisuals.outputX(0f, 480, 360, 960, 540, zoom = false, fill = false), 0.0001f)
     }
 
     @Test

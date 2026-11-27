@@ -95,14 +95,16 @@ class RecapVoiceLockTest {
         open(m)
         assertTrue(m.update { it.copy(voiceLock = VoiceLock("gemini", locked, "Kore", "my")) })
 
-        val paused = assertFailsWith<AiItemPaused> { m.speakForJob(0) }
+        // A TTS_ALL job item = a block id of the job's own project folder (audit F11).
+        val block = m.state.value.story!!.blocks[0].id
+        val paused = assertFailsWith<AiItemPaused> { m.speakJobItem("/p/R.autoflow", block) }
         assertTrue(locked in paused.message.orEmpty() && "busy" in paused.message.orEmpty(), paused.message)
 
         tts.reply = AiResult.Failed("http_503", "overloaded")
-        assertFailsWith<AiItemPaused> { m.speakForJob(0) }
+        assertFailsWith<AiItemPaused> { m.speakJobItem("/p/R.autoflow", block) }
 
         tts.reply = AiResult.Failed("model_unavailable", "model not found")
-        assertFailsWith<IllegalStateException> { m.speakForJob(0) } // a FAILED job, not PAUSED
+        assertFailsWith<IllegalStateException> { m.speakJobItem("/p/R.autoflow", block) } // a FAILED job, not PAUSED
 
         assertEquals(List<String?>(3) { locked }, tts.locks, "always the locked model, never another")
         assertEquals(VoiceLock("gemini", locked, "Kore", "my"), recap().voiceLock, "the lock is not changed by failures")

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.TestApp
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -58,7 +59,7 @@ class PhoneShellTest {
     @Test
     fun phoneWidthShowsBottomTabsAndCreatesAProject() = runDesktopComposeUiTest(width = 412, height = 900) {
         val koin = startPhoneKoin()
-        setContent { App() }
+        setContent { TestApp() }
         onNode(tab("Projects")).assertIsSelected()
         PhoneTabs.forEach { (_, label) -> onNode(tab(label)).assertExists() }
         // No sidebar: its section headers and the screens behind More are not on screen.
@@ -81,7 +82,7 @@ class PhoneShellTest {
     @Test
     fun lockedTabExplainsAndMoreOpensTheOtherScreens() = runDesktopComposeUiTest(width = 412, height = 900) {
         startPhoneKoin()
-        setContent { App() }
+        setContent { TestApp() }
         onNode(tab("Storyboard")).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "locked"))
         onNode(tab("Storyboard")).performClick()
         waitForIdle()
@@ -103,7 +104,7 @@ class PhoneShellTest {
     fun backStepsToMoreThenProjectsThenLeaves() = runDesktopComposeUiTest(width = 412, height = 900) {
         startPhoneKoin()
         var back: (() -> Unit)? = null
-        setContent { App(backHandler = { enabled, onBack -> back = if (enabled) onBack else null }) }
+        setContent { TestApp(backHandler = { enabled, onBack -> back = if (enabled) onBack else null }) }
         assertNull(back, "Back on Projects leaves the app")
         onNode(tab(MORE)).performClick()
         waitForIdle()
@@ -123,7 +124,7 @@ class PhoneShellTest {
     fun tabLabelsFitWithALargeFontSize() = runDesktopComposeUiTest(width = 412, height = 900) {
         startPhoneKoin()
         // The owner's phone uses a large font size: "Storyboard" was cut to "Storyboa…" in v0.1.6.
-        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, fontScale = 1.5f)) { App() } }
+        setContent { CompositionLocalProvider(LocalDensity provides Density(1f, fontScale = 1.5f)) { TestApp() } }
         PhoneTabs.forEach { (_, label) ->
             val layouts = mutableListOf<TextLayoutResult>()
             onNode(hasText(label, substring = true) and hasParent(isSelectable()), useUnmergedTree = true).fetchSemanticsNode()
@@ -138,7 +139,7 @@ class PhoneShellTest {
     @Test
     fun desktopWidthKeepsTheSidebar() = runDesktopComposeUiTest(width = 1024, height = 768) {
         startPhoneKoin()
-        setContent { App() }
+        setContent { TestApp() }
         onNodeWithText("MODE").assertExists()
         onNode(hasText("Flow Handoff") and isSelectable()).assertExists()
         onNodeWithText("Inbox").assertDoesNotExist()

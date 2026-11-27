@@ -13,6 +13,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.microseconds
+import kotlin.time.Instant
 
 class ProjectStoreTest {
     private val fs = InMemoryFileSystem()
@@ -93,5 +96,78 @@ class ProjectStoreTest {
     fun savedFileIsTheCoreJsonOfTheReturnedProject() {
         val p = store.create(dir, "A", Mode.MOVIE_RECAP).ok()
         assertEquals(CoreJson.encodeToString(p), text("$dir/project.json"))
+    }
+
+    // Audit F04: a save is a compare-and-swap on `updatedAt` under the folder lock.
+
+    @Test
+    fun staleSaveIsRefusedAsConflictAndWritesNothing() {
+        val v1 = store.create(dir, "A", Mode.MUSIC_VIDEO).ok()
+        store.save(dir, v1.copy(name = "first")).ok()
+        val main = fs.read("$dir/project.json")
+        val bak = fs.read("$dir/project.json.bak")
+        assertEquals(CoreError.Conflict("$dir/project.json"), store.save(dir, v1.copy(name = "stale")).err())
+        assertTrue(main.contentEquals(fs.read("$dir/project.json")), "the newer save must survive")
+        assertTrue(bak.contentEquals(fs.read("$dir/project.json.bak")))
+        assertTrue(fs.list(dir).none { it.endsWith(".tmp") })
+    }
+
+    @Test
+    fun updateAppliesTheChangeToTheLatestFileAndSkipsANoOp() {
+        val v1 = store.create(dir, "A", Mode.MUSIC_VIDEO).ok()
+        store.save(dir, v1.copy(name = "renamed elsewhere")).ok()
+        val v3 = store.update(dir) { it.copy(globalStyle = GlobalStyle(visual = "film")) }.ok()
+        assertEquals("renamed elsewhere", v3.name, "update must start from the file, not from a stale copy")
+        assertEquals("film", store.open(dir).ok().globalStyle.visual)
+        val before = fs.read("$dir/project.json")
+        assertEquals(v3, store.update(dir) { it }.ok())
+        assertTrue(before.contentEquals(fs.read("$dir/project.json")), "an unchanged project is not rewritten")
+    }
+
+    @Test
+    fun updatedAtStrictlyIncreasesEvenWithAFrozenClock() {
+        val frozen = object : Clock {
+            override fun now(): Instant = Instant.parse("2026-11-10T08:00:00Z")
+        }
+        val s = ProjectStore(fs, frozen, newId = { "id-1" })
+        var p = s.create(dir, "A", Mode.MUSIC_VIDEO).ok()
+        repeat(3) { i ->
+            val next = s.save(dir, p.copy(name = "v$i")).ok()
+            assertTrue(next.updatedAt > p.updatedAt, "save $i")
+            p = next
+        }
+        assertEquals(CoreError.Conflict("$dir/project.json"), s.save(dir, p.copy(updatedAt = p.updatedAt - 1.microseconds)).err())
+    }
+
+    @Test
+    fun aFailedSaveKeepsTheCommittedBytesAndTheNextSaveWorks() {
+        val v1 = store.create(dir, "A", Mode.MUSIC_VIDEO).ok()
+        val committed = fs.read("$dir/project.json")
+        val steps = listOf(
+            "write" to "$dir/project.json.tmp",
+            "write" to "$dir/project.json.bak.tmp",
+            "move" to "$dir/project.json.bak.tmp",
+            "move" to "$dir/project.json.tmp",
+        )
+        for ((op, path) in steps) {
+            fs.failWhen = { o, p -> o == op && p == path }
+            assertIs<CoreError.Io>(store.save(dir, v1.copy(name = "lost")).err(), "$op $path")
+            fs.failWhen = { _, _ -> false }
+            assertTrue(committed.contentEquals(fs.read("$dir/project.json")), "after failing $op $path")
+        }
+        assertEquals("next", store.save(dir, v1.copy(name = "next")).ok().name)
+    }
+
+    @Test
+    fun aDamagedMainNeverReplacesTheLastGoodBackup() {
+        val v1 = store.create(dir, "A", Mode.MUSIC_VIDEO).ok()
+        store.save(dir, v1.copy(name = "B")).ok()
+        val goodBak = fs.read("$dir/project.json.bak")
+        fs.writeDurably("$dir/project.json", "{ not json".encodeToByteArray())
+        // Saving over a damaged file (e.g. after the user chose to start over) writes the new main …
+        assertEquals("C", store.save(dir, v1.copy(name = "C")).ok().name)
+        // … but the damaged bytes do not become the backup.
+        assertTrue(goodBak.contentEquals(fs.read("$dir/project.json.bak")))
+        assertEquals("A", store.openBackup(dir).ok().name)
     }
 }

@@ -1,6 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -65,7 +68,6 @@ import io.github.alalkipgen.autoflow.ui.settings.AppInfo
 import io.github.alalkipgen.autoflow.ui.settings.BackupModel
 import io.github.alalkipgen.autoflow.ui.settings.ProviderStatusModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsScreen
-import io.github.alalkipgen.autoflow.ui.settings.SettingsModel
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardJobs
 import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardScreen
@@ -117,8 +119,10 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val backup = koinInject<BackupModel>().takeIf { it.available }
     val settingsStore = koinInject<SettingsStore>()
     val settings by settingsStore.state.collectAsState()
-    val settingsModel = koinInject<SettingsModel>()
-    val settingsState by settingsModel.state.collectAsState()
+    val bundledFeatures = remember(koin) { koin.get<io.github.alalkipgen.autoflow.ui.settings.BundledConfig>().featuresJson() }
+    val features = remember(settings.featureOverrides, bundledFeatures) {
+        io.github.alalkipgen.autoflow.core.flags.FeatureFlags.load(bundledFeatures, settings.featureOverrides)
+    }
     val fontPaths = settings.fontPaths
     val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
     val builtInFonts = remember(koin) { koin.getOrNull<io.github.alalkipgen.autoflow.ui.settings.BuiltInFonts>() }
@@ -165,7 +169,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
             }
         }
         CompositionLocalProvider(LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
-            if (settingsState.features.studioV2) {
+            if (features.studioV2) {
                 StudioV2App(
                     status = status,
                     projectName = project?.project?.name,
@@ -186,20 +190,31 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
 }
 
 /** Where Studio v2 is: tab, project screen (null = the project list) and whether Settings is open over it. */
-data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false)
+data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE)
 
 /** Android Back in Studio v2: closes Settings, then steps project screen → list, then any tab → Home; null = leave. */
 fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
     nav.settings -> nav.copy(settings = false)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Export" && recap -> nav.copy(projectScreen = "Recap")
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Classic Recap" && recap -> nav.copy(projectScreen = "Recap")
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Recap" && recap && nav.recapStep.previous() != null -> nav.copy(recapStep = nav.recapStep.previous()!!)
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen in MV_CLASSIC_SCREENS && !recap -> nav.copy(projectScreen = MV_CLASSIC)
+    nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == MV_CLASSIC && !recap -> nav.copy(projectScreen = SHOT_SHEET)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null -> nav.copy(projectScreen = null)
     nav.dest != StudioV2Dest.HOME -> V2Nav(projectScreen = nav.projectScreen)
     else -> null
 }
 
-/** Project screens reachable in Studio v2, per project mode (Music Video keeps the classic steps until 5B-12). */
+/** Music Video in Studio v2 (5B-12): one shot sheet instead of the Storyboard / Shots / References / Flow Handoff tabs. */
+const val SHOT_SHEET = "Shot sheet"
+
+/** The classic Music Video steps, kept for one release behind this entry (like Classic Recap, D-41). */
+const val MV_CLASSIC = "Classic steps"
+val MV_CLASSIC_SCREENS = listOf("Storyboard", "Shots", "References", "Flow Handoff")
+
+/** Project screens reachable in Studio v2, per project mode. */
 fun v2ProjectScreens(recap: Boolean): List<String> =
-    if (recap) listOf("Recap", "Export") else listOf("Input", "Storyboard", "Shots", "References", "Flow Handoff", "Inbox", "Export")
+    if (recap) listOf("Recap", "Export") else listOf("Input", SHOT_SHEET, "Inbox", "Export", MV_CLASSIC)
 
 /**
  * Studio v2 root (5A-6): Home · Projects · Library · Jobs with adaptive shell.
@@ -234,12 +249,13 @@ private fun StudioV2App(
         if (back != null) nav = back
         else showExitDialog = true
     }
-    fun openProjectScreen(screen: String?) { nav = V2Nav(StudioV2Dest.PROJECTS, screen) }
+    fun openProjectScreen(screen: String?) { nav = V2Nav(StudioV2Dest.PROJECTS, screen,
+        recapStep = if (screen == "Export" && isRecap) io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE else io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE) }
 
     val content: @Composable () -> Unit = {
         if (nav.settings) {
             Column(Modifier.fillMaxSize()) {
-                V2SubBar("← Back", status) { nav = nav.copy(settings = false) }
+                V2SubBar(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, status) { nav = nav.copy(settings = false) }
                 Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup) }
             }
         } else when (nav.dest) {
@@ -271,8 +287,37 @@ private fun StudioV2App(
                     })
                 } else {
                     Column(Modifier.fillMaxSize()) {
-                        V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
-                        Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen) { openProjectScreen(it) } }
+                        if (isRecap && screen in listOf("Recap", "Export")) {
+                            io.github.alalkipgen.autoflow.ui.components.WrapRow {
+                                io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.PROJECTS_BACK, { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
+                                projectName?.let { AfText(it, bold = true) }
+                            }
+                            io.github.alalkipgen.autoflow.ui.recap.RecapStepHeader(
+                                if (screen == "Export") io.github.alalkipgen.autoflow.ui.recap.RecapStep.EXPORT else nav.recapStep,
+                                onBack = { nav = v2Back(nav, true) ?: nav },
+                                onNext = {
+                                    val next = nav.recapStep.next()
+                                    if (next == io.github.alalkipgen.autoflow.ui.recap.RecapStep.EXPORT) nav = nav.copy(projectScreen = "Export")
+                                    else if (next != null) nav = nav.copy(recapStep = next)
+                                },
+                                onClassic = { nav = nav.copy(projectScreen = "Classic Recap") },
+                            )
+                            Box(Modifier.fillMaxWidth().weight(1f)) {
+                                if (screen == "Recap") io.github.alalkipgen.autoflow.ui.recap.StudioRecapScreen(koinInject(), nav.recapStep, windowWidthDp) {
+                                    nav = nav.copy(projectScreen = "Export", recapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.STYLE)
+                                } else {
+                                    val recapModel = koinInject<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()
+                                    io.github.alalkipgen.autoflow.ui.recap.ProjectPanes(windowWidthDp,
+                                        list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText("ထုတ်ယူ", bold = true); AfText("မထုတ်ခင် စစ်ဆေး → render → သိမ်း / မျှဝေ", muted = true) } },
+                                        editor = { io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject()) },
+                                        preview = { Column(Modifier.verticalScroll(rememberScrollState())) { io.github.alalkipgen.autoflow.ui.recap.ExactFrameCard(recapModel) } },
+                                    )
+                                }
+                            }
+                        } else {
+                            V2ProjectBar(projectName, v2ProjectScreens(isRecap), screen, onBack = { openProjectScreen(null) }, onSelect = { openProjectScreen(it) })
+                            Box(Modifier.fillMaxWidth().weight(1f)) { V2ProjectScreen(screen, windowWidthDp) { openProjectScreen(it) } }
+                        }
                     }
                 }
             }
@@ -281,7 +326,7 @@ private fun StudioV2App(
                 when (source) {
                     io.github.alalkipgen.autoflow.ui.jobs.JobSource.RECAP -> openProjectScreen("Recap")
                     io.github.alalkipgen.autoflow.ui.jobs.JobSource.RENDER -> openProjectScreen("Export")
-                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.STORYBOARD -> openProjectScreen("Storyboard")
+                    io.github.alalkipgen.autoflow.ui.jobs.JobSource.STORYBOARD -> openProjectScreen(SHOT_SHEET)
                     io.github.alalkipgen.autoflow.ui.jobs.JobSource.AI -> Unit
                 }
             })
@@ -308,10 +353,20 @@ private fun StudioV2App(
 
 /** One project screen inside Studio v2; [go] moves to another one. */
 @Composable
-private fun V2ProjectScreen(screen: String, go: (String) -> Unit) {
+private fun V2ProjectScreen(screen: String, windowWidthDp: Float, go: (String) -> Unit) {
     when (screen) {
-        "Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { go("Export") })
-        "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { go("Storyboard") })
+        "Recap", "Classic Recap" -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { go("Export") })
+        "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { go(SHOT_SHEET) })
+        SHOT_SHEET -> {
+            val fs = koinInject<io.github.alalkipgen.autoflow.core.io.FileSystem>()
+            io.github.alalkipgen.autoflow.ui.shotsheet.ShotSheetScreen(
+                storyboard = koinInject(), jobs = koinInject(), shots = koinInject(), refs = koinInject(), handoff = koinInject(),
+                readBytes = { path -> runCatching { fs.read(path) }.getOrNull() },
+                windowWidthDp = windowWidthDp,
+                onGoToInput = { go("Input") },
+            )
+        }
+        MV_CLASSIC -> MvClassicSteps(go)
         "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { go("Input") })
         "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
         "References" -> {
@@ -325,6 +380,20 @@ private fun V2ProjectScreen(screen: String, go: (String) -> Unit) {
         "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
         "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
         else -> ScreenPlaceholder(screen)
+    }
+}
+
+/** The classic Music Video steps for one release (5B-12): each opens its old screen; Back returns here. */
+@Composable
+private fun MvClassicSteps(go: (String) -> Unit) {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AfText(io.github.alalkipgen.autoflow.ui.i18n.My.screen(MV_CLASSIC), bold = true)
+        AfText("Shot စာရွက်က shot တစ်ခုချင်းစီအတွက် ဒီအဆင့်တွေ အားလုံးကို လုပ်ပေးတယ်။ စာမျက်နှာဟောင်းတွေကို နောက်ထုတ်ဝေမှု တစ်ကြိမ်အထိ ထားမယ်။", muted = true)
+        io.github.alalkipgen.autoflow.ui.components.WrapRow {
+            MV_CLASSIC_SCREENS.forEach { s ->
+                io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), { go(s) }, Modifier.heightIn(min = 48.dp))
+            }
+        }
     }
 }
 
@@ -347,11 +416,11 @@ private fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
 private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            io.github.alalkipgen.autoflow.ui.components.AfButton("← Projects", onBack)
+            io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.PROJECTS_BACK, onBack)
             projectName?.let { AfText(it, Modifier.weight(1f), bold = true) }
         }
         io.github.alalkipgen.autoflow.ui.components.WrapRow(spacing = 6.dp) {
-            screens.forEach { s -> io.github.alalkipgen.autoflow.ui.components.AfChip(s, s == selected, onClick = { onSelect(s) }) }
+            screens.forEach { s -> io.github.alalkipgen.autoflow.ui.components.AfChip(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), s == selected, onClick = { onSelect(s) }) }
         }
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
     }
@@ -396,11 +465,11 @@ private fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
                 .padding(32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            AfText("Exit Auto Flow?", bold = true, size = 20.sp)
-            AfText("Renders keep going in the background.", muted = true)
+            AfText("Auto Flow ကို ပိတ်မလား?", bold = true, size = 20.sp)
+            AfText("Render တွေ နောက်ကွယ်မှာ ဆက်လုပ်နေမယ်။", muted = true)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AfButton("Exit", onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
-                AfButton("Stay", onStay, Modifier.weight(1f))
+                AfButton("ပိတ်မယ်", onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
+                AfButton("ဆက်နေမယ်", onStay, Modifier.weight(1f))
             }
         }
     }

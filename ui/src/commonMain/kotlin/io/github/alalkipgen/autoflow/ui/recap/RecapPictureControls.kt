@@ -1,6 +1,18 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import io.github.alalkipgen.autoflow.core.recap.RecapStory
+import io.github.alalkipgen.autoflow.media.render.CaptionChunks
+import io.github.alalkipgen.autoflow.media.render.Output
+import io.github.alalkipgen.autoflow.media.render.RecapRender
+import io.github.alalkipgen.autoflow.media.render.RenderPresets
+import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -50,6 +62,8 @@ import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.RecapVisuals
 import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 import io.github.alalkipgen.autoflow.ui.components.AfButton
+import io.github.alalkipgen.autoflow.ui.components.MoviePlayback
+import io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported
 import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfH2
@@ -64,8 +78,8 @@ import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
-const val HIDE_ON_MOVIE = "Hide things on the movie (its own subtitles, logos)"
-const val CAPTIONS_ON_BOX = "Put my captions on the bottom box"
+const val HIDE_ON_MOVIE = "ရုပ်ရှင်ပေါ်က အရာတွေ ဖုံးမယ် (သူ့စာတန်း၊ logo)"
+const val CAPTIONS_ON_BOX = "ကျွန်ုပ်ရဲ့ စာတန်းကို အောက်ဘက် ဘောင်ပေါ် တင်မယ်"
 
 /**
  * Picture (5B-2) in card 5: blur boxes over the movie with a frame preview, the space around the movie when its shape
@@ -86,28 +100,34 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
 
     // ── 🙈 Hide things ─────────────────────────────────────────────────────────
-    AfCard("🙈 Hide things on the movie") {
-        AfText("Blur boxes over the movie's subtitles, logos etc.", muted = true, size = 12.sp)
+    AfCard("🙈 ရုပ်ရှင်ပေါ်က အရာတွေ ဖုံးမယ်") {
+        AfText("ရုပ်ရှင်ရဲ့ စာတန်း၊ logo စတာတွေပေါ်မှာ မှုန်ဝါးဘောင် တင်မယ်။", muted = true, size = 12.sp)
         WrapRow {
             MaskPreset.entries.forEach { p ->
-                AfChip(p.label, v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
+                AfChip(maskLabel(p), v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
             }
         }
         if (v.masks.isNotEmpty()) {
             MaskPreview(recap, model)
             WrapRow {
-                AfH3("Blur strength")
+                AfH3("မှုန်ဝါးအား")
                 MaskStrength.entries.forEach { s ->
-                    AfChip(s.label, v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
+                    AfChip(strengthLabel(s), v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
                 }
             }
             v.masks.forEach { m ->
                 WrapRow {
-                    AfText(m.preset.label, size = 12.sp)
+                    AfText(maskLabel(m.preset), size = 12.sp)
                     AfButton("▲", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } })
                     AfButton("▼", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } })
-                    AfButton("Taller", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
-                    AfButton("Shorter", { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
+                    AfButton(TALLER, { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
+                    AfButton(SHORTER, { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
+                    if (!m.preset.isStrip) {
+                        AfButton("◀", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } })
+                        AfButton("▶", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
+                        AfButton(WIDER, { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
+                        AfButton(NARROWER, { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
+                    }
                 }
             }
             if (v.masks.any { it.centerY >= 0.5f }) {
@@ -237,6 +257,33 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
 /** Test tag of the live mask preview (drag / pinch target). */
 internal const val MASK_PREVIEW_TAG = "mask-preview"
 
+// Blur-box controls in Burmese (5B-13); presets and strengths keep their saved English enum names.
+internal const val TALLER = "ပိုမြင့်"
+internal const val SHORTER = "ပိုနိမ့်"
+internal const val WIDER = "ပိုကျယ်"
+internal const val NARROWER = "ပိုကျဉ်း"
+internal const val EXACT_FRAME = "အတိအကျ ပုံ"
+internal const val PLAY_PLAYBACK = "▶ ရုပ်ရှင် ဖွင့်ကြည့်မယ်"
+internal const val STOP_PLAYBACK = "⏹ ပုံရိပ်ပဲ ပြမယ်"
+internal const val PLAYBACK_TAG = "preview-playback"
+
+/** Burmese name of a blur-box preset (5B-13). */
+internal fun maskLabel(p: MaskPreset): String = when (p) {
+    MaskPreset.BOTTOM -> "အောက်ခြေ အတန်း (စာတန်း)"
+    MaskPreset.TOP -> "အပေါ် အတန်း"
+    MaskPreset.LOGO_TL -> "Logo ဘယ်ဘက်အပေါ်"
+    MaskPreset.LOGO_TR -> "Logo ညာဘက်အပေါ်"
+    MaskPreset.CUSTOM -> "စိတ်ကြိုက် ဘောင်"
+}
+
+internal fun strengthLabel(s: MaskStrength): String = when (s) {
+    MaskStrength.LIGHT -> "ပေါ့ပေါ့"
+    MaskStrength.STRONG -> "ပြင်းပြင်း"
+}
+
+/** Hint under the live preview for the touched box. */
+internal fun boxHint(p: MaskPreset): String = "${maskLabel(p)}: ဆွဲပြီး ရွှေ့ပါ · လက်နှစ်ချောင်းနဲ့ ချုံ့ချဲ့ ဒါမှမဟုတ် mouse wheel နဲ့ အရွယ်ပြောင်းပါ"
+
 /**
  * Live preview (5A-8, D-42): a frame of the first picked scene with the blur boxes drawn on it (what the render will
  * hide). Touch a box to pick it, drag to move it, pinch (or the mouse wheel on a computer) to resize it around the
@@ -250,7 +297,14 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
     val movie = recap.movie
     val ratio = if (movie != null && movie.width > 0 && movie.height > 0) movie.width.toFloat() / movie.height else 16f / 9f
     val masks = recap.visual.masks
+    val output = RenderPresets.preview(model.outputRatio(recap))
+    val story by model.state.collectAsState()
+    val caption = previewCaption(recap, story.story, output)
     var selected by remember { mutableStateOf<MaskPreset?>(null) }
+    // Android: the scene plays (muted, looping) under the boxes and caption instead of the still frame.
+    var playing by remember { mutableStateOf(false) }
+    val moviePath = remember(recap.movie) { model.moviePath() }
+    val playable = moviePlaybackSupported && moviePath != null && scene != null
     // The box under the fingers while a gesture runs; saved (and cleared) when they lift.
     var draft by remember { mutableStateOf<Pair<MaskPreset, List<Float>>?>(null) }
     val current by rememberUpdatedState(masks)
@@ -305,9 +359,52 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
                 }
             },
     ) {
-        image?.let { Image(it, contentDescription = "Movie frame", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
+        val clip = scene?.takeIf { playing && playable }
+        RecapPreviewPicture(
+            recap, output, image, caption, Modifier.fillMaxSize(), selected, draft,
+            background = if (clip != null && moviePath != null) ({ MoviePlayback(moviePath, clip.startMs, clip.endMs, Modifier.fillMaxSize()) }) else null,
+        )
+    }
+    if (playable) AfButton(if (playing) STOP_PLAYBACK else PLAY_PLAYBACK, { playing = !playing }, Modifier.testTag(PLAYBACK_TAG))
+    AfText(
+        selected?.let { boxHint(it) } ?: "ရွှေ့ဖို့ ဒါမှမဟုတ် အရွယ်ပြောင်းဖို့ ဘောင်တစ်ခုကို ထိပါ။",
+        muted = true, size = 12.sp,
+    )
+}
+
+/** The first caption the export would burn (first story block's first chunk), or null with captions off / no text. */
+internal fun previewCaption(recap: RecapV2, story: RecapStory?, output: Output): String? {
+    if (!recap.burnCaptions) return null
+    val text = story?.blocks?.firstOrNull { it.textMy.isNotBlank() }?.textMy?.trim() ?: return null
+    return CaptionChunks.chunks(text, RecapRender.lineChars(output, recap.captionStyle)).firstOrNull()
+}
+
+/**
+ * The Recap preview picture (5A-8, D-42; S10): the movie frame, the blur boxes where the render puts them, and the
+ * caption where the export burns it ([RecapRender.captionSpot]: on the caption box, centred on it, or the usual
+ * bottom place) at the export's size relative to the picture, with its colour and outline or box. The export draws
+ * the same numbers with ffmpeg / libass; `PreviewExportParityTest` (S10) measures both.
+ */
+@Composable
+internal fun RecapPreviewPicture(
+    recap: RecapV2,
+    output: Output,
+    image: ImageBitmap?,
+    caption: String?,
+    modifier: Modifier = Modifier,
+    selected: MaskPreset? = null,
+    draft: Pair<MaskPreset, List<Float>>? = null,
+    background: (@Composable () -> Unit)? = null,
+) {
+    val measurer = rememberTextMeasurer()
+    val family = LocalUiFontFamily.current
+    val spot = remember(recap, output) { RecapRender.captionSpot(recap, output) }
+    val style = recap.captionStyle
+    Box(modifier) {
+        if (background != null) background()
+        else image?.let { Image(it, contentDescription = "Movie frame", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
         Canvas(Modifier.fillMaxSize()) {
-            masks.forEach { m ->
+            recap.visual.masks.forEach { m ->
                 val r = draft?.takeIf { it.first == m.preset }?.second ?: m.rect
                 val topLeft = Offset(r[0] * size.width, r[1] * size.height)
                 val box = Size(r[2] * size.width, r[3] * size.height)
@@ -315,26 +412,47 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
                 drawRect(Color.White.copy(alpha = if (picked) 0.4f else 0.55f), topLeft, box)
                 drawRect(if (picked) AutoFlowColors.Cyan else AutoFlowColors.Purple, topLeft, box, style = Stroke(width = (if (picked) 3 else 2).dp.toPx()))
             }
+            if (caption != null && spot != null) {
+                val emPx = spot.emOfPicture * size.height
+                // libass draws in output pixels: outline = strokeWidth or max(2, size / 24); box padding max(4, size / 6).
+                val outPx = RecapRender.captionSizePx(output, style).coerceAtLeast(1)
+                val perOutPx = emPx / outPx
+                val text = TextStyle(fontFamily = family, fontSize = (emPx / fontScale / density).sp, textAlign = TextAlign.Center)
+                val layout = measurer.measure(caption, text, softWrap = false)
+                val w = layout.size.width.toFloat()
+                val h = layout.size.height.toFloat()
+                val topLeft = Offset(spot.x * size.width - w / 2, if (spot.bottom) spot.y * size.height - h else spot.y * size.height - h / 2)
+                val colour = hexColour(style.effectiveColour)
+                if (style.box) {
+                    val pad = maxOf(4, outPx / 6) * perOutPx
+                    drawRect(Color.Black.copy(alpha = 0.6f), Offset(topLeft.x - pad, topLeft.y - pad), Size(w + 2 * pad, h + 2 * pad))
+                } else {
+                    val outline = (if (style.strokeWidth > 0) style.strokeWidth else maxOf(2, outPx / 24)) * perOutPx
+                    val edge = if (style.strokeWidth > 0) hexColour(style.strokeColour) else Color.Black
+                    drawText(layout, edge, topLeft, drawStyle = Stroke(width = 2 * outline, join = StrokeJoin.Round))
+                }
+                drawText(layout, colour, topLeft)
+            }
         }
     }
-    AfText(
-        selected?.let { "${it.label}: drag to move · pinch or mouse wheel to resize" } ?: "Touch a box to move or resize it.",
-        muted = true, size = 12.sp,
-    )
 }
+
+/** `#RRGGBB` → a colour; anything else is white (as [io.github.alalkipgen.autoflow.media.render.AssWriter.assColor]). */
+private fun hexColour(hex: String): Color =
+    hex.removePrefix("#").takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } ?: Color.White
 
 /**
  * "Exact frame" (D-42): the export compiler renders one still of the recap (blur boxes, background, looks,
  * watermark, burned-in captions with the real font) — the preview above is close, this is exact.
  */
 @Composable
-private fun ExactFrameCard(model: RecapModel) {
+internal fun ExactFrameCard(model: RecapModel) {
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
     var working by remember { mutableStateOf(false) }
-    AfCard("🎯 Exact frame") {
-        AfText("One frame made by the export itself — what the video will really show.", muted = true, size = 12.sp)
-        AfButton(if (working) "Rendering…" else "Exact frame", {
+    AfCard("🎯 ${EXACT_FRAME}") {
+        AfText("ထုတ်ယူမှုကိုယ်တိုင် လုပ်တဲ့ ပုံတစ်ပုံ — ဗွီဒီယိုမှာ တကယ် ပေါ်မယ့်အတိုင်း။", muted = true, size = 12.sp)
+        AfButton(if (working) "Render လုပ်နေတယ်…" else EXACT_FRAME, {
             if (!working) {
                 working = true
                 scope.launch { result = model.exactFrame(); working = false }
@@ -346,7 +464,7 @@ private fun ExactFrameCard(model: RecapModel) {
                 bmp?.let {
                     Image(it, contentDescription = "Exact frame", Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(it.width.toFloat() / it.height).clip(AutoFlowShapes.Card))
                 }
-                AfText("Exact frame · ${RecapModel.seconds(r.frame.atMs)}", muted = true, size = 12.sp)
+                AfText("$EXACT_FRAME · ${RecapModel.seconds(r.frame.atMs)}", muted = true, size = 12.sp)
             }
             is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Failed -> AfText(r.reason, color = AutoFlowColors.Amber, size = 12.sp)
             null -> {}

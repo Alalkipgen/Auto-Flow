@@ -34,6 +34,8 @@ data class RefRow(
     val status: ShotStatus,
     /** null = ok to copy prompt; non-null = gate message */
     val copyGateMsg: String?,
+    /** Every imported reference image, oldest first: Ref A, Ref B, … on the shot sheet (5B-12). */
+    val refs: List<ArtifactId> = emptyList(),
 )
 
 data class ReferencesUiState(
@@ -146,6 +148,14 @@ class ReferencesModel(
         session.save(WorkflowRules.approveAll(project, ApprovalStep.REF, session.lookup()))
     }
 
+    /**
+     * The bytes of reference image [id] of the open project for a thumbnail (images are shown as they are; none over
+     * 4 MB, so a huge file never stalls the sheet). Null when missing or unreadable.
+     */
+    suspend fun refImage(id: ArtifactId): ByteArray? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        (session.artifacts()?.readBytes(id) as? CoreResult.Ok)?.value?.takeIf { it.size <= MAX_REF_THUMB_BYTES }
+    }
+
     private fun readPromptIr(shot: Shot): PromptIR? =
         shot.promptIr?.let { (session.readJson(it, PromptIR.serializer()) as? CoreResult.Ok)?.value }
 
@@ -166,6 +176,7 @@ class ReferencesModel(
                 refApproved = shot.approvals.ref,
                 status = ShotStatus.of(project, shot, lookup),
                 copyGateMsg = copyGate,
+                refs = shot.refImages,
             )
         }
         return ReferencesUiState(
@@ -182,5 +193,12 @@ class ReferencesModel(
         io.github.alalkipgen.autoflow.core.workflow.Blocker.PROMPT_NOT_APPROVED -> "Approve the shot prompt first (Shots screen)"
         io.github.alalkipgen.autoflow.core.workflow.Blocker.PROMPT_STALE -> "Prompt is stale — recompile it (Shots screen)"
         else -> "Shot not ready"
+    }
+
+    companion object {
+        const val MAX_REF_THUMB_BYTES = 4 * 1024 * 1024
+
+        /** Ref A, Ref B, …, Ref Z, then Ref 27, … (DESIGN.md §3 "Ref A / Ref B"). */
+        fun refLabel(index: Int): String = "Ref " + if (index < 26) ('A' + index).toString() else (index + 1).toString()
     }
 }

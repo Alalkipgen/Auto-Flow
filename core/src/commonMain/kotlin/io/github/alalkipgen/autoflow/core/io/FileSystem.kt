@@ -30,6 +30,14 @@ interface FileSystem {
      * used for files too large for memory (a movie, D-33).
      */
     fun copyDurably(from: String, to: String) = writeDurably(to, read(from))
+
+    /**
+     * Runs [block] while holding the exclusive lock of the project folder [dir] (audit F04): other threads of this
+     * process wait, and on java.nio ([io.github.alalkipgen.autoflow.platform.JvmFs]) so do other processes (an OS
+     * file lock on `<dir>/.cache/project.lock`, e.g. a second desktop window). Re-entrant. The default runs [block]
+     * directly: for single-threaded test doubles such as [InMemoryFileSystem].
+     */
+    fun <T> withFolderLock(dir: String, block: () -> T): T = block()
 }
 
 /** Joins a directory and a child name with `/`. */

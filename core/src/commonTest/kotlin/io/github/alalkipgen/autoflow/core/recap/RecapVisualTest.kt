@@ -76,4 +76,34 @@ class RecapVisualTest {
         assertEquals(v, RecapVisuals.setRect(v, MaskPreset.LOGO_TR, listOf(Float.NaN, 0f, 0.1f, 0.1f)), "broken rect ignored")
         assertEquals(v, RecapVisuals.setRect(v, MaskPreset.TOP, listOf(0f, 0f, 0.5f, 0.5f)), "no such box: nothing changes")
     }
+    @Test
+    fun customBoxGoesAnywhereAndCarriesTheCaptionsOnlyInTheLowerHalf() {
+        assertEquals(listOf(MaskPreset.CUSTOM), MaskPreset.entries.filterNot { it.isStrip || it.name.startsWith("LOGO") })
+        assertEquals(setOf(MaskPreset.BOTTOM, MaskPreset.TOP), MaskPreset.entries.filter { it.isStrip }.toSet())
+        var v = RecapVisuals.toggle(RecapVisual(), MaskPreset.CUSTOM)
+        assertEquals(listOf(0.3f, 0.3f, 0.4f, 0.2f), v.masks.single().rect)
+        assertNull(v.captionMask, "starts above the middle: captions stay in their usual place")
+        v = RecapVisuals.moveX(v, MaskPreset.CUSTOM, -0.02f)
+        assertEquals(listOf(0.28f, 0.3f, 0.4f, 0.2f), v.masks.single().rect)
+        repeat(20) { v = RecapVisuals.moveX(v, MaskPreset.CUSTOM, -0.02f) }
+        assertEquals(listOf(0f, 0.3f, 0.4f, 0.2f), v.masks.single().rect, "kept inside on the left")
+        v = RecapVisuals.resizeW(v, MaskPreset.CUSTOM, 0.04f)
+        assertEquals(listOf(0f, 0.3f, 0.44f, 0.2f), v.masks.single().rect)
+        repeat(40) { v = RecapVisuals.moveX(v, MaskPreset.CUSTOM, 0.02f) }
+        assertEquals(listOf(0.56f, 0.3f, 0.44f, 0.2f), v.masks.single().rect, "kept inside on the right")
+        repeat(30) { v = RecapVisuals.resizeW(v, MaskPreset.CUSTOM, -0.04f) }
+        val narrow = v.masks.single().rect
+        assertEquals(RecapVisuals.MIN_SIZE, narrow[2])
+        assertTrue(narrow[0] >= 0f && narrow[0] + narrow[2] <= 1.0001f, "narrowest box inside: $narrow")
+        repeat(40) { v = RecapVisuals.move(v, MaskPreset.CUSTOM, 0.02f) }
+        assertEquals(0.8f, v.masks.single().rect[1], "moved down to the bottom edge")
+        assertEquals(v.masks.single(), v.captionMask, "in the lower half it carries the captions")
+        val withTop = RecapVisuals.toggle(v, MaskPreset.TOP)
+        assertEquals(listOf(MaskPreset.TOP, MaskPreset.CUSTOM), withTop.masks.map { it.preset })
+        assertEquals(MaskPreset.CUSTOM, withTop.captionMask?.preset)
+        // Saved and read back by name.
+        val json = CoreJson.encodeToString(RecapV2.serializer(), RecapV2(visual = v))
+        assertTrue("\"CUSTOM\"" in json, json)
+        assertEquals(v, CoreJson.decodeFromString(RecapV2.serializer(), json).visual)
+    }
 }

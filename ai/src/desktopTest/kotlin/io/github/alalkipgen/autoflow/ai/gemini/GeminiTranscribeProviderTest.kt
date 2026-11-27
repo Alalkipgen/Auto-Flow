@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ai.gemini
 
 import io.github.alalkipgen.autoflow.ai.AiResult
+import io.github.alalkipgen.autoflow.ai.SceneSpan
 import io.github.alalkipgen.autoflow.ai.Transcript
 import io.github.alalkipgen.autoflow.ai.TranscriptSegment
 import io.ktor.client.HttpClient
@@ -102,5 +103,65 @@ class GeminiTranscribeProviderTest {
         val v = Json.parseToJsonElement("""{"segments":[{"text":" b ","start":5,"end":6.25},{"text":"","start":1,"end":2},{"text":"a","start":0.5,"end":2}]}""")
         assertEquals(listOf(TranscriptSegment(500, 2_000, "a"), TranscriptSegment(5_000, 6_250, "b")), GeminiTranscribeProvider.segments(v))
         assertEquals(null, GeminiTranscribeProvider.aligned(JsonPrimitive(1), lines))
+    }
+
+    // --- 5B-1 / D-44: scene mode ---------------------------------------------------------------------------------
+
+    private val spans = listOf(SceneSpan(0, 42_480), SceneSpan(42_480, 80_100))
+
+    @Test
+    fun scenesModeListsEachSceneInAudioTimeAndReadsLinesPerScene() = runTest {
+        val audio = byteArrayOf(0, 0, 0, 24, 102, 116, 121, 112)
+        val reply = answer(
+            """{"scenes":[{"scene":2,"lines":[{"start":50.5,"end":53,"text":" ဟုတ်လား "},{"start":44,"end":46.2,"text":"Hello"}]},""" +
+                """{"scene":1,"lines":[{"start":41.8,"end":42.8,"text":"edge"},{"start":3,"end":2,"text":""}]}]}""",
+        )
+        val r = provider(reply).transcribeScenes(audio, "audio/mp4", spans, lang = null)
+        val perScene = assertIs<AiResult.Ok<List<List<TranscriptSegment>>>>(r).value
+        assertEquals(
+            listOf(
+                listOf(TranscriptSegment(41_800, 42_480, "edge")),
+                listOf(TranscriptSegment(44_000, 46_200, "Hello"), TranscriptSegment(50_500, 53_000, "ဟုတ်လား")),
+            ),
+            perScene,
+            "scene order; lines sorted and kept inside their scene; empty text dropped",
+        )
+        val body = Json.parseToJsonElement((requests.single().body as TextContent).text).jsonObject
+        val parts = body.getValue("contents").jsonArray[0].jsonObject.getValue("parts").jsonArray
+        val inline = parts[0].jsonObject.getValue("inlineData").jsonObject
+        assertEquals("audio/mp4", inline.getValue("mimeType").jsonPrimitive.content)
+        assertContentEquals(audio, Base64.decode(inline.getValue("data").jsonPrimitive.content))
+        val prompt = parts[1].jsonObject.getValue("text").jsonPrimitive.content
+        assertTrue("scene 1: 0.0–42.5 s\nscene 2: 42.5–80.1 s\n" in prompt, prompt)
+        assertTrue("do not translate" in prompt)
+        assertEquals(GeminiTranscribeProvider.SCENES_SCHEMA.json, body.getValue("generationConfig").jsonObject.getValue("responseJsonSchema"))
+    }
+
+    @Test
+    fun aMissingSceneIsAskedOnceMoreThenFails() = runTest {
+        val missing = answer("""{"scenes":[{"scene":1,"lines":[]}]}""")
+        val r = provider(missing).transcribeScenes(byteArrayOf(1), "audio/mp4", spans)
+        assertEquals("invalid_scenes", assertIs<AiResult.Failed>(r).code)
+        assertEquals(2, requests.size, "retry once, then fail")
+    }
+
+    @Test
+    fun aLineOutsideItsSceneIsAskedOnceMoreAndASecondGoodAnswerWins() = runTest {
+        val outside = answer("""{"scenes":[{"scene":1,"lines":[{"start":60,"end":61,"text":"late"}]},{"scene":2,"lines":[]}]}""")
+        val good = answer("""{"scenes":[{"scene":1,"lines":[{"start":1,"end":2,"text":"a"}]},{"scene":2,"lines":[]}]}""")
+        val r = provider(outside, good).transcribeScenes(byteArrayOf(1), "audio/mp4", spans)
+        assertEquals(listOf(listOf(TranscriptSegment(1_000, 2_000, "a")), emptyList()), assertIs<AiResult.Ok<List<List<TranscriptSegment>>>>(r).value)
+        assertEquals(2, requests.size)
+    }
+
+    @Test
+    fun scenesModeChecksKeyScenesAndSizeBeforeSending() = runTest {
+        assertEquals("no_api_key", assertIs<AiResult.Failed>(provider(answer("{}"), key = "").transcribeScenes(byteArrayOf(1), "audio/mp4", spans)).code)
+        assertEquals("no_scenes", assertIs<AiResult.Failed>(provider(answer("{}")).transcribeScenes(byteArrayOf(1), "audio/mp4", emptyList())).code)
+        val big = ByteArray(GeminiTranscribeProvider.MAX_AUDIO_BYTES + 1)
+        assertEquals("audio_too_big", assertIs<AiResult.Failed>(provider(answer("{}")).transcribeScenes(big, "audio/mp4", spans)).code)
+        assertTrue(requests.isEmpty())
+        val repeated = Json.parseToJsonElement("""{"scenes":[{"scene":1,"lines":[]},{"scene":1,"lines":[]}]}""")
+        assertEquals(null, GeminiTranscribeProvider.sceneLines(repeated, spans), "a repeated scene is not an answer")
     }
 }

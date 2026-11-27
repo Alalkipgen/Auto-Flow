@@ -21,19 +21,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Android [AiJobRunner] backed by a unique WorkManager "ai" chain (5A-5, D-51).
+ * Android [AiJobRunner] backed by the one unique WorkManager "ai" chain (5A-5, D-51).
  *
  * Like [WorkManagerRenderQueue] for renders:
  * - Every outcome is a succeeded work so the chain continues.
- * - Cancel marks the job CANCELLED in the store; the running Worker checks the flag and stops.
+ * - Jobs are appended to one chain (audit F11: no longer one unique work per job), so they run one at a time and
+ *   the shared per-model pacer holds across jobs.
+ * - Cancel marks the job CANCELLED in the store; the running Worker checks the flag before the next item and the
+ *   shared executor never overwrites it.
+ * - Enqueue of a QUEUED / RUNNING job appends it again (WorkManager normally resumes it after process death; this
+ *   covers a lost work): a second run of a finished job does nothing, items done in the project are not redone.
  * - The chain name is "ai" (separate from the "render" chain so both can run simultaneously).
  * - Desktop uses [DesktopAiJobRunner] (in-process coroutines); this class is Android-only.
  */
-class WorkManagerAiJobRunner(
-    private val context: Context,
+class WorkManagerAiJobRunner internal constructor(
     private val store: AiJobStore,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    /** Appends one AiWorker for the job id to the one "ai" chain; a seam so unit tests need no WorkManager. */
+    private val appendToChain: (jobId: String) -> Unit,
+    private val scope: CoroutineScope,
 ) : AiJobRunner {
+
+    constructor(
+        context: Context,
+        store: AiJobStore,
+        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    ) : this(store, { id -> appendWork(context, id) }, scope)
 
     private val _jobs = MutableStateFlow<List<AiJob>>(emptyList())
     override val jobs: StateFlow<List<AiJob>> = _jobs.asStateFlow()
@@ -46,14 +58,17 @@ class WorkManagerAiJobRunner(
         _jobs.value = store.loadAll().filter { it.state != AiJobState.CANCELLED }
     }
 
+    /** Returns the id the job runs under: [job]'s, or `<id>-r` when a damaged file of that id is kept aside. */
     override suspend fun enqueue(job: AiJob): String {
-        val existing = store.load(job.id)
-        val toRun = when {
-            existing == null -> job.copy(state = AiJobState.QUEUED)
-            existing.state in listOf(AiJobState.PAUSED, AiJobState.FAILED) ->
-                existing.copy(state = AiJobState.QUEUED, items = job.items.ifEmpty { existing.items })
-            existing.state == AiJobState.DONE || existing.state == AiJobState.RUNNING -> return job.id
-            else -> job.copy(state = AiJobState.QUEUED)
+        val toRun = when (val existing = store.read(job.id)) {
+            AiJobStore.Read.Missing -> job.copy(state = AiJobState.QUEUED, error = null)
+            // A damaged file is kept aside, never overwritten in place (same as desktop).
+            is AiJobStore.Read.Damaged -> job.copy(id = "${job.id}-r", state = AiJobState.QUEUED, error = null)
+            is AiJobStore.Read.Ok -> when (existing.job.state) {
+                AiJobState.PAUSED, AiJobState.FAILED -> existing.job.copy(state = AiJobState.QUEUED, error = null)
+                AiJobState.QUEUED, AiJobState.RUNNING -> existing.job // append again (see above)
+                AiJobState.DONE, AiJobState.CANCELLED -> return job.id
+            }
         }
         store.save(toRun)
         refresh()
@@ -62,21 +77,10 @@ class WorkManagerAiJobRunner(
     }
 
     override suspend fun cancel(id: String) {
-        val existing = store.load(id) ?: return
-        store.save(existing.copy(state = AiJobState.CANCELLED))
+        // Read-modify-write under the jobs-folder lock, so a Worker checkpoint cannot interleave with it.
+        store.update(id) { if (it.state == AiJobState.DONE) it else it.copy(state = AiJobState.CANCELLED) }
         refresh()
-        // The running Worker reads the CANCELLED flag on its next iteration and stops.
-    }
-
-    private fun appendToChain(jobId: String) {
-        val request = OneTimeWorkRequestBuilder<AiWorker>()
-            .setInputData(Data.Builder().putString(AiWorker.KEY_JOB_ID, jobId).build())
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "${AiWorker.CHAIN_NAME}_$jobId",
-            ExistingWorkPolicy.KEEP,
-            request,
-        )
+        // The running Worker reads the CANCELLED flag before its next item and stops; the executor never overwrites it.
     }
 
     companion object {
@@ -84,6 +88,13 @@ class WorkManagerAiJobRunner(
         fun of(context: Context): WorkManagerAiJobRunner {
             val jobsDir = File(context.filesDir, "autoflow/ai-jobs").absolutePath
             return WorkManagerAiJobRunner(context, AiJobStore(JvmFs(), jobsDir))
+        }
+
+        private fun appendWork(context: Context, jobId: String) {
+            val request = OneTimeWorkRequestBuilder<AiWorker>()
+                .setInputData(Data.Builder().putString(AiWorker.KEY_JOB_ID, jobId).build())
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(AiWorker.CHAIN_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         }
     }
 }

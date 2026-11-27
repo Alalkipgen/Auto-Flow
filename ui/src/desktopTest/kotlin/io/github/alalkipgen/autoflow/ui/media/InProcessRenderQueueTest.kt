@@ -27,6 +27,8 @@ class InProcessRenderQueueTest {
     private val a = ArtifactId("vd_aaaaaaaaaaaa")
     private val ffmpegCalls = mutableListOf<String>()
     private var gate: CompletableDeferred<Unit>? = null
+    private var ffmpegExit = 0
+    private val deleted = mutableListOf<String>()
 
     private class Locator(val ffmpeg: String?) : ToolLocator {
         override fun findFfmpeg(): String? = ffmpeg
@@ -40,11 +42,13 @@ class InProcessRenderQueueTest {
             ToolExec.Done(0, """{"streams":[{"codec_type":"video","codec_name":"h264","width":1080,"height":1920}],"format":{"duration":"8"}}""", emptyList(), 1, false)
         } else {
             ffmpegCalls += cmd.last()
+            fs.createDirectories(cmd.last().substringBeforeLast('/'))
+            fs.writeDurably(cmd.last(), "half".encodeToByteArray())
             onLine("out_time_us=4000000")
             onLine("progress=continue")
             gate?.await()
             fs.writeDurably(cmd.last(), "mp4".encodeToByteArray())
-            ToolExec.Done(0, "", emptyList(), 900, false)
+            ToolExec.Done(ffmpegExit, "", listOf("boom"), 900, false)
         }
     }
 
@@ -97,6 +101,38 @@ class InProcessRenderQueueTest {
         runCurrent()
         assertIs<RenderState.Done>(q.observe(third).first(), "the job behind keeps its place")
         assertEquals(listOf("/p/exports/one.part.mp4", "/p/exports/three.part.mp4"), ffmpegCalls)
+    }
+
+    /** Audit F16: a cancelled or failed job deletes only its own `.part.mp4`; a Done job and older exports keep theirs. */
+    @Test
+    fun cancelledOrFailedRenderDeletesOnlyItsOwnPartFile() = runTest {
+        val q = InProcessRenderQueue(fs, MediaTools(settings, Locator("/bin/ffmpeg"), runner), backgroundScope, deleteFile = { deleted += it })
+        fs.createDirectories("/p/exports")
+        fs.writeDurably("/p/exports/one.mp4", "older good export".encodeToByteArray())
+
+        gate = CompletableDeferred()
+        val cancelled = q.enqueue(job("one"))
+        runCurrent()
+        q.cancel(cancelled)
+        runCurrent()
+        assertEquals(RenderState.Cancelled, q.observe(cancelled).first())
+        assertEquals(listOf("/p/exports/one.part.mp4"), deleted, "the cancelled job's own part file")
+        assertEquals("older good export", fs.read("/p/exports/one.mp4").decodeToString(), "the earlier export is kept")
+
+        gate = null
+        ffmpegExit = 1
+        val failed = q.enqueue(job("two"))
+        runCurrent()
+        assertIs<RenderState.Failed>(q.observe(failed).first())
+        assertEquals(listOf("/p/exports/one.part.mp4", "/p/exports/two.part.mp4"), deleted, "a failed job cleans up too")
+        assertEquals(false, fs.exists("/p/exports/two.mp4"))
+
+        ffmpegExit = 0
+        val ok = q.enqueue(job("three"))
+        runCurrent()
+        assertIs<RenderState.Done>(q.observe(ok).first())
+        assertEquals(2, deleted.size, "a finished job deletes nothing")
+        assertEquals("mp4", fs.read("/p/exports/three.mp4").decodeToString())
     }
 
     @Test

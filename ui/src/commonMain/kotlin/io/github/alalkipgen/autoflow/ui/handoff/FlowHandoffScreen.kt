@@ -45,6 +45,7 @@ import io.github.alalkipgen.autoflow.ui.input.NO_PROJECT_TEXT
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
+import io.github.alalkipgen.autoflow.ui.i18n.My
 
 /**
  * Flow Handoff screen (specs/flow-handoff.md): shot list → copy prompt → open Flow → import video → accept.
@@ -87,14 +88,17 @@ fun FlowHandoffScreen(
     }
 }
 
+/** One shot's handoff card; [showHeader] = false on the Studio v2 shot sheet (5B-12), which has its own header. */
 @Composable
-private fun HandoffCard(
+internal fun HandoffCard(
     row: HandoffRow,
     compact: Boolean,
     model: FlowHandoffModel,
     importVideo: () -> Unit,
     fast: Int,
     quality: Int,
+    showHeader: Boolean = true,
+    noPromptText: String = "No compiled prompt — compile it on the Shots screen.",
 ) {
     var showCredits by remember(row.number) { mutableStateOf(false) }
     var creditInput by remember(row.number) { mutableStateOf("") }
@@ -117,11 +121,13 @@ private fun HandoffCard(
     ) {
         // Header
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfText("Shot ${row.number}", bold = true, size = 14.sp)
-            AfText(row.timecode, muted = true, size = 12.sp)
+            if (showHeader) {
+                AfText("Shot ${row.number}", bold = true, size = 14.sp)
+                AfText(row.timecode, muted = true, size = 12.sp)
+            }
             handoffBadges(row.state, row.accepted).forEach { StatePill(it) }
         }
-        row.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 12.sp) }
+        if (showHeader) row.lyric.takeIf { it.isNotBlank() }?.let { AfText(My.breakSyllables(it), size = 12.sp) }
 
         // What is attached: reference image and video thumbnails (phone test v0.1.14, fix 2)
         WrapRow {
@@ -145,7 +151,7 @@ private fun HandoffCard(
             ) {
                 AfText(prompt.take(200) + if (prompt.length > 200) "…" else "", size = 11.sp)
             }
-        } ?: AfText("No compiled prompt — compile it on the Shots screen.", muted = true, size = 12.sp)
+        } ?: AfText(noPromptText, muted = true, size = 12.sp)
 
         // Pass toggle
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -186,7 +192,7 @@ private fun HandoffCard(
 }
 
 @Composable
-private fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
+internal fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
     val image by produceState<ImageBitmap?>(null, row.refImage) {
         value = row.refImage?.let { model.refThumbnail(row.number)?.let(::decodeImage) }
     }
@@ -202,7 +208,7 @@ private fun RefThumb(row: HandoffRow, model: FlowHandoffModel) {
 }
 
 @Composable
-private fun VideoThumb(row: HandoffRow, model: FlowHandoffModel) {
+internal fun VideoThumb(row: HandoffRow, model: FlowHandoffModel) {
     val image by produceState<ImageBitmap?>(null, row.shownVideo) {
         value = row.shownVideo?.let { model.videoThumbnail(row.number)?.let(::decodeImage) }
     }
@@ -280,13 +286,13 @@ private fun HandoffActions(
     onShowCredits: () -> Unit,
 ) {
     val hasPrompt = row.promptText != null
-    AfButton("📋 Copy Prompt", { model.copyPrompt(row.number) },
+    AfButton("📋 ${io.github.alalkipgen.autoflow.ui.i18n.My.COPY_PROMPT}", { model.copyPrompt(row.number) },
         kind = ButtonKind.Primary,
         enabled = hasPrompt && row.gateMsg == null,
     )
-    AfButton("📂 Import Video", importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted)
+    AfButton("📂 ဗွီဒီယို ထည့်မယ်", importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted)
     if (row.videoCount > 0 && !row.accepted) {
-        AfButton("✓ Accept Video", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
+        AfButton("✓ ${io.github.alalkipgen.autoflow.ui.i18n.My.ACCEPT_VIDEO}", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
     }
     if (row.videoCount > 0 && !row.askCredits && !showCredits) {
         AfButton(LOG_CREDITS_BUTTON, onShowCredits, kind = ButtonKind.Secondary)
@@ -324,7 +330,7 @@ private fun CreditQuestion(
 
 /** Manual Flow credit counter (DESIGN.md §6): today / this month, and the month's log with ✕ to fix a wrong line. */
 @Composable
-private fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
+internal fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
     var open by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth()
@@ -337,7 +343,7 @@ private fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
         WrapRow {
             AfText(creditSummary(state.creditsToday, state.creditsMonth), size = 13.sp, bold = true)
             if (state.creditLog.isNotEmpty()) {
-                AfButton(if (open) "Hide log" else "Log (${state.creditLog.size})", { open = !open }, kind = ButtonKind.Secondary)
+                AfButton(if (open) "မှတ်တမ်း ပိတ်မယ်" else "မှတ်တမ်း (${state.creditLog.size})", { open = !open }, kind = ButtonKind.Secondary)
             }
         }
         if (open) {
@@ -353,7 +359,7 @@ private fun CreditCounter(state: FlowHandoffUiState, model: FlowHandoffModel) {
 
 /** Batch handoff sheet (DESIGN.md §6): ticked pending shots → one offline HTML page with prompts, refs, Copy buttons. */
 @Composable
-private fun BatchPanel(state: FlowHandoffUiState, model: FlowHandoffModel) {
+internal fun BatchPanel(state: FlowHandoffUiState, model: FlowHandoffModel) {
     val pending = state.rows.count { it.batchable }
     Column(
         Modifier.fillMaxWidth()
@@ -375,19 +381,19 @@ private fun BatchPanel(state: FlowHandoffUiState, model: FlowHandoffModel) {
 }
 
 internal fun batchSummary(ticked: Int, pending: Int): String =
-    if (pending == 0) "Batch sheet — no pending shots (compile prompts and approve refs first)"
-    else "Batch sheet — $ticked of $pending pending shot${if (pending == 1) "" else "s"} ticked"
+    if (pending == 0) "Batch စာရွက် — စောင့်နေသော shot မရှိပါ (prompt စုစည်းပြီး ref အတည်ပြုပါ)"
+    else "Batch စာရွက် — စောင့်နေသော shot $pending ခုအနက် $ticked ခု ရွေးထား"
 
-internal const val EXPORT_BATCH_BUTTON = "Export batch sheet (HTML)"
-internal const val OPEN_BATCH_BUTTON = "Open sheet ↗"
-internal const val SHARE_BATCH_BUTTON = "Share sheet"
-internal const val IN_BATCH_CHIP = "In batch sheet"
+internal const val EXPORT_BATCH_BUTTON = "Batch စာရွက် ထုတ်မယ် (HTML)"
+internal const val OPEN_BATCH_BUTTON = "စာရွက် ဖွင့်မယ် ↗"
+internal const val SHARE_BATCH_BUTTON = "စာရွက် မျှဝေမယ်"
+internal const val IN_BATCH_CHIP = "Batch စာရွက်ထဲ"
 
-internal fun creditSummary(today: Int, month: Int): String = "Flow credits — today $today · this month $month"
+internal fun creditSummary(today: Int, month: Int): String = "Flow credits — ယနေ့ $today · ဒီလ $month"
 
-internal const val LOG_CREDITS_BUTTON = "Log Credits…"
-internal const val SKIP_CREDITS_BUTTON = "Skip"
-internal const val CREDITS_QUESTION = "Credits used in Flow for this video?"
+internal const val LOG_CREDITS_BUTTON = "Credits မှတ်မယ်…"
+internal const val SKIP_CREDITS_BUTTON = "ကျော်မယ်"
+internal const val CREDITS_QUESTION = "ဒီဗွီဒီယိုအတွက် Flow မှာ credits ဘယ်လောက် သုံးခဲ့လဲ?"
 
 /** Badges for a shot row: its handoff state, plus "✓ Accepted" once — never twice. */
 internal fun handoffBadges(state: HandoffState, accepted: Boolean): List<HandoffState> = buildList {
@@ -399,9 +405,9 @@ internal fun handoffBadges(state: HandoffState, accepted: Boolean): List<Handoff
 private fun StatePill(state: HandoffState) {
     val (label, color) = when (state) {
         HandoffState.NONE -> return
-        HandoffState.SENT_TO_FLOW -> "→ Flow" to AutoFlowColors.Purple
-        HandoffState.IMPORTED -> "Imported" to AutoFlowColors.Cyan
-        HandoffState.ACCEPTED -> "✓ Accepted" to AutoFlowColors.Green
+        HandoffState.SENT_TO_FLOW -> "→ ${io.github.alalkipgen.autoflow.ui.i18n.My.NEEDS_FLOW}" to AutoFlowColors.Purple
+        HandoffState.IMPORTED -> io.github.alalkipgen.autoflow.ui.i18n.My.IMPORTED to AutoFlowColors.Cyan
+        HandoffState.ACCEPTED -> "✓ ${io.github.alalkipgen.autoflow.ui.i18n.My.ACCEPTED}" to AutoFlowColors.Green
     }
     Box(
         Modifier

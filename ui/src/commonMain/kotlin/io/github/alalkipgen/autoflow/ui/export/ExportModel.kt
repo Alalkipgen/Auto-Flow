@@ -14,10 +14,8 @@ import io.github.alalkipgen.autoflow.core.recap.PreflightCheck
 import io.github.alalkipgen.autoflow.core.recap.PublishKit
 import io.github.alalkipgen.autoflow.core.recap.PublishKitText
 import io.github.alalkipgen.autoflow.core.recap.RecapFit
-import io.github.alalkipgen.autoflow.core.recap.RecapRules
+import io.github.alalkipgen.autoflow.core.recap.RecapRulesV2
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
-import io.github.alalkipgen.autoflow.core.recap.toV1
-import io.github.alalkipgen.autoflow.core.recap.toV1Script
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.render.BatteryReader
 import io.github.alalkipgen.autoflow.media.render.ProjectRender
@@ -25,6 +23,7 @@ import io.github.alalkipgen.autoflow.media.render.Quality
 import io.github.alalkipgen.autoflow.media.render.RenderJob
 import io.github.alalkipgen.autoflow.media.render.RenderGraph
 import io.github.alalkipgen.autoflow.media.render.RenderQueue
+import io.github.alalkipgen.autoflow.media.render.RenderResult
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -33,12 +32,56 @@ import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.storyboard.text
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+
+/**
+ * A finished render of [quality] found in [projectDir]'s `exports/` with its [RenderResult] record (5B-4): shown when
+ * no render of this session is on screen, e.g. after the app restarted. [output] is the mp4 (absolute).
+ */
+data class LastRender(val projectDir: String, val quality: Quality, val output: String, val result: RenderResult)
+
+/**
+ * Exact-frame thumbnails (5B-9) of [projectDir]'s recap: stills made by the export compiler at [times] of the output,
+ * from the render job with [fingerprint] ([RecapFrames.fingerprint]); [frames] so far, in [times] order. [stale] =
+ * the recap changed since, so they no longer show what Export will render.
+ */
+data class ExportThumbs(
+    val projectDir: String,
+    val fingerprint: String,
+    val times: List<Long>,
+    val frames: List<RecapFrames.Frame> = emptyList(),
+    val working: Boolean = true,
+    val failed: String? = null,
+    val stale: Boolean = false,
+)
+
+/**
+ * The Publish Kit thumbnail (5B-10) of [projectDir]: `exports/export.thumb.jpg` ([file], absolute) = the export-size
+ * frame at [atMs] with [title] on it. [frame] = the image on disk (null while the first one is being made). [stale] =
+ * the title or the recap changed since it was made (or it has no record), so it should be made again.
+ */
+data class PublishThumb(
+    val projectDir: String,
+    val file: String,
+    val atMs: Long,
+    val title: String,
+    val frame: RecapFrames.Frame? = null,
+    val working: Boolean = false,
+    val failed: String? = null,
+    val stale: Boolean = false,
+)
+
+/** `exports/<name>.thumb.json`: what the thumbnail beside it was made from (title, time, [RecapFrames.fingerprint]). */
+@Serializable
+internal data class PublishThumbRecord(val title: String, val atMs: Long, val fingerprint: String, val bytes: Long)
 
 /** One render started from this screen; [output] is the mp4 it writes (absolute). */
 data class ExportRun(val projectDir: String, val quality: Quality, val id: String, val output: String, val state: RenderState)
@@ -60,6 +103,8 @@ data class RecapExport(
     val publishKit: PublishKit = PublishKit(),
     /** Pre-flight items (5B-9): computed from data, no render required. */
     val preflight: List<PreflightCheck.Item> = emptyList(),
+    /** Chapters from the story blocks' start times in the export (5B-10), used when the kit has none of its own. */
+    val chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter> = emptyList(),
 )
 
 /** What the Export screen shows (PLAN Q-09 c). [unavailable] = this app cannot render here (no render queue). */
@@ -84,6 +129,12 @@ data class ExportUiState(
     val savingToGallery: Boolean = false,
     /** Set in a Movie Recap project; then the music-video fields above stay empty. */
     val recap: RecapExport? = null,
+    /** Finished Preview / Export of the open project read back from `exports/<name>.result.json` (5B-4). */
+    val lastRenders: List<LastRender> = emptyList(),
+    /** Exact-frame thumbnails of the open recap (5B-9); null = not made in this session. */
+    val thumbs: ExportThumbs? = null,
+    /** The Publish Kit thumbnail of the open recap (5B-10); null = none yet. */
+    val publishThumb: PublishThumb? = null,
 ) {
     val busy: Boolean get() = run != null && !run.state.finished
     val canRender: Boolean
@@ -118,6 +169,7 @@ class ExportModel(
 
     init {
         refresh()
+        this.frames.lexicon?.let { changes -> scope.launch { changes.collect { refresh() } } }
     }
 
     /** Re-reads the open project, the song, the font and the battery (the screen calls it when it opens). */
@@ -130,7 +182,10 @@ class ExportModel(
         }
         val p = open.project
         val font = frames.font()
+        val last = lastRenders(open.dir)
         recapExport(open)?.let { r ->
+            val fingerprint = runCatching { frames.fingerprint(open) }.getOrNull()
+            val before = _state.value
             _state.value = ExportUiState(
                 projectName = p.name,
                 font = font?.family,
@@ -138,6 +193,10 @@ class ExportModel(
                 unavailable = if (queue == null) NO_QUEUE else null,
                 run = run,
                 recap = r,
+                lastRenders = last,
+                thumbs = before.thumbs?.takeIf { it.projectDir == open.dir }?.let { it.copy(stale = it.fingerprint != fingerprint) },
+                publishThumb = before.publishThumb?.takeIf { it.projectDir == open.dir && it.working }
+                    ?: savedPublishThumb(open, r.publishKit, fingerprint),
             )
             return
         }
@@ -156,7 +215,127 @@ class ExportModel(
             lowBattery = battery?.read()?.lowWarning == true,
             unavailable = if (queue == null) NO_QUEUE else null,
             run = run,
+            lastRenders = last,
         )
+    }
+
+    /** The Preview and Export of [dir] that left a matching result record (absent, stale or damaged ones are skipped). */
+    private fun lastRenders(dir: String): List<LastRender> = listOf(Quality.PREVIEW to PREVIEW_NAME, Quality.EXPORT to EXPORT_NAME).mapNotNull { (q, name) ->
+        val mp4 = joinPath(joinPath(dir, EXPORTS_DIR), "$name.mp4")
+        runCatching { RenderResult.read(fs, mp4) }.getOrNull()?.let { LastRender(dir, q, mp4, it) }
+    }
+
+    /** Plays [last] (a render found after a restart) in another app; only while its project is open. */
+    fun openLast(last: LastRender) {
+        if (session.open?.dir != last.projectDir) return
+        result(share?.open(last.output, MP4) ?: PlatformResult.Unsupported(NO_SHARE))
+    }
+
+    /** Share sheet for [last]; only while its project is open. */
+    fun shareLast(last: LastRender) {
+        if (session.open?.dir != last.projectDir) return
+        result(share?.share(last.output, MP4, "Share the video") ?: PlatformResult.Unsupported(NO_SHARE))
+    }
+
+    /**
+     * Makes the Exact-frame thumbnails (5B-9): up to [max] stills of the open recap, spread over captions (else
+     * clips), each made by the export compiler one after another and shown as it comes. Bound to the project it was
+     * started in: a switch to another project drops them; a newer request replaces them.
+     */
+    fun makeThumbnails(max: Int = THUMBS) {
+        val open = session.open ?: return
+        if (!isRecap(open.project) || _state.value.thumbs?.let { it.working && it.projectDir == open.dir } == true) return
+        val fingerprint = frames.fingerprint(open) ?: return say(NO_RECAP_JOB)
+        val times = frames.sampleTimes(max, open)
+        if (times.isEmpty()) return say(NO_RECAP_JOB)
+        val start = ExportThumbs(open.dir, fingerprint, times)
+        _state.value = _state.value.copy(thumbs = start, message = null)
+        scope.launch {
+            val made = mutableListOf<RecapFrames.Frame>()
+            for (t in times) {
+                val r = withContext(Dispatchers.Default) { frames.frame(t, open = open) }
+                val cur = _state.value.thumbs?.takeIf { it.projectDir == open.dir && it.times == times && it.working } ?: return@launch
+                if (session.open?.dir != open.dir) {
+                    _state.value = _state.value.copy(thumbs = null)
+                    return@launch
+                }
+                when (r) {
+                    is RecapFrames.Result.Ok -> {
+                        made += r.frame
+                        _state.value = _state.value.copy(thumbs = cur.copy(frames = made.toList()))
+                    }
+                    is RecapFrames.Result.Failed -> {
+                        _state.value = _state.value.copy(thumbs = cur.copy(working = false, failed = r.reason))
+                        return@launch
+                    }
+                }
+            }
+            _state.value.thumbs?.takeIf { it.projectDir == open.dir && it.times == times }?.let {
+                _state.value = _state.value.copy(thumbs = it.copy(working = false))
+            }
+        }
+    }
+
+    /**
+     * Makes the Publish Kit thumbnail (5B-10) `exports/export.thumb.jpg`: the export-size frame at [atMs] (default:
+     * the time of the last thumbnail, else the first caption) with the saved title as a TEXT layer, no captions.
+     * Written whole (temporary file + move) with a record of what it shows, so a reopen can tell when it is stale.
+     */
+    fun makePublishThumbnail(atMs: Long? = null) {
+        val open = session.open ?: return
+        if (!isRecap(open.project)) return
+        val previous = _state.value.publishThumb?.takeIf { it.projectDir == open.dir }
+        if (previous?.working == true) return
+        val title = open.project.recap?.publishKit?.title?.trim().orEmpty()
+        if (title.isEmpty()) return say("Write the video title and press Save first.")
+        val fingerprint = frames.fingerprint(open) ?: return say(NO_RECAP_JOB)
+        val at = atMs ?: previous?.atMs ?: frames.firstTime(open) ?: return say(NO_RECAP_JOB)
+        val exports = joinPath(open.dir, EXPORTS_DIR)
+        val file = joinPath(open.dir, PublishKitText.thumbPath(EXPORT_NAME))
+        val working = PublishThumb(open.dir, file, at, title, frame = previous?.frame, working = true)
+        _state.value = _state.value.copy(publishThumb = working, message = null)
+        scope.launch {
+            val still = joinPath(joinPath(open.dir, RecapFrames.FRAMES_DIR), "thumb-$at.jpg")
+            val r = withContext(Dispatchers.Default) { frames.thumbnail(open, at, title, still) }
+            if (session.open?.dir != open.dir || _state.value.publishThumb !== working) return@launch
+            val saved = (r as? RecapFrames.Result.Ok)?.let { ok ->
+                runCatching {
+                    withContext(Dispatchers.Default) {
+                        fs.createDirectories(exports)
+                        fs.writeDurably("$file.tmp", ok.frame.bytes)
+                        fs.atomicMove("$file.tmp", file)
+                        val record = PublishThumbRecord(title, at, fingerprint, ok.frame.bytes.size.toLong())
+                        fs.writeDurably(thumbRecordPath(file), CoreJson.encodeToString(PublishThumbRecord.serializer(), record).encodeToByteArray())
+                    }
+                    RecapFrames.Frame(at, file, ok.frame.bytes)
+                }
+            }
+            _state.value = when {
+                saved?.isSuccess == true -> _state.value.copy(publishThumb = working.copy(frame = saved.getOrThrow(), working = false))
+                saved != null -> _state.value.copy(publishThumb = working.copy(working = false, failed = "Cannot save the thumbnail: ${saved.exceptionOrNull()?.message}"))
+                else -> _state.value.copy(publishThumb = working.copy(working = false, failed = (r as RecapFrames.Result.Failed).reason))
+            }
+        }
+    }
+
+    /** Share sheet for the saved thumbnail; only the open project's own file. */
+    fun sharePublishThumbnail() {
+        val open = session.open ?: return
+        val thumb = _state.value.publishThumb?.takeIf { it.projectDir == open.dir && it.frame != null && !it.working } ?: return
+        if (!fs.exists(thumb.file)) return say("The thumbnail file is gone; make it again.")
+        result(share?.share(thumb.file, JPEG, "Share the thumbnail") ?: PlatformResult.Unsupported(NO_SHARE))
+    }
+
+    /** The thumbnail saved in [open]'s exports with its record: stale when the title or the picture changed since. */
+    private fun savedPublishThumb(open: OpenProject, kit: PublishKit, fingerprint: String?): PublishThumb? {
+        val file = joinPath(open.dir, PublishKitText.thumbPath(EXPORT_NAME))
+        val bytes = runCatching { fs.read(file) }.getOrNull() ?: return null
+        val record = runCatching {
+            CoreJson.decodeFromString(PublishThumbRecord.serializer(), fs.read(thumbRecordPath(file)).decodeToString())
+        }.getOrNull()?.takeIf { it.bytes == bytes.size.toLong() }
+        val atMs = record?.atMs ?: 0L
+        val stale = record == null || record.title != kit.title.trim() || record.fingerprint != fingerprint
+        return PublishThumb(open.dir, file, atMs, record?.title ?: kit.title.trim(), RecapFrames.Frame(atMs, file, bytes), stale = stale)
     }
 
     /** Updates the Publish Kit for the current Recap project. */
@@ -179,7 +358,8 @@ class ExportModel(
     /** Writes and shares the publish text file for the current Recap export. */
     suspend fun sharePublishFile(exportName: String) {
         val open = session.open ?: return
-        val kit = open.project.recap?.publishKit ?: return
+        val saved = open.project.recap?.publishKit ?: return
+        val kit = PublishKitText.withChapters(saved, recapExport(open)?.chapters.orEmpty())
         val path = joinPath(open.dir, PublishKitText.path(exportName))
         try {
             fs.createDirectories(joinPath(open.dir, "exports"))
@@ -244,12 +424,12 @@ class ExportModel(
 
     private fun recapExport(open: OpenProject): RecapExport? {
         if (!isRecap(open.project)) return null
-        val recapV2 = open.project.recap!!
+        val recap = open.project.recap!!
         val story = recapStory()
-        val recap = recapV2.toV1(story)
-        val script = story?.toV1Script()
-        val gate = RecapRules.canRender(recap, script)
-        val rows = script?.takeIf { RecapRules.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it) }.orEmpty()
+        // v2 rules (audit F07): fit rows by block id with every clip and the chosen take — what the render plays.
+        val lexicon = frames.lexicon?.value ?: io.github.alalkipgen.autoflow.core.recap.Lexicon.EMPTY
+        val gate = RecapRulesV2.canRender(recap, story, lexicon)
+        val rows = story?.takeIf { RecapRulesV2.isCurrent(recap, it) }?.let { RecapFit.rows(recap, it, lexicon) }.orEmpty()
         return RecapExport(
             segments = rows.size,
             voiced = rows.count { it.takeMs != null },
@@ -261,7 +441,9 @@ class ExportModel(
             blocker = gate.blockers.firstOrNull()?.text() ?: if (recap.movie == null) "Import the movie first (Movie Recap → 1 · Movie)." else null,
             quality = recap.quality,
             publishKit = recap.publishKit ?: PublishKit(),
-            preflight = PreflightCheck.check(recap, script),
+            preflight = PreflightCheck.check(recap, story, lexicon),
+            chapters = if (rows.isEmpty() || story == null) emptyList()
+            else PublishKitText.chaptersFromBlocks(rows.map { it.clipMs }, story.blocks.map { it.textMy }),
         )
     }
 
@@ -334,6 +516,13 @@ class ExportModel(
         const val PREVIEW_NAME = "preview"
         const val EXPORT_NAME = "export"
         const val MP4 = "video/mp4"
+        const val JPEG = "image/jpeg"
+        /** Exact-frame thumbnails on the Export screen (5B-9). */
+        const val THUMBS = 6
+        const val NO_RECAP_JOB = "Import the movie and write the script first."
+
+        /** `exports/export.thumb.jpg` → `exports/export.thumb.json`. */
+        internal fun thumbRecordPath(jpg: String): String = jpg.removeSuffix(".jpg") + ".json"
         const val NO_QUEUE = "Rendering is not available in this version on this computer yet (Android renders in the background)."
         const val NO_SHARE = "Opening and sharing files is not available here; the video is in the project's exports folder."
 
@@ -349,7 +538,7 @@ class ExportModel(
             return "$safe-$kind-$id.mp4"
         }
 
-        fun label(quality: Quality) = if (quality == Quality.PREVIEW) "Preview 540p" else "Export 1080p"
+        fun label(quality: Quality) = if (quality == Quality.PREVIEW) "နမူနာ 540p" else "ထုတ်ယူ 1080p"
 
         /** Display label for an [ExportQuality] chip. */
         fun label(exportQuality: ExportQuality): String = exportQuality.label

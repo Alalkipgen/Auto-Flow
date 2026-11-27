@@ -169,16 +169,39 @@ class ProjectSession(
         }
     }
 
-    /** Saves [project], makes it current and refreshes its Dashboard row (progress) without reordering the list. */
+    /**
+     * Saves [project], makes it current and refreshes its Dashboard row (progress) without reordering the list.
+     * Refused when [project] is not the open project (a copy taken before the user switched projects must never be
+     * written into the new one's folder, audit F03) or when it is older than the file ([CoreError.Conflict], F04).
+     */
     fun save(project: Project): CoreResult<Project> {
-        val dir = open?.dir ?: return noProject()
-        return when (val r = store.save(dir, project)) {
-            is CoreResult.Ok -> r.also {
-                current.set(OpenProject(dir, r.value))
-                index.record(dir, r.value, opened = false)
-            }
-            is CoreResult.Err -> r
+        val open = open ?: return noProject()
+        if (project.id != open.project.id) return CoreResult.Err(CoreError.InvalidInput(OTHER_PROJECT))
+        return published(open.dir, store.save(open.dir, project))
+    }
+
+    /**
+     * Read-modify-write of the project in [dir] — the folder the caller captured, which need not be the open one any
+     * more (audit F03): [change] gets that folder's `project.json` as it is now, under its folder lock (F04).
+     * [projectId] guards against a different project having been put in that folder. The open project is
+     * refreshed only when it is that folder.
+     */
+    fun update(dir: String, projectId: String, change: (Project) -> Project): CoreResult<Project> {
+        var other = false
+        val r = store.update(dir) { p -> if (p.id != projectId) p.also { other = true } else change(p) }
+        if (other) return CoreResult.Err(CoreError.InvalidInput(OTHER_PROJECT))
+        return published(dir, r)
+    }
+
+    /** [ProjectStore.open] of [dir] without making it current (a project the user may have switched away from). */
+    fun projectAt(dir: String): Project? = store.open(dir).getOrNull()
+
+    private fun published(dir: String, r: CoreResult<Project>): CoreResult<Project> {
+        if (r is CoreResult.Ok) {
+            if (open?.dir == dir) current.set(OpenProject(dir, r.value))
+            index.record(dir, r.value, opened = false)
         }
+        return r
     }
 
     /** Reads a JSON artifact (analysis, storyboard, spec) with [CoreJson]. */
@@ -259,6 +282,7 @@ class ProjectSession(
     private fun noProject() = CoreResult.Err(CoreError.InvalidInput("No project is open"))
 
     companion object {
+        const val OTHER_PROJECT = "This change belongs to another project; it was not saved"
         const val SOURCE_DIR = "source"
         const val CACHE_DIR = ".cache"
         const val SONG_NAME = "song"

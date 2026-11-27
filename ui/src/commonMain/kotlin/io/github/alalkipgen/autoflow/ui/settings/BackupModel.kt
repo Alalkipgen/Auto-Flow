@@ -10,6 +10,7 @@ import io.github.alalkipgen.autoflow.platform.BackupResult
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.platform.ProjectBackup
+import io.github.alalkipgen.autoflow.platform.RestoredProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -102,12 +103,7 @@ class BackupModel(
             }
             val path = paths.firstOrNull() ?: run { _state.update { it.copy(progress = null) }; return@launch }
             when (val r = b.restore(path, dest)) {
-                is PlatformResult.Ok -> {
-                    val names = r.value
-                    val msg = if (names.isEmpty()) "No projects found in the zip"
-                              else "Restored: ${names.joinToString(", ")}. Go to Projects to open them."
-                    _state.update { it.copy(progress = null, message = msg) }
-                }
+                is PlatformResult.Ok -> _state.update { it.copy(progress = null, message = restored(r.value)) }
                 is PlatformResult.Failed -> _state.update { it.copy(progress = null, message = r.reason) }
                 is PlatformResult.Unsupported -> _state.update { it.copy(progress = null, message = r.reason) }
             }
@@ -131,6 +127,15 @@ class BackupModel(
     }
 
     companion object {
+        /** The Restore result line; a renamed copy says that the same-named project on the phone was kept as it was. */
+        fun restored(projects: List<RestoredProject>): String {
+            if (projects.isEmpty()) return "No projects found in the zip"
+            val names = projects.joinToString(", ") { it.folder }
+            val kept = projects.filter { it.renamed }.map { it.original }
+            val note = if (kept.isEmpty()) "" else " ${kept.joinToString(", ")} already existed and ${if (kept.size == 1) "was" else "were"} not changed."
+            return "Restored: $names.$note Go to Projects to open them."
+        }
+
         fun saved(r: BackupResult): String =
             "Saved ${r.location} (${fileSize(r.zipBytes)}, ${r.projects} project${if (r.projects == 1) "" else "s"})"
 

@@ -65,4 +65,43 @@ class TranscriptTest {
         val tx = Transcript(source = Transcript.SOURCE_SUBTITLE)
         assertEquals(2, tx.schemaVersion)
     }
+
+    // --- 5B-1 scene transcription --------------------------------------------------------------------------------
+
+    @Test
+    fun covers_usesTheUnionOfTranscribedRanges() {
+        val tx = Transcript(source = Transcript.SOURCE_GEMINI_SCENES, scenes = listOf(TranscriptRange(610_000, 900_000), TranscriptRange(10_000, 610_000)))
+        assertTrue(tx.covers(10_000, 900_000), "a long scene sent in two parts")
+        assertTrue(tx.covers(20_000, 30_000))
+        assertFalse(tx.covers(0, 20_000))
+        assertFalse(tx.covers(800_000, 901_000))
+        assertFalse(Transcript(source = Transcript.SOURCE_GEMINI_SCENES).covers(0, 1))
+    }
+
+    @Test
+    fun withScenes_replacesOnlyTheLinesOfTheRangesSentAgain() {
+        val old = Transcript(
+            source = Transcript.SOURCE_GEMINI_SCENES,
+            lines = listOf(TranscriptLine(1_000, 2_000, "keep"), TranscriptLine(11_000, 12_000, "old")),
+            scenes = listOf(TranscriptRange(0, 5_000), TranscriptRange(10_000, 15_000)),
+        )
+        val next = old.withScenes(listOf(TranscriptRange(10_000, 15_000), TranscriptRange(20_000, 25_000)), listOf(TranscriptLine(21_000, 22_000, "c"), TranscriptLine(13_000, 14_000, "new")))
+        assertEquals(listOf("keep", "new", "c"), next.lines.map { it.text })
+        assertEquals(listOf(TranscriptRange(0, 5_000), TranscriptRange(10_000, 15_000), TranscriptRange(20_000, 25_000)), next.scenes)
+        assertEquals("new c", next.textIn(12_000, 23_000))
+        assertEquals("", next.textIn(5_000, 10_000))
+    }
+
+    @Test
+    fun aTranscriptWrittenBeforeScenesExistedStillReads() {
+        val json = """{"schemaVersion":2,"source":"gemini-scenes","lang":"my","lines":[{"startMs":1,"endMs":2,"text":"a"}]}"""
+        val tx = io.github.alalkipgen.autoflow.core.model.CoreJson.decodeFromString(Transcript.serializer(), json)
+        assertEquals(emptyList(), tx.scenes)
+        assertEquals(1, tx.lines.size)
+        val again = io.github.alalkipgen.autoflow.core.model.CoreJson.decodeFromString(
+            Transcript.serializer(),
+            io.github.alalkipgen.autoflow.core.model.CoreJson.encodeToString(Transcript.serializer(), tx.withScenes(listOf(TranscriptRange(0, 5)), emptyList())),
+        )
+        assertEquals(listOf(TranscriptRange(0, 5)), again.scenes)
+    }
 }

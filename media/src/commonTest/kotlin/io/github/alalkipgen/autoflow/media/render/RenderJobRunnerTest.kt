@@ -10,6 +10,8 @@ import io.github.alalkipgen.autoflow.media.tool.ToolExec
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 
 class RenderJobRunnerTest {
@@ -105,6 +107,27 @@ class RenderJobRunnerTest {
         assertEquals("cannot read the video vd_aaaaaaaaaaaa: ffprobe cannot start: EACCES", r.reason)
         assertEquals(emptyList(), t.commands)
         assertEquals(false, fs.exists("/p/exports"))
+    }
+
+    @Test
+    fun aFinishedRenderLeavesItsResultBesideTheVideo() = runTest {
+        // 5B-4: `<name>.result.json` lets the Export screen show the render again after a restart.
+        val done = assertIs<RenderState.Done>(runner(tools()).run(job(AudioTrack("audio/song.mp3"))))
+        val saved = assertNotNull(RenderResult.read(fs, done.output))
+        assertEquals(RenderResult("mv-tiktok1080.mp4", 16_000, 900, 3, null), saved)
+        assertEquals(true, fs.exists("/p/exports/mv-tiktok1080.result.json"))
+        // A later failed render keeps the video and its record.
+        assertIs<RenderState.Failed>(runner(tools(ffmpegExit = 1)).run(job(AudioTrack("audio/song.mp3"))))
+        assertEquals(saved, RenderResult.read(fs, done.output))
+        // The video replaced without a new record (the app stopped between the rename and the record): not shown.
+        fs.writeDurably(done.output, "another video".encodeToByteArray())
+        assertNull(RenderResult.read(fs, done.output))
+    }
+
+    @Test
+    fun aRenderThatFailsBeforeFfmpegWritesNoResult() = runTest {
+        assertIs<RenderState.Failed>(runner(tools()).run(job(AudioTrack("audio/song.mp3")).copy(files = emptyMap())))
+        assertEquals(false, fs.exists("/p/exports/mv-tiktok1080.result.json"))
     }
 
     @Test
