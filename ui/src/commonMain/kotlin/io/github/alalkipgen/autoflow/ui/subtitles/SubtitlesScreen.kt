@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.subtitles
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,12 +14,16 @@ import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
+import io.github.alalkipgen.autoflow.ui.theme.AfSpace
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.Tone
 
 /**
- * The Subtitles tool (specs/quick-tools.md §5): the video's facts and its source (S-2b), then the editor (S-3c).
+ * The Subtitles tool (specs/quick-tools.md §5): the video's facts and its source (S-2b), then the editor (S-3c), under a
+ * pinned top bar when it has its own Back (Dubbing's steps bring their own bar).
  * Back with unsaved changes asks first: Save, Discard, or Keep editing.
  */
 @Composable
@@ -40,10 +43,6 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
     val draft = ed.draft?.takeIf { ed.dir == open?.dir && it.base == tool?.current }
     val back = onBack?.let { b -> { if (draft?.dirty == true) leaving = true else b() } }
     val header: @Composable ColumnScope.() -> Unit = {
-        if (back != null) WrapRow {
-            AfButton(tr(UiText.PROJECTS_BACK), back, Modifier.heightIn(min = 48.dp).testTag("subtitles-back"))
-            open?.project?.name?.let { AfText(it, bold = true) }
-        }
         state.busy?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-busy"), muted = true) }
         state.notice?.let {
             AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-notice"),
@@ -53,23 +52,33 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
         if (transcribe != null && open != null) TranscribePanel(transcribe, open!!.dir)
         if (translate != null && open != null) TranslatePanel(translate, open!!.dir)
     }
-    Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
-        if (video != null && draft != null && !choosing) {
-            Box(Modifier.widthIn(max = 1400.dp).fillMaxSize()) { // two panes from 840 dp
-                SubtitleEditor(editor, joinPath(open!!.dir, video.file), video, player, header = {
-                    header()
-                    AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),
-                        Modifier.testTag("subtitles-doc-facts"), bold = true)
-                    VideoFacts(video)
-                }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner, translate = translate)
+    Column(modifier.fillMaxSize().background(AutoFlowColors.Background)) {
+        // DESIGN.md §9.7 panel 5: a pinned top bar — the tool, the project, and a warning dot while edits are unsaved.
+        if (back != null) {
+            val name = open?.project?.name.orEmpty()
+            val dirty = draft?.dirty == true
+            AfTopBar(tr(UiText.V3_SUBTITLES), Modifier.background(AutoFlowColors.Panel).padding(horizontal = AfSpace.S, vertical = AfSpace.Xs)
+                .testTag("subtitles-top-bar"), subtitle = My.breakSyllables(if (dirty) "${tr(UiText.SUB_NOT_SAVED)} · $name" else name),
+                status = Tone.Warning.takeIf { dirty }, onBack = back, backModifier = Modifier.testTag("subtitles-back"))
+        }
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            if (video != null && draft != null && !choosing) {
+                Box(Modifier.widthIn(max = 1400.dp).fillMaxSize()) { // two panes from 840 dp
+                    SubtitleEditor(editor, joinPath(open!!.dir, video.file), video, player, header = {
+                        header()
+                        AfText(My.breakSyllables(tr(UiText.SUB_DOC_FACTS, "n" to draft.doc.cues.size, "from" to from(draft.doc))),
+                            Modifier.testTag("subtitles-doc-facts"), bold = true)
+                        VideoFacts(video)
+                    }, onChangeSource = { choosing = true }, exporter = exporter, burner = burner, translate = translate)
+                }
+            } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding)
+                .testTag("subtitles-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                header()
+                if (video != null) {
+                    VideoCard(video)
+                    SourceCard(state, model, open!!.dir, video.hasAudio, transcribe, onCancel = if (draft != null) ({ choosing = false }) else null)
+                } else if (state.busy == null) AfText(My.breakSyllables(tr(UiText.SUBTITLES_NO_VIDEO)), Modifier.testTag("subtitles-no-video"), muted = true)
             }
-        } else Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
-            .testTag("subtitles-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            header()
-            if (video != null) {
-                VideoCard(video)
-                SourceCard(state, model, open!!.dir, video.hasAudio, transcribe, onCancel = if (draft != null) ({ choosing = false }) else null)
-            } else if (state.busy == null) AfText(My.breakSyllables(tr(UiText.SUBTITLES_NO_VIDEO)), Modifier.testTag("subtitles-no-video"), muted = true)
         }
     }
     if (leaving && onBack != null) LeaveDialog(
@@ -84,7 +93,8 @@ internal fun LeaveDialog(save: () -> Unit, discard: () -> Unit, stay: () -> Unit
     Dialog(onDismissRequest = stay) {
         AfCard(My.breakSyllables(tr(UiText.SUB_LEAVE)), Modifier.widthIn(max = 440.dp).testTag("subtitles-leave")) {
             WrapRow {
-                AfButton(My.breakSyllables(tr(UiText.SAVE)), save, Modifier.testTag("subtitles-leave-save"), kind = ButtonKind.Primary)
+                AfButton(My.breakSyllables(tr(UiText.SAVE)), save, Modifier.testTag("subtitles-leave-save"), kind = ButtonKind.Primary,
+                    icon = AfIcons.Regular.Check)
                 AfButton(My.breakSyllables(tr(UiText.DISCARD)), discard, Modifier.testTag("subtitles-leave-discard"), kind = ButtonKind.Danger)
                 AfButton(My.breakSyllables(tr(UiText.SUB_KEEP_EDITING)), stay, Modifier.testTag("subtitles-leave-stay"))
             }
@@ -101,7 +111,7 @@ private fun from(doc: SubtitleDoc) = when {
 
 @Composable
 private fun VideoCard(video: SourceVideo) {
-    AfCard(tr(UiText.SUBTITLES_VIDEO), Modifier.testTag("subtitles-video")) {
+    AfCard(tr(UiText.SUBTITLES_VIDEO), Modifier.testTag("subtitles-video"), icon = AfIcons.Regular.Film) {
         AfText(video.file.substringAfterLast('/'), mono = true)
         VideoFacts(video)
     }
@@ -121,7 +131,7 @@ private fun VideoFacts(video: SourceVideo) {
 private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, dir: String, hasSound: Boolean, transcribe: SubtitleTranscribeModel?,
     onCancel: (() -> Unit)?) {
     val idle = state.busy == null
-    AfCard(tr(UiText.SUB_START_HOW), Modifier.testTag("subtitles-source")) {
+    AfCard(tr(UiText.SUB_START_HOW), Modifier.testTag("subtitles-source"), icon = AfIcons.Regular.Subtitles) {
         AfText(My.breakSyllables(tr(UiText.SUB_TRACKS)), bold = true)
         val tracks = state.tracks
         when {
@@ -146,7 +156,7 @@ private fun SourceCard(state: SubtitlesUiState, model: SubtitlesModel, dir: Stri
             }
         }
         AfButton(My.breakSyllables(tr(UiText.IMPORT_SUBTITLES)), { model.importSrt() }, Modifier.fillMaxWidth().testTag("subtitles-import-srt"),
-            kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle)
+            kind = if (tracks?.any { it.isText } == true) ButtonKind.Secondary else ButtonKind.Primary, enabled = idle, icon = AfIcons.Regular.Folder)
         if (transcribe != null) TranscribeButton(transcribe, dir, hasSound, idle)
         onCancel?.let { AfButton(tr(UiText.CANCEL), it, Modifier.testTag("subtitles-source-cancel")) }
     }

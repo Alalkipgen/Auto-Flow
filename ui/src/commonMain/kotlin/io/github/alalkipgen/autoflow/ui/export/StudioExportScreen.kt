@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.export
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,16 +29,16 @@ fun StudioExportScreen(model: ExportModel, recapModel: RecapModel, windowWidthDp
         navigation.handleBack(true, navigation.back)
         Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
             ProjectTopBar(open?.project?.name.orEmpty(), 5, tr(UiText.EXPORT), navigation.back,
-                options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), navigation.classic, tag = "classic-recap")))
+                steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), navigation.classic, tag = "classic-recap")))
             Box(Modifier.weight(1f)) {
                 ProjectPanes(windowWidthDp, list = {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp)) {
+                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(8.dp)) {
                         AfText(tr(UiText.EXPORT), bold = true)
                         AfText(tr(UiText.SHELL_EXPORT_HINT), muted = true)
                     }
                 }, editor = { ExportScreen(model, studio = true, onPreflightFix = onPreflightFix,
                     livePreview = phonePreview) },
-                    preview = { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    preview = { Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         RecapTimelinePreview(recapModel, studio = true)
                         ExactFrameCard(recapModel)
                     } })

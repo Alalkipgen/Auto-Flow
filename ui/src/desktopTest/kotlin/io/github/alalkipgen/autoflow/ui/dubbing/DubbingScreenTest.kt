@@ -42,6 +42,7 @@ import io.github.alalkipgen.autoflow.ui.shell.App
 import io.github.alalkipgen.autoflow.ui.subtitles.SubtitleEditorModel
 import io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel
 import io.github.alalkipgen.autoflow.ui.textFitProblems
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import java.io.File
 import java.nio.file.Files
@@ -63,6 +64,13 @@ class DubbingScreenTest {
     @BeforeTest fun setupDispatcher() { Dispatchers.setMain(Dispatchers.Unconfined) }
     @AfterTest fun resetDispatcher() { Dispatchers.resetMain() }
     private val chosen = SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "selected")
+    private val tab = SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab)
+
+    /** P9-13a: the step bar is the chooser — five ≥ 48 dp tabs named by their step, only the shown one selected. */
+    private fun ComposeUiTest.assertStepTabs(language: UiLanguage, shown: DubStep) = DubStep.entries.forEach { s ->
+        onNodeWithTag("dub-step-${s.name}").assertHeightIsAtLeast(AfSize.Touch).assert(tab)
+            .assert(hasContentDescription(s.text.text(language))).assert(if (s == shown) chosen else !chosen)
+    }
     private fun shots() = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "dubbing").apply { mkdirs() }
 
     @Test fun tileCreatesADubbingProjectThatOpensOnVideo() = runDesktopComposeUiTest(width = 412, height = 760) {
@@ -89,15 +97,15 @@ class DubbingScreenTest {
                 assertNotNull(open.project.dubbing)
                 assertTrue(open.project.name.startsWith("Rain clip · "), open.project.name)
                 onNodeWithTag("project-progress").assertIsDisplayed()
-                onNodeWithTag("dub-step-VIDEO").assert(chosen)
+                assertStepTabs(UiLanguage.ENGLISH, DubStep.VIDEO)
                 onNodeWithTag("subtitles-notice").assertTextEquals(UiText.MOVIE_UNREADABLE.en) // no ffprobe here: says why
-                onNodeWithTag("dub-step-SCRIPT").performScrollTo().performMouseInput { click() }
+                onNodeWithTag("dub-step-SCRIPT").performMouseInput { click() }
                 onNodeWithTag("dub-lock").assertIsDisplayed()
                 onNodeWithTag("dub-go-VIDEO").performMouseInput { click() }
                 onNodeWithTag("dub-step-VIDEO").assert(chosen)
                 ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "01-dubbing-412-video.png"))
                 onNodeWithTag("project-back").performMouseInput { click() }
-                onNodeWithTag("dub-steps").assertDoesNotExist()
+                onNodeWithTag("dub-step-VIDEO").assertDoesNotExist()
             } finally { app.close() }
         } finally { root.deleteRecursively() }
     }
@@ -130,21 +138,29 @@ class DubbingScreenTest {
                 }
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-row-c1").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("dub-step-SCRIPT").assert(chosen) // every line translated → lands on Dub script
+                assertStepTabs(language, DubStep.SCRIPT)
+                onNodeWithContentDescription("${UiText.V3_DUBBING.text(language)} · Dub").assertIsDisplayed() // the mode before the project
+                // P9-13a: a cue card — "#1" and its times in the head, no title row; Approve and Save carry the check.
+                onNode(hasText("#1") and hasAnyAncestor(hasTestTag("dub-row-head-c1"))).assertIsDisplayed()
+                onNode(hasText(io.github.alalkipgen.autoflow.core.subtitles.TimeText.let { "${it.show(1_000)} → ${it.show(3_000)}" }) and hasAnyAncestor(hasTestTag("dub-row-head-c1"))).assertExists()
+                onNode(hasTestTag("button-icon") and hasAnyAncestor(hasTestTag("dub-approve")), useUnmergedTree = true).assertExists()
                 onNodeWithTag("dub-slot-c1").assertTextEquals(My.breakSyllables(UiText.DUB_SLOT.text(language, "s" to 2.9)))
                 onNodeWithTag("dub-approve").assertIsEnabled().performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.scriptApproved != null }
                 onNodeWithTag("dub-approve").assertIsNotEnabled()
-                onNodeWithTag("dub-step-VOICE").performScrollTo().performMouseInput { click() }
+                onNodeWithTag("dub-step-VOICE").performMouseInput { click() }
                 onNodeWithTag("dub-planned-VOICE").assertIsDisplayed().assertIsNotEnabled() // honest: D-2 not built
-                onNodeWithTag("dub-step-SCRIPT").performScrollTo().performMouseInput { click() }
+                onNodeWithTag("dub-step-SCRIPT").performMouseInput { click() }
                 onNodeWithTag("dub-rows").performScrollToKey("c2")
                 onNode(hasContentDescription(UiText.DUB_SPOKEN.text(language)) and hasAnyAncestor(hasTestTag("dub-spoken-c2")))
                     .performTextReplacement("မိုးမရွာခင်")
+                onNode(hasTestTag("button-icon") and hasAnyAncestor(hasTestTag("dub-save-c2")), useUnmergedTree = true).assertExists()
                 onNodeWithTag("dub-save-c2").performScrollTo().performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.scriptApproved == null }
                 onNodeWithTag("dub-approve").assertIsEnabled() // the change cleared the approval
                 onNodeWithTag("dub-use-subtitle-c2").performScrollTo().assertIsDisplayed()
-                assertEquals(emptyList(), textFitProblems(width, font))
+                onNode(hasTestTag("button-icon") and hasAnyAncestor(hasTestTag("dub-use-subtitle-c2")), useUnmergedTree = true).assertExists()
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true))
                 ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "02-script-$width-${language.name.lowercase()}.png"))
             }
         }

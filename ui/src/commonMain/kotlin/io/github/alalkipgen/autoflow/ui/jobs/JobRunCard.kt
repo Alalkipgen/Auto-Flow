@@ -16,6 +16,17 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun JobRunCard(row: JobRow, modifier: Modifier = Modifier, headerAction: (@Composable () -> Unit)? = null,
     actions: @Composable ColumnScope.() -> Unit = {}) {
+    JobCard(row.projectTitle ?: row.title, row.status, My.breakSyllables(jobDetail(row)), modifier,
+        progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }?.toFloat(),
+        indeterminate = row.indeterminate, headerAction = headerAction, actions = actions)
+}
+
+/**
+ * The job's second line: its kind (when the title is the project: [JobRow.kindLabel], else the job's own title), its
+ * detail (not the red line, not the project again) and live timing.
+ */
+@Composable
+internal fun jobDetail(row: JobRow): String {
     val timing = if (row.timedRun && row.status == StudioStatus.RUNNING) {
         val active by AiRunTiming.active.collectAsState()
         val now = row.jobId?.let { active[it] }
@@ -23,11 +34,19 @@ internal fun JobRunCard(row: JobRow, modifier: Modifier = Modifier, headerAction
         val language = LocalUiLanguage.current
         remember(tick, now, language) { liveLabel(now, language) }
     } else null
-    val detail = listOfNotNull(row.title.takeIf { row.projectTitle != null }, row.detail?.takeIf { it != row.projectTitle && !row.failed }, timing)
+    val red = row.redLine
+    return listOfNotNull((row.kindLabel ?: row.title).takeIf { row.projectTitle != null },
+        row.detail?.takeIf { it.isNotBlank() && it != row.projectTitle && it != projectName(row.projectDir) && it != red }, row.reason?.takeIf { red == null }, timing)
         .joinToString(" · ")
-    JobCard(row.projectTitle ?: row.title, row.status, My.breakSyllables(detail), modifier,
-        progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }?.toFloat(),
-        indeterminate = row.indeterminate, headerAction = headerAction, actions = actions)
+}
+
+/**
+ * The red line of a job card: a failed or paused job's provider error, else a failed job's detail (a render's reason).
+ */
+internal val JobRow.redLine: String? get() = when {
+    reason != null && (failed || status == StudioStatus.PAUSED) -> reason
+    failed -> detail?.takeIf { it.isNotBlank() }
+    else -> null
 }
 
 private fun liveLabel(live: AiRunTiming.Live?, language: UiLanguage): String {
@@ -65,7 +84,7 @@ internal fun MusicGeminiJobCard(jobs: StoryboardJobs, project: OpenProject?, mod
 internal fun ToolAiJobCard(job: AiJob, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val language = LocalUiLanguage.current
     val row = remember(job, language) { jobRows(null, null, null, listOf(job), language).single() }
-    JobRunCard(row.copy(projectTitle = null, detail = null), modifier, actions = content)
+    JobRunCard(row.copy(projectTitle = null, detail = null, reason = null), modifier, actions = content)
 }
 
 /** A tool page's direct AI request with no job (Dubbing Shorten): the same card, running, with live wait time. */

@@ -226,3 +226,35 @@ The owner asked for a preview in every tool, not only Movie Recap's Export. Each
 ### D-96 — Render package: render one project elsewhere (owner, 2026-11-21; F-7)
 
 The owner wants to make a project's video on another machine — pack it on the phone or a Windows PC, give the zip to Muse or another agent with the Linux app, and have it rendered there; Backup is every project, and Render renders here. A render package is a backup zip of one project (same `autoflow-backup.json`, `kind: render-package`, so Restore and its safety checks apply unchanged) with only what the render reads: everything in the folder but `exports/`, `inbox/`, `packages/`, `.cache/`, `project.json` backups and half-written files, and only the artifacts reachable from the kept text files through text artifacts (ids `<kind>_<12 hex>`; `.meta.json` lineage does not count, so old versions and takes stay out). Two extras make it render the same: `render.json` (the export screen's unsaved choices — burn look / size / lines / length / text / `.wav`, the shown subtitle version and document, quality — plus the Library's pronunciation fixes and the app version) and `fonts/<font>`; a project with `fonts/` uses only those fonts (`RecapFrames.font`). Open package adds only the fixes the Library lacks (the owner's own stay). The headless renderer is the desktop app itself (`AutoFlow --render`, `PackageRenderer` drives the same `ExportModel` / `DubExportModel` / `SubtitleBurnModel` the screens use) — no second render path; it runs with its own app home so it never touches the user's settings or keys, needs only ffmpeg on `PATH`, prints `OUTPUT <path>` and exits 0 / 1 / 2. CI's `desktop-smoke` job checks `--help` / exit 2 on the packaged app image and uploads it as `autoflow-linux-x64-<sha>` (`.tar.gz` with its Java runtime); `HeadlessRenderTest` burns a real package with ffmpeg in `check`.
+
+### D-97 — Phase 9 is visual only; features are frozen (owner, 2026-11-21; Phase 9 plan §6.1)
+
+Phase 9 (UI Polish, PLAN Phase 9, DESIGN §9) changes only the visual layer: theme tokens, shared components, layouts, icons, label and content-description strings, and the thumbnail cache (D-99). Models, `project.json`, jobs, renders, AI prompts and calls, routes, flags and settings semantics stay unchanged; Movie Recap and Music Video outputs stay byte-identical (the existing render tests prove it). A bug found while polishing gets its own small `fix` PR. Every existing `testTag` and accessibility label is kept.
+
+### D-98 — Icons: Phosphor, copied into the repo (owner, chat 2026-11-21; Phase 9 plan §6.2, Q-49)
+
+The owner asked for nicer icons. Icons are Phosphor Icons 2.1 (`@phosphor-icons/core` 2.1.1, MIT), converted from the SVGs in `docs/mockups/ui-polish/icons/phosphor/` to in-repo Compose `ImageVector`s (viewport 256, 24 dp) by `docs/mockups/ui-polish/icons/phosphor_to_kotlin.py`, which emits code using Compose's own `addPathNodes` — no Gradle dependency, no icon library (material-icons-extended or other), and `:ui` keeps no Material dependency. Only the icons that are used are converted. Weights: Regular by default; Fill for the active nav item, play / pause and status-chip icons (not `check`); Duotone inside coloured icon tiles. Icons take their colour from the tint. The MIT notice ships with the app (licences text / `NOTICE`).
+
+### D-99 — Thumbnails are cache, not data (2026-11-21; Phase 9 plan §6.3; extends the UI v3 thumbnail task)
+
+One frame is taken with the existing ffmpeg path (`FrameGrab.thumb`, as `RecapThumbnails` does today at 240 px) and kept in the app cache outside every project, keyed by project + source path + size + mtime. A thumbnail is never an artifact, never written into a project folder or `project.json`, and is safe to delete; it is regenerated on demand, one at a time at low priority, paused while a render or export runs. A missing or failed frame shows a placeholder, never a fake picture. Phase 9 extends the existing cache instead of adding a second one.
+
+### D-100 — Burmese text rules (2026-11-21; Phase 9 plan §6.4)
+
+No fixed heights on text (`heightIn(min = …)` only); line height at least 1.5× (the UI fonts' own line height — Pyidaungsu 1.72×, Noto Sans Myanmar 2.18× — is kept, never a lower fixed value), with `LineHeightStyle(Center, Trim.None)` (and Android `includeFontPadding`) so stacked marks are not clipped; nav, chip, step and button labels wrap to at most 2 lines before an ellipsis, with the full text in the content description; nothing is clipped in MY at 360 dp × font 2.0 (an automated overflow check, DESIGN §9.6); touch targets at least 48 dp. `My.breakSyllables` stays.
+
+### D-101 — Hierarchy and status (2026-11-21; Phase 9 plan §6.5)
+
+One primary (filled) action per screen area; a destructive action is never the primary one; flow screens put their main action in `StickyActionBar`; status is tone + icon + word, never colour alone. The DESIGN §7 status vocabulary and `StatusChip` mapping stay as they are (Running = cyan).
+
+### D-102 — Mockups set the structure, not the pixels (2026-11-21; Phase 9 plan §6.6)
+
+The Phase 9 mockups (`docs/mockups/ui-polish/`: phone panels 1–8 at 412 dp, desktop D1–D4 at 1440 × 900) decide layout and hierarchy; where a repo token is close to a mockup value the repo token wins, and the UI v3 colours stay (Q-48 default) — the mockup primary #7C5CFF with white text is 4.35:1, below AA, so `PrimaryFill` #7C3AED stays. Mockup elements with no real feature behind them are left out and listed in the PR (at c298c06: link import, search / Ctrl K, drag-and-drop drop zone, drag-to-retime, storage meter, time/size estimates, self-test result and last-backup time). Where the bundle conflicts with an existing repo rule the repo rule stays: the Jobs badge keeps the DESIGN §7 count (amber Needs-you first, else cyan Running + Queued).
+
+### D-103 — Desktop = adaptive layouts inside the one shared UI (2026-11-21; Phase 9 plan §6.7, extends D-22)
+
+The same Compose Multiplatform composables run on Android, Windows and Linux; only the layout changes by width class: compact < 600 dp (phone layouts, bottom nav), medium 600–839 dp (phone layout, content max 640 dp, 72 dp rail), expanded ≥ 840 dp (244 dp sidebar; a 72 dp rail in editors and below 1200 dp; list–detail panes for Projects, Jobs, Library, Settings and editor panes for Subtitles and Dubbing — DESIGN §9.8). This replaces the 5A-6 rail widths (rail ≥ 600 dp, 60 dp compact rail ≥ 840 dp) without changing a route. Every screen PR does the phone and the desktop layout together. No separate desktop app, no Android-only UI library in shared code, native OS title bar (Q-53). Right-click opens the existing ⋮ menu; keyboard shortcuts and drag-and-drop only trigger actions that already exist.
+
+### D-104 — Library: no desktop list–detail (owner, 2026-11-22; #288)
+
+At expanded width (≥ 840 dp) the Library keeps its centred column (≤ `AfSize.ContentMax`) instead of the list–detail pane planned in D-103 / P9-16 — a Library item has nothing to show beyond its row. Settings' list–detail (P9-17b) is unaffected.

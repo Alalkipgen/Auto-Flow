@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
@@ -18,7 +19,7 @@ internal fun TranscribeButton(model: SubtitleTranscribeModel, dir: String, hasSo
     val jobs by model.jobs.collectAsState()
     val free = model.jobOf(dir, jobs) == null && !(s.dir == dir && (s.planning || s.confirm != null))
     AfButton(My.breakSyllables(tr(UiText.SUB_TRANSCRIBE)), { model.ask() }, Modifier.fillMaxWidth().testTag("subtitles-transcribe"),
-        enabled = idle && hasSound && free)
+        enabled = idle && hasSound && free, icon = AfIcons.Regular.Wave)
     if (!hasSound) AfText(My.breakSyllables(tr(UiText.MOVIE_NO_SOUND_TO_TRANSCRIBE)), Modifier.testTag("subtitles-transcribe-no-sound"), muted = true)
 }
 
@@ -32,7 +33,7 @@ internal fun TranscribePanel(model: SubtitleTranscribeModel, dir: String) {
     val c = s.confirm
     when {
         s.planning -> AfText(My.breakSyllables(tr(UiText.SUB_TRANSCRIBE_FINDING)), Modifier.testTag("subtitles-transcribe-finding"), muted = true)
-        c != null -> AfCard(My.breakSyllables(tr(UiText.SUB_TRANSCRIBE)), Modifier.testTag("subtitles-transcribe-confirm")) {
+        c != null -> AfCard(My.breakSyllables(tr(UiText.SUB_TRANSCRIBE)), Modifier.testTag("subtitles-transcribe-confirm"), icon = AfIcons.Regular.Wave) {
             AfText(My.breakSyllables(tr(UiText.SUB_TRANSCRIBE_CONFIRM, "minutes" to maxOf(1L, (c.audioMs + 30_000) / 60_000), "requests" to c.requests)),
                 Modifier.testTag("subtitles-transcribe-facts"), bold = true)
             AfText(My.breakSyllables(tr(UiText.TRANSCRIBE_USED_TODAY, "toString" to (c.usedToday?.toString() ?: "…"))),
@@ -46,7 +47,8 @@ internal fun TranscribePanel(model: SubtitleTranscribeModel, dir: String) {
             }
             if (c.again) AfText(My.breakSyllables(tr(UiText.SUB_TRANSCRIBE_AGAIN)), Modifier.testTag("subtitles-transcribe-again"), color = AutoFlowColors.Amber)
             WrapRow {
-                AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("subtitles-transcribe-start"), kind = ButtonKind.Primary)
+                AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("subtitles-transcribe-start"), kind = ButtonKind.Primary,
+                    icon = AfIcons.Fill.Play)
                 AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("subtitles-transcribe-back"))
             }
         }
@@ -77,7 +79,8 @@ private fun JobCard(model: SubtitleTranscribeModel, job: AiJob) {
                 AfButton(My.breakSyllables(tr(UiText.V3_RESUME_REMAINING, "n" to job.items.size)), { model.resume(job) },
                     Modifier.testTag("subtitles-transcribe-resume"), kind = ButtonKind.Primary)
             } else {
-                AfButton(My.breakSyllables(tr(UiText.PAUSE)), { pausing = true; model.pause(job) }, Modifier.testTag("subtitles-transcribe-pause"), enabled = !pausing)
+                AfButton(My.breakSyllables(tr(UiText.PAUSE)), { pausing = true; model.pause(job) }, Modifier.testTag("subtitles-transcribe-pause"), enabled = !pausing,
+                    icon = AfIcons.Fill.Pause)
             }
             AfButton(My.breakSyllables(tr(UiText.CANCEL_JOB)), { model.cancel(job) }, Modifier.testTag("subtitles-transcribe-cancel"), kind = ButtonKind.Danger)
         }

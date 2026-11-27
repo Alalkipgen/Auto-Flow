@@ -4,17 +4,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.storyboard.text
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
+import io.github.alalkipgen.autoflow.ui.theme.AfSpace
+import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Source presentation only: every write still uses the existing RecapModel/session/core path. */
@@ -35,15 +41,15 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
     navigation?.handleBack?.invoke(replacing || state.transcribe.confirm != null, back)
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 1, tr(UiText.SOURCE), back,
-            options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+            steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
         state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("source-picks"),
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("source-picks"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { SourcePicks(model, state, recap) }
             }, editor = {
                 key(state.projectDir) {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp).testTag("source-content"),
+                    Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(14.dp).testTag("source-content"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (state.runnerJobId == null) state.job?.let {
                             StatusChip(StudioStatus.RUNNING)
@@ -78,7 +84,8 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                                 }
                                 AfText(My.breakSyllables(tr(UiText.V3_SCAN_HINT)), muted = true)
                                 AfButton(tr(if (recap.scenes.isEmpty()) UiText.FIND_SCENES else UiText.FIND_SCENES_AGAIN),
-                                    { model.findScenes(threshold) }, Modifier.testTag("source-scan"), enabled = idle && RecapRulesV2.canFindScenes(recap).allowed)
+                                    { model.findScenes(threshold) }, Modifier.testTag("source-scan"), enabled = idle && RecapRulesV2.canFindScenes(recap).allowed,
+                                    icon = AfIcons.Regular.Search)
                             }
                             SectionCard(tr(UiText.V3_SCAN_RESULT, "n" to recap.scenes.size)) {
                                 if (recap.scenes.isEmpty()) AfText(My.breakSyllables(tr(UiText.V3_NO_SCENES)), muted = true)
@@ -97,20 +104,20 @@ internal fun StudioSourceScreen(model: RecapModel, windowWidthDp: Float, navigat
                     }
                 }
             }, preview = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     RecapTimelinePreview(model, studio = true)
                     ExactFrameCard(model)
                 }
             })
         }
         if (recap.movie == null) StickyActionBar(StudioAction(tr(UiText.IMPORT_MOVIE), { model.importMovie() },
-            idle && RecapRulesV2.canImportMovie(recap).allowed, "source-import"))
+            idle && RecapRulesV2.canImportMovie(recap).allowed, "source-import", AfIcons.Regular.Film))
         else navigation?.let { StickyActionBar(StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.STORY)),
             it.next, idle, "recap-next")) }
     }
     if (replacing) Dialog(onDismissRequest = { replacing = false }) {
         AfCard(tr(UiText.REPLACE_MOVIE), Modifier.fillMaxWidth().widthIn(max = 560.dp)) {
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+            Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState())) {
                 AfText(My.breakSyllables(tr(UiText.V3_REPLACE_MOVIE_CONFIRM)), Modifier.testTag("source-replace-warning"))
             }
             StickyActionBar(StudioAction(tr(UiText.REPLACE_MOVIE), { replacing = false; model.importMovie() }, idle, "source-replace-confirm"),
@@ -141,17 +148,27 @@ private fun SourcePicks(model: RecapModel, state: RecapUiState, recap: RecapV2) 
         val pages = maxOf(1, (rows.size + SCENES_PER_PAGE - 1) / SCENES_PER_PAGE)
         LaunchedEffect(pages) { page = page.coerceAtMost(pages - 1) }
         rows.drop(page * SCENES_PER_PAGE).take(SCENES_PER_PAGE).forEach { (index, scene) ->
-            AfCard("${if (scene.picked) "☑" else "☐"} #${index + 1}", Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            // A check-box row: check mark · scene frame · "#n" and its real time (the row is the checkbox).
+            AfCard(Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .testTag("scene-pick-$index").toggleable(scene.picked, enabled = idle, role = Role.Checkbox) { model.togglePick(index) },
                 selected = scene.picked) {
-                AfText("${RecapModel.clock(scene.startMs)}–${RecapModel.clock(scene.endMs)}", mono = true)
-                RecapThumbnail(model, state, scene.startMs, scene.endMs, "scene-thumbnail-$index")
+                ThumbBeside(AfSize.ThumbScene.width, { RecapThumbnail(model, state, scene.startMs, scene.endMs, "scene-thumbnail-$index") }, { m ->
+                    Column(m, verticalArrangement = Arrangement.spacedBy(AfSpace.Xs)) {
+                        AfText("#${index + 1}", type = AfType.RowTitle)
+                        AfText("${RecapModel.clock(scene.startMs)}–${RecapModel.clock(scene.endMs)}", muted = true, type = AfType.Numbers)
+                    }
+                }, leading = { CheckMark(scene.picked) }, factsMin = AfSize.ThumbFactsMin)
             }
         }
-        if (pages > 1) WrapRow {
-            AfButton("◀", { page-- }, Modifier.testTag("source-page-back"), enabled = page > 0)
-            AfText(tr(UiText.SCENES_PAGE, "page1" to page + 1, "pages" to pages, "size" to rows.size), muted = true)
-            AfButton("▶", { page++ }, Modifier.testTag("source-page-next"), enabled = page < pages - 1)
+        if (pages > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AfSpace.S)) {
+            // The previous-page button is the next-page chevron mirrored (the icon set has no left caret).
+            AfIconButton(AfIcons.Regular.Chevron, tr(UiText.PREVIOUS_PAGE), { page-- },
+                Modifier.graphicsLayer(scaleX = -1f).testTag("source-page-back"), enabled = page > 0)
+            AfText(tr(UiText.SCENES_PAGE, "page1" to page + 1, "pages" to pages, "size" to rows.size), Modifier.weight(1f),
+                muted = true, textAlign = TextAlign.Center)
+            AfIconButton(AfIcons.Regular.Chevron, tr(UiText.NEXT_PAGE), { page++ }, Modifier.testTag("source-page-next"),
+                enabled = page < pages - 1)
         }
     }
 }

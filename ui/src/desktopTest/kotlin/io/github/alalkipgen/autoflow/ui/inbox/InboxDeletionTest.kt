@@ -87,8 +87,15 @@ class InboxDeletionTest {
             noDelete()
             clipAction(UiText.CANCEL)
 
+            // Step 1 = the file (its kind tile, name and "Inbox"); Cancel and a tap outside delete nothing.
             hold(clipTag)
+            onNodeWithTag("glass-dialog-title").assertTextEquals(My.breakSyllables(clip))
+            onNodeWithTag("glass-dialog-subtitle").assertTextEquals(My.breakSyllables(UiText.INBOX.text(language)))
+            onNodeWithTag("glass-dialog-lead").assertIsDisplayed()
             tap("$clipTag-remove-cancel")
+            noDelete()
+            hold(clipTag)
+            onAllNodes(isRoot())[1].performMouseInput { click(Offset(5f, 5f)) }
             noDelete()
             assertTrue(fs.exists("$dir/inbox/$clip"))
             hold(clipTag)
@@ -120,6 +127,8 @@ class InboxDeletionTest {
 
             row(waitingTag).assertHeightIsAtLeast(48.dp)
             hold(waitingTag)
+            onNodeWithTag("glass-dialog-subtitle").assertTextEquals(My.breakSyllables(UiText.SHARED_TO_AUTOFLOW.text(language)))
+            onNodeWithTag("glass-dialog-lead").assertDoesNotExist()
             selectDelete(waitingTag)
             tap("$waitingTag-remove-confirm")
             onNodeWithTag(waitingTag).assertDoesNotExist()

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -103,7 +104,8 @@ private fun TapPanel(sync: TapSync, player: SongPlayer, model: LyricSyncModel) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         AfText(tr(UiText.SYNC_HELP, "start" to tr(UiText.SYNC_LINE_START), "end" to tr(UiText.SYNC_LINE_END)), muted = true, size = 12.sp)
         WrapRow {
-            AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), { if (player.playing) player.pause() else player.play() })
+            AfButton(if (playing) tr(UiText.PAUSE) else tr(UiText.PLAY), { if (player.playing) player.pause() else player.play() },
+                icon = if (playing) AfIcons.Fill.Pause else AfIcons.Fill.Play)
             AfText("${InputModel.formatDuration(position)} / ${duration?.let(InputModel::formatDuration) ?: "–:––"}", mono = true)
             AfText(tr(UiText.LYRIC_LINE_COUNT, "size" to (minOf(sync.starts.size + 1, sync.lines.size)), "value2" to (sync.lines.size)), muted = true)
         }

@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.voice
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +34,7 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
     DisposableEffect(Unit) { onDispose { model.flush() } }
     val back: (() -> Unit)? = if (s.fresh && s.task != null) model::backToChooser else onBack
     Column(modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
-        Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(screenPadding)
+        Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().weight(1f).paneScroll(rememberScrollState()).padding(screenPadding)
             .testTag("voice-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             WrapRow {
                 back?.let { AfButton(tr(UiText.PROJECTS_BACK), it, Modifier.heightIn(min = 48.dp).testTag("voice-back")) }

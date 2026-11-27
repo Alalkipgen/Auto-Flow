@@ -3,7 +3,6 @@ package io.github.alalkipgen.autoflow.ui.recap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -58,15 +57,15 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
     }
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background)) {
         navigation?.let { ProjectTopBar(open?.project?.name.orEmpty(), 2, tr(UiText.STORY), back,
-            options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
+            steps = recapStepLabels(), options = listOf(StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap"))) }
         RecapForegroundCards(model, state)
         Box(Modifier.weight(1f)) {
             ProjectPanes(windowWidthDp, list = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("story-list"),
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("story-list"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { blocks() }
             }, editor = {
                 val scroll = key(state.projectDir, detail?.block?.id) { rememberScrollState() }
-                Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(14.dp).testTag("story-content"),
+                Column(Modifier.fillMaxSize().paneScroll(scroll).padding(14.dp).testTag("story-content"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (state.job != null && state.scriptRunId == null) {
                         StatusChip(StudioStatus.RUNNING)
@@ -88,7 +87,7 @@ internal fun StudioStoryScreen(model: RecapModel, windowWidthDp: Float, navigati
                     }
                 }
             }, preview = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     RecapTimelinePreview(model, blockId = detail?.block?.id, studio = true)
                     ExactFrameCard(model)

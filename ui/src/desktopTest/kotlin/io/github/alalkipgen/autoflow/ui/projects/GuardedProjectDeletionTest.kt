@@ -171,9 +171,9 @@ class GuardedProjectDeletionTest {
                 onNodeWithText("A").performScrollTo().performTouchInput { longClick() }
                 onNodeWithTag("project-delete-action").assertDoesNotExist()
                 onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { click() }
-                onNodeWithText(UiText.REMOVE.text(language)).assertIsDisplayed().performMouseInput { click() }
+                onNodeWithTag("remove-project-confirm").assertIsDisplayed().performMouseInput { click() }
                 clickTag("projects-open-removed")
-                clickText("A · A.autoflow")
+                clickTag("removed-project-0")
                 clickTag("project-delete-action")
                 onNodeWithText(My.breakSyllables(UiText.PROJECT_DELETE_PERMANENT.text(language))).performScrollTo().assertIsDisplayed()
                 assertContentEquals(before, File(f.a, "project.json").readBytes())

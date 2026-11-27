@@ -1,26 +1,24 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.recap.RecapMovie
 import io.github.alalkipgen.autoflow.media.probe.FrameGrab
+import io.github.alalkipgen.autoflow.ui.components.MediaThumb
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
-import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.media.ThumbnailGate
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.random.Random
 
@@ -34,7 +32,7 @@ internal class RecapThumbnails(private val fs: FileSystem, private val media: Me
     val enabled: Boolean get() = cacheDir != null
 
     /**
-     * One decoder at a time. Revision is deliberately conservative: the movie is not hashed (D-33), so even
+     * One decoder at a time (shared with [io.github.alalkipgen.autoflow.ui.media.MediaThumbnails]). Revision is deliberately conservative: the movie is not hashed (D-33), so even
      * same-size replacements cannot reuse an earlier saved revision. Cache collisions are checked, not trusted.
      * 64 replaceable app-cache slots, plus temporary work files; no project file is written.
      */
@@ -44,7 +42,7 @@ internal class RecapThumbnails(private val fs: FileSystem, private val media: Me
             val movie = source.movie
             if (cache == source.dir || cache.startsWith("${source.dir}/") ||
                 fromMs < 0 || toMs <= fromMs || toMs > movie.durationMs) return@withContext null
-            mutex.withLock {
+            ThumbnailGate.withLock {
                 ensureActive()
                 if (!current()) return@withLock null
                 val nonce = Random.nextLong().toString(16)
@@ -97,7 +95,6 @@ internal class RecapThumbnails(private val fs: FileSystem, private val media: Me
 
     companion object {
         private const val MAX_BYTES = 2_097_152L
-        private val mutex = Mutex()
     }
 }
 
@@ -114,15 +111,14 @@ internal fun RecapThumbnail(model: RecapModel, state: RecapUiState, fromMs: Long
                 value = model.sceneThumbnails.load(source, fromMs, toMs) { model.thumbnailIsCurrent(source) }
             }
         }
-        // Stable from first measurement: late images above a scrolled row must not push its anchor offscreen.
-        // The empty slot is not a fake picture; real time/controls remain when a thumbnail is unavailable.
-        Box(Modifier.fillMaxWidth().height(72.dp).onGloballyPositioned {
+        // Stable from first measurement (a fixed 128 × 72 slot): late images above a scrolled row must not push its anchor
+        // offscreen. Until the real frame loads the slot shows the film placeholder (never a fake picture); real
+        // time/controls remain when a thumbnail is unavailable.
+        Box(Modifier.size(AfSize.ThumbScene).testTag("$tag-slot").onGloballyPositioned {
             visible = it.isAttached && !it.boundsInWindow().isEmpty
         }) {
-            image?.let {
-                // Decorative: the parent already announces the scene/block number, real time and actions.
-                Image(it, null, Modifier.size(128.dp, 72.dp).clip(AutoFlowShapes.Card).testTag(tag), contentScale = ContentScale.Crop)
-            }
+            // Decorative: the parent already announces the scene/block number, real time and actions.
+            Box(if (image != null) Modifier.testTag(tag) else Modifier) { MediaThumb(image, AfIcons.Duotone.Film, size = AfSize.ThumbScene) }
         }
     }
 }

@@ -6,7 +6,6 @@ import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -24,6 +23,10 @@ enum class RecapStep(val textKey: UiText) {
     fun previous(): RecapStep? = entries.getOrNull(ordinal - 1)
     fun next(): RecapStep? = entries.getOrNull(ordinal + 1)
 }
+
+/** The five step names under the project top bar's step bar. */
+@Composable
+internal fun recapStepLabels(): List<String> = RecapStep.entries.map { tr(it.textKey) }
 
 /** No tab bar: the label and wrapping actions remain readable at the owner's large font sizes. */
 @Composable
@@ -95,7 +98,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
     val selectedIndex = blocks.indexOfFirst { it.id == selectedId }.takeIf { it >= 0 } ?: blocks.indices.firstOrNull()
     val wide = windowWidthDp >= 840f
     val list: @Composable () -> Unit = {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText(if (step == RecapStep.SOURCE) tr(UiText.SCENES) else tr(UiText.BLOCKS), bold = true)
             if (step == RecapStep.SOURCE) {
                 recap.scenes.forEachIndexed { i, scene ->
@@ -117,14 +120,14 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
         }
     }
     val preview: @Composable () -> Unit = {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (step != RecapStep.STYLE) RecapTimelinePreview(model)
             AfText(tr(UiText.OUTPUT_STILL_PREVIEW), muted = true)
             ExactFrameCard(model)
         }
     }
     ProjectPanes(windowWidthDp, list = list, editor = {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             state.job?.let { AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: it}", color = AutoFlowColors.Cyan) }
             state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
             if (!wide && step != RecapStep.SOURCE && blocks.isNotEmpty()) {

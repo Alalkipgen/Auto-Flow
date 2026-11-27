@@ -66,40 +66,46 @@ class SettingsLayoutTest(val width: Int, val font: Float, val language: UiLangua
             setContent {
                 CompositionLocalProvider(LocalCompact provides (width < 600), LocalDensity provides Density(1f, font),
                     LocalUiLanguage provides language, LocalUiFontFamily provides if (bundled) BurmeseTestFont.family else FontFamily.Default) {
-                    StudioV2Shell(if (libraryShown) StudioV2Dest.LIBRARY else StudioV2Dest.HOME, {}, 0, width.toFloat()) {
+                    StudioV2Shell(if (libraryShown) StudioV2Dest.LIBRARY else StudioV2Dest.HOME, {}, 0, width.toFloat(), ambient = !libraryShown) {
                         if (libraryShown) LibraryScreen(library, focusLexicon = true)
-                        else Column(Modifier.fillMaxSize()) {
-                            V2SubBar(tr(UiText.BACK), provider.current()) { back++ }
-                            Box(Modifier.weight(1f)) { SettingsScreen(model,
-                                info = if (width < 600) AppInfo("QA fixture host") { selfTests++ } else AppInfo("QA fixture host"),
-                                backup = backup,
-                                onOpenLexicon = { libraryShown = true }) }
-                        }
+                        else SettingsScreen(model,
+                            info = if (width < 600) AppInfo("QA fixture host") { selfTests++ } else AppInfo("QA fixture host"),
+                            backup = backup,
+                            onOpenLexicon = { libraryShown = true },
+                            onBack = { back++ })
                     }
                 }
             }
-            val sections = listOf(UiText.V3_AI_KEYS, UiText.MODEL_CONFIG, UiText.V3_EXPORT_DEFAULTS,
-                UiText.FONTS_OVERLAYS, UiText.TOOLS, UiText.PREVIEW_FEATURES, UiText.ABOUT) +
-                if (backup != null) listOf(UiText.BACKUP) else emptyList()
-            sections.forEach { key ->
-                onNodeWithContentDescription(key.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
-                assertEquals(emptyList(), textFitProblems(width, font), key.name)
-                onNodeWithContentDescription(key.text(language)).performScrollTo().performMouseInput { click() }
+            // P9-17a: the main page, then every row's page (no clipping, no cut words), back to the main page each time.
+            onNodeWithTag("settings-heading").assertIsDisplayed()
+            assertEquals(emptyList(), textFitProblems(width, font, strict = true), "main")
+            val rows = listOf("language", "gemini", "models", "defaults", "fonts", "tools", "labs") +
+                if (backup != null) listOf("backup") else emptyList()
+            rows.forEach { row ->
+                onNodeWithTag("settings-row-$row").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+                onNodeWithTag("settings-page-title").assertIsDisplayed()
+                if (row == "models") onNodeWithTag("models-more").performScrollTo().performMouseInput { click() }
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true, minNodes = 3), row)
+                onNodeWithTag("settings-page-back").assertIsDisplayed().performMouseInput { click() }
+                onNodeWithTag("settings-heading").assertIsDisplayed()
             }
-            onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithTag("settings-row-diagnostics").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             onNodeWithTag("diagnostics-build").performScrollTo().assertIsDisplayed()
             val self = onNodeWithTag("settings-self-test").performScrollTo().assertIsDisplayed()
             if (width < 600) { self.assertIsEnabled().performMouseInput { click() }; assertEquals(1, selfTests) }
             else self.assertIsNotEnabled()
+            assertEquals(emptyList(), textFitProblems(width, font, strict = true), "diagnostics")
             capture("10-diagnostics")
-            onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.text(language)).performScrollTo().performMouseInput { click() }
+            onNodeWithTag("settings-page-back").performMouseInput { click() }
             onNodeWithTag("subscreen-back").assertIsDisplayed().performMouseInput { click() }
             assertEquals(1, back)
-            onNodeWithTag("settings-heading").performScrollTo().assertIsDisplayed()
+            onNodeWithTag("settings-heading").assertIsDisplayed()
             capture("10-settings")
             onNodeWithTag("settings-lexicon").performScrollTo().assertIsDisplayed().performMouseInput { click() }
             waitForIdle()
-            onNodeWithText(UiText.LIBRARY_LEXICON.text(language, "size" to 0)).assertIsDisplayed()
+            // An empty Library: Pronunciation shows every section and brings the Lexicon (its empty row) into view.
+            onNodeWithTag("library-empty-lexicon").assertIsDisplayed()
+            onNodeWithTag("library-categories").assertDoesNotExist()
             assertContentEquals(before, File(fixture.dir, "project.json").readBytes(), "Settings/Library browse must not save project")
         } finally { scope.cancel() }
     }

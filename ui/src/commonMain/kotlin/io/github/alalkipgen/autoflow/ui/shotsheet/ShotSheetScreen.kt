@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shotsheet
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.storyboard.text
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -186,7 +186,7 @@ fun ShotSheetScreen(
     }
 
     val list: @Composable () -> Unit = {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AfText(tr(UiText.SHOTS), bold = true)
             shotList()
             AfText(tr(UiText.ALL_SHOTS), bold = true)
@@ -195,7 +195,7 @@ fun ShotSheetScreen(
     }
 
     val listPage: @Composable () -> Unit = {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp).testTag("shot-sheet-list"),
+        Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(8.dp).testTag("shot-sheet-list"),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText(tr(UiText.SHOTS), size = 16.sp, bold = true)
             shotList()
@@ -206,7 +206,7 @@ fun ShotSheetScreen(
     }
 
     val preview: @Composable () -> Unit = {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText(tr(UiText.SHEET_MEDIA_SHOT, "number" to (row.number)), muted = true)
             flowRow?.let { f ->
                 RefThumb(f, handoff)
@@ -219,7 +219,7 @@ fun ShotSheetScreen(
     val sheet: @Composable () -> Unit = {
         val scroll = key(identity, selected) { rememberScrollState() }
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(8.dp).testTag("shot-sheet"),
+            Modifier.fillMaxSize().paneScroll(scroll).padding(8.dp).testTag("shot-sheet"),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (!wide) AfButton(tr(UiText.V3_MV_SHOT_LIST), { detailOpen = false }, Modifier.heightIn(min = 48.dp).testTag("shot-sheet-back"))

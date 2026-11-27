@@ -36,6 +36,8 @@ import io.github.alalkipgen.autoflow.media.playback.MoviePhase
 import io.github.alalkipgen.autoflow.media.playback.MovieSnapshot
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.My
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.jobs.DesktopAiJobRunner
 import io.github.alalkipgen.autoflow.ui.jobs.RecapJobProcessor
@@ -213,12 +215,20 @@ class SubtitleTranscribeTest {
                 show(f, language, font)
                 waitTag("subtitles-change-source")
                 tap("subtitles-change-source")
+                // P9-12d: the source screen's cards and buttons carry icons, not glyphs.
+                assertCardIcon("subtitles-video", UiText.SUBTITLES_VIDEO.text(language))
+                assertCardIcon("subtitles-source", UiText.SUB_START_HOW.text(language))
+                assertIconButton("subtitles-import-srt", UiText.IMPORT_SUBTITLES, language)
+                assertIconButton("subtitles-transcribe", UiText.SUB_TRANSCRIBE, language)
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language source")
                 tap("subtitles-transcribe")
                 waitTag("subtitles-transcribe-again")
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language confirm")
+                assertCardIcon("subtitles-transcribe-confirm", My.breakSyllables(UiText.SUB_TRANSCRIBE.text(language)))
+                assertIconButton("subtitles-transcribe-start", UiText.START, language)
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language confirm")
                 tap("subtitles-transcribe-start")
                 waitTag("subtitles-transcribe-pause")
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language running")
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language running")
                 f.gate!!.second.complete(Unit)
                 f.runScope.cancel()
             }

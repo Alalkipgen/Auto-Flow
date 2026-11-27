@@ -1,9 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -117,7 +117,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
     }
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
         navigation?.let {
-            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, options = listOf(
+            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, steps = recapStepLabels(), options = listOf(
                 StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap")))
         }
         RecapForegroundCards(model, state)
@@ -125,10 +125,10 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
         if (wide) Box(Modifier.weight(1f).fillMaxWidth()) {
             // Concept 11: blocks · real preview · inspector (selected block, else the voice lock).
             ProjectPanes(windowWidthDp, list = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("voice-list"),
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("voice-list"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { blockList() }
             }, editor = {
-                Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(14.dp).testTag("voice-content"),
+                Column(Modifier.fillMaxSize().paneScroll(scroll).padding(14.dp).testTag("voice-content"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     status()
                     if (detail == null) {
@@ -142,14 +142,14 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                     }
                 }
             }, preview = {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("voice-preview"),
+                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("voice-preview"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     RecapTimelinePreview(model, blockId = detail?.block?.id, studio = true)
                     ExactFrameCard(model)
                     AfText(My.breakSyllables(tr(UiText.V3_SHORTCUTS_HINT)), Modifier.testTag("shortcuts-hint"), muted = true)
                 }
             })
-        } else Column(Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth().verticalScroll(scroll).padding(14.dp)
+        } else Column(Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth().paneScroll(scroll).padding(14.dp)
             .testTag("voice-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             status()
             if (detail == null) {
@@ -178,7 +178,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                 AfText(tr(UiText.SPEAK_ALL_HINT), muted = true)
                 WrapRow {
                     AfButton(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) },
-                        Modifier.testTag("voice-confirm"), kind = ButtonKind.Primary, enabled = idle && gate.allowed)
+                        Modifier.testTag("voice-confirm"), kind = ButtonKind.Primary, enabled = idle && gate.allowed, icon = AfIcons.Fill.Play)
                     AfButton(tr(UiText.CANCEL), model::cancelSpeakAll, Modifier.testTag("voice-confirm-cancel"))
                 }
             }

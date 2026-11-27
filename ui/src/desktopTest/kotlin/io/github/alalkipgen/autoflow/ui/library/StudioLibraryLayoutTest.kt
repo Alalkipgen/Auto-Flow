@@ -8,6 +8,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.i18n.*
@@ -25,7 +26,7 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiLanguage, val bundled: Boolean) {
     companion object { @JvmStatic @Parameterized.Parameters(name = "{0}px/{1}/{2}/bundled={3}") fun cases() = StudioVoiceLayoutTest.cases() }
-    @Test fun sectionJumpsDraftsVisibleActionsConfirmCancelCopyAndLocaleNoticesRetainProjectBytes() =
+    @Test fun sectionFiltersDraftsVisibleActionsConfirmCancelCopyAndLocaleNoticesRetainProjectBytes() =
         runDesktopComposeUiTest(width = width, height = if (width == 1440) 900 else 760) {
             LibraryTestFixture().use { f ->
                 val before = LibraryTestFixture.bytes(File(f.a.dir)); val bBefore = LibraryTestFixture.bytes(File(f.b.dir))
@@ -41,23 +42,40 @@ class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiL
                     .performMouseInput { moveTo(center); click(); exit() }
                 fun text(key: UiText) = onNodeWithText(key.text(locale)).performScrollTo().assertIsDisplayed()
                 fun clickText(key: UiText) = text(key).performMouseInput { moveTo(center); click(); exit() }
-                fun collapseKits() = onNodeWithContentDescription(UiText.LIBRARY_KITS.text(locale, "size" to 1))
-                    .performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+                // performScrollTo scrolls only the nearest scroller (the chip row): bring the row into view first.
+                fun chip(key: UiText) = onNodeWithTag("library-categories").performScrollTo().let {
+                    onNode(hasText(key.text(locale)) and hasAnyAncestor(hasTestTag("library-categories")))
+                        .performScrollTo().assertIsDisplayed().performMouseInput { moveTo(center); click(); exit() }
+                }
+                val tags = listOf("library-kits", "library-voices", "library-lexicon", "library-music", "library-fonts", "library-presets")
                 val images = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "library").apply { mkdirs() }
                 fun capture(name: String) {
                     assertEquals(emptyList(), textFitProblems(width, font))
                     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(images, "$name-$width-${language.code}-$font-$bundled.png"))
                 }
                 onNodeWithTag("library-heading").assertIsDisplayed(); capture("library-top")
-                listOf(UiText.V3_LIBRARY_KITS to UiText.LIBRARY_KITS, UiText.V3_LIBRARY_VOICES to UiText.LIBRARY_VOICES,
-                    UiText.V3_LIBRARY_LEXICON to UiText.LIBRARY_LEXICON, UiText.V3_LIBRARY_MUSIC to UiText.LIBRARY_MUSIC,
-                    UiText.V3_LIBRARY_FONTS to UiText.LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS to UiText.LIBRARY_PRESETS).forEach { (chip, header) ->
-                    clickText(chip)
-                    onNodeWithText(header.text(locale, "size" to if (header == UiText.LIBRARY_PRESETS) 3 else 1)).assertIsDisplayed()
-                    assertEquals(emptyList(), textFitProblems(width, font), chip.name)
+                listOf(UiText.V3_LIBRARY_KITS, UiText.V3_LIBRARY_VOICES, UiText.V3_LIBRARY_LEXICON, UiText.V3_LIBRARY_MUSIC,
+                    UiText.V3_LIBRARY_FONTS, UiText.V3_LIBRARY_PRESETS).forEachIndexed { i, key ->
+                    // A chip shows only its section — without a drawn label (the chip names it), as a TalkBack heading.
+                    chip(key)
+                    onNodeWithTag(tags[i]).assert(isHeading()).assertContentDescriptionEquals(key.text(locale))
+                    onNode(hasText(My.breakSyllables(key.text(locale))) and hasAnyAncestor(hasTestTag(tags[i]))).assertDoesNotExist()
+                    tags.forEachIndexed { j, tag -> if (j == i) onNodeWithTag(tag).assertExists() else onNodeWithTag(tag).assertDoesNotExist() }
+                    assertEquals(emptyList(), textFitProblems(width, font), key.name)
                 }
-                onNodeWithTag("library-apply-preset-style").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
-                onNodeWithTag("library-apply-preset-export").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+                chip(UiText.PROJECTS_FILTER_ALL)
+                tags.forEach { onNodeWithTag(it).assertExists() }
+                // All: each section's label = the chip's name, without "(n)".
+                listOf(UiText.V3_LIBRARY_KITS, UiText.V3_LIBRARY_PRESETS).forEach { key ->
+                    onNode(hasText(My.breakSyllables(key.text(locale))) and isHeading()).performScrollTo().assertIsDisplayed()
+                }
+                onNodeWithText(My.breakSyllables(UiText.LIBRARY_PRESETS.text(locale, "size" to 3))).assertDoesNotExist()
+                // Style / export presets: a Planned chip instead of a disabled Apply.
+                onNodeWithTag("library-apply-preset-style").assertDoesNotExist()
+                onNodeWithTag("library-apply-preset-export").assertDoesNotExist()
+                listOf("style", "export").forEach { id ->
+                    onNode(hasTestTag("status-PLANNED") and hasAnyAncestor(hasTestTag("library-preset-$id"))).performScrollTo().assertIsDisplayed()
+                }
                 onNodeWithTag("library-apply-preset-caption").performScrollTo().assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("library-apply-voice-voice").performScrollTo().assertIsDisplayed().assertIsEnabled()
                 clickText(UiText.LIBRARY_SAVE_KIT)
@@ -66,7 +84,8 @@ class StudioLibraryLayoutTest(val width: Int, val font: Float, val language: UiL
                 onNodeWithContentDescription(name).assertExists()
                 text(UiText.SAVE).assertIsNotEnabled()
                 onNodeWithContentDescription(name).performScrollTo().performTextInput("QA retained draft")
-                collapseKits(); collapseKits()
+                // Showing another section and then all of them keeps the draft.
+                chip(UiText.V3_LIBRARY_VOICES); onNodeWithContentDescription(name).assertDoesNotExist(); chip(UiText.PROJECTS_FILTER_ALL)
                 onNodeWithContentDescription(name).performScrollTo().assertTextContains("QA retained draft")
                 clickText(UiText.CANCEL)
                 val card = onNodeWithTag("library-kit-kit")
@@ -122,6 +141,14 @@ class LibraryActionsPointerTest {
             text(UiText.LIBRARY_SAVE_PRESET)
             onNodeWithContentDescription(UiText.LIBRARY_PRESET_NAME.en).performScrollTo().performTextReplacement("QA pointer caption")
             text(UiText.SAVE); assertTrue(f.libraryStore.load().presets.any { it.name == "QA pointer caption" })
+            // Step 1 = the kit (its 44 dp swatch, name, "Brand Kits"); a tap outside closes it and deletes nothing.
+            onNodeWithText(f.kit.name).performScrollTo().performTouchInput { longClick() }
+            onNodeWithTag("glass-dialog-title").assertTextEquals(f.kit.name)
+            onNodeWithTag("glass-dialog-subtitle").assertTextEquals(UiText.V3_LIBRARY_KITS.en)
+            onNode(hasTestTag("library-kit-swatch") and hasAnyAncestor(hasTestTag("glass-dialog-lead"))).assertWidthIsEqualTo(44.dp)
+            onAllNodes(isRoot())[1].performMouseInput { click(androidx.compose.ui.geometry.Offset(5f, 5f)) }
+            onNodeWithTag("glass-dialog").assertDoesNotExist()
+            assertTrue(f.libraryStore.load().brandKits.any { it.id == "kit" })
             onNodeWithText(f.kit.name).performScrollTo().performTouchInput { longClick() }
             click("library-kit-kit-remove-menu")
             click("library-kit-kit-remove-confirm")
@@ -144,6 +171,8 @@ class LibraryActionsPointerTest {
             val action = card.fetchSemanticsNode().config[SemanticsActions.CustomActions].single()
             runOnIdle { assertTrue(action.action()) }
             fun click(tag: String) = onNodeWithTag(tag).assertIsDisplayed().performMouseInput { click() }
+            onNodeWithTag("glass-dialog-title").assertTextEquals(first.name)
+            onNodeWithTag("glass-dialog-subtitle").assertTextEquals(UiText.V3_LIBRARY_PRESETS.en)
             click("library-preset-caption-remove-menu")
             click("library-preset-caption-remove-confirm")
             onNodeWithTag("library-preset-caption").assertDoesNotExist()

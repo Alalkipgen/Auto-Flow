@@ -1,9 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -134,7 +134,7 @@ internal fun StudioBlockVoiceAction(model: RecapModel, state: RecapUiState, row:
         it.spoken == SpokenText.of(row.block, state.lexicon) } ?: return
     Dialog(onDismissRequest = { pending = null }) {
         AfCard(label, Modifier.widthIn(max = 560.dp).fillMaxWidth()) {
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 AfText(tr(UiText.V3_ONLY_BLOCK, "n" to row.index + 1))
                 AfText(request.spoken, Modifier.testTag("voice-block-confirm-text"))
                 AfText(tr(UiText.V3_ONE_VOICE_REQUEST), muted = true)
@@ -143,7 +143,7 @@ internal fun StudioBlockVoiceAction(model: RecapModel, state: RecapUiState, row:
             StickyActionBar(StudioAction(tr(UiText.START_PLAY), {
                 rejected = !model.voiceInspector.confirm(request); pending = null
                 if (rejected) model.refresh()
-            }, allowed, "voice-block-confirm"),
+            }, allowed, "voice-block-confirm", AfIcons.Fill.Play),
                 StudioAction(tr(UiText.CANCEL), { pending = null }, tag = "voice-block-cancel"))
         }
     }

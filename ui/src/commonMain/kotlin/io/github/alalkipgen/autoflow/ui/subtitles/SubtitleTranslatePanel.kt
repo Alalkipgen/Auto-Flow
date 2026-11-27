@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
@@ -22,7 +23,7 @@ internal fun TranslatePanel(model: SubtitleTranslateModel, dir: String) {
     val c = s.confirm
     when {
         job != null -> TranslateJobCard(model, job)
-        c != null -> AfCard(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), Modifier.testTag("subtitles-translate-confirm")) {
+        c != null -> AfCard(My.breakSyllables(tr(UiText.SUB_TRANSLATE)), Modifier.testTag("subtitles-translate-confirm"), icon = AfIcons.Regular.Spark) {
             AfText(My.breakSyllables(tr(UiText.SUB_TRANSLATE_CONFIRM, "lines" to c.lines, "requests" to c.requests)),
                 Modifier.testTag("subtitles-translate-facts"), bold = true)
             AfText(My.breakSyllables(tr(UiText.SUB_TRANSLATE_ONLY_NEW)), muted = true)
@@ -37,15 +38,15 @@ internal fun TranslatePanel(model: SubtitleTranslateModel, dir: String) {
                 WrapRow {
                     AfTextField(n.from, { model.setName(i, n.copy(from = it)) }, tr(UiText.SUB_NAME_FROM), Modifier.testTag("subtitles-translate-name-from-$i"), mono = false)
                     AfTextField(n.my, { model.setName(i, n.copy(my = it)) }, tr(UiText.SUB_NAME_MY), Modifier.testTag("subtitles-translate-name-my-$i"), mono = false)
-                    AfButton(My.breakSyllables(tr(UiText.SUB_NAME_REMOVE)), { model.removeName(i) }, Modifier.testTag("subtitles-translate-name-remove-$i"))
+                    AfIconButton(AfIcons.Regular.Close, tr(UiText.SUB_NAME_REMOVE), { model.removeName(i) }, Modifier.testTag("subtitles-translate-name-remove-$i"))
                 }
             }
-            AfButton(My.breakSyllables(tr(UiText.SUB_NAME_ADD)), { model.addName() }, Modifier.testTag("subtitles-translate-name-add"))
+            AfButton(My.breakSyllables(tr(UiText.SUB_NAME_ADD)), { model.addName() }, Modifier.testTag("subtitles-translate-name-add"), icon = AfIcons.Regular.Plus)
             AfSwitch(My.breakSyllables(tr(UiText.SUB_TRANSLATE_REPLACE)), c.replaceEdited, { model.setReplaceEdited(it) },
                 Modifier.testTag("subtitles-translate-replace"))
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("subtitles-translate-start"),
-                    kind = ButtonKind.Primary, enabled = c.lines > 0)
+                    kind = ButtonKind.Primary, enabled = c.lines > 0, icon = AfIcons.Fill.Play)
                 AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("subtitles-translate-back"))
             }
         }

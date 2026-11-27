@@ -28,6 +28,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
@@ -136,7 +137,7 @@ class AppShellSmokeTest {
         sidebar("Settings").assertIsSelected()
         sidebar("Dashboard").assertIsNotSelected()
         onAllNodesWithText("Settings").assertCountEquals(2)
-        onNodeWithContentDescription(UiText.V3_AI_KEYS.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("settings-row-gemini").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithText(UiText.USE_FAKE_AI.en).assertIsDisplayed()
         // Without a project the pipeline screens are locked; clicking one names what to do instead of opening it.
         sidebar("Input").performClick()

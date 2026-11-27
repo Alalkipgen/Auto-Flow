@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.inbox
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -24,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -34,10 +36,14 @@ import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.CardRemoval
+import io.github.alalkipgen.autoflow.ui.components.SoftTile
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
 
 /** Inbox screen: lists `<project>/inbox/` files; lets the user attach a video or image to a shot. */
 @Composable
@@ -60,7 +66,7 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
     LaunchedEffect(model, shared, project, sharedState?.arrivals) { refresh() }
 
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
+        modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         WrapRow {
@@ -89,6 +95,7 @@ fun InboxScreen(model: InboxModel, modifier: Modifier = Modifier, shared: Shared
                         InboxRemoval("inbox-file-${item.name}", item.name,
                             prepare = if (model.canDelete) ({ model.deleteRequest(item) }) else null,
                             onResult = ::deletionResult,
+                            caption = tr(UiText.INBOX), kind = item.kind,
                         ) { modifier ->
                             InboxItemRow(item, state.shotNumbers, modifier) { shotNumber ->
                                 model.attach(item, shotNumber)
@@ -108,6 +115,8 @@ private fun InboxRemoval(
     name: String,
     prepare: (() -> InboxDeleteRequest?)?,
     onResult: (String, Boolean) -> Unit,
+    caption: String,
+    kind: InboxItemKind? = null,
     card: @Composable (Modifier) -> Unit,
 ) {
     val tagged = Modifier.testTag(tag)
@@ -124,7 +133,22 @@ private fun InboxRemoval(
             else ({ onResult(request.name, request.confirm()) })
         },
         accessibilityLabel = title,
+        name = name,
+        caption = caption,
+        leading = kind?.let { { SoftTile(it.icon(), it.colour(), size = GlassShapes.DialogTile) } },
     ) { card(tagged.then(it)) }
+}
+
+/** An Inbox file's tile in the delete dialog: what it is, in its card's border colour. */
+private fun InboxItemKind.icon(): ImageVector = when (this) {
+    InboxItemKind.VIDEO -> AfIcons.Fill.Film
+    InboxItemKind.IMAGE -> AfIcons.Fill.Image
+    InboxItemKind.OTHER -> AfIcons.Fill.Box
+}
+private fun InboxItemKind.colour(): Color = when (this) {
+    InboxItemKind.VIDEO -> AutoFlowColors.Purple
+    InboxItemKind.IMAGE -> AutoFlowColors.Cyan
+    InboxItemKind.OTHER -> GlassColors.Neutral
 }
 
 @Composable
@@ -201,6 +225,7 @@ private fun SharedCard(
                     InboxRemoval("shared-file-$name", name,
                         prepare = if (shared.canDelete) ({ shared.deleteRequest(name) }) else null,
                         onResult = onDeleteResult,
+                        caption = tr(UiText.SHARED_TO_AUTOFLOW),
                     ) { modifier ->
                         Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                             AfText(My.breakSyllables(name), muted = true, size = 11.sp)

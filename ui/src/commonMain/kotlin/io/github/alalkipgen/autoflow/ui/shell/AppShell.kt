@@ -1,10 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
@@ -69,6 +70,7 @@ import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.platform.AppDirs
+import io.github.alalkipgen.autoflow.ui.media.thumbSource
 import io.github.alalkipgen.autoflow.ui.home.HomeContinueCache
 import io.github.alalkipgen.autoflow.ui.home.HomeResume
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
@@ -150,6 +152,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
     val renderPackages = remember(koin) { koin.getOrNull<io.github.alalkipgen.autoflow.ui.pack.RenderPackageModel>() }
+    val mediaThumbnails = remember(koin) { koin.getOrNull<io.github.alalkipgen.autoflow.ui.media.MediaThumbnails>() }
     val currentProject = koinInject<CurrentProject>()
     val backup = koinInject<BackupModel>().takeIf { it.available }
     val settingsStore = koinInject<SettingsStore>()
@@ -209,13 +212,15 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 }
                 "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
                 "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
-                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>())
+                "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>(),
+                    backHandler = backHandler)
                 MORE -> MoreScreen(displayShell.locks, onSelect = { screen = it })
                 else -> ScreenPlaceholder(current)
             }
         }
         CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(settings.uiLanguage), LocalCompact provides compact, LocalUiFontFamily provides uiFont,
-            io.github.alalkipgen.autoflow.ui.pack.LocalRenderPackages provides renderPackages) {
+            io.github.alalkipgen.autoflow.ui.pack.LocalRenderPackages provides renderPackages,
+            io.github.alalkipgen.autoflow.ui.components.LocalMediaThumbnails provides mediaThumbnails) {
             if (features.studioV2) {
                 StudioV2App(
                     status = status,
@@ -240,12 +245,15 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
 }
 
 /** Where Studio v2 is: tab, project screen (null = the project list) and whether Settings is open over it. */
-data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE, val createMode: io.github.alalkipgen.autoflow.core.model.Mode? = null, val libraryLexicon: Boolean = false)
+data class V2Nav(val dest: StudioV2Dest = StudioV2Dest.HOME, val projectScreen: String? = null, val settings: Boolean = false, val recapStep: io.github.alalkipgen.autoflow.ui.recap.RecapStep = io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE, val createMode: io.github.alalkipgen.autoflow.core.model.Mode? = null, val libraryLexicon: Boolean = false,
+    /** The Projects create card is open ("+" or the sidebar's New project). */
+    val createOpen: Boolean = false)
 
 /** Android Back in Studio v2: closes Settings, then steps project screen → list, then any tab → Home; null = leave. */
 fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
     nav.settings -> nav.copy(settings = false)
     nav.createMode != null -> nav.copy(createMode = null)
+    nav.createOpen && nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == null -> nav.copy(createOpen = false)
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Export" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Classic Recap" && recap -> nav.copy(projectScreen = "Recap")
     nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == "Recap" && recap && nav.recapStep.previous() != null -> nav.copy(recapStep = nav.recapStep.previous()!!)
@@ -257,7 +265,7 @@ fun v2Back(nav: V2Nav, recap: Boolean): V2Nav? = when {
 }
 
 /** Tab switches retain the actual open step; selecting Projects again still returns to its list. */
-fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null, libraryLexicon = false,
+fun v2Select(nav: V2Nav, dest: StudioV2Dest): V2Nav = nav.copy(dest = dest, createMode = null, libraryLexicon = false, createOpen = false,
     projectScreen = if (dest == StudioV2Dest.PROJECTS && nav.dest == dest) null else nav.projectScreen)
 
 /** Preflight changes only transient navigation, never approval, selection IDs or project data. */
@@ -334,11 +342,10 @@ private fun StudioV2App(
 
     val content: @Composable () -> Unit = {
         if (nav.settings) {
-            Column(Modifier.fillMaxSize()) {
-                V2SubBar(tr(UiText.BACK), status) { nav = nav.copy(settings = false) }
-                Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>(),
-                    onOpenLexicon = { nav = nav.copy(settings = false, dest = StudioV2Dest.LIBRARY, libraryLexicon = true) }) }
-            }
+            // P9-17a: Settings draws its own Panel bar (back + title) and steps back from its pages first.
+            SettingsScreen(koinInject(), info = appInfo, backup = backup, runner = getKoin().getOrNull<AiJobRunner>(),
+                onOpenLexicon = { nav = nav.copy(settings = false, dest = StudioV2Dest.LIBRARY, libraryLexicon = true) },
+                onBack = { nav = nav.copy(settings = false) }, backHandler = backHandler)
         } else when (nav.dest) {
             StudioV2Dest.HOME -> {
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
@@ -356,6 +363,9 @@ private fun StudioV2App(
                 val resume = visibleRoute ?: listOfNotNull(lastSeen, cached).firstOrNull {
                     latest != null && it.path == latest.path && it.step.mode == latest.mode && (active == null || it.belongsTo(active))
                 }
+                val store = koinInject<io.github.alalkipgen.autoflow.core.store.ProjectStore>()
+                val homeThumbSource: suspend (String) -> io.github.alalkipgen.autoflow.ui.media.MediaThumbnails.Source? =
+                    remember(store) { { dir -> store.thumbSource(dir) } }
                 HomeScreen(
                     onNewRecap = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) },
                     onNewMusicVideo = { nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO) },
@@ -369,6 +379,8 @@ private fun StudioV2App(
                     jobs = rows,
                     jobActions = io.github.alalkipgen.autoflow.ui.jobs.rememberJobsActions(scope),
                     onViewJobs = { nav = v2Select(nav, StudioV2Dest.JOBS) },
+                    onOpenProjects = { nav = v2Select(nav, StudioV2Dest.PROJECTS) },
+                    thumbSource = homeThumbSource,
                     backHandler = backHandler,
                     continueProjectPath = resume?.path,
                     continueStep = resume?.step?.let { target ->
@@ -399,7 +411,23 @@ private fun StudioV2App(
             StudioV2Dest.PROJECTS -> {
                 val screen = nav.projectScreen
                 if (screen == null) {
-                    DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) }, onOpened = {
+                    val store = koinInject<io.github.alalkipgen.autoflow.core.store.ProjectStore>()
+                    val projectThumbSource: suspend (String) -> io.github.alalkipgen.autoflow.ui.media.MediaThumbnails.Source? =
+                        remember(store) { { dir -> store.thumbSource(dir) } }
+                    // Desktop D2: "Show in folder" in the detail pane (no file manager where files are shared instead).
+                    val share = getKoin().getOrNull<io.github.alalkipgen.autoflow.platform.FileShare>()?.takeIf { !it.sharesFiles }
+                    val showFolder: ((String) -> String?)? = remember(share) {
+                        share?.let { s -> { dir: String ->
+                            when (val r = s.openFolder(dir)) {
+                                is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> null
+                                is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> r.reason
+                                is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> r.reason
+                            }
+                        } }
+                    }
+                    DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) },
+                        createOpen = nav.createOpen, onCreateOpenChange = { nav = nav.copy(createOpen = it) },
+                        jobs = rows, thumbSource = projectThumbSource, onShowFolder = showFolder, onOpened = {
                         val mode = currentProject.state.value?.project?.mode
                         mode?.let(::v2EntryScreen)?.let { openProjectScreen(it) }
                     })
@@ -465,20 +493,49 @@ private fun StudioV2App(
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
                 val state by dashboard.state.collectAsState()
                 var openFailed by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.jobs.JobRow?>(null) }
+                val jobsStore = koinInject<io.github.alalkipgen.autoflow.core.store.ProjectStore>()
+                val jobThumbSource: suspend (String) -> io.github.alalkipgen.autoflow.ui.media.MediaThumbnails.Source? =
+                    remember(jobsStore) { { dir -> jobsStore.thumbSource(dir) } }
                 io.github.alalkipgen.autoflow.ui.jobs.JobsScreen(rows, scope, onOpen = { row ->
                     val target = io.github.alalkipgen.autoflow.ui.jobs.openJobProject(row, dashboard, currentProject)
                     if (target != null) nav = target else openFailed = row
-                }, notice = if (openFailed != null) state.notice?.text(LocalUiLanguage.current) ?: state.message else null, noticeRow = openFailed)
+                }, notice = if (openFailed != null) state.notice?.text(LocalUiLanguage.current) ?: state.message else null, noticeRow = openFailed,
+                    thumbSource = jobThumbSource)
             }
         }
     }
 
+    // Desktop sidebar extras (DESIGN.md §9.8): the same create actions as Home, only for the modes that exist.
+    val subtitlesForNav = if (subtitlesTool || dubbingTool) koinInject<io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel>() else null
+    val voiceForNav = if (voiceTool) koinInject<io.github.alalkipgen.autoflow.ui.voice.VoiceAudioModel>() else null
+    val shellActions = ShellActions(
+        onNewProject = { nav = V2Nav(StudioV2Dest.PROJECTS, createOpen = true) },
+        onOpenSettings = { nav = nav.copy(settings = true) },
+        create = listOfNotNull(
+            ShellShortcut(UiText.MOVIE_RECAP, AfIcons.Duotone.Film, AutoFlowColors.PrimaryFill, "nav-create-recap") {
+                nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) },
+            ShellShortcut(UiText.MUSIC_VIDEO, AfIcons.Duotone.Music, AutoFlowColors.Info, "nav-create-mv") {
+                nav = V2Nav(StudioV2Dest.PROJECTS, createMode = io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO) },
+            if (dubbingTool) ShellShortcut(UiText.V3_DUBBING, AfIcons.Duotone.Dub, AutoFlowColors.Amber, "nav-create-dubbing") {
+                subtitlesForNav?.start(dubbing = true) { openProjectScreen(DUBBING_SCREEN) } } else null,
+            if (voiceTool) ShellShortcut(UiText.V3_VOICE_AUDIO, AfIcons.Duotone.Wave, AutoFlowColors.Cyan, "nav-create-voice") {
+                voiceForNav?.begin(); openProjectScreen(VOICE_SCREEN) } else null,
+            if (subtitlesTool) ShellShortcut(UiText.V3_SUBTITLES, AfIcons.Duotone.Subtitles, AutoFlowColors.Surface3, "nav-create-subtitles") {
+                subtitlesForNav?.start { openProjectScreen(SUBTITLES_SCREEN) } } else null,
+        ),
+    )
     StudioV2Shell(
         selected = nav.dest,
         // Projects again while on Projects = back to the list; other tabs keep the open project screen for later.
         onSelect = { nav = v2Select(nav, it) },
         jobsBadge = badge,
         windowWidthDp = windowWidthDp,
+        // An open project editor keeps the 72 dp rail for room (DESIGN.md §9.8).
+        editor = !nav.settings && nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen != null,
+        actions = shellActions,
+        // Glass screens (Phase 9): Home, the Projects list, Library, Jobs and Settings.
+        ambient = nav.settings || nav.dest == StudioV2Dest.HOME || nav.dest == StudioV2Dest.LIBRARY || nav.dest == StudioV2Dest.JOBS ||
+            nav.dest == StudioV2Dest.PROJECTS && nav.projectScreen == null,
         content = content,
     )
     // Exit confirmation dialog (D-52)
@@ -524,7 +581,7 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float,
         // F-6 (D-95): the Music Video before any render, as its own page and on top of Export.
         MV_PREVIEW -> {
             val model = koinInject<io.github.alalkipgen.autoflow.ui.export.ExportModel>()
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).testTag("mv-preview-page")) {
+            Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).testTag("mv-preview-page")) {
                 io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview(model, io.github.alalkipgen.autoflow.ui.subtitles.moviePlayer(model.previewVlcDir()))
             }
         }
@@ -552,20 +609,6 @@ private fun MvClassicSteps(go: (String) -> Unit) {
     }
 }
 
-/** Top bar of a Studio v2 sub-screen: a back button and [status] (AI provider) on the right. */
-@Composable
-internal fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        io.github.alalkipgen.autoflow.ui.components.AfButton("←", onBack, Modifier.testTag("subscreen-back")
-            .semantics { contentDescription = backLabel })
-        AfText(My.breakSyllables(status), Modifier.weight(1f), muted = true, size = 12.sp)
-    }
-}
-
 /** Project header in Studio v2: ← Projects, the project name, and chips for the project's screens. */
 @Composable
 private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit) {
@@ -574,9 +617,9 @@ private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: 
             io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), onBack)
             projectName?.let { AfText(it, Modifier.weight(1f), bold = true) }
         }
-        io.github.alalkipgen.autoflow.ui.components.WrapRow(spacing = 6.dp) {
-            screens.forEach { s -> io.github.alalkipgen.autoflow.ui.components.AfChip(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), s == selected, onClick = { onSelect(s) }) }
-        }
+        // One scrolling row (DESIGN.md §9.2): wrapped rows plus a running job card left no room for the page at font 2.0.
+        io.github.alalkipgen.autoflow.ui.components.FilterChipRow(screens.map { io.github.alalkipgen.autoflow.ui.components.FilterChipItem(
+            io.github.alalkipgen.autoflow.ui.i18n.My.screen(it)) }, screens.indexOf(selected), { onSelect(screens[it]) })
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
     }
 }
@@ -673,7 +716,7 @@ private fun Sidebar(selected: String?, locks: Map<String, String>, onSelect: (St
     Row(Modifier.fillMaxHeight()) {
         BoxWithConstraints(Modifier.width(190.dp).fillMaxHeight().background(AutoFlowColors.Panel)) {
             Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight)
+                modifier = Modifier.fillMaxWidth().paneScroll(rememberScrollState()).heightIn(min = maxHeight)
                     .padding(horizontal = 10.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {

@@ -17,6 +17,7 @@ import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.jobs.*
+import io.github.alalkipgen.autoflow.ui.media.thumbSource
 import io.github.alalkipgen.autoflow.ui.projects.*
 import io.github.alalkipgen.autoflow.ui.recap.QaRecapFixture
 import io.github.alalkipgen.autoflow.ui.settings.*
@@ -46,13 +47,14 @@ class HomeScreenTest(val width: Int, val font: Float, val language: UiLanguage, 
         index.record(fixture.dir.path, fixture.project)
         val rows = jobRows(null, null, null, listOf(AiJob("qa-job", AiJobKind.TTS_ALL, fixture.dir.path,
             listOf(fixture.story.blocks.last().id), state = AiJobState.RUNNING)), language)
-        var opened: String? = null; var recap = 0; var mv = 0; var settings = 0; var jobs = 0
+        var opened: String? = null; var recap = 0; var mv = 0; var settings = 0; var jobs = 0; var projects = 0
         setContent {
             CompositionLocalProvider(LocalCompact provides (width < 600), LocalDensity provides Density(1f, font),
                 LocalUiLanguage provides language, LocalUiFontFamily provides if (bundled) BurmeseTestFont.family else FontFamily.Default) {
                 StudioV2Shell(StudioV2Dest.HOME, {}, jobsBadgeValue(rows), width.toFloat()) {
                     HomeScreen(onNewRecap = { recap++ }, onNewMusicVideo = { mv++ }, onOpenSettings = { settings++ },
-                        recent = index.entries.value, onOpenProject = { opened = it }, jobs = rows, onViewJobs = { jobs++ })
+                        recent = index.entries.value, onOpenProject = { opened = it }, jobs = rows, onViewJobs = { jobs++ },
+                        onOpenProjects = { projects++ }, thumbSource = { dir -> ProjectStore(JvmFs()).thumbSource(dir) })
                 }
             }
         }
@@ -60,7 +62,11 @@ class HomeScreenTest(val width: Int, val font: Float, val language: UiLanguage, 
         assertEquals(1, settings)
         onNodeWithTag("recent-${fixture.project.name}").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         assertEquals(fixture.dir.path, opened)
-        onNodeWithTag("home-mode-MOVIE_RECAP").assertIsDisplayed()
+        onNodeWithTag("home-mode-MOVIE_RECAP").performScrollTo().assertIsDisplayed()
+        // The thumbnail placeholder (no cache in tests) carries the recorded duration of the fixture movie (10 s).
+        onNode(hasText("0:10") and hasAnyAncestor(hasTestTag("home-continue"))).performScrollTo().assertIsDisplayed()
+        onNodeWithTag("home-all-projects").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        assertEquals(1, projects)
         onNodeWithTag("home-step-by-step").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("home-new-recap").performScrollTo().assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("home-new-mv").performScrollTo().assertIsDisplayed().performMouseInput { click() }
@@ -73,7 +79,7 @@ class HomeScreenTest(val width: Int, val font: Float, val language: UiLanguage, 
         onNodeWithTag("home-job-0").assertExists()
         onNodeWithTag("home-quick-start").performScrollTo().assertIsDisplayed()
         assertTrue(onNodeWithTag("home-quick-start").fetchSemanticsNode().boundsInRoot.height >= 48)
-        assertEquals(emptyList(), textFitProblems(width, font))
+        assertEquals(emptyList(), textFitProblems(width, font, strict = true))
         assertContentEquals(before, File(fixture.dir, "project.json").readBytes())
         onNodeWithTag("home-header").performScrollTo().assertIsDisplayed()
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "home").apply { mkdirs() }

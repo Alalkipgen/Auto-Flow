@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
@@ -70,8 +71,9 @@ class DashboardScreenTest {
         assertEquals(DashboardModel.RIGHTS_REQUIRED, model.state.value.message)
     }
 
+    // Phone rows (a tap opens); the desktop grid selects first — ProjectsDesktopTest.
     @Test
-    fun rowsOpenAndMissingFoldersCanBeRemoved() = runComposeUiTest {
+    fun rowsOpenAndMissingFoldersCanBeRemoved() = runDesktopComposeUiTest(width = 412, height = 760) {
         store.create("/p/Here.autoflow", "Here", Mode.MUSIC_VIDEO)
         store.create("/usb/Gone.autoflow", "Gone", Mode.MUSIC_VIDEO)
         model.open("/usb/Gone.autoflow")
@@ -117,11 +119,11 @@ class DashboardScreenTest {
         setContent { DashboardScreen(phone, onOpened = { opened++ }) }
         onNodeWithText("Grace").performScrollTo().performTouchInput { longClick() }
         onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { click() }
-        onNodeWithText("Remove").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("remove-project-confirm").assertIsDisplayed().performMouseInput { click() }
         onNodeWithText("Grace").assertDoesNotExist()
         runOnIdle { phone.refresh(); assertTrue(phone.state.value.rows.isEmpty()) }
         onNodeWithTag("projects-open-removed").performScrollTo().performMouseInput { click() }
-        onNodeWithText("Grace · Grace.autoflow").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("removed-project-0").assertIsDisplayed().performMouseInput { click() }
         onNodeWithTag("project-restore").assertIsDisplayed().performMouseInput { click() }
         runOnIdle { assertEquals(0, opened); assertEquals(dir, phone.state.value.rows.single().entry.path) }
         onNodeWithText("Grace").performScrollTo().assertIsDisplayed().performMouseInput { click() }

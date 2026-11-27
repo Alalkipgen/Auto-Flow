@@ -35,6 +35,7 @@ import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
 import io.github.alalkipgen.autoflow.ui.export.RecapFrames
 import io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage
+import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.media.MediaTasks
@@ -252,10 +253,11 @@ class SubtitleBurnTest {
                 waitUntil(timeoutMillis = 5_000) { f.queue.jobs.size == 1 }
                 f.queue.states.getValue("job1").value = RenderState.Running(0.5, 1.0)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-cancel").fetchSemanticsNodes().isNotEmpty() }
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language running")
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language running")
                 f.queue.states.getValue("job1").value = RenderState.Done("$dir/" + f.task().output, 1, 60_000, null)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-done").fetchSemanticsNodes().isNotEmpty() }
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language done")
+                if (width >= 840) assertIconButton("subtitles-burn-folder", UiText.OPEN_FOLDER, language) // as the .srt's Open folder
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language done")
             }
         }
     }
@@ -310,9 +312,16 @@ class SubtitleBurnTest {
                 show(f, font, language)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+                // P9-12d: ‹ › are chevron icon buttons with their names; Check one frame = picture, Make video = film.
+                assertCardIcon("subtitles-export-video", My.breakSyllables(UiText.SUB_EXPORT_VIDEO.text(language)))
+                assertIconOnly("subtitles-check-prev", UiText.SUB_PREV_LINE, language)
+                assertIconOnly("subtitles-check-next", UiText.SUB_NEXT_LINE, language)
+                onAllNodes(hasText("‹", substring = true) or hasText("›", substring = true), useUnmergedTree = true).assertCountEquals(0)
+                assertIconButton("subtitles-check-frame", UiText.SUB_CHECK_FRAME, language)
+                assertIconButton("subtitles-burn-make", UiText.SUB_MAKE_VIDEO, language)
                 onNodeWithTag("subtitles-check-frame").performScrollTo().performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-check-image").fetchSemanticsNodes().isNotEmpty() }
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language")
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language")
             }
         }
     }

@@ -241,7 +241,7 @@ Registered shared-component additions (owner review; registration does not claim
 | `V3_PLAIN_HINT` | Straight narration | ဇာတ်ကြောင်းကို ရိုးရိုး ပြောပြမယ် |
 | `V3_EXPANDED` | Expanded | ဖွင့်ထားသည် |
 | `V3_COLLAPSED` | Collapsed | ခေါက်ထားသည် |
-| `V3_STEP` | {step} · Step {n} of 5 | {step} · အဆင့် ၅ ဆင့်မှ {n} |
+| `V3_STEP` | {step} · Step {n}/5 | {step} · အဆင့် {n}/5 |
 | `V3_MORE_OPTIONS` | More options | ရွေးချယ်စရာများ |
 | `V3_RECOMMENDED` | Recommended | အကြံပြုထားသည် |
 | `V3_PLANNED` | Planned | နောက်မှ ထည့်မည် |
@@ -271,9 +271,9 @@ Home additions for owner copy review:
 | `V3_CONTINUE` | Continue editing | ဆက်တည်းဖြတ်မယ် |
 | `V3_STEP_BY_STEP` | Step-by-step → | တစ်ဆင့်ချင်း လုပ်မယ် → |
 | `V3_APPROVAL_BEFORE_VOICE` | Approval before voice · stops at Story review | အသံမထုတ်မီ ဇာတ်လမ်းကို စစ်ပြီး အတည်ပြုရမယ် |
-| `V3_DUBBING` | Dubbing | အသံ အစားထိုးခြင်း |
+| `V3_DUBBING` | Dubbing | အသံ အစားထိုး |
 | `V3_QUICK_TOOLS` | Quick tools | အမြန် ကိရိယာများ |
-| `V3_VOICE_AUDIO` | Voice & Audio | အသံနှင့် Audio |
+| `V3_VOICE_AUDIO` | Voice & Audio | အသံ |
 | `V3_SUBTITLES` | Subtitles | စာတန်းထိုး |
 | `V3_TOOLS_IN_PROJECT` | Standalone tool planned; existing controls are inside projects. | သီးသန့် ကိရိယာကို နောက်မှ ထည့်မယ်။ လက်ရှိ ကိရိယာများကို ပရောဂျက်ထဲမှာ သုံးနိုင်တယ်။ |
 | `V3_VIEW_JOBS` | View jobs → | အလုပ်များ ကြည့်မယ် → |

@@ -112,27 +112,36 @@ class SubtitleEditorScreenTest {
             runDesktopComposeUiTest(width = width, height = 900) {
                 val f = Fixture()
                 show(f, width, font, language)
-                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+                // P9-12a: the video's cue strip sits under it; at font 2.0 the first line can start below the fold.
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cues").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag("subtitles-cues").performScrollToKey("c1")
                 assertTrue(io.github.alalkipgen.autoflow.core.subtitles.CueIssue.TOO_SHORT in f.editor.state.value.issues["c2"].orEmpty())
                 onNodeWithTag("subtitles-issue-c1-OVERLAP", useUnmergedTree = true).assertExists()
-                onNodeWithTag("subtitles-cue-edit-c1").performMouseInput { click() }
+                // Phase 9 buttons are 1 sp larger; at 360 dp × font 2.0 in Burmese the row starts below the fold.
+                onNodeWithTag("subtitles-cue-edit-c1").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-edit-panel").assertExists()
+                onNodeWithTag("subtitles-cues").performScrollToIndex(0) // at font 2.0 the video tops the list (P9-12a)
                 onNodeWithTag("subtitles-preview-unavailable").assertIsDisplayed()
+                onNodeWithTag("subtitles-cues").performScrollToKey("c1")
                 onNodeWithTag("subtitles-start-plus").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-save").assertIsDisplayed().assertIsEnabled()
                 onNodeWithTag("subtitles-cues").performScrollToIndex(0)
                 onNodeWithTag("subtitles-change-source").assertIsNotEnabled() // first Save or Discard
                 onNodeWithTag("subtitles-shift").performScrollTo().performMouseInput { click() }
                 onNodeWithTag("subtitles-shift-p1000").performScrollTo().assertIsDisplayed()
-                assertEquals(emptyList(), textFitProblems(width, font), "shift · $width × $font × $language")
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "shift · $width × $font × $language")
                 onNodeWithTag("subtitles-cues").performScrollToKey("c1")
                 onNodeWithTag("subtitles-start-plus").performScrollTo()
-                assertEquals(emptyList(), textFitProblems(width, font), "$width × $font × $language")
+                assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language")
                 if (font != 1.3f) {
                     val shots = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "subtitles").apply { mkdirs() }
                     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png",
                         File(shots, "03-editor-$width-$font-${language.name.lowercase()}.png"))
                 }
+                // P9-12d: the edit panel's title and its Split / Add / Play line / Done buttons carry icons.
+                assertCardIcon("subtitles-edit-panel", My.breakSyllables(UiText.SUB_EDIT_LINE.text(language)))
+                listOf("subtitles-split" to UiText.SUB_SPLIT, "subtitles-add" to UiText.SUB_ADD_AFTER, "subtitles-play-line" to UiText.SUB_PLAY_LINE,
+                    "subtitles-done" to UiText.SUB_DONE).forEach { (tag, key) -> assertIconButton(tag, key, language) }
             }
         }
     }
@@ -178,6 +187,7 @@ class SubtitleEditorScreenTest {
         onNodeWithTag("subtitles-leave").assertDoesNotExist()
         assertEquals(1, left)
         click("subtitles-back")
+        assertIconButton("subtitles-leave-save", UiText.SAVE, UiLanguage.BURMESE, scroll = false) // the editor's Save icon (P9-12d)
         click("subtitles-leave-save")
         assertEquals(2, left)
         assertNotEquals(f.first, f.saved())
@@ -210,6 +220,7 @@ class SubtitleEditorScreenTest {
         val f = Fixture()
         show(f, 412, 1f, UiLanguage.ENGLISH, ahead)
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c1").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3") // under the video's cue strip (P9-12a)
         click("subtitles-cue-c3") // tap = seek + select
         onNodeWithTag("subtitles-playhead").assertTextEquals("0:04.0")
         onNodeWithTag("subtitles-preview-line").assertTextEquals("Third line")

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.shots
 
+import io.github.alalkipgen.autoflow.ui.components.paneScroll
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.i18n.tr
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,7 +58,7 @@ fun ShotStatus.badgeColor(): Color = when (this) {
     ShotStatus.NEEDS_FLOW -> AutoFlowColors.Purple
     ShotStatus.IMPORTED -> AutoFlowColors.Amber
     ShotStatus.ACCEPTED -> AutoFlowColors.Green
-    ShotStatus.STALE -> Color(0xFFEF4444)
+    ShotStatus.STALE -> AutoFlowColors.Stale
 }
 
 /**
@@ -73,7 +73,7 @@ fun ShotsScreen(model: ShotsModel, modifier: Modifier = Modifier) {
     // Phone: show detail as a separate "page" (replaces the grid)
     if (compact && state.detail != null) {
         Column(
-            modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
+            modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             state.actionError?.let { AfText(it, color = AutoFlowColors.Amber) }
@@ -84,7 +84,7 @@ fun ShotsScreen(model: ShotsModel, modifier: Modifier = Modifier) {
     }
 
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
+        modifier.fillMaxSize().paneScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 860.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         AfText(tr(UiText.SHOTS), size = 18.sp, bold = true)

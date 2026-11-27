@@ -78,8 +78,10 @@ class JobRowsTest {
             val row = jobRows(null, null, null, listOf(job)).single()
             assertEquals(state.name, row.status.name)
             assertEquals(state in listOf(AiJobState.QUEUED, AiJobState.RUNNING), row.running)
-            assertFalse(row.detail!!.contains("~"), "No theoretical ETA in either surface")
-            assertTrue(row.detail!!.contains("QA Landscape"))
+            assertFalse(row.detail.orEmpty().contains("~"), "No theoretical ETA in either surface")
+            // The card's title names the project (folder name when no saved name); the detail does not repeat it.
+            assertEquals("QA Landscape", row.projectTitle)
+            assertFalse(row.detail.orEmpty().contains("QA Landscape"))
         }
     }
 

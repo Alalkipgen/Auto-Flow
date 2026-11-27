@@ -87,16 +87,22 @@ class StudioBrowseOnlyTreeTest {
             fun tap(tag: String) = click(onNodeWithTag(tag))
             fun nav(text: UiText) = click(onNodeWithContentDescription(text.en))
             fun heading(tag: String, screen: String) { onNodeWithTag(tag).assertIsDisplayed(); unchanged(screen) }
+            // The desktop Projects grid (P9-9b) selects on click; Continue editing in the detail pane opens.
+            fun openProject(name: String) {
+                click(onNodeWithText(name).performScrollTo())
+                if (width == 1440) { mainClock.advanceTimeBy(1_000); tap("project-detail-open") }
+            }
 
             setContent { KoinIsolatedContext(graph) { App() } }
             heading("home-header", "Home")
             tap("home-settings"); heading("settings-heading", "Settings")
-            click(onNodeWithContentDescription(UiText.V3_DIAGNOSTICS.en).performScrollTo())
+            click(onNodeWithTag("settings-row-diagnostics").performScrollTo())
             scroll("diagnostics-build"); unchanged("Settings / Diagnostics")
+            tap("settings-page-back"); heading("settings-heading", "Settings main page")
             tap("subscreen-back"); heading("home-header", "return to Home")
 
             nav(UiText.PROJECTS); heading("projects-heading", "routed Projects dashboard")
-            click(onNodeWithText(a.project.name).performScrollTo())
+            openProject(a.project.name)
             scroll("source-movie-name"); unchanged("Recap Source")
             tap("recap-next")
             heading(if (width == 1440) "story-list" else "story-content", "Recap Story")
@@ -116,14 +122,16 @@ class StudioBrowseOnlyTreeTest {
                 UiText.V3_LIBRARY_LEXICON to "lexicon", UiText.V3_LIBRARY_MUSIC to "music",
                 UiText.V3_LIBRARY_FONTS to "fonts", UiText.V3_LIBRARY_PRESETS to "presets",
             )
+            // An empty Library has no chip row (#288 follow-up): all six sections are on the page, so only scroll.
+            val chips = onAllNodesWithTag("library-categories").fetchSemanticsNodes().isNotEmpty()
             sections.forEach { (text, tag) ->
-                click(onNode(hasText(text.en) and hasAnyAncestor(hasTestTag("library-categories"))).performScrollTo())
+                if (chips) click(onNode(hasText(text.en) and hasAnyAncestor(hasTestTag("library-categories"))).performScrollTo())
                 scroll("library-$tag"); unchanged("Library / $tag")
             }
             nav(UiText.JOBS); heading("jobs-empty", "Jobs (no jobs launched)")
 
             nav(UiText.PROJECTS); nav(UiText.PROJECTS); heading("projects-heading", "routed Projects before switching to B")
-            click(onNodeWithText(music.name).performScrollTo())
+            openProject(music.name)
             val shotSheet = onNodeWithText(UiText.SHOT_SHEET.en).assertIsDisplayed()
             unchanged("Music Video Input")
             click(shotSheet)

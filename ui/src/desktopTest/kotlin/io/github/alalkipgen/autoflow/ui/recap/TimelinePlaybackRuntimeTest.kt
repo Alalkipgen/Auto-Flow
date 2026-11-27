@@ -21,6 +21,7 @@ import io.github.alalkipgen.autoflow.platform.DesktopToolLocator
 import io.github.alalkipgen.autoflow.ui.media.MediaTools
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
 import io.github.alalkipgen.autoflow.ui.BurmeseTestFont
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import io.github.alalkipgen.autoflow.ui.projects.*
 import io.github.alalkipgen.autoflow.ui.theme.LocalUiFontFamily
 import kotlinx.coroutines.*
@@ -28,6 +29,9 @@ import org.junit.AssumptionViolatedException
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.*
+
+/** P9-11b: Play / Pause carry an icon instead of the ⏸ glyph; the label alone tells the state. */
+private val PAUSE_LABELS = setOf(UiText.PAUSE.en, UiText.PAUSE.my)
 
 /** Real production screen + callback video surface + native decoder. Still S10 tests do not stand in for this. */
 @OptIn(ExperimentalTestApi::class)
@@ -78,7 +82,7 @@ class TimelinePlaybackRuntimeTest {
                 fun click(tag: String) {
                     reach(onNodeWithTag(tag)).performMouseInput { click() }; mainClock.advanceTimeByFrame()
                 }
-                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text.contains("⏸") }
+                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text in PAUSE_LABELS }
                 click("timeline-play")
                 await(20_000) { position() > 200 && playing() }
                 assertTrue(playing(), "pause must exercise a live native decoder, not EOF")
@@ -193,7 +197,7 @@ class TimelinePlaybackRuntimeTest {
                     node.assertIsDisplayed().performMouseInput { click() }
                     mainClock.advanceTimeByFrame()
                 }
-                fun isPlaying(): Boolean = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text.contains("⏸") }
+                fun isPlaying(): Boolean = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text in PAUSE_LABELS }
                 fun pause() {
                     if (isPlaying()) click("timeline-play") // do not accidentally restart a clip that already reached EOF
                     try { await(timeoutMillis = 5_000) { !isPlaying() } }
