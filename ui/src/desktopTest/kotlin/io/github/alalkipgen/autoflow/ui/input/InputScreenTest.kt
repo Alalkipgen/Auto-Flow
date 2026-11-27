@@ -14,6 +14,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -72,7 +73,7 @@ class InputScreenTest {
         open()
         var generated = 0
         setContent { InputScreen(InputModel(session, jobs), jobs, onGenerated = { generated++ }) }
-        onNodeWithText("• Add the lyrics").assertExists()
+        onNodeWithText("Add the lyrics").assertExists()
         onNodeWithText(UiText.GENERATE_STORYBOARD.en).assertIsNotEnabled()
 
         onNodeWithContentDescription("Lyrics", substring = true).performTextInput("[Chorus]\nမိုးတွေရွာနေတယ်")
@@ -80,7 +81,7 @@ class InputScreenTest {
         onNodeWithText("Anime").performScrollTo().performClick()
         onNodeWithText("16:9").performScrollTo().performClick()
         waitForIdle()
-        onNodeWithText("• Add the lyrics").assertDoesNotExist()
+        onNodeWithText("Add the lyrics").assertDoesNotExist()
         assertEquals(Ratio.R16_9, onDisk().settings.ratio, "chips save at once")
         assertEquals("Anime", onDisk().settings.videoStyle)
 
@@ -111,6 +112,45 @@ class InputScreenTest {
         waitForIdle()
         onNodeWithText(StoryboardJobs.CANCELLED.message).assertExists()
         onNodeWithText(UiText.GENERATE_STORYBOARD.en).assertExists()
+    }
+
+    /** Group 3 🆕-11: the trash button asks first; Cancel keeps the character, Remove removes it. */
+    @Test
+    fun removingACharacterAsksFirst() = runComposeUiTest {
+        open()
+        val model = InputModel(session, jobs)
+        model.addCharacter(); model.setCharacterToken(0, "HERO"); model.setCharacterName(0, "Maung")
+        setContent { InputScreen(model, jobs, onGenerated = {}) }
+        onNodeWithContentDescription("Remove Maung").performScrollTo().performClick()
+        onNodeWithTag("confirm-remove-character").assertExists()
+        onNodeWithText("Remove “Maung”?").assertExists()
+        onNodeWithText("Shots that use {{HERO}} lose this description", substring = true).assertExists()
+        onNodeWithTag("character-remove-cancel").performClick()
+        onNodeWithTag("confirm-remove-character").assertDoesNotExist()
+        assertEquals(listOf("HERO"), model.state.value.characters.map { it.token }, "Cancel keeps it")
+        onNodeWithContentDescription("Remove Maung").performScrollTo().performClick()
+        onNodeWithTag("character-remove-confirm").performClick()
+        onNodeWithTag("confirm-remove-character").assertDoesNotExist()
+        assertEquals(emptyList(), model.state.value.characters, "Remove removes it")
+        onNodeWithTag("character-0").assertDoesNotExist()
+    }
+
+    @Test
+    fun suggestTimingsAsksFirst() = runComposeUiTest {
+        open()
+        fs.writeDurably("$dir/source/lyrics.txt", "One line\nSecond line".encodeToByteArray())
+        fs.writeDurably("$dir/source/song.mp3", byteArrayOf(1, 2, 3))
+        val model = InputModel(session, jobs)
+        setContent { InputScreen(model, jobs, onGenerated = {}) }
+        onNodeWithText(UiText.LYRICS_NOT_SYNCED.en).performScrollTo().assertIsDisplayed()
+        onNodeWithText(UiText.SUGGEST_TIMINGS.en).performScrollTo().performClick()
+        onNodeWithTag("confirm-suggest-timings").assertExists()
+        onNodeWithText(UiText.SUGGEST_TIMINGS_CONFIRM.en).assertExists()
+        onNodeWithTag("confirm-suggest-timings-back").performClick()
+        onNodeWithTag("confirm-suggest-timings").assertDoesNotExist()
+        assertEquals(null, jobs.state.value.gemini, "Back sends nothing")
+        onNodeWithText(UiText.SUGGEST_TIMINGS.en).performScrollTo().performClick()
+        onNodeWithTag("confirm-suggest-timings-send").assertIsEnabled()
     }
 
     @Test

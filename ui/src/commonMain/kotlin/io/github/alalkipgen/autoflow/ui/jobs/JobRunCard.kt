@@ -70,9 +70,11 @@ internal fun MusicGeminiJobCard(jobs: StoryboardJobs, project: OpenProject?, mod
     val job by jobs.state.collectAsState()
     val run = job.gemini?.takeIf { it.belongsTo(project) } ?: return
     val row = musicGeminiRow(job, LocalUiLanguage.current) ?: return
+    // Group 3 A 4: the glass job card (sparkle tile in Purple, the cyan → purple bar) with the small danger Cancel (x).
     JobRunCard(row.copy(projectTitle = null), modifier.testTag("gemini-project-run"), headerAction = {
-        AfButton(tr(UiText.CANCEL), { jobs.cancelRun(run.id) }, kind = ButtonKind.Danger)
-    })
+        GlassButton(tr(UiText.CANCEL), { jobs.cancelRun(run.id) }, kind = ButtonKind.Danger,
+            icon = io.github.alalkipgen.autoflow.ui.icons.AfIcons.Regular.Close, small = true)
+    }, tile = CardTile(io.github.alalkipgen.autoflow.ui.icons.AfIcons.Fill.Spark, io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors.Purple))
 }
 
 /**

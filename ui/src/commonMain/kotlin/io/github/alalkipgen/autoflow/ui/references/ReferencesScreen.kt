@@ -21,16 +21,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
+import io.github.alalkipgen.autoflow.ui.components.GlassCallout
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+import io.github.alalkipgen.autoflow.ui.shots.TonePill
 
 /**
  * References screen (D-14): copy ImageDialect prompt → paste in AI Studio → import image → approve.
@@ -50,7 +54,7 @@ fun ReferencesScreen(
     ) {
         WrapRow(spacing = 10.dp) {
             AfText(tr(UiText.REFERENCES), size = 18.sp, bold = true)
-            AfButton(tr(UiText.OPEN_AI_STUDIO), { model.openAiStudio() }, kind = ButtonKind.Secondary)
+            AfButton(tr(UiText.OPEN_AI_STUDIO), { model.openAiStudio() }, kind = ButtonKind.Secondary, trailingIcon = AfIcons.Regular.ArrowSquareOut)
         }
         AfText(tr(UiText.REFERENCES_MANUAL_HELP), muted = true, size = 12.sp)
 
@@ -97,21 +101,20 @@ private fun RefCard(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AfText("Shot ${row.number}", bold = true, size = 14.sp)
             AfText(row.timecode, muted = true, size = 12.sp)
+            // Group 3 I: the shared status pill look (§3.2) — Approved green check-circle, Imported cyan download-simple.
             if (row.chosenRef != null) {
-                val color = if (row.refApproved) AutoFlowColors.Green else AutoFlowColors.Cyan
-                val label = if (row.refApproved) tr(UiText.REF_APPROVED) else tr(UiText.REF_IMPORTED)
-                Box(Modifier.clip(AutoFlowShapes.Card)
-                    .background(color.copy(alpha = 0.18f))
-                    .border(AutoFlowShapes.Border, color.copy(alpha = 0.5f), AutoFlowShapes.Card)
-                    .padding(horizontal = 7.dp, vertical = 3.dp)) {
-                    AfText(label, color = color, size = 11.sp)
-                }
+                if (row.refApproved) TonePill(AutoFlowColors.Green, AfIcons.Fill.CheckCircle, tr(UiText.REF_APPROVED), Modifier.testTag("ref-pill-approved"))
+                else TonePill(AutoFlowColors.Cyan, AfIcons.Regular.DownloadSimple, tr(UiText.REF_IMPORTED), Modifier.testTag("ref-pill-imported"))
             }
             if (row.refCount > 1) AfText(tr(UiText.REF_COUNT, "refCount" to (row.refCount)), muted = true, size = 11.sp)
         }
         row.lyric.takeIf { it.isNotBlank() }?.let { AfText(it, size = 12.sp) }
 
-        row.copyGateMsg?.let { AfText("⚠ ${row.copyBlocker?.text(LocalUiLanguage.current) ?: it}", color = AutoFlowColors.Amber, size = 12.sp) }
+        // Group 3 I (§3.1): the gate as an amber callout with lock-simple, not a "⚠ " line.
+        row.copyGateMsg?.let {
+            GlassCallout(AfIcons.Fill.Lock, My.breakSyllables(row.copyBlocker?.text(LocalUiLanguage.current) ?: it), AutoFlowColors.Amber,
+                Modifier.testTag("ref-gate"))
+        }
 
         row.imagePrompt?.let { prompt ->
             Box(
@@ -128,13 +131,13 @@ private fun RefCard(
         // Wraps: three buttons do not fit a phone row, and a squeezed last button grew tall and invisible.
         WrapRow {
             AfButton(tr(UiText.COPY_IMAGE_PROMPT), { model.copyImagePrompt(row.number) },
-                kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null)
-            AfButton(tr(UiText.IMPORT_IMAGE), importRef, kind = ButtonKind.Secondary)
+                kind = ButtonKind.Secondary, enabled = row.imagePrompt != null && row.copyGateMsg == null, icon = AfIcons.Regular.Copy)
+            AfButton(tr(UiText.IMPORT_IMAGE), importRef, kind = ButtonKind.Secondary, icon = AfIcons.Regular.Upload)
             if (row.chosenRef != null) {
                 val approveLabel = if (row.refApproved) tr(UiText.REF_APPROVED_BUTTON) else tr(UiText.REF_APPROVE_BUTTON)
                 AfButton(approveLabel,
                     { model.approveRef(row.number, !row.refApproved) },
-                    kind = if (row.refApproved) ButtonKind.Primary else ButtonKind.Secondary)
+                    kind = if (row.refApproved) ButtonKind.Primary else ButtonKind.Secondary, icon = AfIcons.Regular.Check)
             }
         }
     }

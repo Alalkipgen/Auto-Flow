@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
+import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.ui.i18n.tr
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
@@ -104,6 +106,14 @@ fun GlassScrollColumn(modifier: Modifier, padding: PaddingValues, verticalArrang
 
 /** Base + the five ambient blobs over this box (drawn once behind a screen's scroll; it does not scroll). */
 fun Modifier.ambientBackground(): Modifier = drawBehind { drawAmbient() }
+
+/** Dashed drop box (Group 3 B 1, sample 02): black .22 fill and a 1.5 dp White .18 dashed frame (6 / 5) at radius [radius]. */
+fun Modifier.glassDashedBox(radius: Dp = 14.dp): Modifier = clip(RoundedCornerShape(radius)).background(GlassColors.PathFill)
+    .drawBehind {
+        val w = 1.5.dp.toPx()
+        drawRoundRect(GlassColors.DashedBorder, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), CornerRadius(radius.toPx() - w / 2),
+            style = Stroke(w, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx()))))
+    }
 
 private fun DrawScope.drawAmbient() {
     drawRect(GlassColors.Base)
@@ -206,6 +216,7 @@ fun GlassCard(
     gap: Dp = GlassShapes.CardGap,
     centred: Boolean = false,
     outline: Color? = null,
+    outlineWidth: Dp = 1.5.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = GlassShapes.Card
@@ -231,8 +242,8 @@ fun GlassCard(
                 drawContent()
                 attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) }
                 when {
-                    // [outline] (the Recap block playing in the top preview): 1.5 dp in that colour.
-                    outline != null -> drawGlassBorder(shape, outline, outline, 1.5.dp)
+                    // [outline] (the Recap block playing in the top preview; the shot sheet's approved / stale step): [outlineWidth].
+                    outline != null -> drawGlassBorder(shape, outline, outline, outlineWidth)
                     selected -> drawGlassBorder(shape, AutoFlowColors.Purple, AutoFlowColors.Purple)
                     flat -> drawGlassBorder(shape, GlassColors.FlatBorder, GlassColors.FlatBorder)
                     else -> drawGlassBorder(shape, GlassColors.CardBorder, GlassColors.CardHighlight)
@@ -385,11 +396,12 @@ fun GlassButton(
 
 /**
  * Glass icon button, the [AfIconButton] API: [size] 36 (in cards) / 40 (headers), radius 12, White .08 fill + White
- * .14 border, 18 dp icon; [selected] = primary container + primary border. The 48 dp target overflows into the spacing.
+ * .14 border, 18 dp icon; [selected] = primary container + primary border; [tone] = a coloured one, as the Danger button
+ * ([tone] .10 fill + .45 border, icon in [tone]; Group 3 B 4 Remove). The 48 dp target overflows into the spacing.
  */
 @Composable
 fun GlassIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier,
-    size: Dp = GlassShapes.IconButtonCard, selected: Boolean = false, enabled: Boolean = true) {
+    size: Dp = GlassShapes.IconButtonCard, selected: Boolean = false, enabled: Boolean = true, tone: Color? = null) {
     val interaction = remember { MutableInteractionSource() }
     val shape = GlassShapes.IconButton
     val slack = (AfSize.Touch - size) / 2
@@ -397,14 +409,15 @@ fun GlassIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modif
         .clickable(interaction, null, enabled = enabled, role = Role.Button, onClick = onClick)
         .semantics { contentDescription = label }
         .padding(slack).alpha(if (enabled) 1f else .4f).clip(shape)
-        .background(if (selected) Tone.Primary.container else GlassColors.SecondaryFill)
+        .background(if (selected) Tone.Primary.container else tone?.copy(alpha = .10f) ?: GlassColors.SecondaryFill)
         .drawWithContent {
             drawContent()
             if (selected) drawGlassBorder(shape, AutoFlowColors.PrimaryFill, AutoFlowColors.PrimaryFill)
+            else if (tone != null) drawGlassBorder(shape, tone.copy(alpha = .45f), tone.copy(alpha = .45f))
             else drawGlassBorder(shape, GlassColors.SecondaryBorder, GlassColors.SecondaryBorder.copy(alpha = .26f))
         }
         .interactionOverlay(interaction, shape), contentAlignment = Alignment.Center) {
-        AfIcon(icon, tint = if (selected) AutoFlowColors.PrimaryText else AutoFlowColors.Text, size = AfSize.IconSmall)
+        AfIcon(icon, tint = if (selected) AutoFlowColors.PrimaryText else tone ?: AutoFlowColors.Text, size = AfSize.IconSmall)
     }
 }
 
@@ -468,7 +481,7 @@ fun GlassModeChip(mode: Mode, modifier: Modifier = Modifier) {
  */
 @Composable
 fun GlassFilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
-    count: Int? = null, leading: (@Composable (ink: Color) -> Unit)? = null) {
+    count: Int? = null, leading: (@Composable (ink: Color) -> Unit)? = null, badge: Int? = null, badgeModifier: Modifier = Modifier) {
     val shape = GlassShapes.Pill
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -491,7 +504,17 @@ fun GlassFilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifi
             leading?.invoke(if (selected) Color.White else AutoFlowColors.Muted)
             AfText(text, color = if (selected) Color.White else AutoFlowColors.Text, type = AfType.Micro)
             if (count != null) AfText("$count", color = if (selected) GlassColors.FilterOnCount else AutoFlowColors.Muted, type = AfType.Micro)
+            if (badge != null) GlassCountBadge(badge, badgeModifier)
         }
+    }
+}
+
+/** Count badge (Group 3 A 🆕-16): 18 dp Cyan pill, the number in the dark Base colour, 11 sp bold. */
+@Composable
+fun GlassCountBadge(count: Int, modifier: Modifier = Modifier) {
+    Box(modifier.heightIn(min = 18.dp).widthIn(min = 18.dp).clip(GlassShapes.Pill).background(AutoFlowColors.Cyan).padding(horizontal = 5.dp),
+        contentAlignment = Alignment.Center) {
+        AfText("$count", color = GlassColors.Base, size = 11.sp, bold = true)
     }
 }
 

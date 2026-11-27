@@ -43,6 +43,15 @@ data class StoryboardUiState(
 }
 
 /**
+ * What the last "Snap cuts to beat" did: [moved] of the [total] cuts after the first, the song's [bpm] when known —
+ * "Cuts snapped to the beat: 7 of 11 moved · about 92 BPM." (Group 3 §8-2: V3_SNAP_DONE + V3_SNAP_BPM, sample 06).
+ */
+data class SnapSummary(val moved: Int, val total: Int, val bpm: Int?) {
+    fun text(language: UiLanguage): String = UiText.V3_SNAP_DONE.text(language, "moved" to moved, "total" to total) +
+        (bpm?.let { UiText.V3_SNAP_BPM.text(language, "bpm" to it) } ?: "") + "."
+}
+
+/**
  * Storyboard screen logic. State is rebuilt from the open project after every save. Quick actions (approve, edit,
  * switch version) run at once; AI actions go through [jobs]. Nothing runs while a job is busy, because the job saves
  * the project when it ends and would overwrite the change.
@@ -60,6 +69,10 @@ class StoryboardModel(
 
     /** Result of the last quick action; AI job results are in [StoryboardJobs.state]. */
     val message: StateFlow<String?> = _message.asStateFlow()
+    private val _snapped = MutableStateFlow<SnapSummary?>(null)
+
+    /** How many cuts the last "Snap cuts to beat" moved (Group 3 §8-2), until the next action; shown in the UI language. */
+    val snapped: StateFlow<SnapSummary?> = _snapped.asStateFlow()
 
     internal val openProject get() = session.open
 
@@ -74,23 +87,29 @@ class StoryboardModel(
      * to the nearest beat within ±250 ms; off = the storyboard's own cuts again. Approvals and prompts stay.
      */
     fun setSnapToBeat(on: Boolean): Boolean {
-        _message.value = null
+        say(null)
         if (!on) return quick { service.retime(false) }
         val before = session.open?.project?.shots.orEmpty()
-        return jobs.run(BEAT_LABEL, notice = UiNotice(UiText.FINDING_BEATS), onDone = { r -> if (r == StoryboardResult.Done) _message.value = snapSummary(before) }) {
+        return jobs.run(BEAT_LABEL, notice = UiNotice(UiText.FINDING_BEATS), onDone = { r -> if (r == StoryboardResult.Done) _snapped.value = snapSummary(before) }) {
             when (val found = beats.find()) {
-                is BeatFinder.Found.Failed -> StoryboardResult.Failed(found.message)
+                is BeatFinder.Found.Failed -> StoryboardResult.Failed(found.message, found.notice)
                 is BeatFinder.Found.Ok -> retime(true)
             }
         }
     }
 
-    private fun snapSummary(before: List<Shot>): String {
-        val p = session.open?.project ?: return ""
-        val bpm = session.readBeats()?.bpm?.let { " · about ${round(it).toInt()} BPM" } ?: ""
+    private fun snapSummary(before: List<Shot>): SnapSummary? {
+        val p = session.open?.project ?: return null
+        val bpm = session.readBeats()?.bpm?.let { round(it).toInt() }
         val old = before.associate { it.number to it.startMs }
         val moved = p.shots.count { s -> s.number != p.shots.first().number && old[s.number]?.let { it != s.startMs } == true }
-        return "♩ Cuts snapped to the beat: $moved of ${p.shots.size - 1} moved$bpm."
+        return SnapSummary(moved, p.shots.size - 1, bpm)
+    }
+
+    /** A new message from an action; it replaces the snap summary too. */
+    private fun say(text: String?) {
+        _message.value = text
+        _snapped.value = null
     }
 
     /** ✎ ပြင်မယ်: saves the edited Burmese scene and English fields of shot [number]. */
@@ -103,26 +122,26 @@ class StoryboardModel(
 
     /** ↻ ပြန်ထုတ်မယ်: one AI request for shot [number]; [keepScene] keeps the Burmese scene. */
     fun regenerate(number: Int, keepScene: Boolean): Boolean {
-        _message.value = null
+        say(null)
         return jobs.runGemini(session.open ?: return false, io.github.alalkipgen.autoflow.ui.shell.SHOT_SHEET,
             regenerateLabel(number), UiNotice(UiText.REGENERATING_SHOT, "n" to number)) { regenerateShot(number, keepScene) }
     }
 
     /** Regenerate all: a new storyboard version; the current one stays in the version list. */
     fun regenerateAll(): Boolean {
-        _message.value = null
+        say(null)
         return jobs.runGemini(session.open ?: return false, io.github.alalkipgen.autoflow.ui.shell.SHOT_SHEET,
             InputModel.GENERATE_LABEL, UiNotice(UiText.GENERATING_STORYBOARD)) { report -> generateAll(report) }
     }
 
     private fun quick(action: () -> StoryboardResult): Boolean {
         if (jobs.busy) {
-            _message.value = "Wait for “${jobs.state.value.running}” to finish."
+            say("Wait for “${jobs.state.value.running}” to finish.")
             return false
         }
         jobs.clearLast()
         val result = action()
-        _message.value = result.message()
+        say(result.message())
         return result == StoryboardResult.Done
     }
 

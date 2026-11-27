@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.components.ProjectShortcutHost
 import io.github.alalkipgen.autoflow.ui.components.ProjectTopBar
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import io.github.alalkipgen.autoflow.core.CoreResult
@@ -22,6 +23,7 @@ import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleCue
 import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
+import io.github.alalkipgen.autoflow.core.subtitles.TimeText
 import io.github.alalkipgen.autoflow.media.audio.DubCue
 import io.github.alalkipgen.autoflow.media.playback.MovieRequest
 import io.github.alalkipgen.autoflow.media.render.BatteryReader
@@ -207,6 +209,9 @@ class ToolPreviewTest {
             }
         }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("mv-preview-video").fetchSemanticsNodes().isNotEmpty() }
+        // The hint is folded behind ⓘ (Music Video plan G).
+        onNodeWithTag("mv-preview-hint").assertDoesNotExist()
+        onNodeWithTag("mv-preview-hint-toggle").performSemanticsAction(SemanticsActions.OnClick)
         onNodeWithTag("mv-preview-hint").assertExists()
         assertEquals(video, requests.last().first)
         assertTrue(requests.last().second.muted, "the render drops the clips' sound for the song")
@@ -221,7 +226,55 @@ class ToolPreviewTest {
         onNode(hasText("မိုး", substring = true) and hasAnyAncestor(hasTestTag("mv-preview-lyric"))).assertDoesNotExist()
         onNodeWithTag("mv-preview-time").assert(hasText("#2", substring = true))
         mainClock.advanceTimeBy(6_000)
-        onNodeWithTag("mv-preview-play").assertTextEquals(My.breakSyllables(UiText.SUB_PLAY.text(UiLanguage.ENGLISH)))
+        onNodeWithTag("mv-preview-play").assertContentDescriptionEquals(UiText.SUB_PLAY.text(UiLanguage.ENGLISH))
         assertTrue(runCatching { fs.list("$dir/exports") }.getOrDefault(emptyList()).isEmpty(), "nothing was rendered")
+    }
+
+    /** 🆕-3: −5 s / +5 s on the one clock, a shot tick goes to that shot, "#n · lyric" under the picture, Fullscreen opens and exits. */
+    @Test fun theMusicPreviewSeeksFiveSecondsJumpsToAShotAndOpensFullscreen() = runDesktopComposeUiTest(width = 412, height = 860) {
+        musicVideo()
+        val m = model()
+        setContent {
+            CompositionLocalProvider(LocalUiFontFamily provides BurmeseTestFont.family) {
+                Column { MusicVideoPreview(m) { _, _, mod, _ -> Box(mod) } }
+            }
+        }
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("mv-preview-video").fetchSemanticsNodes().isNotEmpty() }
+        fun time(text: String) = onNodeWithTag("mv-preview-time").assert(hasText(text, substring = true))
+        fun press(tag: String) { onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick); waitForIdle() }
+        onNodeWithTag("mv-preview-big-play").assertExists()
+        onNode(hasText("#1 · ", substring = true) and hasText("မိုး", substring = true) and hasTestTag("mv-preview-shot")).assertExists()
+        press("mv-preview-forward"); time("#1 · ${TimeText.show(5_000)}")
+        press("mv-preview-forward"); time("#2 · ${TimeText.show(10_000)}")
+        onNodeWithTag("mv-preview-shot").assertTextEquals("#2")
+        onNodeWithTag("mv-preview-big-play").assertDoesNotExist()
+        press("mv-preview-back"); time("#1 · ${TimeText.show(5_000)}")
+        press("mv-preview-back"); press("mv-preview-back"); time("#1 · ${TimeText.show(0)}")
+        onNodeWithTag("mv-preview-tick-2").assertContentDescriptionEquals("#2 · ${TimeText.show(8_000)}")
+        press("mv-preview-tick-2"); time("#2 · ${TimeText.show(8_000)}")
+        press("mv-preview-tick-1"); time("#1 · ${TimeText.show(0)}")
+        press("mv-preview-fullscreen")
+        onNodeWithTag("mv-preview-fullscreen-window").assertExists()
+        onNode(hasText("#1") and hasAnyAncestor(hasTestTag("mv-preview-fullscreen-shot")), useUnmergedTree = true).assertExists()
+        press("mv-preview-fullscreen-exit")
+        onNodeWithTag("mv-preview-fullscreen-window").assertDoesNotExist()
+        onNodeWithTag("mv-preview-video").assertExists()
+    }
+
+    /** Nothing to preview yet: the dashed box with the Burmese line (no picture, no controls). */
+    @Test fun theMusicPreviewWithNoShotsIsTheDashedBoxInBurmese() = runDesktopComposeUiTest(width = 412, height = 860) {
+        val p = (store.create(dir, "Rain", Mode.MUSIC_VIDEO, ProjectSettings()) as CoreResult.Ok).value
+        current.set(OpenProject(dir, p))
+        val m = model()
+        setContent {
+            CompositionLocalProvider(LocalUiFontFamily provides BurmeseTestFont.family, LocalUiLanguage provides UiLanguage.BURMESE) {
+                Column { MusicVideoPreview(m) { _, _, mod, _ -> Box(mod) } }
+            }
+        }
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("mv-preview-empty").fetchSemanticsNodes().isNotEmpty() }
+        onNode(hasText(My.breakSyllables(UiText.MV_PREVIEW_EMPTY.text(UiLanguage.BURMESE))) and hasAnyAncestor(hasTestTag("mv-preview-empty")))
+            .assertExists()
+        onNodeWithTag("mv-preview-video").assertDoesNotExist()
+        onNodeWithTag("mv-preview-play").assertDoesNotExist()
     }
 }

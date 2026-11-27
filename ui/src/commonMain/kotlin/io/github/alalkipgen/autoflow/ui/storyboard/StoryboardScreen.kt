@@ -44,7 +44,7 @@ const val APPROVE = "✓ အတည်ပြုမယ်"
 const val EDIT = "✎ ပြင်မယ်"
 const val REGENERATE = "↻ ပြန်ထုတ်မယ်"
 const val STALE = "⚠ ပြန်ထုတ်ရန် လိုသည်"
-const val SNAP_TO_BEAT = "♩ Snap cuts to beat"
+const val SNAP_TO_BEAT = "Snap cuts to beat"
 const val NO_STORYBOARD_TEXT = "Storyboard မရှိသေးပါ။ Input မှာ \"Storyboard ထုတ်မယ်\" ကို နှိပ်ပါ။"
 
 /**
@@ -55,6 +55,7 @@ const val NO_STORYBOARD_TEXT = "Storyboard မရှိသေးပါ။ Input 
 fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: () -> Unit, modifier: Modifier = Modifier) {
     val state by model.state.collectAsState(model.current())
     val message by model.message.collectAsState()
+    val snapped by model.snapped.collectAsState()
     val job by jobs.state.collectAsState()
     val busy = job.running != null
     Column(
@@ -72,6 +73,7 @@ fun StoryboardScreen(model: StoryboardModel, jobs: StoryboardJobs, onGoToInput: 
                 Header(state, model, busy)
                 job.lastFor(model.openProject)?.takeIf { it != StoryboardResult.Done }?.message(LocalUiLanguage.current)?.let { AfText(it, color = AutoFlowColors.Amber) }
                 message?.let { AfText(it, color = AutoFlowColors.Amber) }
+                snapped?.let { AfText(it.text(LocalUiLanguage.current), color = AutoFlowColors.Amber) }
                 state.cards.forEach { card -> ShotCard(card, model, busy) }
             }
         }

@@ -126,3 +126,31 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `stamp` | `stamp` | Watermark card (Style) |
 | `musicNote` | `music-note` | Background music file, Add music (Style) |
 | `copy` | `copy` | Copy title / chapters / description / hashtags (Publish Kit) |
+| `pencilLine` | `pencil-simple-line` | Input page chip (Music Video project bar) |
+| `trayArrowDown` | `tray-arrow-down` | Inbox page chip (Music Video project bar) |
+| `textAlignLeft` | `text-align-left` | Lyrics card (Music Video Input) |
+| `fileAudio` | `file-audio` | No song yet box (Music Video Input) |
+| `usersThree` | `users-three` | Characters card (Music Video Input) |
+| `userPlus` | `user-plus` | Add character (Music Video Input) |
+| `hourglass` | `hourglass` | Input locked while Gemini works (Music Video) |
+| `circleDashed` | `circle-dashed` | Lyrics not synced yet (Music Video Input) |
+| `eraser` | `eraser` | Clear timings (Music Video Input) |
+| `paperPlaneRight` | `paper-plane-right` | Send — Suggest timings dialog (Music Video Input) |
+| `arrowLineDown` | `arrow-line-down` | Line starts — tap sync (Music Video Input) |
+| `flagCheckered` | `flag-checkered` | Last line ends — tap sync (Music Video Input) |
+| `arrowUUpLeft` | `arrow-u-up-left` | Restart — tap sync (Music Video Input) |
+| `metronome` | `metronome` | Snap cuts to beat (Music Video All shots) |
+| `coins` | `coins` | Flow credits (Music Video All shots) |
+| `listlines` | `list` | Credit log (Music Video All shots) |
+| `filehtml` | `file-html` | Batch sheet (Music Video All shots) |
+| `funnel` | `funnel` | Filter with no match (Music Video shot list) |
+| `videoCamera` | `video-camera` | Storyboard camera tag + Camera field label (Music Video shot sheet) |
+| `smiley` | `smiley` | Storyboard mood tag + Mood field label (Music Video shot sheet) |
+| `personSimpleRun` | `person-simple-run` | Action field label (storyboard edit form) |
+| `mapPin` | `map-pin` | Setting field label (storyboard edit form) |
+| `sun` | `sun` | Lighting field label (storyboard edit form) |
+| `lightning` | `lightning` | Draft (Fast) pass + Fast credits option (Music Video Flow handoff) |
+| `diamond` | `diamond` | Final (Quality) pass + Quality credits option (Music Video Flow handoff) |
+| `tray` | `tray` | Inbox empty box (Music Video Inbox) |
+| `paperclip` | `paperclip` | Attach to Shot (Music Video Inbox) |
+| `file` | `file` | Other file in the Inbox — cannot attach (Music Video Inbox) |

@@ -13,7 +13,7 @@ class InputLocalizationTest {
         assertTrue(confirmText(state, UiLanguage.BURMESE).contains("shot 4"))
         assertTrue(confirmText(state, UiLanguage.BURMESE).contains("ဗားရှင်းဟောင်း"))
         val synced = LyricSyncUiState(status = TimingStatus.SYNCED, savedLines = 2, savedSource = LyricTimings.SOURCE_GEMINI)
-        assertEquals("✓ 2 lines synced (suggested by Gemini): Export shows each line when it is sung.", statusText(synced))
+        assertEquals("2 lines synced (suggested by Gemini): Export shows each line when it is sung.", statusText(synced))
         assertTrue(statusText(synced, UiLanguage.BURMESE).contains("စာကြောင်း 2 ကြောင်း"))
         assertEquals("Owner {n} prompt", videoStyleLabel("Owner {n} prompt", UiLanguage.BURMESE))
         assertEquals("Cinematic", videoStyleLabel("Cinematic", UiLanguage.ENGLISH))

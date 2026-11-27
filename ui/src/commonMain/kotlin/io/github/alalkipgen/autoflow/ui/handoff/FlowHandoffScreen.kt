@@ -49,6 +49,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.ui.i18n.My
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 
 /**
  * Flow Handoff screen (specs/flow-handoff.md): shot list → copy prompt → open Flow → import video → accept.
@@ -70,7 +71,8 @@ fun FlowHandoffScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AfText(tr(UiText.FLOW_HANDOFF), size = 18.sp, bold = true)
-            AfButton(tr(UiText.OPEN_FLOW), { model.openFlow() }, kind = ButtonKind.Flow)
+            // OPEN_FLOW dropped its " ↗" (Group 3 D 4): the arrow-square-out icon keeps the "opens outside" cue here.
+            AfButton(tr(UiText.OPEN_FLOW), { model.openFlow() }, kind = ButtonKind.Flow, icon = io.github.alalkipgen.autoflow.ui.icons.AfIcons.Regular.ArrowSquareOut)
         }
         AfText(tr(UiText.FLOW_MANUAL_STEPS), muted = true, size = 12.sp)
 
@@ -296,7 +298,7 @@ private fun HandoffActions(
         kind = ButtonKind.Primary,
         enabled = hasPrompt && row.gateMsg == null,
     )
-    AfButton(tr(UiText.IMPORT_VIDEO), importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted)
+    AfButton(tr(UiText.IMPORT_VIDEO), importVideo, kind = ButtonKind.Secondary, enabled = !row.accepted, icon = AfIcons.Regular.Upload)
     if (row.videoCount > 0 && !row.accepted) {
         AfButton("✓ ${tr(UiText.ACCEPT_VIDEO)}", { model.acceptVideo(row.number) }, kind = ButtonKind.Secondary)
     }
@@ -391,7 +393,7 @@ internal fun batchSummary(ticked: Int, pending: Int, language: UiLanguage = UiLa
     else UiText.BATCH_COUNT.text(language, "pending" to pending, "ticked" to ticked)
 
 internal const val EXPORT_BATCH_BUTTON = "Batch စာရွက် ထုတ်မယ် (HTML)"
-internal const val OPEN_BATCH_BUTTON = "စာရွက် ဖွင့်မယ် ↗"
+internal const val OPEN_BATCH_BUTTON = "စာရွက် ဖွင့်မယ်"
 internal const val SHARE_BATCH_BUTTON = "စာရွက် မျှဝေမယ်"
 internal const val IN_BATCH_CHIP = "Batch စာရွက်ထဲ"
 

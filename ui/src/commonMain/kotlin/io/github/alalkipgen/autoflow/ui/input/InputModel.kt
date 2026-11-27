@@ -47,6 +47,20 @@ data class InputUiState(
 }
 
 /**
+ * One [CharacterBible.problems] line in the UI language (Group 3 §8-5): the duplicate token and the missing English
+ * description become V3_CHAR_DUP_TOKEN / V3_CHAR_NO_ENGLISH with {token} = "{{HERO}}" (in English the same words as
+ * the core's line); any other line stays as the core wrote it.
+ */
+fun characterProblemText(line: String, language: UiLanguage): String {
+    CHAR_DUP_TOKEN.matchEntire(line)?.let { return UiText.V3_CHAR_DUP_TOKEN.text(language, "token" to it.groupValues[1]) }
+    CHAR_NO_ENGLISH.matchEntire(line)?.let { return UiText.V3_CHAR_NO_ENGLISH.text(language, "token" to it.groupValues[1]) }
+    return line
+}
+
+private val CHAR_DUP_TOKEN = Regex("""(\{\{.+}}) is used by more than one character\.""")
+private val CHAR_NO_ENGLISH = Regex("""(\{\{.+}}) has no English description: shots that use it will not compile\.""")
+
+/**
  * Input screen logic. Chips save at once; text fields save on [save] (the screen calls it when it closes and before
  * generating), so typing does not rewrite project.json on every key.
  */

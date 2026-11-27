@@ -33,7 +33,8 @@ internal fun BoxScope.BurnedCaption(overlays: List<Overlay>, positionMs: Long, v
         val style = TextStyle(color = Color.White, fontSize = with(density) { (o.sizePx * scale).toSp() },
             fontFamily = LocalUiFontFamily.current, textAlign = TextAlign.Center)
         val bottom = with(density) { (constraints.maxHeight * AssWriter.MARGIN_PERCENT / 100f).toDp() }
-        Box(Modifier.padding(bottom = bottom).testTag(tag), contentAlignment = Alignment.Center) {
+        // As wide as its widest line: centred unwrapped text is otherwise laid out at the full width and drawn past its box.
+        Box(Modifier.padding(bottom = bottom).width(IntrinsicSize.Max).testTag(tag), contentAlignment = Alignment.Center) {
             if (o.box) {
                 val pad = with(density) { (maxOf(4, o.sizePx / 6) * scale).toDp() }
                 BasicText(o.text, Modifier.background(Color.Black.copy(alpha = 0.62f)).padding(pad), style = style, softWrap = false)

@@ -259,6 +259,7 @@ fun AfSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modif
 /**
  * Text input; [placeholder] is also its content description. [secret] masks the value (API keys; the caller still
  * never echoes a saved secret). [lines] > 1 makes it multiline with that minimum height; [mono] off for prose.
+ * [showPlaceholder] off = a labelled field (the label above it names it; Group 3 B): an empty field shows nothing.
  */
 @Composable
 fun AfTextField(
@@ -272,6 +273,7 @@ fun AfTextField(
     enabled: Boolean = true,
     glass: Boolean = false,
     error: Boolean = false,
+    showPlaceholder: Boolean = true,
 ) {
     var focused by remember { mutableStateOf(false) }
     val shape = if (glass) GlassShapes.Field else ControlShape
@@ -287,7 +289,7 @@ fun AfTextField(
             .onFocusChanged { focused = it.hasFocus }
             .padding(horizontal = if (glass) 14.dp else 10.dp, vertical = if (glass) 10.dp else 8.dp),
     ) {
-        if (value.isEmpty()) AfText(placeholder, muted = !glass, color = if (glass) AutoFlowColors.Faint else null)
+        if (value.isEmpty() && showPlaceholder) AfText(placeholder, muted = !glass, color = if (glass) AutoFlowColors.Faint else null)
         BasicTextField(
             value = value,
             onValueChange = onChange,

@@ -120,6 +120,95 @@ object GlassColors {
     val Voice = Color(0xFF22D3EE)
     val Dubbing = Color(0xFFF59E0B)
 
+    /** Music Video Input's Video card tile (Group 3 B 4, film-strip). */
+    val MvVideoTile = Color(0xFF60A5FA)
+
+    /** The Needs Flow status pill and number tile (Group 3 §3.2, sample 05): the lighter purple, readable at 11.5 sp. */
+    val ShotNeedsFlow = Color(0xFFA78BFA)
+
+    /** A shot list row (Group 3 C, sample 05 `.srow`): White .04 + .09 line; the selected one Purple .12 + .55 line. */
+    val ShotRowFill = Color.White.copy(alpha = .04f)
+    val ShotRowBorder = Color.White.copy(alpha = .09f)
+    val ShotRowSelectedFill = AutoFlowColors.Purple.copy(alpha = .12f)
+    val ShotRowSelectedBorder = AutoFlowColors.Purple.copy(alpha = .55f)
+
+    /** The All shots row (Group 3 C, sample 05 `.sub`): White .03 + .10 line. */
+    val AllShotsFill = Color.White.copy(alpha = .03f)
+
+    /**
+     * One shot's sheet (Group 3 D, samples 07 / 08): step 3 References Blue; the step number badge (#4B5573, green when
+     * done, a 2 dp #151B33 ring); the navigator's "3 / 12" chip (`.ofn` White .06 + .12 line), lyric quote (`.quote`
+     * Black .20 + White .08 line) and step dots (`.dt` White .06 + .22 line, the next one Cyan .14; `.dl` White .14).
+     */
+    val SheetRefs = Color(0xFF60A5FA)
+    val StepBadge = Color(0xFF4B5573)
+    val StepBadgeRing = Color(0xFF151B33)
+    val PositionChipFill = Color.White.copy(alpha = .06f)
+    val PositionChipBorder = Color.White.copy(alpha = .12f)
+    val QuoteFill = Color.Black.copy(alpha = .20f)
+    val QuoteBorder = Color.White.copy(alpha = .08f)
+    val StepDotFill = Color.White.copy(alpha = .06f)
+    val StepDotBorder = Color.White.copy(alpha = .22f)
+    val StepDotNowFill = AutoFlowColors.Cyan.copy(alpha = .14f)
+    val StepLine = Color.White.copy(alpha = .14f)
+
+    /**
+     * The shot sheet's Storyboard and Prompt cards (Group 3 D inner, samples 07 / 08): the approved step card's outline
+     * (`.okb` Green .45, 1 dp), the stale one (`.staleb` Stale .60, 1.5 dp) and the camera / mood tag pills (White .06 + .14).
+     */
+    val StepApprovedOutline = AutoFlowColors.Green.copy(alpha = .45f)
+    val StepStaleOutline = AutoFlowColors.Stale.copy(alpha = .60f)
+    val TagPillFill = Color.White.copy(alpha = .06f)
+    val TagPillBorder = Color.White.copy(alpha = .14f)
+
+    /**
+     * The shot sheet's References and Flow handoff cards (Group 3 D inner 3–4, samples 07 / 08): the chosen Ref tile
+     * (`.rt9.on` lavender .12 under a 2 dp [ShotNeedsFlow] line; the others a White .12 line), the thumbnail corner badge
+     * (`.rk9` Base-dark .72) and the video tile's play mark (`.tp` .5 fill, a White .45 ring). Thumbnails keep [ThumbBorder].
+     */
+    val RefChosenFill = Color(0xFFA78BFA).copy(alpha = .12f)
+    val RefTileBorder = Color.White.copy(alpha = .12f)
+    val ThumbBadgeFill = Color(0xFF050812).copy(alpha = .72f)
+    val PlayMarkFill = Color(0xFF050812).copy(alpha = .5f)
+    val PlayMarkRing = Color.White.copy(alpha = .45f)
+
+    /**
+     * The shot sheet's Videos card and desktop media pane (Group 3 D inner 5 / E, samples 07 / 08 / 10): the "v2" version tag
+     * (`.vt9` White .08 + .14 line), the big play mark on the pane's video (`.vplay.big` Base .55, a 1.5 dp White .55 ring)
+     * and the media pane's Cyan tint (.14).
+     */
+    val VersionTagFill = Color.White.copy(alpha = .08f)
+    val VersionTagBorder = Color.White.copy(alpha = .14f)
+    val BigPlayFill = Color(0xFF0A0E1C).copy(alpha = .55f)
+    val BigPlayRing = Color.White.copy(alpha = .55f)
+    const val TintMediaPane = .14f
+
+    // Music Video Inbox (Group 3 F, sample 11): the file kind tiles (video lavender, image blue, other Muted), each file's
+    // row card (White .04 fill, 1 dp White .10 border, radius 16) and the Shared to Auto Flow card's 1 dp Cyan .5 line.
+    val InboxVideo = Color(0xFFA78BFA)
+    val InboxImage = Color(0xFF60A5FA)
+    val InboxRowFill = Color.White.copy(alpha = .04f)
+    val InboxRowBorder = Color.White.copy(alpha = .10f)
+    val InboxSharedLine = Color(0xFF22D3EE).copy(alpha = .5f)
+    const val TintInboxShared = .16f
+
+    // Music Video Preview (Group 3 G + 🆕-3, samples 12 / 12b): the card's blue tint, the time chip on the picture, a
+    // pending shot's dark glass (radial glow → deep, White .08 card with a White .16 line) and the picture's 1 dp edge.
+    const val TintMvPreview = .16f
+    val MvTimeChip = Color(0xFF050812).copy(alpha = .62f)
+    val MvPendingGlow = Color(0xFF2A2050)
+    val MvPendingDeep = Color(0xFF070914)
+    val MvPendingFill = Color.White.copy(alpha = .08f)
+    val MvPendingBorder = Color.White.copy(alpha = .16f)
+    val MvFrameEdge = Color.White.copy(alpha = .08f)
+
+    // Music Video Classic steps (Group 3 I, sample 16): the four steps' tiles — Storyboard purple, Shots cyan,
+    // References blue, Flow handoff lavender.
+    val ClassicStoryboard = Color(0xFF8B5CF6)
+    val ClassicShots = Color(0xFF22D3EE)
+    val ClassicRefs = Color(0xFF60A5FA)
+    val ClassicHandoff = Color(0xFFA78BFA)
+
     // Library list tints (at [TintLibrary]) and their row tiles; the lexicon card is tinted Voices at [TintLexicon].
     val LibraryKits = Color(0xFF8B5CF6)
     val LibraryVoices = Color(0xFFA78BFA)
@@ -151,6 +240,8 @@ object GlassColors {
     /** Path box: black .22 fill, White .10 border. */
     val PathFill = Color.Black.copy(alpha = .22f)
     val PathBorder = Color.White.copy(alpha = .10f)
+    /** The dashed drop box frame (Group 3 B 1). */
+    val DashedBorder = Color.White.copy(alpha = .18f)
     /** Menu row: White .04 fill, White .09 border. */
     val MenuRowFill = Color.White.copy(alpha = .04f)
     val MenuRowBorder = Color.White.copy(alpha = .09f)
@@ -282,6 +373,8 @@ object GlassShapes {
     val MenuRowMin = 56.dp
     val MenuTile = 36.dp
     val PathBox = RoundedCornerShape(12.dp)
+    /** A Music Video Inbox file card (sample 11 `.rc`). */
+    val InboxRow = RoundedCornerShape(16.dp)
     val Callout = RoundedCornerShape(12.dp)
 
     /** Tab screen spacing: section gap, inside a section, between cards. */
