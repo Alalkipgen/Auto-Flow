@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.references
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
@@ -36,6 +37,7 @@ data class RefRow(
     val copyGateMsg: String?,
     /** Every imported reference image, oldest first: Ref A, Ref B, … on the shot sheet (5B-12). */
     val refs: List<ArtifactId> = emptyList(),
+    val copyBlocker: io.github.alalkipgen.autoflow.core.workflow.Blocker? = null,
 )
 
 data class ReferencesUiState(
@@ -43,6 +45,7 @@ data class ReferencesUiState(
     val rows: List<RefRow> = emptyList(),
     val selected: Int? = null,
     val message: String? = null,
+    val notice: UiNotice? = null,
     val aiStudioUrl: String = "https://aistudio.google.com/",
 )
 
@@ -56,56 +59,63 @@ class ReferencesModel(
     private val urlOpener: UrlOpener,
     private val filePicker: FilePicker,
     private val aiStudioUrl: String = "https://aistudio.google.com/",
+    private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
     private val _selected = MutableStateFlow<Int?>(null)
     private val _message = MutableStateFlow<String?>(null)
-    val state: Flow<ReferencesUiState> = combine(session.state, _selected, _message) { open, _, _ -> build(open?.project) }
+    private val _notice = MutableStateFlow<UiNotice?>(null)
+    private fun reportMessage(message: String?) = reportNotice(message?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to it) })
+    private fun reportNotice(notice: UiNotice?) {
+        _message.value = notice?.text(UiLanguage.ENGLISH)
+        _notice.value = notice
+    }
+    val state: Flow<ReferencesUiState> = combine(session.state, _selected, _notice) { open, _, _ -> build(open?.project) }
 
     fun current(): ReferencesUiState = build(session.open?.project)
 
     fun select(number: Int?) {
         _selected.value = number
-        _message.value = null
+        reportMessage(null)
     }
 
     /** Copy the ImageDialect prompt for shot [number] to clipboard. */
     fun copyImagePrompt(number: Int) {
-        val project = session.open?.project ?: run { _message.value = "No project open"; return }
-        val shot = project.shots.firstOrNull { it.number == number } ?: run { _message.value = "Shot $number not found"; return }
-        val ir = readPromptIr(shot) ?: run { _message.value = "No compiled prompt for shot $number — compile it on the Shots screen first"; return }
+        val project = session.open?.project ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
+        val shot = project.shots.firstOrNull { it.number == number } ?: run { reportNotice(UiNotice(UiText.SHOT_NOT_FOUND, "n" to number)); return }
+        val ir = readPromptIr(shot) ?: run { reportNotice(UiNotice(UiText.NO_COMPILED_SHOT, "n" to number)); return }
         val prompt = ImageDialect.render(ir)
         when (val r = clipboard.copyText(prompt)) {
             is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> { /* ok */ }
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { _message.value = "Could not copy: ${r.reason}"; return }
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { _message.value = "Clipboard not available"; return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { reportNotice(UiNotice(UiText.COPY_FAILED, "detail" to r.reason)); return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { reportNotice(UiNotice(UiText.CLIPBOARD_UNAVAILABLE)); return }
         }
-        _message.value = "Image prompt copied! Paste it in AI Studio or Flow."
+        reportNotice(UiNotice(UiText.IMAGE_PROMPT_COPIED))
     }
 
     fun openAiStudio() { urlOpener.open(aiStudioUrl) }
 
     /** Pick an image file and import it as a reference for shot [number]. */
     suspend fun pickAndImportRef(number: Int, readBytes: suspend (String) -> ByteArray?) {
-        val project = session.open?.project ?: run { _message.value = "No project open"; return }
-        val shot = project.shots.firstOrNull { it.number == number } ?: run { _message.value = "Shot $number not found"; return }
-        val result = filePicker.pickFiles("Import reference image for Shot $number", extensions = setOf("png", "jpg", "jpeg"), multiple = false)
+        val project = session.open?.project ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
+        val shot = project.shots.firstOrNull { it.number == number } ?: run { reportNotice(UiNotice(UiText.SHOT_NOT_FOUND, "n" to number)); return }
+        val result = filePicker.pickFiles(UiText.PICK_REFERENCE_SHOT.text(uiLanguage(), "n" to number), extensions = setOf("png", "jpg", "jpeg"), multiple = false)
         val path = when (result) {
             is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> result.value.firstOrNull() ?: return
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { _message.value = "File pick failed: ${result.reason}"; return }
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { _message.value = "File picker not available on this platform yet"; return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { reportNotice(UiNotice(UiText.FILE_PICK_FAILED, "detail" to result.reason)); return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { reportNotice(UiNotice(UiText.INPUT_NO_PICKER)); return }
         }
-        val bytes = readBytes(path) ?: run { _message.value = "Could not read the file"; return }
+        val bytes = readBytes(path) ?: run { reportNotice(UiNotice(UiText.FILE_UNREADABLE)); return }
         val ext = path.substringAfterLast('.').lowercase().let { if (it in setOf("png", "jpg", "jpeg")) it else "png" }
         importRefBytes(project, shot, bytes, ext)
     }
 
     /** Import image bytes as a reference image for [shot]; wires into ArtifactStore. */
     fun importRefBytes(project: Project, shot: Shot, bytes: ByteArray, ext: String) {
-        val artifacts = session.artifacts() ?: run { _message.value = "No project open"; return }
+        val artifacts = session.artifacts() ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
         val inputs = shot.promptIr?.let { mapOf(Inputs.PROMPT_IR to it.value) } ?: emptyMap()
         val artifact = when (val r = artifacts.put(bytes, ArtifactKind.IMAGE, ext, shot.number, inputs, provider = "user")) {
             is CoreResult.Ok -> r.value
-            is CoreResult.Err -> { _message.value = "Failed to save image: ${r.error.message}"; return }
+            is CoreResult.Err -> { reportNotice(UiNotice(UiText.SAVE_IMAGE_FAILED, "detail" to r.error.message)); return }
         }
         // Add to refImages; set as chosenRef automatically if none chosen yet
         val shots = project.shots.map { s ->
@@ -116,8 +126,8 @@ class ReferencesModel(
             } else s
         }
         when (val r = session.save(project.copy(shots = shots))) {
-            is CoreResult.Ok -> _message.value = "Reference image imported for Shot ${shot.number}."
-            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+            is CoreResult.Ok -> reportNotice(UiNotice(UiText.IMAGE_IMPORTED_SHOT, "n" to shot.number))
+            is CoreResult.Err -> reportNotice(UiNotice(UiText.SAVE_FAILED, "detail" to r.error.message))
         }
     }
 
@@ -176,6 +186,7 @@ class ReferencesModel(
                 refApproved = shot.approvals.ref,
                 status = ShotStatus.of(project, shot, lookup),
                 copyGateMsg = copyGate,
+                copyBlocker = gate.blockers.firstOrNull(),
                 refs = shot.refImages,
             )
         }
@@ -184,6 +195,7 @@ class ReferencesModel(
             rows = rows,
             selected = _selected.value,
             message = _message.value,
+            notice = _notice.value,
             aiStudioUrl = aiStudioUrl,
         )
     }

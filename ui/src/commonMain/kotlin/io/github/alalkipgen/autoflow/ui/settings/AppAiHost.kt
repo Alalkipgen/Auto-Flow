@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.settings
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ai.registry.AiHost
 import io.github.alalkipgen.autoflow.platform.Clipboard
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -42,23 +43,23 @@ internal fun PlatformResult<String?>.toKeyState(): KeyState = when (this) {
 }
 
 /** Title-bar right side (DESIGN.md §2): AI provider state, then Flow, which is always manual (D-04). */
-fun providerStatus(useFakes: Boolean, key: KeyState): String {
+fun providerStatus(useFakes: Boolean, key: KeyState, language: UiLanguage = UiLanguage.ENGLISH): String {
     val ai = when {
-        useFakes -> "AI ● Fake (offline)"
-        key == KeyState.SET -> "Gemini API ● Free tier"
-        key == KeyState.UNSUPPORTED -> "Gemini API ● Windows only"
-        else -> "Gemini API ● No key"
+        useFakes -> UiText.AI_FAKE.text(language)
+        key == KeyState.SET -> UiText.AI_FREE.text(language)
+        key == KeyState.UNSUPPORTED -> UiText.AI_WINDOWS.text(language)
+        else -> UiText.AI_NO_KEY.text(language)
     }
-    return "$ai · Flow ● Manual"
+    return "$ai · ${UiText.FLOW_MANUAL.text(language)}"
 }
 
 /** Live title-bar status. Call [refreshKey] after the key is saved or removed. */
 class ProviderStatusModel(private val settings: SettingsStore, private val secrets: SecureStorage) {
     private val key = MutableStateFlow(secrets.geminiKeyState())
 
-    val status: Flow<String> = combine(settings.state, key) { s, k -> providerStatus(s.useFakeProviders, k) }
+    val status: Flow<String> = combine(settings.state, key) { s, k -> providerStatus(s.useFakeProviders, k, UiLanguage.fromCode(s.uiLanguage)) }
 
-    fun current(): String = providerStatus(settings.state.value.useFakeProviders, key.value)
+    fun current(): String = providerStatus(settings.state.value.useFakeProviders, key.value, UiLanguage.fromCode(settings.state.value.uiLanguage))
 
     fun refreshKey() {
         key.value = secrets.geminiKeyState()

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.StrokeJoin
@@ -89,10 +90,10 @@ const val CAPTIONS_ON_BOX = "ကျွန်ုပ်ရဲ့ စာတန်�
 internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapModel) {
     val v = recap.visual
     // ── 🎬 Output ──────────────────────────────────────────────────────────────
-    AfCard("🎬 Output") {
-        AfH3("Video ratio")
+    AfCard(tr(UiText.OUTPUT_CARD)) {
+        AfH3(tr(UiText.VIDEO_RATIO))
         WrapRow {
-            AfChip("9:16 (default)", v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
+            AfChip(tr(UiText.DEFAULT_RATIO), v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
             Ratio.entries.forEach { r ->
                 AfChip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) })
             }
@@ -100,157 +101,160 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
     }
 
     // ── 🙈 Hide things ─────────────────────────────────────────────────────────
-    AfCard("🙈 ရုပ်ရှင်ပေါ်က အရာတွေ ဖုံးမယ်") {
-        AfText("ရုပ်ရှင်ရဲ့ စာတန်း၊ logo စတာတွေပေါ်မှာ မှုန်ဝါးဘောင် တင်မယ်။", muted = true, size = 12.sp)
+    AfCard(tr(UiText.HIDE_THINGS_CARD)) {
+        AfText(tr(UiText.HIDE_THINGS_HINT), muted = true, size = 12.sp)
         WrapRow {
             MaskPreset.entries.forEach { p ->
-                AfChip(maskLabel(p), v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
+                AfChip(maskLabel(p, LocalUiLanguage.current), v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
             }
         }
         if (v.masks.isNotEmpty()) {
             MaskPreview(recap, model)
             WrapRow {
-                AfH3("မှုန်ဝါးအား")
+                AfH3(tr(UiText.BLUR_STRENGTH))
                 MaskStrength.entries.forEach { s ->
-                    AfChip(strengthLabel(s), v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
+                    AfChip(strengthLabel(s, LocalUiLanguage.current), v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
                 }
             }
             v.masks.forEach { m ->
                 WrapRow {
-                    AfText(maskLabel(m.preset), size = 12.sp)
+                    AfText(maskLabel(m.preset, LocalUiLanguage.current), size = 12.sp)
                     AfButton("▲", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } })
                     AfButton("▼", { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } })
-                    AfButton(TALLER, { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
-                    AfButton(SHORTER, { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
+                    AfButton(tr(UiText.TALLER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
+                    AfButton(tr(UiText.SHORTER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
                     if (!m.preset.isStrip) {
                         AfButton("◀", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } })
                         AfButton("▶", { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
-                        AfButton(WIDER, { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
-                        AfButton(NARROWER, { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
+                        AfButton(tr(UiText.WIDER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
+                        AfButton(tr(UiText.NARROWER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
                     }
                 }
             }
             if (v.masks.any { it.centerY >= 0.5f }) {
-                AfSwitch(CAPTIONS_ON_BOX, v.captionsOnMask, { on -> if (idle) model.setVisual { it.copy(captionsOnMask = on) } })
+                AfSwitch(tr(UiText.CAPTIONS_ON_BOX), v.captionsOnMask, { on -> if (idle) model.setVisual { it.copy(captionsOnMask = on) } })
             }
         }
     }
 
+    RecapTimelinePreview(model)
     ExactFrameCard(model)
 
     // ── 🖼 Background ──────────────────────────────────────────────────────────
     if (Look.FILL !in recap.looks) {
-    AfCard("🖼 Background (space around the movie)") {
-        AfText("Fill the space when the movie shape differs from the output ratio.", muted = true, size = 12.sp)
+    AfCard(tr(UiText.BACKGROUND_CARD)) {
+        AfText(tr(UiText.BACKGROUND_HINT), muted = true, size = 12.sp)
         WrapRow {
             FrameBackground.entries.forEach { b ->
-                AfChip(b.label, v.background == b, { if (idle) model.setVisual { it.copy(background = b) } })
+                AfChip(b.uiLabel(), v.background == b, { if (idle) model.setVisual { it.copy(background = b) } })
             }
         }
         if (v.background == FrameBackground.COLOUR) {
             WrapRow {
                 RecapVisuals.COLOURS.forEach { (name, hex) ->
-                    AfChip(name, v.backgroundColour.equals(hex, ignoreCase = true), { if (idle) model.setVisual { it.copy(backgroundColour = hex) } })
+                    AfChip(colourPresetLabel(name), v.backgroundColour.equals(hex, ignoreCase = true), { if (idle) model.setVisual { it.copy(backgroundColour = hex) } })
                 }
             }
         }
         if (v.background == FrameBackground.IMAGE) {
-            val imgFile = v.backgroundImageFile?.substringAfterLast('/') ?: "not set"
+            val imgFile = v.backgroundImageFile?.substringAfterLast('/') ?: tr(UiText.NOT_SET)
             WrapRow {
-                AfText("Image: $imgFile", size = 12.sp)
-                AfButton("Change…", { if (idle) model.importBackgroundImage() })
+                AfText(tr(UiText.BACKGROUND_IMAGE_NAME, "imgFile" to (imgFile)), size = 12.sp)
+                AfButton(tr(UiText.CHANGE), { if (idle) model.importBackgroundImage() })
                 if (v.backgroundImageFile != null) {
-                    AfButton("Remove", { if (idle) model.setVisual { it.copy(background = FrameBackground.BARS, backgroundImageFile = null) } })
+                    AfButton(tr(UiText.REMOVE), { if (idle) model.setVisual { it.copy(background = FrameBackground.BARS, backgroundImageFile = null) } })
                 }
             }
         }
     }
     }
 
+    RecapLayerControls(recap, idle, model)
+
     // ── 💧 Watermark ───────────────────────────────────────────────────────────
-    AfCard("💧 Watermark") {
-        AfText("Logo / watermark image overlaid on every frame.", muted = true, size = 12.sp)
+    AfCard(tr(UiText.WATERMARK_CARD)) {
+        AfText(tr(UiText.WATERMARK_HINT), muted = true, size = 12.sp)
         WrapRow {
             if (v.watermarkFile != null) {
                 AfText("🖼 ${v.watermarkFile!!.substringAfterLast('/')}", size = 12.sp)
-                AfButton("Change…", { if (idle) model.importWatermark() })
-                AfButton("Remove", { if (idle) model.removeWatermark() })
+                AfButton(tr(UiText.CHANGE), { if (idle) model.importWatermark() })
+                AfButton(tr(UiText.REMOVE), { if (idle) model.removeWatermark() })
             } else {
-                AfButton("Set watermark…", { if (idle) model.importWatermark() })
+                AfButton(tr(UiText.SET_WATERMARK), { if (idle) model.importWatermark() })
             }
         }
         if (v.watermarkFile != null) {
-            AfH3("Position")
+            AfH3(tr(UiText.POSITION))
             WrapRow {
                 WatermarkAnchor.entries.forEach { anchor ->
-                    AfChip(anchor.label, v.watermarkAnchor == anchor, { if (idle) model.setWatermarkAnchor(anchor) })
+                    AfChip(anchor.uiLabel(), v.watermarkAnchor == anchor, { if (idle) model.setWatermarkAnchor(anchor) })
                 }
             }
         }
     }
 
     // ── ✍️ Captions ────────────────────────────────────────────────────────────
-    AfCard("✍️ Captions") {
+    AfCard(tr(UiText.CAPTIONS_CARD)) {
         // Colour presets
-        AfH3("Colour")
+        AfH3(tr(UiText.COLOUR))
         WrapRow {
             CaptionStyle.COLOURS.forEach { (name, hex) ->
                 AfChip(
-                    name,
+                    colourPresetLabel(name),
                     recap.captionStyle.customColour == null && recap.captionStyle.colour.equals(hex, ignoreCase = true),
                     { if (idle) { model.setCaptionColour(hex); model.setCaptionCustomColour(null) } }
                 )
             }
         }
         // Custom hex override
-        AfH3("Custom colour (#RRGGBB)")
+        AfH3(tr(UiText.CUSTOM_COLOUR))
         var colourInput by remember { mutableStateOf(recap.captionStyle.customColour ?: "") }
         WrapRow {
             AfTextField(colourInput, { colourInput = it }, "#RRGGBB")
-            AfButton("Apply", {
+            AfButton(tr(UiText.APPLY), {
                 if (idle) { model.setCaptionCustomColour(colourInput.ifBlank { null }); colourInput = recap.captionStyle.customColour ?: "" }
             })
             if (recap.captionStyle.customColour != null) {
-                AfButton("Clear", { if (idle) { model.setCaptionCustomColour(null); colourInput = "" } })
+                AfButton(tr(UiText.CLEAR), { if (idle) { model.setCaptionCustomColour(null); colourInput = "" } })
             }
         }
         // Size presets + custom factor
-        AfH3("Size")
+        AfH3(tr(UiText.SIZE))
         WrapRow {
             io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { sz ->
-                AfChip(sz.label, recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
+                AfChip(sz.uiLabel(), recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
                     if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(size = sz, customSizeFactor = null)) }
                 })
             }
         }
-        AfH3("Custom size factor (0.5–3.0)")
+        AfH3(tr(UiText.CUSTOM_SIZE_FACTOR))
         var sizeInput by remember { mutableStateOf(recap.captionStyle.customSizeFactor?.toString() ?: "") }
         WrapRow {
-            AfTextField(sizeInput, { sizeInput = it }, "e.g. 1.5")
-            AfButton("Apply", {
+            AfTextField(sizeInput, { sizeInput = it }, tr(UiText.SIZE_FACTOR_EXAMPLE))
+            AfButton(tr(UiText.APPLY), {
                 if (idle) { model.setCaptionCustomSize(sizeInput.toFloatOrNull()); sizeInput = recap.captionStyle.customSizeFactor?.toString() ?: "" }
             })
             if (recap.captionStyle.customSizeFactor != null) {
-                AfButton("Clear", { if (idle) { model.setCaptionCustomSize(null); sizeInput = "" } })
+                AfButton(tr(UiText.CLEAR), { if (idle) { model.setCaptionCustomSize(null); sizeInput = "" } })
             }
         }
         // Stroke
-        AfH3("Outline / Stroke width")
+        AfH3(tr(UiText.OUTLINE_WIDTH))
         WrapRow {
-            listOf("Off" to 0, "Thin" to 1, "Medium" to 3, "Thick" to 6).forEach { (label, px) ->
+            listOf(tr(UiText.OFF) to 0, tr(UiText.THIN) to 1, tr(UiText.MEDIUM) to 3, tr(UiText.THICK) to 6).forEach { (label, px) ->
                 AfChip(label, recap.captionStyle.strokeWidth == px, { if (idle) model.setCaptionStrokeWidth(px) })
             }
         }
         if (recap.captionStyle.strokeWidth > 0) {
-            AfH3("Outline colour")
+            AfH3(tr(UiText.OUTLINE_COLOUR))
             WrapRow {
                 CaptionStyle.STROKE_COLOURS.forEach { (name, hex) ->
-                    AfChip(name, recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStrokeColour(hex) })
+                    AfChip(colourPresetLabel(name), recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { if (idle) model.setCaptionStrokeColour(hex) })
                 }
             }
         }
         // Dark box toggle
-        AfSwitch("Dark box behind captions", recap.captionStyle.box, { on -> if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(box = on)) } })
+        AfSwitch(tr(UiText.DARK_CAPTION_BOX), recap.captionStyle.box, { on -> if (idle) model.update { it.copy(captionStyle = it.captionStyle.copy(box = on)) } })
     }
 }
 
@@ -268,21 +272,21 @@ internal const val STOP_PLAYBACK = "⏹ ပုံရိပ်ပဲ ပြမယ
 internal const val PLAYBACK_TAG = "preview-playback"
 
 /** Burmese name of a blur-box preset (5B-13). */
-internal fun maskLabel(p: MaskPreset): String = when (p) {
-    MaskPreset.BOTTOM -> "အောက်ခြေ အတန်း (စာတန်း)"
-    MaskPreset.TOP -> "အပေါ် အတန်း"
-    MaskPreset.LOGO_TL -> "Logo ဘယ်ဘက်အပေါ်"
-    MaskPreset.LOGO_TR -> "Logo ညာဘက်အပေါ်"
-    MaskPreset.CUSTOM -> "စိတ်ကြိုက် ဘောင်"
+internal fun maskLabel(p: MaskPreset, language: UiLanguage = UiLanguage.ENGLISH): String = when (p) {
+    MaskPreset.BOTTOM -> UiText.MASK_BOTTOM.text(language)
+    MaskPreset.TOP -> UiText.MASK_TOP.text(language)
+    MaskPreset.LOGO_TL -> UiText.MASK_LOGO_TL.text(language)
+    MaskPreset.LOGO_TR -> UiText.MASK_LOGO_TR.text(language)
+    MaskPreset.CUSTOM -> UiText.MASK_CUSTOM.text(language)
 }
 
-internal fun strengthLabel(s: MaskStrength): String = when (s) {
-    MaskStrength.LIGHT -> "ပေါ့ပေါ့"
-    MaskStrength.STRONG -> "ပြင်းပြင်း"
+internal fun strengthLabel(s: MaskStrength, language: UiLanguage = UiLanguage.ENGLISH): String = when (s) {
+    MaskStrength.LIGHT -> UiText.BLUR_LIGHT.text(language)
+    MaskStrength.STRONG -> UiText.BLUR_STRONG.text(language)
 }
 
 /** Hint under the live preview for the touched box. */
-internal fun boxHint(p: MaskPreset): String = "${maskLabel(p)}: ဆွဲပြီး ရွှေ့ပါ · လက်နှစ်ချောင်းနဲ့ ချုံ့ချဲ့ ဒါမှမဟုတ် mouse wheel နဲ့ အရွယ်ပြောင်းပါ"
+internal fun boxHint(p: MaskPreset, language: UiLanguage = UiLanguage.ENGLISH): String = UiText.MASK_GESTURE_HINT.text(language, "maskLabelp" to (maskLabel(p, language)))
 
 /**
  * Live preview (5A-8, D-42): a frame of the first picked scene with the blur boxes drawn on it (what the render will
@@ -301,10 +305,7 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
     val story by model.state.collectAsState()
     val caption = previewCaption(recap, story.story, output)
     var selected by remember { mutableStateOf<MaskPreset?>(null) }
-    // Android: the scene plays (muted, looping) under the boxes and caption instead of the still frame.
-    var playing by remember { mutableStateOf(false) }
-    val moviePath = remember(recap.movie) { model.moviePath() }
-    val playable = moviePlaybackSupported && moviePath != null && scene != null
+    AfText(tr(UiText.MASK_PLACEMENT_HINT), muted = true, size = 12.sp)
     // The box under the fingers while a gesture runs; saved (and cleared) when they lift.
     var draft by remember { mutableStateOf<Pair<MaskPreset, List<Float>>?>(null) }
     val current by rememberUpdatedState(masks)
@@ -359,15 +360,12 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
                 }
             },
     ) {
-        val clip = scene?.takeIf { playing && playable }
         RecapPreviewPicture(
             recap, output, image, caption, Modifier.fillMaxSize(), selected, draft,
-            background = if (clip != null && moviePath != null) ({ MoviePlayback(moviePath, clip.startMs, clip.endMs, Modifier.fillMaxSize()) }) else null,
         )
     }
-    if (playable) AfButton(if (playing) STOP_PLAYBACK else PLAY_PLAYBACK, { playing = !playing }, Modifier.testTag(PLAYBACK_TAG))
     AfText(
-        selected?.let { boxHint(it) } ?: "ရွှေ့ဖို့ ဒါမှမဟုတ် အရွယ်ပြောင်းဖို့ ဘောင်တစ်ခုကို ထိပါ။",
+        selected?.let { boxHint(it, LocalUiLanguage.current) } ?: tr(UiText.MASK_TOUCH_HINT),
         muted = true, size = 12.sp,
     )
 }
@@ -402,7 +400,7 @@ internal fun RecapPreviewPicture(
     val style = recap.captionStyle
     Box(modifier) {
         if (background != null) background()
-        else image?.let { Image(it, contentDescription = "Movie frame", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
+        else image?.let { Image(it, contentDescription = tr(UiText.MOVIE_FRAME), Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
         Canvas(Modifier.fillMaxSize()) {
             recap.visual.masks.forEach { m ->
                 val r = draft?.takeIf { it.first == m.preset }?.second ?: m.rect
@@ -447,24 +445,32 @@ private fun hexColour(hex: String): Color =
  */
 @Composable
 internal fun ExactFrameCard(model: RecapModel) {
+    val open by model.previewSource.projects.collectAsState()
+    // A completed/in-flight still belongs to this project revision, never the next project on screen.
+    androidx.compose.runtime.key(open?.dir, open?.project?.id, open?.project?.updatedAt) { ExactFrameContent(model) }
+}
+
+@Composable
+private fun ExactFrameContent(model: RecapModel) {
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result?>(null) }
     var working by remember { mutableStateOf(false) }
-    AfCard("🎯 ${EXACT_FRAME}") {
-        AfText("ထုတ်ယူမှုကိုယ်တိုင် လုပ်တဲ့ ပုံတစ်ပုံ — ဗွီဒီယိုမှာ တကယ် ပေါ်မယ့်အတိုင်း။", muted = true, size = 12.sp)
-        AfButton(if (working) "Render လုပ်နေတယ်…" else EXACT_FRAME, {
+    AfCard("🎯 ${tr(UiText.EXACT_FRAME)}") {
+        AfText(tr(UiText.EXACT_FRAME_HINT), muted = true, size = 12.sp)
+        AfButton(if (working) tr(UiText.RENDERING) else tr(UiText.EXACT_FRAME), {
             if (!working) {
                 working = true
-                scope.launch { result = model.exactFrame(); working = false }
+                val at = model.previewSource.currentPosition()
+                scope.launch { try { result = model.exactFrame(at) } finally { working = false } }
             }
         }, enabled = !working)
         when (val r = result) {
             is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Ok -> {
                 val bmp = remember(r.frame) { decodeImage(r.frame.bytes) }
                 bmp?.let {
-                    Image(it, contentDescription = "Exact frame", Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(it.width.toFloat() / it.height).clip(AutoFlowShapes.Card))
+                    Image(it, contentDescription = tr(UiText.EXACT_FRAME_DESCRIPTION), Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(it.width.toFloat() / it.height).clip(AutoFlowShapes.Card))
                 }
-                AfText("$EXACT_FRAME · ${RecapModel.seconds(r.frame.atMs)}", muted = true, size = 12.sp)
+                AfText("${tr(UiText.EXACT_FRAME)} · ${RecapModel.seconds(r.frame.atMs)}", muted = true, size = 12.sp)
             }
             is io.github.alalkipgen.autoflow.ui.export.RecapFrames.Result.Failed -> AfText(r.reason, color = AutoFlowColors.Amber, size = 12.sp)
             null -> {}

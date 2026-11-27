@@ -2,13 +2,14 @@ package io.github.alalkipgen.autoflow.ui.inbox
 
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /** [waiting] = shared files not yet in a project's inbox; [arrivals] counts hand-overs (the shell opens Inbox). */
-data class SharedInboxState(val waiting: List<String> = emptyList(), val arrivals: Int = 0, val message: String? = null)
+data class SharedInboxState(val waiting: List<String> = emptyList(), val arrivals: Int = 0, val message: String? = null, val notice: UiNotice? = null)
 
 /**
  * Share-sheet import → Inbox (PLAN 1F): files shared to Auto Flow from another app (Gallery, Telegram, Files…)
@@ -29,22 +30,24 @@ class SharedInbox(private val fs: FileSystem, private val session: ProjectSessio
         val waiting = scan()
         val notes = buildList {
             when {
-                moved == null && waiting.isNotEmpty() -> add("${files(waiting.size)} shared: open a project, then tap \"$MOVE_BUTTON\" here.")
-                moved != null && moved.first > 0 -> add("${files(moved.first)} shared into this project's inbox. Attach each one to a shot.")
+                moved == null && waiting.isNotEmpty() -> add(UiNotice(UiText.SHARE_WAITING, "files" to files(waiting.size), "move" to UiNotice(UiText.MOVE_HERE)))
+                moved != null && moved.first > 0 -> add(UiNotice(UiText.SHARE_ATTACHED, "files" to files(moved.first)))
             }
             moved?.second?.let { add(it) }
-            if (failed > 0) add("${files(failed)} could not be read from the other app.")
+            if (failed > 0) add(UiNotice(UiText.SHARE_UNREADABLE, "files" to files(failed)))
         }
-        _state.value = SharedInboxState(waiting, _state.value.arrivals + 1, notes.joinToString(" ").ifEmpty { null })
+        val notice = notes.reduceOrNull { first, second -> UiNotice(UiText.RESULT_JOIN, "first" to first, "second" to second) }
+        _state.value = SharedInboxState(waiting, _state.value.arrivals + 1, notice?.text(UiLanguage.ENGLISH), notice)
     }
 
     /** "Move here": the waiting files into the open project's inbox. */
     fun moveHere() {
-        val (moved, error) = moveAll() ?: return say("Open a project first.")
+        val (moved, error) = moveAll() ?: return say(UiNotice(UiText.SHARE_OPEN_PROJECT))
         val waiting = scan()
+        val notice = error ?: if (moved > 0) UiNotice(UiText.SHARE_MOVED, "files" to files(moved)) else null
         _state.value = _state.value.copy(
             waiting = waiting,
-            message = error ?: if (moved > 0) "${files(moved)} moved into this project's inbox." else null,
+            message = notice?.text(UiLanguage.ENGLISH), notice = notice,
         )
     }
 
@@ -55,16 +58,16 @@ class SharedInbox(private val fs: FileSystem, private val session: ProjectSessio
 
     fun dismissMessage() = say(null)
 
-    private fun say(message: String?) {
-        _state.value = _state.value.copy(message = message)
+    private fun say(notice: UiNotice?) {
+        _state.value = _state.value.copy(message = notice?.text(UiLanguage.ENGLISH), notice = notice)
     }
 
     /** Moves every waiting file into `<project>/inbox/` under a free name; null when no project is open. */
-    private fun moveAll(): Pair<Int, String?>? {
+    private fun moveAll(): Pair<Int, UiNotice?>? {
         val open = session.open ?: return null
         val inbox = joinPath(open.dir, InboxModel.INBOX_DIR)
         var moved = 0
-        var error: String? = null
+        var error: UiNotice? = null
         try {
             fs.createDirectories(inbox)
             val taken = fs.list(inbox).toMutableSet()
@@ -75,11 +78,11 @@ class SharedInbox(private val fs: FileSystem, private val session: ProjectSessio
                     taken += target
                     moved++
                 } catch (e: Exception) {
-                    error = "Could not move $name: ${e.message ?: e::class.simpleName}"
+                    error = UiNotice(UiText.SHARE_MOVE_FAILED, "name" to name, "detail" to (e.message ?: e::class.simpleName))
                 }
             }
         } catch (e: Exception) {
-            error = "Could not open the inbox: ${e.message ?: e::class.simpleName}"
+            error = UiNotice(UiText.SHARE_OPEN_FAILED, "detail" to (e.message ?: e::class.simpleName))
         }
         return moved to error
     }
@@ -108,6 +111,6 @@ class SharedInbox(private val fs: FileSystem, private val session: ProjectSessio
         fun safeName(name: String): String =
             name.replace('/', '_').replace('\\', '_').trim().trimStart('.').trim().ifEmpty { "shared" }
 
-        private fun files(n: Int) = if (n == 1) "1 file" else "$n files"
+        private fun files(n: Int) = UiNotice(if (n == 1) UiText.FILE_COUNT_ONE else UiText.FILE_COUNT, "n" to n)
     }
 }

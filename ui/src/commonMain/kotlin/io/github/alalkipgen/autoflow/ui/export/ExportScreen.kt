@@ -1,5 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.export
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.storyboard.text
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,48 +67,48 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AfText("ထုတ်ယူ", size = 18.sp, bold = true)
+        AfText(tr(UiText.EXPORT), size = 18.sp, bold = true)
         if (state.projectName == null) {
-            AfText("Dashboard မှာ project တစ်ခု အရင်ဖွင့်ပါ။ (Open a project on the Dashboard first.)", muted = true)
+            AfText(tr(UiText.EXPORT_NO_PROJECT), muted = true)
             return@Column
         }
         val recap = state.recap
-        if (recap != null) RecapSummary(recap, state.font, model) else AfCard("Video") {
-            AfText("${state.shots} shots · ${InputModel.formatDuration(state.durationMs)}")
+        if (recap != null) RecapSummary(recap, state.font, model) else AfCard(tr(UiText.VIDEO)) {
+            AfText(tr(UiText.EXPORT_SHOT_COUNT, "shots" to (state.shots), "durationMs" to (InputModel.formatDuration(state.durationMs))))
             val pending = state.shots - state.accepted
             AfText(
-                "${state.accepted} accepted video" + (if (state.accepted == 1) "" else "s") + if (pending > 0) " · $pending show as \"pending\" cards" else "",
+                tr(UiText.ACCEPTED_VIDEO_COUNT, "accepted" to (state.accepted)) + (if (LocalUiLanguage.current == UiLanguage.ENGLISH && state.accepted != 1) "s" else "") + if (pending > 0) tr(UiText.PENDING_VIDEO_COUNT, "pending" to (pending)) else "",
                 color = if (pending > 0) AutoFlowColors.Amber else null,
             )
             AfText(
-                state.songFile?.let { "♪ $it" } ?: "No song: the video will be silent (Input → သီချင်းဖိုင် ထည့်မယ်).",
+                state.songFile?.let { "♪ $it" } ?: tr(UiText.NO_SONG_EXPORT),
                 color = if (state.songFile == null) AutoFlowColors.Amber else null,
             )
             AfText(
                 when {
-                    state.font == null -> "No Burmese font: lyrics are left out (Settings → Fonts: Pyidaungsu or Noto Sans Myanmar)."
-                    state.syncedLines > 0 -> "Lyrics: ${state.syncedLines} synced lines · ${state.font}"
-                    state.lyricShots == 0 -> "No lyrics on the shots."
-                    else -> "Lyrics on ${state.lyricShots} shots · ${state.font}"
+                    state.font == null -> tr(UiText.NO_BURMESE_FONT_LYRICS)
+                    state.syncedLines > 0 -> tr(UiText.LYRICS_SYNC_COUNT, "syncedLines" to (state.syncedLines), "font" to (state.font))
+                    state.lyricShots == 0 -> tr(UiText.NO_SHOT_LYRICS)
+                    else -> tr(UiText.LYRICS_SHOT_COUNT, "lyricShots" to (state.lyricShots), "font" to (state.font))
                 },
                 color = if (state.font == null) AutoFlowColors.Amber else null,
             )
             if (state.timingOutdated) {
-                AfText("⚠ The lyrics changed after the sync: each shot's lyrics are used (Input → Lyrics timing → Sync again).", color = AutoFlowColors.Amber)
+                AfText(tr(UiText.LYRICS_TIMING_STALE), color = AutoFlowColors.Amber)
             }
         }
-        AfCard("Render") {
-            state.unavailable?.let { AfText(it, color = AutoFlowColors.Amber) }
-            if (state.lowBattery) AfText("ဘက်ထရီ နည်းနေပြီး အားမသွင်းထားပါ: အကြာကြီး မထုတ်ယူခင် အားသွင်းကြိုး တပ်ပါ။", color = AutoFlowColors.Amber)
+        AfCard(tr(UiText.RENDER_HEADING)) {
+            state.unavailable?.let { AfText(if (it == ExportModel.NO_QUEUE) tr(UiText.EXPORT_NO_QUEUE) else tr(UiText.RESULT_DETAIL, "detail" to it), color = AutoFlowColors.Amber) }
+            if (state.lowBattery) AfText(tr(UiText.LOW_BATTERY_EXPORT), color = AutoFlowColors.Amber)
             WrapRow {
-                AfButton(PREVIEW_BUTTON, { model.render(Quality.PREVIEW) }, enabled = state.canRender)
-                val exportLabel = state.recap?.let { "ထုတ်ယူမယ် " + ExportModel.label(it.quality) } ?: EXPORT_BUTTON
+                AfButton(tr(UiText.PREVIEW_BUTTON), { model.render(Quality.PREVIEW) }, enabled = state.canRender)
+                val exportLabel = state.recap?.let { tr(UiText.EXPORT_WITH_QUALITY, "quality" to it.quality.uiLabel()) } ?: tr(UiText.EXPORT_BUTTON)
                 AfButton(exportLabel, { model.render(Quality.EXPORT) }, kind = ButtonKind.Primary, enabled = state.canRender)
             }
-            AfText("နမူနာက မြန်ပြီး သေးတယ်၊ ထုတ်ယူက အရည်အသွေး အပြည့်နဲ့ ဗွီဒီယို ဖြစ်တယ်။ ဖန်သားပြင် ပိတ်ထားလည်း render ဆက်လုပ်မယ်။", muted = true)
+            AfText(tr(UiText.RENDER_BACKGROUND_HINT), muted = true)
             state.run?.let { RunStatus(it, model, state.savingToGallery) }
             if (state.run == null) state.lastRenders.forEach { LastRenderStatus(it, model) }
-            state.message?.let { AfText(it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
+            state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }
         // Pre-flight (5B-9): blockers and warnings shown before export
         state.recap?.let { recap ->
@@ -123,88 +127,89 @@ fun ExportScreen(model: ExportModel, modifier: Modifier = Modifier) {
 @Composable
 private fun RecapSummary(recap: RecapExport, font: String?, model: ExportModel) {
     AfCard("Movie Recap") {
-        AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
-        AfText("${recap.segments} scenes · ${InputModel.formatDuration(recap.durationMs)}" + (recap.movieFile?.let { " · 🎬 $it" } ?: ""))
+        AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
+        AfText(tr(UiText.RECAP_SCENE_COUNT, "segments" to (recap.segments), "durationMs" to (InputModel.formatDuration(recap.durationMs))) + (recap.movieFile?.let { " · 🎬 $it" } ?: ""))
         val silent = recap.segments - recap.voiced
         AfText(
-            "${recap.voiced} of ${recap.segments} voiced" + if (silent > 0) " · $silent play with movie sound only" else "",
+            tr(UiText.RECAP_VOICED_COUNT, "voiced" to (recap.voiced), "segments" to (recap.segments)) + if (silent > 0) tr(UiText.RECAP_SILENT_COUNT, "silent" to (silent)) else "",
             color = if (silent > 0) AutoFlowColors.Amber else null,
         )
-        val sound = RecapModel.MOVIE_VOLUMES.firstOrNull { it.second == recap.movieVolume }?.first ?: "${(recap.movieVolume * 100).toInt()} %"
-        AfText("Movie sound: $sound · Looks: ${if (recap.looks == 0) "none" else recap.looks.toString()}")
+        val sound = movieVolumeLabel(recap.movieVolume)
+        AfText(tr(UiText.RECAP_SOUND_LOOKS, "sound" to (sound), "toString" to (if (recap.looks == 0) tr(UiText.NONE) else recap.looks.toString())))
         AfText(
             when {
-                !recap.burnCaptions -> "Captions: .srt file only (not burned in)."
-                font == null -> "No Burmese font: captions are not burned in, .srt only (Settings → Fonts)."
-                else -> "Captions burned in · $font · and saved as .srt"
+                !recap.burnCaptions -> tr(UiText.CAPTIONS_SRT_ONLY)
+                font == null -> tr(UiText.NO_BURMESE_FONT_CAPTIONS)
+                else -> tr(UiText.CAPTIONS_BURNED, "font" to (font))
             },
             color = if (recap.burnCaptions && font == null) AutoFlowColors.Amber else null,
         )
-        AfText("ထုတ်ယူမည့် အရည်အသွေး", muted = true)
+        AfText(tr(UiText.EXPORT_QUALITY), muted = true)
         WrapRow {
             ExportQuality.entries.forEach { q ->
-                AfChip(ExportModel.label(q), q == recap.quality, onClick = { model.setRecapQuality(q) })
+                AfChip(q.uiLabel(), q == recap.quality, onClick = { model.setRecapQuality(q) })
             }
         }
-        recap.blocker?.let { AfText(it, color = AutoFlowColors.Amber) }
+        recap.blocker?.let { AfText(recap.workflowBlocker?.text(LocalUiLanguage.current) ?: tr(UiText.EXPORT_MOVIE_FIRST), color = AutoFlowColors.Amber) }
     }
 }
 
 /** Audit F09 / 5B-4: two-pass only when the pass-1 numbers are there; otherwise the fallback and why. */
-internal fun loudnessLine(l: RenderState.Loudness): String =
-    if (l.twoPass) "$LOUDNESS: two-pass ဖြင့် ${l.targetLufs} LUFS (တိုင်းတာချက် ${l.measured!!.inputI} LUFS)" else "$LOUDNESS: ${l.note ?: "one-pass ဖြင့် ${l.targetLufs} LUFS"}"
+internal fun loudnessLine(l: RenderState.Loudness, language: UiLanguage = UiLanguage.ENGLISH): String =
+    if (l.twoPass) UiText.LOUDNESS_TWO_PASS.text(language, "target" to l.targetLufs, "measured" to l.measured!!.inputI)
+    else UiText.LOUDNESS_NOTE.text(language, "note" to (l.note ?: UiText.LOUDNESS_ONE_PASS.text(language, "target" to l.targetLufs)))
 
 /** A finished render read back from its `exports/<name>.result.json` (5B-4), e.g. after the app restarted. */
 @Composable
 private fun LastRenderStatus(last: LastRender, model: ExportModel) {
     val r = last.result
     AfText(
-        "နောက်ဆုံး ${ExportModel.label(last.quality)} ✓ · ${InputModel.formatDuration(r.durationMs)} · ${r.wallMs / 1000} s ကြာ",
+        tr(UiText.LAST_RENDER, "quality" to (ExportModel.label(last.quality, LocalUiLanguage.current)), "durationMs" to (InputModel.formatDuration(r.durationMs)), "wallMs1000" to (r.wallMs / 1000)),
         Modifier.testTag("export-last"),
         color = AutoFlowColors.Green,
     )
     AfText("exports/${r.output}", muted = true, mono = true)
-    r.loudness?.let { AfText(loudnessLine(it), Modifier.testTag("export-last-loudness"), muted = true, size = 11.sp) }
+    r.loudness?.let { AfText(loudnessLine(it, LocalUiLanguage.current), Modifier.testTag("export-last-loudness"), muted = true, size = 11.sp) }
     WrapRow {
-        AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.OPEN, { model.openLast(last) })
-        AfButton(SHARE, { model.shareLast(last) })
+        AfButton(tr(UiText.OPEN), { model.openLast(last) })
+        AfButton(tr(UiText.SHARE), { model.shareLast(last) })
     }
 }
 
 @Composable
 private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
-    val what = ExportModel.label(run.quality)
+    val what = ExportModel.label(run.quality, LocalUiLanguage.current)
     when (val s = run.state) {
         RenderState.Queued -> {
-            AfText("$what: စတင်ရန် စောင့်နေတယ်…", Modifier.testTag("export-status"))
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, model::cancel)
+            AfText(tr(UiText.RENDER_QUEUED, "what" to (what)), Modifier.testTag("export-status"))
+            AfButton(tr(UiText.CANCEL), model::cancel)
         }
         is RenderState.Running -> {
-            AfText("$what: render လုပ်နေတယ်… ${(s.fraction * 100).toInt().coerceIn(0, 100)} %", Modifier.testTag("export-status"))
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, model::cancel)
+            AfText(tr(UiText.RENDER_PROGRESS, "what" to (what), "coerceIn0100" to ((s.fraction * 100).toInt().coerceIn(0, 100))), Modifier.testTag("export-status"))
+            AfButton(tr(UiText.CANCEL), model::cancel)
         }
         is RenderState.Done -> {
             // Inline video preview (D-57 / 5A-8): tap play to watch the render without leaving the app.
             io.github.alalkipgen.autoflow.ui.components.VideoPreview(s.output)
             AfText(
-                "$what ပြီးပြီ ✓ · ${InputModel.formatDuration(s.durationMs)} · ${s.wallMs / 1000} s ကြာ",
+                tr(UiText.RENDER_DONE, "what" to (what), "durationMs" to (InputModel.formatDuration(s.durationMs)), "wallMs1000" to (s.wallMs / 1000)),
                 Modifier.testTag("export-status"),
                 color = AutoFlowColors.Green,
             )
             AfText(s.output.substringAfterLast('/').let { "exports/$it" }, muted = true, mono = true)
             // Audit F09: say how the loudness target was met — never claim two-pass when it fell back.
-            s.loudness?.let { AfText(loudnessLine(it), Modifier.testTag("export-loudness"), muted = true, size = 11.sp) }
+            s.loudness?.let { AfText(loudnessLine(it, LocalUiLanguage.current), Modifier.testTag("export-loudness"), muted = true, size = 11.sp) }
             WrapRow {
-                AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.OPEN, model::open, kind = ButtonKind.Primary)
-                AfButton(SHARE, model::share)
-                AfButton(if (saving) "သိမ်းနေတယ်…" else SAVE_BUTTON, model::saveToGallery, enabled = !saving)
+                AfButton(tr(UiText.OPEN), model::open, kind = ButtonKind.Primary)
+                AfButton(tr(UiText.SHARE), model::share)
+                AfButton(if (saving) tr(UiText.SAVING) else tr(UiText.SAVE_GALLERY), model::saveToGallery, enabled = !saving)
             }
         }
         is RenderState.Failed -> {
-            AfText("$what မအောင်မြင်ပါ: ${s.reason}", Modifier.testTag("export-status"), color = AutoFlowColors.Amber)
+            AfText(tr(UiText.RENDER_FAILED, "what" to (what), "reason" to (s.reason)), Modifier.testTag("export-status"), color = AutoFlowColors.Amber)
             if (s.tail.isNotEmpty()) AfText(s.tail.takeLast(6).joinToString("\n"), muted = true, mono = true, size = 11.sp)
         }
-        RenderState.Cancelled -> AfText("$what ပယ်ဖျက်ပြီး။", Modifier.testTag("export-status"), muted = true)
+        RenderState.Cancelled -> AfText(tr(UiText.RENDER_CANCELLED, "what" to (what)), Modifier.testTag("export-status"), muted = true)
     }
 }
 
@@ -215,29 +220,29 @@ private fun RunStatus(run: ExportRun, model: ExportModel, saving: Boolean) {
  */
 @Composable
 private fun ExactFramesCard(thumbs: ExportThumbs?, canMake: Boolean, model: ExportModel) {
-    AfCard("အတိအကျ ပုံများ") {
-        AfText("စာတန်းချိန်တွေမှာ ထုတ်ယူမှုကိုယ်တိုင် လုပ်တဲ့ ရုပ်ငြိမ်ပုံများ — ဗွီဒီယိုမှာ တကယ် ပေါ်မယ့်အတိုင်း။", muted = true, size = 12.sp)
+    AfCard(tr(UiText.EXACT_FRAMES)) {
+        AfText(tr(UiText.EXACT_FRAMES_HINT), muted = true, size = 12.sp)
         val working = thumbs?.working == true
         val label = when {
-            thumbs == null -> "အတိအကျ ပုံများ လုပ်မယ်"
-            working -> "${thumbs.times.size} ပုံအနက် ${minOf(thumbs.frames.size + 1, thumbs.times.size)} ပုံ လုပ်နေတယ်…"
-            else -> "ပြန်လုပ်မယ်"
+            thumbs == null -> tr(UiText.MAKE_EXACT_FRAMES)
+            working -> tr(UiText.EXACT_FRAMES_PROGRESS, "size" to (thumbs.times.size), "value2" to (minOf(thumbs.frames.size + 1, thumbs.times.size)))
+            else -> tr(UiText.REMAKE)
         }
         AfButton(label, { model.makeThumbnails() }, Modifier.testTag("export-thumbs-make"), enabled = canMake && !working)
         if (thumbs == null) return@AfCard
-        if (thumbs.stale) AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}: ဒီပုံတွေ လုပ်ပြီးနောက် recap ပြောင်းသွားတယ်။", Modifier.testTag("export-thumbs-stale"), color = AutoFlowColors.Amber, size = 12.sp)
+        if (thumbs.stale) AfText(tr(UiText.EXACT_FRAMES_STALE, "STALE" to (tr(UiText.STALE))), Modifier.testTag("export-thumbs-stale"), color = AutoFlowColors.Amber, size = 12.sp)
         thumbs.failed?.let { AfText(it, Modifier.testTag("export-thumbs-failed"), color = AutoFlowColors.Amber, size = 12.sp) }
         WrapRow {
             thumbs.frames.forEachIndexed { i, f ->
                 Column(Modifier.width(176.dp).testTag("export-thumb-$i"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     val bmp = remember(f) { decodeImage(f.bytes) }
                     if (bmp != null) {
-                        Image(bmp, "Exact frame at ${PublishKitText.timestamp(f.atMs)}", Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height).clip(AutoFlowShapes.Card))
+                        Image(bmp, tr(UiText.EXACT_FRAME_AT, "atMs" to (PublishKitText.timestamp(f.atMs))), Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height).clip(AutoFlowShapes.Card))
                     } else {
-                        AfText("ဒီပုံကို ပြလို့ မရပါ။", color = AutoFlowColors.Amber, size = 11.sp)
+                        AfText(tr(UiText.IMAGE_UNAVAILABLE), color = AutoFlowColors.Amber, size = 11.sp)
                     }
                     AfText(RecapModel.seconds(f.atMs), muted = true, size = 11.sp)
-                    AfButton("Thumbnail အတွက် သုံးမယ်", { model.makePublishThumbnail(f.atMs) }, Modifier.testTag("export-thumb-use-$i"), enabled = !thumbs.stale)
+                    AfButton(tr(UiText.USE_THUMBNAIL), { model.makePublishThumbnail(f.atMs) }, Modifier.testTag("export-thumb-use-$i"), enabled = !thumbs.stale)
                 }
             }
         }
@@ -256,27 +261,27 @@ private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.
     var description by remember(kit.description) { mutableStateOf(kit.description) }
     var hashtags by remember(kit.hashtags) { mutableStateOf(kit.hashtags.joinToString(" ")) }
     AfCard("Publish Kit") {
-        AfText("ခေါင်းစဉ်", muted = true, size = 12.sp)
-        AfTextField(title, { title = it }, "ဗွီဒီယို ခေါင်းစဉ် (မြန်မာလို)", Modifier.fillMaxWidth())
-        AfButton("ခေါင်းစဉ် ကူးမယ်", { model.copyPublishText(title, "title") })
-        AfText("ဖော်ပြချက်", muted = true, size = 12.sp)
+        AfText(tr(UiText.TITLE), muted = true, size = 12.sp)
+        AfTextField(title, { title = it }, tr(UiText.VIDEO_TITLE_MY), Modifier.fillMaxWidth())
+        AfButton(tr(UiText.COPY_TITLE), { model.copyPublishText(title, "title") })
+        AfText(tr(UiText.DESCRIPTION), muted = true, size = 12.sp)
         val posted = PublishKitText.withChapters(kit, chapters)
         val chapterLines = PublishKitText.chapterLines(posted.chapters)
         AfText(
-            if (chapterLines.isEmpty()) "Chapters: မရှိသေးပါ (script အတည်ပြုပြီးရင် script အပိုင်းတွေကနေ ရမယ်)။"
-            else "Chapters (script အပိုင်းများမှ):\n" + chapterLines.joinToString("\n"),
+            if (chapterLines.isEmpty()) tr(UiText.CHAPTERS_EMPTY)
+            else tr(UiText.CHAPTERS_FROM_SCRIPT) + chapterLines.joinToString("\n"),
             Modifier.testTag("publish-chapters"), muted = true, size = 11.sp,
         )
-        AfTextField(description, { description = it }, "ဖော်ပြချက် (မြန်မာလို)", Modifier.fillMaxWidth(), lines = 4, mono = false)
-        AfButton("ဖော်ပြချက် ကူးမယ်", { model.copyPublishText(PublishKitText.description(posted.copy(description = description)), "description") })
-        AfText("Hashtag များ (space ခြား၊ # မပါလည်း ရ)", muted = true, size = 12.sp)
+        AfTextField(description, { description = it }, tr(UiText.DESCRIPTION_MY), Modifier.fillMaxWidth(), lines = 4, mono = false)
+        AfButton(tr(UiText.COPY_DESCRIPTION), { model.copyPublishText(PublishKitText.description(posted.copy(description = description)), "description") })
+        AfText(tr(UiText.HASHTAGS_HINT), muted = true, size = 12.sp)
         AfTextField(hashtags, { hashtags = it }, "#မြန်မာ #movie", Modifier.fillMaxWidth())
         WrapRow {
-            AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.SAVE, {
+            AfButton(tr(UiText.SAVE), {
                 val parsedHashtags = hashtags.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
                 model.setPublishKit(kit.copy(title = title, description = description, hashtags = parsedHashtags))
             }, kind = ButtonKind.Primary)
-            AfButton("ဖိုင် မျှဝေမယ်…", { scope.launch { model.sharePublishFile("export") } })
+            AfButton(tr(UiText.SHARE_FILE), { scope.launch { model.sharePublishFile("export") } })
         }
         PublishThumbSection(kit, thumb, model)
     }
@@ -285,29 +290,29 @@ private fun PublishKitCard(kit: PublishKit, chapters: List<io.github.alalkipgen.
 /** Thumbnail (5B-10): make it from the saved title (and the chosen Exact frame time), see it, share it. */
 @Composable
 private fun PublishThumbSection(kit: PublishKit, thumb: PublishThumb?, model: ExportModel) {
-    AfText("Thumbnail (ပုံ + ခေါင်းစဉ်)", muted = true, size = 12.sp)
+    AfText(tr(UiText.THUMBNAIL_TITLE), muted = true, size = 12.sp)
     val working = thumb?.working == true
     WrapRow {
         AfButton(
-            if (working) "Thumbnail လုပ်နေတယ်…" else if (thumb?.frame == null) "Thumbnail လုပ်မယ်" else "Thumbnail ပြန်လုပ်မယ်",
+            if (working) tr(UiText.THUMBNAIL_WORKING) else if (thumb?.frame == null) tr(UiText.MAKE_THUMBNAIL) else tr(UiText.REMAKE_THUMBNAIL),
             { model.makePublishThumbnail() }, Modifier.testTag("publish-thumb-make"), enabled = !working && kit.title.isNotBlank(),
         )
-        AfButton("Thumbnail မျှဝေမယ်…", { model.sharePublishThumbnail() }, Modifier.testTag("publish-thumb-share"), enabled = !working && thumb?.frame != null)
+        AfButton(tr(UiText.SHARE_THUMBNAIL), { model.sharePublishThumbnail() }, Modifier.testTag("publish-thumb-share"), enabled = !working && thumb?.frame != null)
     }
-    if (kit.title.isBlank()) AfText("Thumbnail လုပ်ဖို့ ခေါင်းစဉ် ရေးပြီး ${io.github.alalkipgen.autoflow.ui.i18n.My.SAVE} ကို နှိပ်ပါ။", muted = true, size = 11.sp)
+    if (kit.title.isBlank()) AfText(tr(UiText.THUMBNAIL_TITLE_HINT, "SAVE" to (tr(UiText.SAVE))), muted = true, size = 11.sp)
     thumb ?: return
     thumb.failed?.let { AfText(it, Modifier.testTag("publish-thumb-failed"), color = AutoFlowColors.Amber, size = 12.sp) }
     thumb.frame?.let { f ->
         val bmp = remember(f) { decodeImage(f.bytes) }
         if (bmp != null) {
-            Image(bmp, "Thumbnail", Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height).clip(AutoFlowShapes.Card).testTag("publish-thumb-image"))
+            Image(bmp, tr(UiText.THUMBNAIL), Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height).clip(AutoFlowShapes.Card).testTag("publish-thumb-image"))
         }
         AfText(
             "${PublishKitText.thumbPath(ExportModel.EXPORT_NAME)} · ${bmp?.let { "${it.width}×${it.height} · " }.orEmpty()}frame at ${RecapModel.seconds(thumb.atMs)}",
             Modifier.testTag("publish-thumb-info"), muted = true, size = 11.sp,
         )
         if (thumb.stale && !working) {
-            AfText("⚠ ${io.github.alalkipgen.autoflow.ui.i18n.My.STALE}: ဒီ thumbnail လုပ်ပြီးနောက် ခေါင်းစဉ် ဒါမှမဟုတ် ပုံ ပြောင်းသွားတယ်။", Modifier.testTag("publish-thumb-stale"), color = AutoFlowColors.Amber, size = 12.sp)
+            AfText(tr(UiText.THUMBNAIL_STALE, "STALE" to (tr(UiText.STALE))), Modifier.testTag("publish-thumb-stale"), color = AutoFlowColors.Amber, size = 12.sp)
         }
     }
 }
@@ -318,7 +323,7 @@ private fun PublishThumbSection(kit: PublishKit, thumb: PublishThumb?, model: Ex
  */
 @Composable
 private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Item>) {
-    AfCard("မထုတ်ခင် စစ်ဆေးချက်") {
+    AfCard(tr(UiText.PREFLIGHT)) {
         items.forEach { item ->
             val color = when (item.kind) {
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER -> AutoFlowColors.Amber
@@ -330,11 +335,11 @@ private fun PreflightCard(items: List<io.github.alalkipgen.autoflow.core.recap.P
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING -> "⚠ "
                 io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.INFO -> "ℹ "
             }
-            val text = prefix + item.message + item.fix?.let { " — ပြင်ရန် → $it" }.orEmpty()
+            val text = prefix + preflightMessage(item, LocalUiLanguage.current) + item.fix?.let { tr(UiText.PREFLIGHT_FIX, "it" to (My.screen(it, LocalUiLanguage.current))) }.orEmpty()
             AfText(text, color = color, size = 12.sp)
         }
         val blockers = items.count { it.kind == io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.BLOCKER }
         val warnings = items.count { it.kind == io.github.alalkipgen.autoflow.core.recap.PreflightCheck.Kind.WARNING }
-        if (blockers == 0 && warnings == 0) AfText("✓ စစ်ဆေးချက် အားလုံး အောင်မြင်တယ်", color = AutoFlowColors.Green)
+        if (blockers == 0 && warnings == 0) AfText(tr(UiText.PREFLIGHT_OK), color = AutoFlowColors.Green)
     }
 }

@@ -1,10 +1,14 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -36,12 +40,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
@@ -119,6 +128,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     val backup = koinInject<BackupModel>().takeIf { it.available }
     val settingsStore = koinInject<SettingsStore>()
     val settings by settingsStore.state.collectAsState()
+    val displayShell = remember(shellState, settings.uiLanguage) { shell.current(UiLanguage.fromCode(settings.uiLanguage)) }
     val bundledFeatures = remember(koin) { koin.get<io.github.alalkipgen.autoflow.ui.settings.BundledConfig>().featuresJson() }
     val features = remember(settings.featureOverrides, bundledFeatures) {
         io.github.alalkipgen.autoflow.core.flags.FeatureFlags.load(bundledFeatures, settings.featureOverrides)
@@ -135,7 +145,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
         backHandler(back != null) { back?.let { screen = it } }
         val top: @Composable () -> Unit = {
             JobBanner(jobs)
-            if (current in ShellModel.SCREEN_STEPS && shellState.steps.isNotEmpty()) Stepper(shellState.steps, viewing = ShellModel.SCREEN_STEPS[current])
+            if (current in ShellModel.SCREEN_STEPS && displayShell.steps.isNotEmpty()) Stepper(displayShell.steps, viewing = ShellModel.SCREEN_STEPS[current])
         }
         val content: @Composable () -> Unit = {
             when (current) {
@@ -164,11 +174,11 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
                 "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
                 "Settings" -> SettingsScreen(koinInject(), info = appInfo, backup = backup)
-                MORE -> MoreScreen(shellState.locks, onSelect = { screen = it })
+                MORE -> MoreScreen(displayShell.locks, onSelect = { screen = it })
                 else -> ScreenPlaceholder(current)
             }
         }
-        CompositionLocalProvider(LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
+        CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(settings.uiLanguage), LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
             if (features.studioV2) {
                 StudioV2App(
                     status = status,
@@ -180,10 +190,10 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 )
             } else if (compact) {
                 PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
-                    locks = shellState.locks, top = top, content = content)
+                    locks = displayShell.locks, top = top, content = content)
             } else {
                 AppShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
-                    locks = shellState.locks, top = top, content = content)
+                    locks = displayShell.locks, top = top, content = content)
             }
         }
     }
@@ -255,7 +265,7 @@ private fun StudioV2App(
     val content: @Composable () -> Unit = {
         if (nav.settings) {
             Column(Modifier.fillMaxSize()) {
-                V2SubBar(io.github.alalkipgen.autoflow.ui.i18n.My.BACK, status) { nav = nav.copy(settings = false) }
+                V2SubBar(tr(UiText.BACK), status) { nav = nav.copy(settings = false) }
                 Box(Modifier.fillMaxWidth().weight(1f)) { SettingsScreen(koinInject(), info = appInfo, backup = backup) }
             }
         } else when (nav.dest) {
@@ -289,7 +299,7 @@ private fun StudioV2App(
                     Column(Modifier.fillMaxSize()) {
                         if (isRecap && screen in listOf("Recap", "Export")) {
                             io.github.alalkipgen.autoflow.ui.components.WrapRow {
-                                io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.PROJECTS_BACK, { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
+                                io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), { openProjectScreen(null) }, Modifier.heightIn(min = 48.dp))
                                 projectName?.let { AfText(it, bold = true) }
                             }
                             io.github.alalkipgen.autoflow.ui.recap.RecapStepHeader(
@@ -308,7 +318,7 @@ private fun StudioV2App(
                                 } else {
                                     val recapModel = koinInject<io.github.alalkipgen.autoflow.ui.recap.RecapModel>()
                                     io.github.alalkipgen.autoflow.ui.recap.ProjectPanes(windowWidthDp,
-                                        list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText("ထုတ်ယူ", bold = true); AfText("မထုတ်ခင် စစ်ဆေး → render → သိမ်း / မျှဝေ", muted = true) } },
+                                        list = { Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) { AfText(tr(UiText.EXPORT), bold = true); AfText(tr(UiText.SHELL_EXPORT_HINT), muted = true) } },
                                         editor = { io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject()) },
                                         preview = { Column(Modifier.verticalScroll(rememberScrollState())) { io.github.alalkipgen.autoflow.ui.recap.ExactFrameCard(recapModel) } },
                                     )
@@ -388,7 +398,7 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float, go: (String) -
 private fun MvClassicSteps(go: (String) -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AfText(io.github.alalkipgen.autoflow.ui.i18n.My.screen(MV_CLASSIC), bold = true)
-        AfText("Shot စာရွက်က shot တစ်ခုချင်းစီအတွက် ဒီအဆင့်တွေ အားလုံးကို လုပ်ပေးတယ်။ စာမျက်နှာဟောင်းတွေကို နောက်ထုတ်ဝေမှု တစ်ကြိမ်အထိ ထားမယ်။", muted = true)
+        AfText(tr(UiText.SHELL_CLASSIC_HINT), muted = true)
         io.github.alalkipgen.autoflow.ui.components.WrapRow {
             MV_CLASSIC_SCREENS.forEach { s ->
                 io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.screen(s), { go(s) }, Modifier.heightIn(min = 48.dp))
@@ -416,7 +426,7 @@ private fun V2SubBar(backLabel: String, status: String, onBack: () -> Unit) {
 private fun V2ProjectBar(projectName: String?, screens: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().background(AutoFlowColors.Panel).padding(horizontal = 8.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            io.github.alalkipgen.autoflow.ui.components.AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.PROJECTS_BACK, onBack)
+            io.github.alalkipgen.autoflow.ui.components.AfButton(tr(UiText.PROJECTS_BACK), onBack)
             projectName?.let { AfText(it, Modifier.weight(1f), bold = true) }
         }
         io.github.alalkipgen.autoflow.ui.components.WrapRow(spacing = 6.dp) {
@@ -465,11 +475,11 @@ private fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
                 .padding(32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            AfText("Auto Flow ကို ပိတ်မလား?", bold = true, size = 20.sp)
-            AfText("Render တွေ နောက်ကွယ်မှာ ဆက်လုပ်နေမယ်။", muted = true)
+            AfText(tr(UiText.EXIT_TITLE), bold = true, size = 20.sp)
+            AfText(tr(UiText.EXIT_HINT), muted = true)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AfButton("ပိတ်မယ်", onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
-                AfButton("ဆက်နေမယ်", onStay, Modifier.weight(1f))
+                AfButton(tr(UiText.EXIT), onExit, Modifier.weight(1f), kind = ButtonKind.Danger)
+                AfButton(tr(UiText.STAY), onStay, Modifier.weight(1f))
             }
         }
     }
@@ -479,22 +489,21 @@ private fun ExitDialog(onExit: () -> Unit, onStay: () -> Unit) {
 @Composable
 fun ScreenPlaceholder(name: String) {
     Column(Modifier.padding(screenPadding), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        AfText(name, size = 18.sp, bold = true)
-        AfText("This screen is not built yet.", muted = true)
+        AfText(My.screen(name), size = 18.sp, bold = true)
+        AfText(tr(UiText.NOT_BUILT_YET), muted = true)
     }
 }
 
 @Composable
 private fun TitleBar(providerStatus: String, projectName: String?) {
     Column(Modifier.fillMaxWidth()) {
-        Row(
+        WrapRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                .heightIn(min = 40.dp)
                 .background(AutoFlowColors.TitleBar)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            spacing = 10.dp,
         ) {
             AutoFlowLogo(22.dp)
             BasicText(
@@ -507,8 +516,7 @@ private fun TitleBar(providerStatus: String, projectName: String?) {
                 ),
             )
             projectName?.let { AfText("·  $it", muted = true) }
-            Spacer(Modifier.weight(1f))
-            BasicText(providerStatus, style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp))
+            BasicText(providerStatus, style = TextStyle(color = AutoFlowColors.Muted, fontSize = 13.sp, fontFamily = LocalUiFontFamily.current))
         }
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
     }
@@ -518,30 +526,29 @@ private fun TitleBar(providerStatus: String, projectName: String?) {
 private fun Sidebar(selected: String?, locks: Map<String, String>, onSelect: (String) -> Unit) {
     var tapped by remember { mutableStateOf<String?>(null) }
     Row(Modifier.fillMaxHeight()) {
-        Column(
-            modifier = Modifier
-                .width(190.dp)
-                .fillMaxHeight()
-                .background(AutoFlowColors.Panel)
-                .padding(horizontal = 10.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            SidebarSections.forEach { (section, items) ->
-                // DESIGN.md §2 / mockup: the System section sits at the bottom of the sidebar.
-                if (section == "System") Spacer(Modifier.weight(1f))
-                BasicText(
-                    text = section.uppercase(),
-                    modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 4.dp),
-                    style = TextStyle(color = AutoFlowColors.Muted, fontSize = 10.sp, letterSpacing = 1.sp),
-                )
-                items.forEach { item ->
-                    val lock = locks[item]
-                    SidebarItem(item, item == selected, lock, showLock = tapped == item) {
-                        if (lock == null) {
-                            tapped = null
-                            onSelect(item)
-                        } else {
-                            tapped = item
+        BoxWithConstraints(Modifier.width(190.dp).fillMaxHeight().background(AutoFlowColors.Panel)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight)
+                    .padding(horizontal = 10.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                SidebarSections.forEach { (section, items) ->
+                    // DESIGN.md §2 / mockup: the System section sits at the bottom of the sidebar.
+                    if (section == "System") Spacer(Modifier.weight(1f))
+                    BasicText(
+                        text = My.breakSyllables(My.screen(section).uppercase()),
+                        modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 4.dp),
+                        style = TextStyle(color = AutoFlowColors.Muted, fontSize = 10.sp, letterSpacing = 1.sp, fontFamily = LocalUiFontFamily.current),
+                    )
+                    items.forEach { item ->
+                        val lock = locks[item]
+                        SidebarItem(item, item == selected, lock, showLock = tapped == item) {
+                            if (lock == null) {
+                                tapped = null
+                                onSelect(item)
+                            } else {
+                                tapped = item
+                            }
                         }
                     }
                 }
@@ -558,6 +565,8 @@ private fun Sidebar(selected: String?, locks: Map<String, String>, onSelect: (St
 @Composable
 private fun SidebarItem(name: String, selected: Boolean, lock: String?, showLock: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
+    val lockedLabel = tr(UiText.LOCKED)
+    val displayLabel = My.screen(name)
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
     Column {
@@ -573,8 +582,10 @@ private fun SidebarItem(name: String, selected: Boolean, lock: String?, showLock
                     },
                 )
                 .hoverable(hover)
+                .heightIn(min = 48.dp)
+                .semantics { contentDescription = displayLabel }
                 .selectable(selected = selected, role = Role.Tab, onClick = onClick)
-                .then(if (lock != null) Modifier.semantics { stateDescription = "locked" } else Modifier)
+                .then(if (lock != null) Modifier.semantics { stateDescription = lockedLabel } else Modifier)
                 .height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -585,14 +596,21 @@ private fun SidebarItem(name: String, selected: Boolean, lock: String?, showLock
                 else -> AutoFlowColors.Muted
             }
             BasicText(
-                text = name,
-                modifier = Modifier.padding(start = if (selected) 9.dp else 12.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
-                style = TextStyle(color = ink, fontSize = 13.sp),
+                text = My.breakSyllables(displayLabel),
+                modifier = Modifier.weight(1f).padding(start = if (selected) 9.dp else 12.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
+                style = TextStyle(color = ink, fontSize = 13.sp, fontFamily = LocalUiFontFamily.current),
             )
             if (lock != null) BasicText(LOCK_GLYPH, style = TextStyle(color = ink, fontSize = 11.sp))
         }
-        if (lock != null && (hovered || showLock)) {
-            AfText(lock, Modifier.padding(start = 12.dp, end = 8.dp, bottom = 6.dp), size = 11.sp, color = AutoFlowColors.Amber)
+        if (lock != null && showLock) {
+            AfText(lock, Modifier.testTag("classic-lock-$name").padding(start = 12.dp, end = 8.dp, bottom = 6.dp), size = 11.sp, color = AutoFlowColors.Amber)
+        }
+        // A hover hint must not move the rows under a stationary pointer while the sidebar scrolls.
+        if (lock != null && hovered && !showLock) {
+            Popup(alignment = Alignment.TopStart, offset = IntOffset(with(LocalDensity.current) { 190.dp.roundToPx() }, 0)) {
+                AfText(My.breakSyllables(lock), Modifier.width(260.dp).background(AutoFlowColors.Panel)
+                    .border(AutoFlowShapes.Border, AutoFlowColors.Line).padding(10.dp), size = 11.sp, color = AutoFlowColors.Amber)
+            }
         }
     }
 }

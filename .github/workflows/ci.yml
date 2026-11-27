@@ -18,11 +18,35 @@ jobs:
       - name: ffmpeg for the real-render tests (LayerFfmpegRenderTest)
         timeout-minutes: 10
         run: bash tools/ci-ffmpeg.sh
+      - name: Linux UI test display and system-font prerequisites
+        timeout-minutes: 10
+        run: |
+          command -v xvfb-run >/dev/null && command -v xauth >/dev/null || bash tools/ci-apt-install.sh xvfb xauth
+          if ! command -v fc-list >/dev/null || [ -z "$(fc-list :lang=my)" ]; then
+            bash tools/ci-apt-install.sh fontconfig fonts-noto-core
+          fi
+          test -n "$(fc-list :lang=my)"
       - name: Check (fake providers only, no API keys)
         # AUTOFLOW_EXPECT_FFMPEG: filtergraph tests render with a real ffmpeg and must not skip in CI.
         env: { AUTOFLOW_EXPECT_FFMPEG: "1" }
         # chmod: files pushed via the GitHub API/web UI lose the executable bit.
-        run: chmod +x gradlew && ./gradlew :core:check :ai:check :media:check :platform:check :platform:compileAndroidMain :ui:desktopTest :app-desktop:test
+        run: |
+          chmod +x gradlew
+          AUTOFLOW_EXPECT_FFMPEG=1 xvfb-run -a ./gradlew check --rerun-tasks --no-build-cache --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+      - name: Fresh executed / failed / skipped counts
+        if: always()
+        run: python tools/ci-test-summary.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-check-evidence
+          path: |
+            */build/test-results/**/*.xml
+            ui/build/reports/s10
+            ui/build/reports/playback
+            build/qa
+          if-no-files-found: warn
+          retention-days: 30
 
   desktop-smoke:
     # D-61: build the packaged desktop app (jpackage app image) and launch it under Xvfb; fail on an error dialog,
@@ -64,9 +88,12 @@ jobs:
         if: always()
         with: { name: windows-screenshots, path: ui/build/screenshots, if-no-files-found: warn }
       - uses: actions/upload-artifact@v4
-        # Test reports for diagnosis: job logs are not readable without a login.
-        if: failure()
-        with: { name: windows-test-results, path: "*/build/test-results/**/*.xml", if-no-files-found: warn }
+        # Actual executed/skip counts remain available for successful runs too.
+        if: always()
+        with: { name: windows-test-results, path: "*/build/test-results/**/*.xml", if-no-files-found: warn, retention-days: 30 }
+      - name: Windows executed / failed / skipped counts
+        if: always()
+        run: python tools/ci-test-summary.py
       - name: Failed tests as annotations (logs and artifacts need a login; annotations do not)
         if: failure()
         run: |
@@ -144,10 +171,15 @@ jobs:
             "run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID",
             "install: per-user (no admin), %LOCALAPPDATA%\AutoFlow; uninstall from Settings > Apps; user data in %USERPROFILE%\.autoflow is kept.",
             "", "toolchain:") + (Get-Content (Join-Path $env:SMOKE_DIR 'toolchain.txt')) | Out-File -Encoding utf8 (Join-Path $env:DIST_DIR 'MANIFEST.txt')
+          Copy-Item config/features.json (Join-Path $env:DIST_DIR 'FEATURES.json')
+          Copy-Item docs/PHONE-QA.md (Join-Path $env:DIST_DIR 'PHONE-QA.md')
           "EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "EXE_VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "EXE_ARTIFACT=autoflow-windows-exe-unsigned-$($env:GITHUB_SHA.Substring(0, 7))" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           Write-Output "::notice title=Windows EXE (unsigned) SHA-256::$sha  $name"
+      - name: Matching application and pinned VLCJ/JNA sources (D-69)
+        shell: bash
+        run: bash tools/desktop-source-bundle.sh "$DIST_DIR"
       - name: Install -> launch the installed app -> uninstall (disposable runner only)
         shell: pwsh
         env: { AUTOFLOW_DISPOSABLE_RUNNER: "1" }
@@ -157,7 +189,7 @@ jobs:
         with: { name: windows-installer-smoke, path: "${{ env.SMOKE_DIR }}", if-no-files-found: warn }
       - uses: actions/upload-artifact@v4
         # Only an EXE that passed the install/launch/uninstall check is offered for download.
-        with: { name: "${{ env.EXE_ARTIFACT }}", path: "${{ env.DIST_DIR }}", if-no-files-found: error }
+        with: { name: "${{ env.EXE_ARTIFACT }}", path: "${{ env.DIST_DIR }}", if-no-files-found: error, retention-days: 30 }
 
   android:
     # D-24: every push builds a debug APK (Actions artifact); a v0.* tag, or a change to .github/release-tag.txt on main,
@@ -234,8 +266,29 @@ jobs:
             [ -f "$RUNNER_TEMP/$f.log" ] || continue
             tail -n 80 "$RUNNER_TEMP/$f.log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed "s/^/::error title=$f log::/"; echo
           done
+      - name: Offline native-v2 QA backup and exact build manifest
+        run: |
+          ./gradlew :ui:qaRecapFixture -PqaFixtureDir="$GITHUB_WORKSPACE/apk-dist/qa-fixture" --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+          printf '%s\n' "Source: $GITHUB_SHA" "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "Status: combined 5A-8 QA candidate; verify this exact source run; physical-phone/emulator and owner-PC acceptance pending" > apk-dist/BUILD.txt
+          cp config/features.json apk-dist/FEATURES.json
+          cp docs/PHONE-QA.md apk-dist/PHONE-QA.md
+          python tools/ci-test-summary.py
+      - name: Restore bytecode must link against the real minSdk API (not runtime proof)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-26" > /dev/null
+          python3 tools/check-restore-android-api.py "$ANDROID_HOME/platforms/android-26/android.jar" platform/build/classes/kotlin/desktop/main
       - uses: actions/upload-artifact@v4
-        with: { name: "${{ env.APK }}", path: apk-dist, if-no-files-found: error }
+        with: { name: "${{ env.APK }}", path: apk-dist, if-no-files-found: error, retention-days: 30 }
+      - name: Android lint and executable restore instrumentation build (device run separate)
+        env:
+          ANDROID_KEYSTORE_PASSWORD: "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+          ANDROID_KEY_ALIAS: "${{ secrets.ANDROID_KEY_ALIAS }}"
+          ANDROID_KEY_PASSWORD: "${{ secrets.ANDROID_KEY_PASSWORD }}"
+        run: |
+          mkdir -p app-android/build/generated/restore-regression
+          cp apk-dist/qa-fixture/AutoFlow-5A8-synthetic-backup.zip app-android/build/generated/restore-regression/
+          ./gradlew :app-android:lintDebug :app-android:assembleDebugAndroidTest --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+
       - name: GitHub Release (tag v0.* or .github/release-tag.txt on main)
         if: startsWith(github.ref, 'refs/tags/v0.') || github.ref == 'refs/heads/main'
         env: { GH_TOKEN: "${{ github.token }}" }
@@ -253,3 +306,35 @@ jobs:
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title "Auto Flow $TAG" --notes-file .github/release-notes.md
           fi
+
+  desktop-playback:
+    # Real libVLC only on this disposable runner. Native libraries are NOT copied into app/installer/APK.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Separately installed VLC 3.0.x and ffmpeg
+        run: |
+          bash tools/ci-apt-install.sh libvlc-dev vlc-plugin-base vlc-plugin-video-output libgl1 xvfb
+          bash tools/ci-ffmpeg.sh
+      - name: Real decoder frames, pause, seek, resume and disposal
+        env: { AUTOFLOW_EXPECT_VLC: "1", AUTOFLOW_EXPECT_FFMPEG: "1" }
+        run: |
+          chmod +x gradlew
+          xvfb-run -a ./gradlew :media:desktopTest --tests '*DesktopMoviePlayerTest*' :ui:desktopTest --tests '*TimelinePlaybackRuntimeTest*' --rerun-tasks --no-build-cache --max-workers=2
+      - name: Real playback executed / failed / skipped counts
+        if: always()
+        run: python tools/ci-test-summary.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-playback-evidence
+          retention-days: 30
+          path: |
+            media/build/test-results/desktopTest
+            ui/build/test-results/desktopTest
+            ui/build/reports/playback
+          if-no-files-found: error

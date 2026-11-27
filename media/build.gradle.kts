@@ -21,6 +21,18 @@ kotlin {
         commonMain.dependencies {
             api(project(":core"))
         }
+        named("desktopMain").dependencies {
+            // D-69: JVM wrappers only. Native VLC is a separate user install, never bundled.
+            implementation(libs.vlcj.get().toString()) {
+                exclude(group = "net.java.dev.jna", module = "jna-jpms")
+                exclude(group = "net.java.dev.jna", module = "jna-platform-jpms")
+            }
+            implementation(libs.jna)
+            implementation(libs.jna.platform)
+        }
+        named("androidMain").dependencies {
+            implementation(libs.media3.exoplayer) // existing Android player, same version; no second engine
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)

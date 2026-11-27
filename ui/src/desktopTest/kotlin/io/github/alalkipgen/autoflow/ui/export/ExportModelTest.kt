@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.export
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.lyrics.LyricLine
@@ -139,7 +140,9 @@ class ExportModelTest {
         val m = model(backgroundScope)
         m.render(Quality.EXPORT)
         val job = queue.jobs.single()
-        assertEquals("Rain · ထုတ်ယူ 1080p", job.title)
+        assertEquals("Rain · Export 1080p", job.title)
+        assertEquals("ထုတ်ယူ 1080p", ExportModel.label(Quality.EXPORT, UiLanguage.BURMESE))
+        assertEquals("Preview 540p", ExportModel.label(Quality.PREVIEW))
         assertEquals(dir, job.workDir)
         assertEquals("exports/export", job.outputName)
         assertEquals("source/song.mp3", job.songPath)
@@ -178,6 +181,9 @@ class ExportModelTest {
         assertEquals("gallery $dir/exports/export.mp4 Rain-export-job1.mp4", share.calls.last())
         assertEquals("Saved to Gallery ✓ · Movies/AutoFlow/Rain-export-job1.mp4", m.state.value.message)
         assertTrue(m.state.value.messageOk)
+        val notice = assertNotNull(m.state.value.notice)
+        assertEquals(m.state.value.message, notice.text(UiLanguage.ENGLISH))
+        assertEquals("Gallery ထဲ သိမ်းပြီး ✓ · Movies/AutoFlow/Rain-export-job1.mp4", notice.text(UiLanguage.BURMESE))
         assertFalse(m.state.value.savingToGallery)
 
         m.refresh()

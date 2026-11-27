@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -114,6 +115,10 @@ class DashboardScreenTest {
         assertEquals("3 h ago", relativeTime(now - 3.hours, now))
         assertEquals("yesterday", relativeTime(now - 30.hours, now))
         assertEquals("4 days ago", relativeTime(now - 4.days, now))
+        assertEquals("ယခုပင်", relativeTime(now - 20.seconds, now, UiLanguage.BURMESE))
+        assertEquals("လွန်ခဲ့သော 5 မိနစ်", relativeTime(now - 5.minutes, now, UiLanguage.BURMESE))
+        assertEquals("မနေ့က", relativeTime(now - 30.hours, now, UiLanguage.BURMESE))
+        assertEquals("လွန်ခဲ့သော 4 ရက်", relativeTime(now - 4.days, now, UiLanguage.BURMESE))
         assertEquals("1973-01-02", relativeTime(now - 60.days, now))
     }
 }

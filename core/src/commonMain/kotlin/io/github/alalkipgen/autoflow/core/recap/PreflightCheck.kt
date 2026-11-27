@@ -7,7 +7,11 @@ package io.github.alalkipgen.autoflow.core.recap
 object PreflightCheck {
 
     /** One pre-flight item. [fix] = the navigation destination to fix it, e.g. "Voice" or "Script". */
-    data class Item(val message: String, val kind: Kind, val fix: String? = null)
+    data class Item(val message: String, val kind: Kind, val fix: String? = null,
+        val reason: Reason = Reason.UNKNOWN, val count: Int = 0)
+
+    /** Semantic result data for UI localization; never serialized into a project. */
+    enum class Reason { UNKNOWN, UNVOICED, STALE, RUNS_ON, RIGHTS }
 
     enum class Kind { BLOCKER, WARNING, INFO }
 
@@ -33,7 +37,7 @@ object PreflightCheck {
             items += Item(
                 "$unvoiced scene${if (unvoiced == 1) "" else "s"} without a voice take — they will play with movie sound only.",
                 Kind.WARNING,
-                fix = "Voice",
+                fix = "Voice", reason = Reason.UNVOICED, count = unvoiced,
             )
         }
 
@@ -43,7 +47,7 @@ object PreflightCheck {
             items += Item(
                 "$stale take${if (stale == 1) "" else "s"} are stale (the script changed after recording).",
                 Kind.WARNING,
-                fix = "Voice",
+                fix = "Voice", reason = Reason.STALE, count = stale,
             )
         }
 
@@ -53,7 +57,7 @@ object PreflightCheck {
             items += Item(
                 "$runsOn scene${if (runsOn == 1) "" else "s"} where the voice is more than 2 s longer than the clip.",
                 Kind.WARNING,
-                fix = "Voice",
+                fix = "Voice", reason = Reason.RUNS_ON, count = runsOn,
             )
         }
 
@@ -62,7 +66,7 @@ object PreflightCheck {
             items += Item(
                 "Using movie clips requires permission from the rights holder. Auto Flow makes no claim about whether " +
                     "your use qualifies as commentary, education or fair use.",
-                Kind.INFO,
+                Kind.INFO, reason = Reason.RIGHTS,
             )
         }
 

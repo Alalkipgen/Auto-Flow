@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -68,20 +69,20 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AfText("Movie Recap", size = 18.sp, bold = true)
-        AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
+        AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
         state.job?.let { job ->
             val pct = state.progress?.let { " ${(it * 100).toInt()} %" }.orEmpty()
-            AfText("⏳ $job$pct", color = AutoFlowColors.Cyan)
+            AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: job}$pct", color = AutoFlowColors.Cyan)
         }
         state.message?.let { msg ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfText(msg, Modifier.weight(1f), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber)
+                AfText(state.notice?.text(LocalUiLanguage.current) ?: msg, Modifier.weight(1f), color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber)
                 AfButton("✕", { model.dismissMessage() })
             }
         }
         val recap = state.recap
         if (recap == null) {
-            AfText("Open a Movie Recap project on the Dashboard (New Movie Recap).", muted = true)
+            AfText(tr(UiText.RECAP_OPEN_HINT), muted = true)
             return@Column
         }
         MovieCard(model, state, recap)
@@ -94,52 +95,52 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
 
 @Composable
 internal fun MovieCard(model: RecapModel, state: RecapUiState, recap: RecapV2) {
-    AfCard("1 · Movie") {
+    AfCard(tr(UiText.RECAP_MOVIE_CARD)) {
         val movie = recap.movie
         if (movie == null) {
-            AfText("Choose the movie file (mp4, mkv, mov, webm). It is copied into the project; the phone needs about twice its size free while copying.", muted = true)
+            AfText(tr(UiText.RECAP_MOVIE_IMPORT_HINT), muted = true)
         } else {
             AfText("${state.movieName ?: movie.file} · ${clock(movie.durationMs)} · ${movie.width}×${movie.height}" +
-                (if (movie.hasAudio) "" else " · no sound") + " · ${movie.sizeBytes / (1024 * 1024)} MB")
+                (if (movie.hasAudio) "" else tr(UiText.NO_SOUND_SUFFIX)) + " · ${movie.sizeBytes / (1024 * 1024)} MB")
         }
         val gate = RecapRulesV2.canImportMovie(recap)
-        if (!gate.allowed) AfText(gate.blockers.first().text(), color = AutoFlowColors.Amber)
-        AfButton(if (movie == null) IMPORT_MOVIE else "Replace movie", { model.importMovie() },
+        if (!gate.allowed) AfText(gate.blockers.first().text(LocalUiLanguage.current), color = AutoFlowColors.Amber)
+        AfButton(if (movie == null) tr(UiText.IMPORT_MOVIE) else tr(UiText.REPLACE_MOVIE), { model.importMovie() },
             kind = if (movie == null) ButtonKind.Primary else ButtonKind.Secondary, enabled = gate.allowed && !state.busy)
     }
 }
 
 @Composable
 internal fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2, selectedScene: Int? = null) {
-    AfCard("2 · Scenes") {
+    AfCard(tr(UiText.RECAP_SCENES_CARD)) {
         val gate = RecapRulesV2.canFindScenes(recap)
         if (!gate.allowed) {
-            AfText(gate.blockers.first().text(), muted = true)
+            AfText(gate.blockers.first().text(LocalUiLanguage.current), muted = true)
             return@AfCard
         }
         WrapRow {
-            AfButton(if (recap.scenes.isEmpty()) FIND_SCENES else "🔍 Find again", { model.findScenes(recap.sceneThreshold) },
+            AfButton(if (recap.scenes.isEmpty()) tr(UiText.FIND_SCENES) else tr(UiText.FIND_SCENES_AGAIN), { model.findScenes(recap.sceneThreshold) },
                 kind = if (recap.scenes.isEmpty()) ButtonKind.Primary else ButtonKind.Secondary, enabled = !state.busy)
-            AfChip("More scenes", recap.sceneThreshold == Scenes.THRESHOLD_MORE, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_MORE) })
-            AfChip("Normal", recap.sceneThreshold == Scenes.THRESHOLD_NORMAL, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_NORMAL) })
-            AfChip("Fewer scenes", recap.sceneThreshold == Scenes.THRESHOLD_FEWER, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_FEWER) })
+            AfChip(tr(UiText.MORE_SCENES), recap.sceneThreshold == Scenes.THRESHOLD_MORE, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_MORE) })
+            AfChip(tr(UiText.NORMAL), recap.sceneThreshold == Scenes.THRESHOLD_NORMAL, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_NORMAL) })
+            AfChip(tr(UiText.FEWER_SCENES), recap.sceneThreshold == Scenes.THRESHOLD_FEWER, { if (!state.busy) model.findScenes(Scenes.THRESHOLD_FEWER) })
         }
         if (recap.scenes.isEmpty()) {
-            AfText("Finding scenes reads the whole movie once (a 2-hour movie takes a few minutes on the phone).", muted = true)
+            AfText(tr(UiText.FIND_SCENES_HINT), muted = true)
             return@AfCard
         }
-        AfText("Target length", muted = true, size = 12.sp)
+        AfText(tr(UiText.TARGET_LENGTH), muted = true, size = 12.sp)
         WrapRow {
-            Recap.TARGETS_MS.forEach { t -> AfChip("${t / 60_000} min", recap.targetMs == t, { model.setTarget(t) }) }
+            Recap.TARGETS_MS.forEach { t -> AfChip(tr(UiText.TARGET_MINUTES, "t60000" to (t / 60_000)), recap.targetMs == t, { model.setTarget(t) }) }
         }
         val off = Scenes.offTarget(recap.toV1())
-        AfText("Picked ${recap.picked.size} scenes · ${clock(recap.pickedMs)} of target ${clock(recap.targetMs)}",
+        AfText(tr(UiText.SCENES_PICKED, "size" to (recap.picked.size), "pickedMs" to (clock(recap.pickedMs)), "targetMs" to (clock(recap.targetMs))),
             color = if (off) AutoFlowColors.Amber else null, bold = true)
         var pickedOnly by remember { mutableStateOf(false) }
         var page by remember(recap.scenes.size, pickedOnly) { mutableIntStateOf(0) }
         WrapRow {
-            AfSwitch("Show picked only", pickedOnly, { pickedOnly = it })
-            if (recap.picked.isNotEmpty()) AfButton("Clear picks", { model.clearPicks() }, kind = ButtonKind.Danger)
+            AfSwitch(tr(UiText.SHOW_PICKED), pickedOnly, { pickedOnly = it })
+            if (recap.picked.isNotEmpty()) AfButton(tr(UiText.CLEAR_PICKS), { model.clearPicks() }, kind = ButtonKind.Danger)
         }
         val rows = recap.scenes.withIndex().filter { (selectedScene == null || it.index == selectedScene) && (!pickedOnly || it.value.picked) }
         val pages = maxOf(1, (rows.size + SCENES_PER_PAGE - 1) / SCENES_PER_PAGE)
@@ -148,7 +149,7 @@ internal fun ScenesCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
         if (pages > 1) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AfButton("◀", { page-- }, enabled = page > 0)
-                AfText("Page ${page + 1} of $pages · ${rows.size} scenes", muted = true)
+                AfText(tr(UiText.SCENES_PAGE, "page1" to (page + 1), "pages" to (pages), "size" to (rows.size)), muted = true)
                 AfButton("▶", { page++ }, enabled = page < pages - 1)
             }
         }
@@ -166,7 +167,7 @@ private fun SceneRow(model: RecapModel, index: Int, scene: RecapScene) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(Modifier.size(width = 96.dp, height = 54.dp).clip(AutoFlowShapes.Card).background(AutoFlowColors.Background)) {
-            image?.let { Image(it, contentDescription = "Scene ${index + 1}", Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            image?.let { Image(it, contentDescription = tr(UiText.SCENE_DESCRIPTION, "index1" to (index + 1)), Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
         }
         Column(Modifier.weight(1f)) {
             AfText("#${index + 1} · ${clock(scene.startMs)}–${clock(scene.endMs)}", bold = scene.picked)

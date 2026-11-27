@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.i18n
 
+import androidx.compose.runtime.Composable
+
 /**
  * Burmese UI words shared by the Studio v2 screens (5B-13, D-41, DESIGN.md §6). Labels only: project files, job
  * kinds, screen keys and test tags stay English, so a wording change never touches saved data or routing.
@@ -7,31 +9,32 @@ package io.github.alalkipgen.autoflow.ui.i18n
  */
 object My {
     // DESIGN.md §6 — keep these exact.
-    const val APPROVE = "အတည်ပြုမယ်"
-    const val EDIT = "ပြင်မယ်"
-    const val REGENERATE = "ပြန်ထုတ်မယ်"
-    const val COPY_PROMPT = "Prompt ကူးမယ်"
-    const val NEEDS_FLOW = "Flow မှာ လုပ်ရန်"
-    const val STALE = "ပြန်ထုတ်ရန် လိုသည်"
-    const val ACCEPT_VIDEO = "ဗွီဒီယို လက်ခံမယ်"
+    val APPROVE: String get() = UiText.APPROVE.my!!
+    val EDIT: String get() = UiText.EDIT.my!!
+    val REGENERATE: String get() = UiText.REGENERATE.my!!
+    val COPY_PROMPT: String get() = UiText.COPY_PROMPT.my!!
+    val NEEDS_FLOW: String get() = UiText.NEEDS_FLOW.my!!
+    val STALE: String get() = UiText.STALE.my!!
+    val ACCEPT_VIDEO: String get() = UiText.ACCEPT_VIDEO.my!!
 
     // Shared actions.
-    const val APPROVED = "အတည်ပြုပြီး"
-    const val ACCEPTED = "လက်ခံပြီး"
-    const val CANCEL = "ပယ်ဖျက်မယ်"
-    const val BACK = "← နောက်သို့"
-    const val START = "စမယ်"
-    const val OPEN = "ဖွင့်မယ်"
-    const val SAVE = "သိမ်းမယ်"
-    const val DELETE = "ဖျက်မယ်"
-    const val APPLY = "ထည့်သုံးမယ်"
-    const val RETRY = "ထပ်စမ်းမယ်"
-    const val SETTINGS = "⚙ ဆက်တင်"
-    const val PROJECTS_BACK = "← ပရောဂျက်များ"
-    const val NO_VOICE = "အသံ မရှိသေး"
-    const val IMPORTED = "ထည့်ပြီး"
-    const val DRAFT = "မူကြမ်း"
-    fun minutes(n: Long): String = "$n မိနစ်"
+    val APPROVED: String get() = UiText.APPROVED.my!!
+    val ACCEPTED: String get() = UiText.ACCEPTED.my!!
+    val CANCEL: String get() = UiText.CANCEL.my!!
+    val BACK: String get() = UiText.BACK.my!!
+    val START: String get() = UiText.START.my!!
+    val OPEN: String get() = UiText.OPEN.my!!
+    val SAVE: String get() = UiText.SAVE.my!!
+    val DELETE: String get() = UiText.DELETE.my!!
+    val APPLY: String get() = UiText.APPLY.my!!
+    val RETRY: String get() = UiText.RETRY.my!!
+    val SETTINGS: String get() = UiText.SETTINGS.my!!
+    val PROJECTS_BACK: String get() = UiText.PROJECTS_BACK.my!!
+    val NO_VOICE: String get() = UiText.NO_VOICE.my!!
+    val IMPORTED: String get() = UiText.IMPORTED.my!!
+    val DRAFT: String get() = UiText.DRAFT.my!!
+    @Composable
+    fun minutes(n: Long): String = tr(UiText.MINUTES, "n" to n)
 
     /**
      * [text] with a zero-width space between Burmese syllables, so a narrow label (nav tab) wraps between syllables
@@ -64,19 +67,40 @@ object My {
         isBurmese(c) && (c.category == CharCategory.NON_SPACING_MARK || c.category == CharCategory.COMBINING_SPACING_MARK)
 
     /** A project screen chip: the key (routing, saved nothing) stays English; the chip shows Burmese. */
-    fun screen(key: String): String = SCREENS[key] ?: key
+    @Composable
+    fun screen(key: String): String = SCREENS[key]?.let { tr(it) } ?: key
+
+    fun screen(key: String, language: UiLanguage): String = SCREENS[key]?.text(language) ?: key
 
     private val SCREENS = mapOf(
-        "Recap" to "Recap",
-        "Classic Recap" to "Recap ပုံစံဟောင်း",
-        "Export" to "ထုတ်ယူ",
-        "Input" to "ထည့်သွင်း",
-        "Shot sheet" to "Shot စာရွက်",
-        "Inbox" to "ဝင်စာ",
-        "Classic steps" to "အဆင့်ဟောင်းများ",
-        "Storyboard" to "Storyboard",
-        "Shots" to "Shot များ",
-        "References" to "Reference ပုံများ",
-        "Flow Handoff" to "Flow သို့ ပို့ရန်",
+        "Dashboard" to UiText.DASHBOARD,
+        "Project" to UiText.PROJECT_SECTION,
+        "Mode" to UiText.MODE_SECTION,
+        "System" to UiText.SYSTEM_SECTION,
+        "Timeline" to UiText.TIMELINE,
+        "Music Video" to UiText.MUSIC_VIDEO,
+        "Movie Recap" to UiText.MOVIE_RECAP,
+        "Settings" to UiText.SETTINGS_TITLE,
+        "Projects" to UiText.PROJECTS,
+        "Home" to UiText.HOME,
+        "Library" to UiText.LIBRARY,
+        "Jobs" to UiText.JOBS,
+        "More" to UiText.MORE,
+        "Prompts" to UiText.PROMPTS,
+        "Flow Video" to UiText.FLOW_VIDEO,
+        "Assembly" to UiText.ASSEMBLY,
+
+        "Voice" to UiText.VOICE,
+        "Script" to UiText.STORY,
+        "Classic Recap" to UiText.CLASSIC_RECAP,
+        "Export" to UiText.EXPORT,
+        "Input" to UiText.INPUT,
+        "Shot sheet" to UiText.SHOT_SHEET,
+        "Inbox" to UiText.INBOX,
+        "Classic steps" to UiText.CLASSIC_STEPS,
+        "Storyboard" to UiText.STORYBOARD,
+        "Shots" to UiText.SHOTS,
+        "References" to UiText.REFERENCES,
+        "Flow Handoff" to UiText.FLOW_HANDOFF,
     )
 }

@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.settings
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
@@ -27,6 +28,7 @@ data class BackupUiState(
     val progress: BackupProgress? = null,
     val last: BackupResult? = null,
     val message: String? = null,
+    val notice: UiNotice? = null,
 ) {
     val running: Boolean get() = progress != null
 }
@@ -43,6 +45,7 @@ class BackupModel(
     private val scope: CoroutineScope,
     private val filePicker: FilePicker? = null,
     private val appDirs: AppDirs? = null,
+    private val language: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
     val available: Boolean get() = backup != null
 
@@ -63,22 +66,22 @@ class BackupModel(
         if (job?.isActive == true) return
         val list = projects()
         if (list.isEmpty()) {
-            _state.update { it.copy(projects = 0, message = "No projects to back up yet") }
+            _state.update { it.copy(projects = 0, message = UiText.BACKUP_NONE.en, notice = UiNotice(UiText.BACKUP_NONE)) }
             return
         }
-        _state.update { it.copy(projects = list.size, progress = BackupProgress(0, 0), message = null) }
+        _state.update { it.copy(projects = list.size, progress = BackupProgress(0, 0), message = null, notice = null) }
         job = scope.launch {
             val r = try {
                 b.backUp(list) { p -> _state.update { s -> if (s.running) s.copy(progress = p) else s } }
             } catch (e: CancellationException) {
-                _state.update { it.copy(progress = null, message = "Backup cancelled; nothing was saved") }
+                _state.update { it.copy(progress = null, message = UiText.BACKUP_CANCELLED.en, notice = UiNotice(UiText.BACKUP_CANCELLED)) }
                 throw e
             }
             _state.update { s ->
                 when (r) {
-                    is PlatformResult.Ok -> s.copy(progress = null, last = r.value, message = saved(r.value))
-                    is PlatformResult.Failed -> s.copy(progress = null, message = r.reason)
-                    is PlatformResult.Unsupported -> s.copy(progress = null, message = r.reason)
+                    is PlatformResult.Ok -> s.copy(progress = null, last = r.value, message = saved(r.value), notice = savedNotice(r.value))
+                    is PlatformResult.Failed -> s.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason))
+                    is PlatformResult.Unsupported -> s.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason))
                 }
             }
         }
@@ -90,22 +93,22 @@ class BackupModel(
 
     /** Restore = pick a zip → extract into projectsHome. The Dashboard auto-discovers restored folders on next open. */
     fun restore() {
-        val b = backup ?: run { _state.update { it.copy(message = "Restore not available on this platform") }; return }
-        val picker = filePicker ?: run { _state.update { it.copy(message = "File picker not available") }; return }
-        val dest = appDirs?.projectsHome ?: run { _state.update { it.copy(message = "Projects folder not set") }; return }
+        val b = backup ?: run { _state.update { it.copy(message = UiText.RESTORE_UNAVAILABLE.en, notice = UiNotice(UiText.RESTORE_UNAVAILABLE)) }; return }
+        val picker = filePicker ?: run { _state.update { it.copy(message = UiText.PICKER_UNAVAILABLE.en, notice = UiNotice(UiText.PICKER_UNAVAILABLE)) }; return }
+        val dest = appDirs?.projectsHome ?: run { _state.update { it.copy(message = UiText.PROJECTS_FOLDER_UNSET.en, notice = UiNotice(UiText.PROJECTS_FOLDER_UNSET)) }; return }
         if (job?.isActive == true) return
         job = scope.launch {
-            _state.update { it.copy(progress = BackupProgress(0, 1), message = null) }
-            val paths = when (val r = picker.pickFiles("Restore from backup", extensions = setOf("zip"))) {
+            _state.update { it.copy(progress = BackupProgress(0, 1), message = null, notice = null) }
+            val paths = when (val r = picker.pickFiles(UiText.RESTORE_PICKER.text(language()), extensions = setOf("zip"))) {
                 is PlatformResult.Ok -> r.value
-                is PlatformResult.Failed -> { _state.update { it.copy(progress = null, message = r.reason) }; return@launch }
-                is PlatformResult.Unsupported -> { _state.update { it.copy(progress = null, message = r.reason) }; return@launch }
+                is PlatformResult.Failed -> { _state.update { it.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }; return@launch }
+                is PlatformResult.Unsupported -> { _state.update { it.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }; return@launch }
             }
             val path = paths.firstOrNull() ?: run { _state.update { it.copy(progress = null) }; return@launch }
             when (val r = b.restore(path, dest)) {
-                is PlatformResult.Ok -> _state.update { it.copy(progress = null, message = restored(r.value)) }
-                is PlatformResult.Failed -> _state.update { it.copy(progress = null, message = r.reason) }
-                is PlatformResult.Unsupported -> _state.update { it.copy(progress = null, message = r.reason) }
+                is PlatformResult.Ok -> _state.update { it.copy(progress = null, message = restored(r.value), notice = restoredNotice(r.value)) }
+                is PlatformResult.Failed -> _state.update { it.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }
+                is PlatformResult.Unsupported -> _state.update { it.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }
             }
         }
     }
@@ -115,8 +118,8 @@ class BackupModel(
         val last = _state.value.last ?: return
         when (val r = b.share(last)) {
             is PlatformResult.Ok -> Unit
-            is PlatformResult.Failed -> _state.update { it.copy(message = r.reason) }
-            is PlatformResult.Unsupported -> _state.update { it.copy(message = r.reason) }
+            is PlatformResult.Failed -> _state.update { it.copy(message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }
+            is PlatformResult.Unsupported -> _state.update { it.copy(message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }
         }
     }
 
@@ -128,16 +131,23 @@ class BackupModel(
 
     companion object {
         /** The Restore result line; a renamed copy says that the same-named project on the phone was kept as it was. */
-        fun restored(projects: List<RestoredProject>): String {
-            if (projects.isEmpty()) return "No projects found in the zip"
-            val names = projects.joinToString(", ") { it.folder }
+        fun restored(projects: List<RestoredProject>, language: UiLanguage = UiLanguage.ENGLISH): String =
+            restoredNotice(projects).text(language)
+
+        fun restoredNotice(projects: List<RestoredProject>): UiNotice {
+            if (projects.isEmpty()) return UiNotice(UiText.RESTORE_EMPTY)
             val kept = projects.filter { it.renamed }.map { it.original }
-            val note = if (kept.isEmpty()) "" else " ${kept.joinToString(", ")} already existed and ${if (kept.size == 1) "was" else "were"} not changed."
-            return "Restored: $names.$note Go to Projects to open them."
+            val note: Any = if (kept.isEmpty()) "" else UiNotice(
+                if (kept.size == 1) UiText.RESTORE_KEPT_ONE else UiText.RESTORE_KEPT_MANY,
+                "names" to kept.joinToString(", "),
+            )
+            return UiNotice(UiText.RESTORE_DONE, "names" to projects.joinToString(", ") { it.folder }, "note" to note)
         }
 
-        fun saved(r: BackupResult): String =
-            "Saved ${r.location} (${fileSize(r.zipBytes)}, ${r.projects} project${if (r.projects == 1) "" else "s"})"
+        fun saved(r: BackupResult, language: UiLanguage = UiLanguage.ENGLISH): String = savedNotice(r).text(language)
+        fun savedNotice(r: BackupResult): UiNotice = UiNotice(UiText.BACKUP_SAVED,
+            "location" to r.location, "size" to fileSize(r.zipBytes),
+            "projects" to if (r.projects == 1) UiNotice(UiText.ONE_PROJECT) else UiNotice(UiText.PROJECT_COUNT, "n" to r.projects))
 
         /**
          * `899 B`, `12 KB`, `0.4 MB`, `14.5 MB`, `1203 MB`: decimal units like the phone's Files app, so a backup of

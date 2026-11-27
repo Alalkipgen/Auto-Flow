@@ -153,4 +153,20 @@ class BackupModelTest {
             BackupModel.restored(listOf(RestoredProject("Rain.autoflow", "Rain.autoflow"), RestoredProject("Sun (restored).autoflow", "Sun.autoflow"))),
         )
     }
+    @Test fun restoreNoticesSwitchLiveAndPreserveBurmeseNamesAndDiagnostics() {
+        val projects = listOf(RestoredProject("မိုး (restored).autoflow", "မိုး.autoflow"))
+        val notice = BackupModel.restoredNotice(projects)
+        val english = notice.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH)
+        val burmese = notice.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE)
+        assertTrue(english.startsWith("Restored:"))
+        assertTrue(burmese.startsWith("ပြန်သွင်းပြီး:"))
+        for (name in listOf("မိုး (restored).autoflow", "မိုး.autoflow")) {
+            assertTrue(name in english); assertTrue(name in burmese)
+        }
+        assertEquals(english, notice.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.ENGLISH))
+        val raw = io.github.alalkipgen.autoflow.ui.i18n.UiNotice(io.github.alalkipgen.autoflow.ui.i18n.UiText.RESULT_DETAIL,
+            "detail" to "invalid manifest: missing entry မိုး/{names}.json")
+        assertTrue(raw.text(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE).endsWith("invalid manifest: missing entry မိုး/{names}.json"))
+    }
+
 }

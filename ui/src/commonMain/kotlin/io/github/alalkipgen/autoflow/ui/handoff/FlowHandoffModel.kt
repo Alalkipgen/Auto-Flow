@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.model.ArtifactKind
@@ -67,6 +68,7 @@ data class HandoffRow(
     val refImage: ArtifactId? = null,
     /** The video shown on the card: the accepted one, else the newest import; null → "No video yet". */
     val shownVideo: ArtifactId? = null,
+    val blocker: io.github.alalkipgen.autoflow.core.workflow.Blocker? = null,
 )
 
 /** One line of the manual credit log, newest first; [index] is its position in `flowCredits.manualLog`. */
@@ -77,6 +79,7 @@ data class FlowHandoffUiState(
     val rows: List<HandoffRow> = emptyList(),
     val selected: Int? = null,
     val message: String? = null,
+    val notice: UiNotice? = null,
     val flowUrl: String = "https://labs.google/fx/tools/flow",
     /** Hint credit values from models.json. */
     val creditHintFast: Int = 20,
@@ -108,35 +111,42 @@ class FlowHandoffModel(
     private val fs: FileSystem? = null,
     private val fileShare: FileShare? = null,
     private val media: MediaTools? = null,
+    private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
     private val thumbs = Mutex()
     private data class BatchLocal(val unticked: Set<Int> = emptySet(), val last: String? = null)
     private val _batch = MutableStateFlow(BatchLocal())
     private val _selected = MutableStateFlow<Int?>(null)
     private val _message = MutableStateFlow<String?>(null)
+    private val _notice = MutableStateFlow<UiNotice?>(null)
+    private fun reportMessage(message: String?) = reportNotice(message?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to it) })
+    private fun reportNotice(notice: UiNotice?) {
+        _message.value = notice?.text(UiLanguage.ENGLISH)
+        _notice.value = notice
+    }
     /** Shot number → video count when the user chose Skip; the question comes back after the next import. */
     private val _skipped = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val message = _message.asStateFlow()
     val state: Flow<FlowHandoffUiState> =
-        combine(session.state, _selected, _message, _skipped, _batch) { open, _, _, _, _ -> build(open?.project) }
+        combine(session.state, _selected, _notice, _skipped, _batch) { open, _, _, _, _ -> build(open?.project) }
 
     fun current(): FlowHandoffUiState = build(session.open?.project)
 
     fun select(number: Int?) {
         _selected.value = number
-        _message.value = null
+        reportMessage(null)
     }
 
     /** Copy the Veo/Flow prompt for shot [number] to clipboard; set state → SENT_TO_FLOW. */
     fun copyPrompt(number: Int) {
-        val project = session.open?.project ?: run { _message.value = "No project open"; return }
-        val shot = project.shots.firstOrNull { it.number == number } ?: run { _message.value = "Shot $number not found"; return }
-        val ir = readPromptIr(shot) ?: run { _message.value = "No compiled prompt for shot $number — compile it on the Shots screen first"; return }
+        val project = session.open?.project ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
+        val shot = project.shots.firstOrNull { it.number == number } ?: run { reportNotice(UiNotice(UiText.SHOT_NOT_FOUND, "n" to number)); return }
+        val ir = readPromptIr(shot) ?: run { reportNotice(UiNotice(UiText.NO_COMPILED_SHOT, "n" to number)); return }
         val prompt = VeoFlowDialect.render(ir)
         when (val r = clipboard.copyText(prompt)) {
             is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> { /* ok */ }
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { _message.value = "Could not copy: ${r.reason}"; return }
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { _message.value = "Clipboard not available"; return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { reportNotice(UiNotice(UiText.COPY_FAILED, "detail" to r.reason)); return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { reportNotice(UiNotice(UiText.CLIPBOARD_UNAVAILABLE)); return }
         }
         val updated = project.copy(shots = project.shots.map { s ->
             if (s.number == number && s.handoff.state == HandoffState.NONE)
@@ -144,7 +154,7 @@ class FlowHandoffModel(
             else s
         })
         session.save(updated)
-        _message.value = "Prompt copied! Now paste it in Flow."
+        reportNotice(UiNotice(UiText.PROMPT_COPIED_FLOW))
     }
 
     /** Open the Flow website. */
@@ -164,29 +174,29 @@ class FlowHandoffModel(
      * [readBytes]: caller provides the bytes from the picked path (so the model stays testable).
      */
     suspend fun pickAndImportVideo(number: Int, readBytes: suspend (String) -> ByteArray?) {
-        val project = session.open?.project ?: run { _message.value = "No project open"; return }
-        val shot = project.shots.firstOrNull { it.number == number } ?: run { _message.value = "Shot $number not found"; return }
-        val result = filePicker.pickFiles("Import video for Shot $number", extensions = setOf("mp4", "mov"), multiple = false)
+        val project = session.open?.project ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
+        val shot = project.shots.firstOrNull { it.number == number } ?: run { reportNotice(UiNotice(UiText.SHOT_NOT_FOUND, "n" to number)); return }
+        val result = filePicker.pickFiles(UiText.PICK_VIDEO_SHOT.text(uiLanguage(), "n" to number), extensions = setOf("mp4", "mov"), multiple = false)
         val path = when (result) {
             is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> result.value.firstOrNull() ?: return
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { _message.value = "File pick failed: ${result.reason}"; return }
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { _message.value = "File picker not available on this platform yet"; return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> { reportNotice(UiNotice(UiText.FILE_PICK_FAILED, "detail" to result.reason)); return }
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> { reportNotice(UiNotice(UiText.INPUT_NO_PICKER)); return }
         }
-        val bytes = readBytes(path) ?: run { _message.value = "Could not read the file"; return }
+        val bytes = readBytes(path) ?: run { reportNotice(UiNotice(UiText.FILE_UNREADABLE)); return }
         val ext = path.substringAfterLast('.').lowercase().let { if (it in setOf("mp4", "mov")) it else "mp4" }
         importVideoBytes(project, shot, bytes, ext)
     }
 
     /** Import [bytes] directly (used in tests or when the caller already has the bytes). */
     fun importVideoBytes(project: Project, shot: Shot, bytes: ByteArray, ext: String) {
-        val artifacts = session.artifacts() ?: run { _message.value = "No project open"; return }
+        val artifacts = session.artifacts() ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
         val inputs = buildMap {
             shot.promptIr?.let { put(Inputs.PROMPT_IR, it.value) }
             shot.chosenRef?.let { put(Inputs.REF, it.value) }
         }
         val artifact = when (val r = artifacts.put(bytes, ArtifactKind.VIDEO, ext, shot.number, inputs, provider = "user", note = shot.handoff.pass.name.lowercase())) {
             is CoreResult.Ok -> r.value
-            is CoreResult.Err -> { _message.value = "Failed to save video: ${r.error.message}"; return }
+            is CoreResult.Err -> { reportNotice(UiNotice(UiText.SAVE_VIDEO_FAILED, "detail" to r.error.message)); return }
         }
         val newHandoff = shot.handoff.copy(state = HandoffState.IMPORTED)
         val shots = project.shots.map { s ->
@@ -195,8 +205,8 @@ class FlowHandoffModel(
             else s
         }
         when (val r = session.save(project.copy(shots = shots))) {
-            is CoreResult.Ok -> _message.value = "Video imported for Shot ${shot.number}."
-            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+            is CoreResult.Ok -> reportNotice(UiNotice(UiText.VIDEO_IMPORTED_SHOT, "n" to shot.number))
+            is CoreResult.Err -> reportNotice(UiNotice(UiText.SAVE_FAILED, "detail" to r.error.message))
         }
     }
 
@@ -204,7 +214,7 @@ class FlowHandoffModel(
     fun acceptVideo(number: Int) {
         val project = session.open?.project ?: return
         val shot = project.shots.firstOrNull { it.number == number } ?: return
-        val latest = shot.videos.lastOrNull() ?: run { _message.value = "No video imported for Shot $number"; return }
+        val latest = shot.videos.lastOrNull() ?: run { reportNotice(UiNotice(UiText.NO_IMPORTED_VIDEO, "n" to number)); return }
         val shots = project.shots.map { s ->
             if (s.number == number)
                 s.copy(acceptedVideo = latest, handoff = s.handoff.copy(state = HandoffState.ACCEPTED),
@@ -212,18 +222,18 @@ class FlowHandoffModel(
             else s
         }
         session.save(project.copy(shots = shots))
-        _message.value = "Shot $number accepted ✓"
+        reportNotice(UiNotice(UiText.SHOT_ACCEPTED, "n" to number))
     }
 
     /** Log [credits] Flow credits used for shot [number] (manual, specs/flow-handoff.md §Credit log). */
     fun logCredits(number: Int, credits: Int) {
         val project = session.open?.project ?: return
-        if (credits !in 1..MAX_CREDITS) { _message.value = "Credits must be a number from 1 to $MAX_CREDITS"; return }
+        if (credits !in 1..MAX_CREDITS) { reportNotice(UiNotice(UiText.CREDITS_RANGE, "max" to MAX_CREDITS)); return }
         val entry = CreditEntry(date = today(), credits = credits, shot = number)
         val updated = project.copy(flowCredits = FlowCredits(manualLog = project.flowCredits.manualLog + entry))
         when (val r = session.save(updated)) {
-            is CoreResult.Ok -> _message.value = "Logged $credits credits for Shot $number."
-            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+            is CoreResult.Ok -> reportNotice(UiNotice(UiText.CREDITS_LOGGED_SHOT, "credits" to credits, "n" to number))
+            is CoreResult.Err -> reportNotice(UiNotice(UiText.SAVE_FAILED, "detail" to r.error.message))
         }
     }
 
@@ -241,8 +251,8 @@ class FlowHandoffModel(
         val gone = log[index]
         val updated = project.copy(flowCredits = FlowCredits(manualLog = log.filterIndexed { i, _ -> i != index }))
         when (val r = session.save(updated)) {
-            is CoreResult.Ok -> _message.value = "Removed ${gone.credits} credits (${gone.date})."
-            is CoreResult.Err -> _message.value = "Save failed: ${r.error.message}"
+            is CoreResult.Ok -> reportNotice(UiNotice(UiText.CREDITS_REMOVED, "credits" to gone.credits, "date" to gone.date))
+            is CoreResult.Err -> reportNotice(UiNotice(UiText.SAVE_FAILED, "detail" to r.error.message))
         }
     }
 
@@ -267,7 +277,7 @@ class FlowHandoffModel(
     /** Opens the video shown on shot [number]'s card in the phone's / computer's video player. */
     fun playVideo(number: Int) {
         val shot = shotOf(number) ?: return
-        val id = shot.acceptedVideo ?: shot.videos.lastOrNull() ?: run { _message.value = "No video imported for Shot $number"; return }
+        val id = shot.acceptedVideo ?: shot.videos.lastOrNull() ?: run { reportNotice(UiNotice(UiText.NO_IMPORTED_VIDEO, "n" to number)); return }
         openArtifact(id, "video")
     }
 
@@ -278,12 +288,12 @@ class FlowHandoffModel(
     }
 
     private fun openArtifact(id: ArtifactId, type: String) {
-        val path = artifactPath(id) ?: run { _message.value = "The file for this shot is missing"; return }
-        val share = fileShare ?: run { _message.value = "Opening files is not available here"; return }
+        val path = artifactPath(id) ?: run { reportNotice(UiNotice(UiText.SHOT_FILE_MISSING)); return }
+        val share = fileShare ?: run { reportNotice(UiNotice(UiText.OPEN_FILES_UNAVAILABLE)); return }
         when (val r = share.open(path, mimeOf(path, type))) {
             is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> Unit
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> _message.value = r.reason
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> _message.value = r.reason
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> reportMessage(r.reason)
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> reportMessage(r.reason)
         }
     }
 
@@ -325,12 +335,12 @@ class FlowHandoffModel(
      * prompt, chosen reference image inline, Copy buttons. Handoff states do not change (Copy Prompt does that).
      */
     fun exportBatch() {
-        val open = session.open ?: run { _message.value = "No project open"; return }
-        val disk = fs ?: run { _message.value = "Saving files is not available here"; return }
+        val open = session.open ?: run { reportNotice(UiNotice(UiText.NO_PROJECT_OPEN)); return }
+        val disk = fs ?: run { reportNotice(UiNotice(UiText.SAVE_FILES_UNAVAILABLE)); return }
         val project = open.project
         val artifacts = session.artifacts() ?: return
         val ticked = build(project).rows.filter { it.inBatch }.map { it.number }.toSet()
-        if (ticked.isEmpty()) { _message.value = "Tick at least one pending shot for the batch sheet"; return }
+        if (ticked.isEmpty()) { reportNotice(UiNotice(UiText.BATCH_SELECT_FIRST)); return }
         val shots = project.shots.filter { it.number in ticked }.mapNotNull { shot ->
             val ir = readPromptIr(shot) ?: return@mapNotNull null
             val ref = shot.chosenRef?.let { id -> (artifacts.get(id) as? CoreResult.Ok)?.value }
@@ -354,11 +364,11 @@ class FlowHandoffModel(
             disk.createDirectories(folder)
             disk.writeDurably(joinPath(folder, name), html.encodeToByteArray())
         } catch (e: Exception) {
-            _message.value = "Could not save the batch sheet: ${e.message}"
+            reportNotice(UiNotice(UiText.BATCH_SAVE_FAILED, "detail" to e.message))
             return
         }
         _batch.value = _batch.value.copy(last = "$PACKAGES_DIR/$name")
-        _message.value = "Batch sheet saved: $PACKAGES_DIR/$name (${shots.size} shot${if (shots.size == 1) "" else "s"}). Open it in a browser next to Flow."
+        reportNotice(if (shots.size == 1) UiNotice(UiText.BATCH_SAVED_ONE, "path" to "$PACKAGES_DIR/$name") else UiNotice(UiText.BATCH_SAVED_MANY, "path" to "$PACKAGES_DIR/$name", "n" to shots.size))
     }
 
     /** Open the last batch sheet in a browser. */
@@ -370,11 +380,11 @@ class FlowHandoffModel(
     private fun withBatch(action: (String, FileShare) -> io.github.alalkipgen.autoflow.platform.PlatformResult<Unit>) {
         val dir = session.open?.dir ?: return
         val last = _batch.value.last ?: return
-        val share = fileShare ?: run { _message.value = "Opening files is not available here"; return }
+        val share = fileShare ?: run { reportNotice(UiNotice(UiText.OPEN_FILES_UNAVAILABLE)); return }
         when (val r = action(joinPath(dir, last), share)) {
             is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> Unit
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> _message.value = r.reason
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> _message.value = r.reason
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> reportMessage(r.reason)
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> reportMessage(r.reason)
         }
     }
 
@@ -407,6 +417,7 @@ class FlowHandoffModel(
                 videoCount = shot.videos.size,
                 accepted = shot.acceptedVideo != null,
                 gateMsg = gateMsg,
+                blocker = gate.blockers.firstOrNull(),
                 creditsLogged = log.filter { it.shot == shot.number }.sumOf { it.credits },
                 askCredits = shot.videos.isNotEmpty() && entries < shot.videos.size &&
                     (skipped[shot.number] ?: -1) < shot.videos.size,
@@ -423,6 +434,7 @@ class FlowHandoffModel(
             rows = rows,
             selected = _selected.value,
             message = _message.value,
+            notice = _notice.value,
             flowUrl = flowUrl,
             creditHintFast = creditHintFast,
             creditHintQuality = creditHintQuality,

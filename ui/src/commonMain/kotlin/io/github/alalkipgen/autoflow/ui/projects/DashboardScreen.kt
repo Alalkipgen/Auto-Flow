@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -7,7 +8,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -66,33 +66,26 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
     ) {
         // With a projects home (Android, D-27) every project lives there; there is no folder to open.
         val openFolder: @Composable () -> Unit = {
-            if (model.projectsHome == null) AfButton("Open folder…", { scope.launch { if (model.openFolder()) onOpened() } })
+            if (model.projectsHome == null) AfButton(tr(UiText.OPEN_FOLDER), { scope.launch { if (model.openFolder()) onOpened() } })
         }
         val newMusicVideo: @Composable () -> Unit = {
-            AfButton("New Music Video", { creating = Mode.MUSIC_VIDEO }, kind = ButtonKind.Primary, enabled = creating == null)
+            AfButton(tr(UiText.NEW_MUSIC_VIDEO), { creating = Mode.MUSIC_VIDEO }, kind = ButtonKind.Primary, enabled = creating == null)
         }
-        val newMovieRecap: @Composable () -> Unit = { AfButton("New Movie Recap", { creating = Mode.MOVIE_RECAP }, enabled = creating == null) }
-        if (compact) {
-            // Phone: the title on its own line, the main action first, the rest wrapping below it.
-            AfText("Projects", size = 18.sp, bold = true)
-            WrapRow { newMusicVideo(); openFolder(); newMovieRecap() }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AfText("Projects", size = 18.sp, bold = true)
-                Spacer(Modifier.weight(1f))
-                openFolder()
-                newMovieRecap()
-                newMusicVideo()
-            }
+        val newMovieRecap: @Composable () -> Unit = { AfButton(tr(UiText.NEW_MOVIE_RECAP), { creating = Mode.MOVIE_RECAP }, enabled = creating == null) }
+        // Long translations / large fonts need wrapping on desktop too, not just in the phone layout.
+        AfText(tr(UiText.PROJECTS), size = 18.sp, bold = true)
+        WrapRow {
+            if (compact) { newMusicVideo(); openFolder(); newMovieRecap() }
+            else { openFolder(); newMovieRecap(); newMusicVideo() }
         }
-        state.message?.let { AfText(it, color = AutoFlowColors.Amber) }
+        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
         creating?.let { mode ->
             NewProjectCard(model, mode, onCancel = { creating = null }, onCreated = { creating = null; onOpened() })
         }
         if (state.rows.isEmpty()) {
             AfText(
-                if (model.projectsHome == null) "No projects yet. Create a music video, or open an existing .autoflow folder."
-                else "No projects yet. Create a music video.",
+                if (model.projectsHome == null) tr(UiText.PROJECTS_EMPTY_DESKTOP)
+                else tr(UiText.PROJECTS_EMPTY),
                 muted = true,
             )
         }
@@ -109,29 +102,29 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
     var rights by remember { mutableStateOf(false) }
     val home = model.projectsHome
     val recap = mode == Mode.MOVIE_RECAP
-    AfCard(if (recap) "New Movie Recap" else "New Music Video") {
-        AfTextField(name, { name = it }, "Project name")
+    AfCard(if (recap) tr(UiText.NEW_MOVIE_RECAP) else tr(UiText.NEW_MUSIC_VIDEO)) {
+        AfTextField(name, { name = it }, tr(UiText.PROJECT_NAME))
         if (recap) {
-            AfText(RIGHTS_NOTICE, color = AutoFlowColors.Amber, size = 12.sp)
-            AfSwitch(RIGHTS_TICK, rights, { rights = it })
+            AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
+            AfSwitch(tr(UiText.RIGHTS_TICK), rights, { rights = it })
         }
         if (home == null) {
             FieldRow(
-                field = { AfTextField(parent, { parent = it }, "Folder to save it in", it) },
-                actions = { AfButton("Browse…", { scope.launch { model.pickParent()?.let { parent = it } } }) },
+                field = { AfTextField(parent, { parent = it }, tr(UiText.PROJECT_PARENT), it) },
+                actions = { AfButton(tr(UiText.BROWSE), { scope.launch { model.pickParent()?.let { parent = it } } }) },
             )
         } else {
-            AfText("Saved in this app's storage. Back it up in Settings → Backup before uninstalling.", muted = true, size = 12.sp)
+            AfText(tr(UiText.APP_STORAGE_BACKUP), muted = true, size = 12.sp)
         }
         if (home == null && name.isNotBlank() && parent.isNotBlank()) {
-            AfText("Creates ${joinPath(parent.trimEnd('/'), projectFolderName(name))}", muted = true, size = 12.sp, mono = true)
+            AfText(tr(UiText.CREATES_PATH, "trimEndprojectFolder" to (joinPath(parent.trimEnd('/'), projectFolderName(name)))), muted = true, size = 12.sp, mono = true)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AfButton("Create", {
+            AfButton(tr(UiText.CREATE), {
                 val ok = if (recap) model.createMovieRecap(parent, name, rights) else model.createMusicVideo(parent, name)
                 if (ok) onCreated()
             }, kind = ButtonKind.Primary, enabled = name.isNotBlank() && parent.isNotBlank() && (!recap || rights))
-            AfButton("Cancel", onCancel)
+            AfButton(tr(UiText.CANCEL), onCancel)
         }
     }
 }
@@ -149,11 +142,11 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                AfText("Remove \"${row.entry.name}\" from the list?", bold = true)
-                AfText("The folder is not deleted — only removed from the Projects list.", muted = true)
+                AfText(tr(UiText.REMOVE_PROJECT_QUESTION, "name" to (row.entry.name)), bold = true)
+                AfText(tr(UiText.REMOVE_PROJECT_HINT), muted = true)
                 WrapRow {
-                    AfButton("Remove", { onRemove(); confirmDelete = false }, kind = ButtonKind.Danger)
-                    AfButton("Cancel", { confirmDelete = false })
+                    AfButton(tr(UiText.REMOVE), { onRemove(); confirmDelete = false }, kind = ButtonKind.Danger)
+                    AfButton(tr(UiText.CANCEL), { confirmDelete = false })
                 }
             }
         }
@@ -171,8 +164,8 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             onLongClick = { confirmDelete = true },
         )
         .padding(horizontal = 16.dp, vertical = 12.dp)
-    val mode = if (e.mode == Mode.MUSIC_VIDEO) "Music Video" else "Movie Recap"
-    val shots = "${e.acceptedShots}/${e.totalShots} shots"
+    val mode = if (e.mode == Mode.MUSIC_VIDEO) tr(UiText.MUSIC_VIDEO) else tr(UiText.MOVIE_RECAP)
+    val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
     val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted
     if (LocalCompact.current) {
         // Phone: name, then one wrapped line of facts; the folder path is left out (it is app storage, D-27).
@@ -181,15 +174,15 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             if (row.missing) {
                 AfText(e.path, muted = true, size = 11.sp, mono = true)
                 WrapRow {
-                    AfText("Folder not found", color = AutoFlowColors.Amber)
-                    AfButton("Remove from list", onRemove, kind = ButtonKind.Danger)
+                    AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
+                    AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
                 }
             } else {
                 WrapRow(spacing = 10.dp) {
                     AfText(mode, muted = true)
                     AfText(e.ratio.label, muted = true)
                     AfText(shots, color = shotsColor)
-                    AfText(relativeTime(e.lastOpenedAt, now), muted = true)
+                    AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), muted = true)
                     // Long-press the row to remove. No visible delete button — cleaner UI.
                 }
             }
@@ -202,25 +195,25 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             AfText(e.path, muted = true, size = 11.sp, mono = true)
         }
         if (row.missing) {
-            AfText("Folder not found", color = AutoFlowColors.Amber)
-            AfButton("Remove from list", onRemove, kind = ButtonKind.Danger)
+            AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
+            AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
         } else {
             AfText(mode, muted = true)
             AfText(e.ratio.label, muted = true)
             AfText(shots, color = shotsColor)
-            AfText(relativeTime(e.lastOpenedAt, now), muted = true)
+            AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), muted = true)
         }
     }
 }
 
 /** "just now", "5 min ago", "3 h ago", "2 days ago", else the UTC date; no time-zone library needed. */
-fun relativeTime(then: Instant, now: Instant): String {
+fun relativeTime(then: Instant, now: Instant, language: UiLanguage = UiLanguage.ENGLISH): String {
     val d: Duration = now - then
     return when {
-        d.inWholeMinutes < 1 -> "just now"
-        d.inWholeHours < 1 -> "${d.inWholeMinutes} min ago"
-        d.inWholeDays < 1 -> "${d.inWholeHours} h ago"
-        d.inWholeDays < 30 -> if (d.inWholeDays == 1L) "yesterday" else "${d.inWholeDays} days ago"
+        d.inWholeMinutes < 1 -> UiText.JUST_NOW.text(language)
+        d.inWholeHours < 1 -> UiText.MINUTES_AGO.text(language, "n" to d.inWholeMinutes)
+        d.inWholeDays < 1 -> UiText.HOURS_AGO.text(language, "n" to d.inWholeHours)
+        d.inWholeDays < 30 -> if (d.inWholeDays == 1L) UiText.YESTERDAY.text(language) else UiText.DAYS_AGO.text(language, "n" to d.inWholeDays)
         else -> then.toString().take(10)
     }
 }

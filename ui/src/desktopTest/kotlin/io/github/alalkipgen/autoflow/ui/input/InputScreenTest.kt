@@ -1,5 +1,11 @@
 package io.github.alalkipgen.autoflow.ui.input
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -58,7 +64,7 @@ class InputScreenTest {
     @Test
     fun withoutAProjectItPointsToTheDashboard() = runComposeUiTest {
         setContent { InputScreen(InputModel(session, jobs), jobs, onGenerated = {}) }
-        onNodeWithText(NO_PROJECT_TEXT).assertExists()
+        onNodeWithText(UiText.OPEN_PROJECT_FIRST.en).assertExists()
     }
 
     @Test
@@ -67,7 +73,7 @@ class InputScreenTest {
         var generated = 0
         setContent { InputScreen(InputModel(session, jobs), jobs, onGenerated = { generated++ }) }
         onNodeWithText("• Add the lyrics").assertExists()
-        onNodeWithText(GENERATE_BUTTON).assertIsNotEnabled()
+        onNodeWithText(UiText.GENERATE_STORYBOARD.en).assertIsNotEnabled()
 
         onNodeWithContentDescription("Lyrics", substring = true).performTextInput("[Chorus]\nမိုးတွေရွာနေတယ်")
         onNodeWithContentDescription("Duration (m:ss)").performTextInput("0:30")
@@ -78,7 +84,7 @@ class InputScreenTest {
         assertEquals(Ratio.R16_9, onDisk().settings.ratio, "chips save at once")
         assertEquals("Anime", onDisk().settings.videoStyle)
 
-        onNodeWithText(GENERATE_BUTTON).performScrollTo().assertIsEnabled().performClick()
+        onNodeWithText(UiText.GENERATE_STORYBOARD.en).performScrollTo().assertIsEnabled().performClick()
         onNodeWithText("about 4 shots of 8s", substring = true).assertExists()
         onNodeWithText("Generate").performScrollTo().performClick()
         waitForIdle()
@@ -98,13 +104,13 @@ class InputScreenTest {
             }
         }
         onNodeWithText("Regenerating shot 2…").assertExists()
-        onNodeWithText(GENERATE_BUTTON).performScrollTo().assertIsNotEnabled()
+        onNodeWithText(UiText.GENERATE_STORYBOARD.en).performScrollTo().assertIsNotEnabled()
         onNodeWithText("16:9").performScrollTo().performClick()
         assertEquals(Ratio.R9_16, onDisk().settings.ratio, "locked")
         onNodeWithText("Cancel").performClick()
         waitForIdle()
         onNodeWithText(StoryboardJobs.CANCELLED.message).assertExists()
-        onNodeWithText(GENERATE_BUTTON).assertExists()
+        onNodeWithText(UiText.GENERATE_STORYBOARD.en).assertExists()
     }
 
     @Test
@@ -118,4 +124,22 @@ class InputScreenTest {
         waitForIdle()
         assertEquals("nostalgic", onDisk().settings.mood)
     }
+    @Test
+    fun burmeseControlsKeepEnglishPromptValuesAndBurmeseLyrics() = runDesktopComposeUiTest(width = 412, height = 760) {
+        open()
+        setContent { CompositionLocalProvider(LocalUiLanguage provides UiLanguage.BURMESE) {
+            InputScreen(InputModel(session, jobs), jobs, onGenerated = {})
+        } }
+        onNodeWithContentDescription(UiText.LYRICS_HINT.my!!).performTextInput("မိုးတွေရွာနေတယ်")
+        onNodeWithText(UiText.STYLE_CINEMATIC.my!!).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        waitForIdle()
+        assertEquals("Cinematic", onDisk().settings.videoStyle, "only the display label is translated")
+        assertEquals("မိုးတွေရွာနေတယ်", session.readLyrics())
+        onNodeWithText(UiText.MODE_MIXED.my!!).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        waitForIdle()
+        assertEquals(io.github.alalkipgen.autoflow.core.model.StoryboardMode.MIXED, onDisk().settings.storyboardMode)
+        onNodeWithText(UiText.GENERATE_STORYBOARD.my!!).performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+        assertEquals("Rain", onDisk().name)
+    }
+
 }

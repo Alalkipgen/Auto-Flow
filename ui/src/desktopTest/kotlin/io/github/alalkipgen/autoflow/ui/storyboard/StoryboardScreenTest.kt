@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.storyboard
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -59,7 +60,7 @@ class StoryboardScreenTest {
         open(generate = false)
         var went = 0
         setContent { StoryboardScreen(model, jobs, onGoToInput = { went++ }) }
-        onNodeWithText(NO_STORYBOARD_TEXT).assertExists()
+        onNodeWithText(UiText.STORYBOARD_EMPTY.en).assertExists()
         onNodeWithText("Go to Input").performClick()
         assertEquals(1, went)
     }
@@ -70,12 +71,12 @@ class StoryboardScreenTest {
         setContent { StoryboardScreen(model, jobs, onGoToInput = {}) }
         onNodeWithText("0/4 approved").assertExists()
         onNodeWithText("0:24–0:30").assertExists()
-        onAllNodesWithText(APPROVE)[0].performClick()
+        onAllNodesWithText("✓ ${UiText.APPROVE.en}")[0].performClick()
         waitForIdle()
         onNodeWithText("1/4 approved").assertExists()
         assertTrue(shots[0].approvals.storyboard)
 
-        onAllNodesWithText(EDIT)[1].performScrollTo().performClick()
+        onAllNodesWithText("✎ ${UiText.EDIT.en}")[1].performScrollTo().performClick()
         waitForIdle()
         onNodeWithContentDescription("Burmese scene").performTextClearance()
         onNodeWithContentDescription("Burmese scene").performTextInput("ကော်ဖီဆိုင်ထဲမှာ")
@@ -99,7 +100,7 @@ class StoryboardScreenTest {
         model.approveAll()
         setContent { StoryboardScreen(model, jobs, onGoToInput = {}) }
         val before = shots[1].spec
-        onAllNodesWithText(REGENERATE)[1].performScrollTo().performClick()
+        onAllNodesWithText("↻ ${UiText.REGENERATE.en}")[1].performScrollTo().performClick()
         waitForIdle()
         onNodeWithText("Uses 1 AI request", substring = true).assertExists()
         onNodeWithText("Regenerate").performScrollTo().performClick()
@@ -127,7 +128,7 @@ class StoryboardScreenTest {
             }
         }
         onNodeWithText("Regenerating shot #02…").assertExists()
-        onAllNodesWithText(APPROVE)[0].assertIsNotEnabled()
+        onAllNodesWithText("✓ ${UiText.APPROVE.en}")[0].assertIsNotEnabled()
         onNodeWithText("Cancel").performClick()
         waitForIdle()
         onNodeWithText(StoryboardJobs.CANCELLED.message).assertExists()

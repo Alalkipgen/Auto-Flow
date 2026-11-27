@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.di
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.ai.registry.AiHost
 import io.github.alalkipgen.autoflow.ai.registry.ProviderRegistry
 import io.github.alalkipgen.autoflow.ai.usage.UsageCounter
@@ -52,15 +53,16 @@ val uiModule = module {
     single { ProjectIndex(get(), get<AppDirs>().projectsIndex) }
     single { CurrentProject() }
     factory { DashboardModel(get(), get(), get(), get(), get(), get(), get<AppDirs>().projectsHome, modelConfig = getOrNull()) }
-    single { BackupModel(getOrNull(), get(), get(), MainScope(), filePicker = getOrNull(), appDirs = getOrNull()) }
+    single { BackupModel(getOrNull(), get(), get(), MainScope(), filePicker = getOrNull(), appDirs = getOrNull(),
+        language = { io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     single { ProjectSession(get(), get(), get(), get()) }
     single { StoryboardService(get(), get()) }
     single { StoryboardJobs(get(), MainScope()) }
     single { MediaTools(get(), get(), getOrNull()) }
-    factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull()) }
+    factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     factory { StoryboardModel(get(), get(), get(), media = get()) }
     factory { ShotsModel(get()) }
-    factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get()) }
+    factory { ReferencesModel(session = get(), clipboard = get(), urlOpener = get(), filePicker = get(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     factory { InboxModel(session = get(), fs = get()) }
     single { SharedInbox(get(), get(), joinPath(get<AppDirs>().projectsHome ?: get<AppDirs>().root, SharedInbox.DIR_NAME)) }
     factory {
@@ -71,6 +73,7 @@ val uiModule = module {
             urlOpener = get(),
             filePicker = get(),
             flowUrl = cfg.flow.url,
+            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) },
             creditHintFast = cfg.flow.creditsHint["fast"] ?: 20,
             creditHintQuality = cfg.flow.creditsHint["quality"] ?: 100,
             fs = get(),
@@ -82,7 +85,7 @@ val uiModule = module {
     // Movie Recap (D-33): a single, so copying / finding scenes keeps going off-screen.
     // Exact frames (D-42): one recap job + still renderer shared by the Recap Style preview and Export.
     single { io.github.alalkipgen.autoflow.ui.export.RecapFrames(get(), get(), get(), media = getOrNull(), builtInFonts = getOrNull(), lexicon = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon) }
-    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull(), frames = getOrNull(), jobs = getOrNull(), lexicons = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, modelConfig = get(), transcriber = getOrNull(), usage = getOrNull()) }
+    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull(), frames = getOrNull(), jobs = getOrNull(), lexicons = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, modelConfig = get(), transcriber = getOrNull(), usage = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull(), frames = getOrNull()) }
     // Library (5A-7)
     single { io.github.alalkipgen.autoflow.core.library.LibraryStore(get(), get<AppDirs>().library) }

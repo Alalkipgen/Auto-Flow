@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.storyboard
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardBrief
 import io.github.alalkipgen.autoflow.ai.storyboard.StoryboardGenerator
@@ -27,7 +28,7 @@ import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 sealed interface StoryboardResult {
     data object Done : StoryboardResult
     data class Blocked(val blockers: List<Blocker>) : StoryboardResult
-    data class Failed(val message: String) : StoryboardResult
+    data class Failed(val message: String, val notice: UiNotice? = null) : StoryboardResult
 }
 
 /**

@@ -2,17 +2,22 @@ package io.github.alalkipgen.autoflow.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import io.github.alalkipgen.autoflow.media.playback.MovieRequest
+import io.github.alalkipgen.autoflow.media.playback.MovieSnapshot
 
-/**
- * Whether the movie can play under the Recap preview's boxes and caption (5A-8, D-42): Android plays it with the
- * ExoPlayer the app already ships; the desktop has no video player without a new dependency (D-65), so it keeps
- * the still frame and Exact frame.
- */
+/** Platform surface only; native decoder ownership lives in :media, never in common screen/business logic. */
 expect val moviePlaybackSupported: Boolean
 
-/**
- * Plays the movie file [path] from [startMs] to [endMs] in a loop, muted, stretched to this box (the preview box has
- * the movie's shape, like the still frame it replaces). Only called when [moviePlaybackSupported].
- */
+/** Source-clock controlled, muted movie under Compose overlays. A changed seekRevision applies one seek.
+ * Optional frame feed reuses this decoder (never a second player or repeated Exact frame). [frameSize] describes
+ * the source aspect for Android TextureView capture, not the output-frame aspect. */
 @Composable
-expect fun MoviePlayback(path: String, startMs: Long, endMs: Long, modifier: Modifier = Modifier)
+expect fun MoviePlayback(
+    path: String,
+    request: MovieRequest,
+    modifier: Modifier = Modifier,
+    vlcDir: String? = null,
+    frameSize: androidx.compose.ui.unit.IntSize? = null,
+    onFrame: ((androidx.compose.ui.graphics.ImageBitmap) -> Unit)? = null,
+    onSnapshot: (MovieSnapshot) -> Unit = {},
+)

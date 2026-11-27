@@ -68,4 +68,19 @@ class ShellModelTest {
         assertTrue(s.steps.first { it.step == PipelineStep.STORYBOARD }.done)
         assertEquals(PipelineStep.PROMPTS, s.steps.single { it.current }.step)
     }
+    @Test
+    fun translatingDisplayPreservesRouteKeysGateStatesAndProjectBytes() {
+        open()
+        val path = "/p/Rain.autoflow/project.json"
+        val before = fs.read(path)
+        val english = model.current()
+        val burmese = model.current(io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.BURMESE)
+        assertEquals(english.locks.keys, burmese.locks.keys)
+        assertEquals(io.github.alalkipgen.autoflow.ui.i18n.UiText.LOCK_STORYBOARD.my, burmese.locks["Shots"])
+        assertEquals(english.steps.map { Triple(it.step, it.done, it.current) }, burmese.steps.map { Triple(it.step, it.done, it.current) })
+        assertEquals(io.github.alalkipgen.autoflow.ui.i18n.UiText.INPUT.my, burmese.steps.first().label)
+        assertEquals(english, model.current())
+        kotlin.test.assertContentEquals(before, fs.read(path))
+    }
+
 }

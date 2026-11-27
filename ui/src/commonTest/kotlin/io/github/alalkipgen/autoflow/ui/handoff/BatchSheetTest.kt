@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.handoff
 
+import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.InMemoryFileSystem
 import io.github.alalkipgen.autoflow.core.model.Approvals
@@ -79,7 +80,8 @@ class BatchSheetTest {
         assertEquals(listOf(1, 2), s.rows.filter { it.batchable }.map { it.number })
         assertEquals(listOf(1, 2), s.rows.filter { it.inBatch }.map { it.number })
         assertEquals(2, s.batchCount)
-        assertEquals("Batch စာရွက် — စောင့်နေသော shot 2 ခုအနက် 2 ခု ရွေးထား", batchSummary(2, 2))
+        assertEquals("Batch sheet — 2 selected of 2 pending shots", batchSummary(2, 2))
+        assertEquals("Batch စာရွက် — စောင့်နေသော shot 2 ခုအနက် 2 ခု ရွေးထား", batchSummary(2, 2, UiLanguage.BURMESE))
 
         model.toggleBatch(2)
         assertEquals(1, model.current().batchCount)

@@ -1,5 +1,8 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
+import io.github.alalkipgen.autoflow.ui.i18n.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,13 +34,13 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
     val controls = model.voiceSettings
     var draft by remember(state.projectDir) { mutableStateOf<VoiceChangeDraft?>(null) }
     val lock = recap.voiceLock
-    AfText(lock?.let { "${it.provider} · ${it.model.ifBlank { "configured default (first take)" }} · ${it.voice} · 🔒 သော့ခတ်ထား" }
-        ?: "အသံ သော့မခတ်ရသေးပါ — ပထမဆုံး TTS အဖြေက သူ့ model ကို သော့ခတ်မယ်။")
-    AfButton("အသံ ပြောင်းမယ်…", { draft = controls.begin() }, enabled = idle, modifier = Modifier.testTag("change-voice"))
-    AfText("Model အလုပ်များရင် ခဏရပ်မယ်၊ model / provider ကို အလိုအလျောက် မပြောင်းပါ။ အသံသွင်းထားတာနဲ့ ထည့်ထားတဲ့ အသံတွေ မပြောင်းပါ။", muted = true)
+    AfText(lock?.let { tr(UiText.VOICE_LOCK_STATUS, "provider" to (it.provider), "ifBlankconfigureddef" to (it.model.ifBlank { tr(UiText.VOICE_CONFIG_DEFAULT) }), "voice" to (it.voice)) }
+        ?: tr(UiText.VOICE_NOT_LOCKED))
+    AfButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, enabled = idle, modifier = Modifier.testTag("change-voice"))
+    AfText(tr(UiText.VOICE_LOCK_POLICY), muted = true)
     val captured = draft ?: return
     Dialog(onDismissRequest = { draft = null }) {
-        AfCard("အသံ ပြောင်းမယ်…", modifier = Modifier.fillMaxWidth()) {
+        AfCard(tr(UiText.CHANGE_VOICE), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 var selectedModel by remember(captured) { mutableStateOf(lock?.model?.takeIf { it in controls.models } ?: controls.models.firstOrNull().orEmpty()) }
                 var voice by remember(captured) { mutableStateOf(lock?.voice ?: "Charon") }
@@ -45,12 +48,12 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
                 val next = VoiceLock("gemini", selectedModel, voice, "my")
                 val affected = controls.affected(captured.project.recap!!, captured.story, next)
                 val requests = controls.regenerationCount(captured, next, state.lexicon)
-                AfText("မြန်မာလို ပြောနိုင်သော model များ (config/models.json)", muted = true)
-                if (controls.models.isEmpty()) AfText("မြန်မာလို ပြောနိုင်သော model မသတ်မှတ်ရသေးပါ။ Model ဆက်တင်ကို စစ်ပါ။", color = AutoFlowColors.Amber)
+                AfText(tr(UiText.BURMESE_TTS_MODELS), muted = true)
+                if (controls.models.isEmpty()) AfText(tr(UiText.BURMESE_MODELS_MISSING), color = AutoFlowColors.Amber)
                 WrapRow { controls.models.forEach { id -> AfChip(id, selectedModel == id, { selectedModel = id }) } }
-                WrapRow { RecapModel.TTS_VOICES.forEach { (name, kind) -> AfChip("$name · $kind", voice == name, { voice = name }) } }
-                AfText("ရွေးထားသော TTS take ${affected.size} ခု အသံ မတူ / အသံ မသိ ဖြစ်မယ်: " + affected.joinToString { "#${it + 1}" }, modifier = Modifier.testTag("voice-change-impact"))
-                AfText("အသံဟောင်း၊ take မှတ်တမ်း၊ စာတန်းနဲ့ အတည်ပြုချက်တွေ ကျန်မယ်။ ပြန်ပြောရင် take အသစ် ထပ်ထည့်တယ်၊ အဟောင်းကို မဖျက်ပါ။", muted = true)
+                WrapRow { RecapModel.TTS_VOICES.forEach { (name, kind) -> AfChip("$name · ${ttsVoiceKind(name)}", voice == name, { voice = name }) } }
+                AfText(tr(UiText.VOICE_CHANGE_IMPACT, "size" to (affected.size)) + affected.joinToString { "#${it + 1}" }, modifier = Modifier.testTag("voice-change-impact"))
+                AfText(tr(UiText.VOICE_CHANGE_PRESERVES), muted = true)
                 error?.let { AfText(it, color = AutoFlowColors.Amber) }
                 fun commit(regenerate: Boolean) {
                     error = controls.apply(captured, next)
@@ -60,11 +63,11 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
                     }
                 }
                 WrapRow {
-                    AfButton("Take ဟောင်းတွေ ထားမယ်", { commit(false) }, enabled = selectedModel.isNotBlank(), modifier = Modifier.testTag("voice-keep"))
+                    AfButton(tr(UiText.KEEP_OLD_TAKES), { commit(false) }, enabled = selectedModel.isNotBlank(), modifier = Modifier.testTag("voice-keep"))
                     val seconds = requests * 60L / RecapModel.TTS_RPM
-                    AfButton("အပိုင်း $requests ခု ပြန်ပြောမယ် (≈ ${(seconds + 59) / 60} မိနစ်)", { commit(true) }, kind = ButtonKind.Primary,
+                    AfButton(tr(UiText.REGENERATE_TAKES, "requests" to (requests), "seconds5960" to ((seconds + 59) / 60)), { commit(true) }, kind = ButtonKind.Primary,
                         enabled = selectedModel.isNotBlank() && requests > 0, modifier = Modifier.testTag("voice-regenerate"))
-                    AfButton(io.github.alalkipgen.autoflow.ui.i18n.My.CANCEL, { draft = null })
+                    AfButton(tr(UiText.CANCEL), { draft = null })
                 }
             }
         }
@@ -74,8 +77,8 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
 @Composable
 internal fun TakeVoiceLabel(take: io.github.alalkipgen.autoflow.core.recap.BlockTake?, lock: VoiceLock?) {
     when (take?.voiceStatus(lock)) {
-        TakeVoiceStatus.DIFFERENT -> AfText(DIFFERENT_VOICE, color = AutoFlowColors.Amber)
-        TakeVoiceStatus.UNKNOWN -> AfText("အသံ မသိ", color = AutoFlowColors.Amber)
+        TakeVoiceStatus.DIFFERENT -> AfText(tr(UiText.DIFFERENT_VOICE), color = AutoFlowColors.Amber)
+        TakeVoiceStatus.UNKNOWN -> AfText(tr(UiText.VOICE_UNKNOWN), color = AutoFlowColors.Amber)
         else -> Unit
     }
 }

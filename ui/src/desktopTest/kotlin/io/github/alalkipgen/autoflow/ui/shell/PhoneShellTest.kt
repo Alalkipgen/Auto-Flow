@@ -1,6 +1,9 @@
 package io.github.alalkipgen.autoflow.ui.shell
 
 import io.github.alalkipgen.autoflow.ui.TestApp
+import androidx.compose.ui.test.*
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.settings.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -54,7 +57,7 @@ class PhoneShellTest {
         )
     }.koin
 
-    private fun tab(label: String) = hasText(label, substring = true) and isSelectable()
+    private fun tab(label: String) = (hasText(label, substring = true) or hasContentDescription(label)) and isSelectable()
 
     @Test
     fun phoneWidthShowsBottomTabsAndCreatesAProject() = runDesktopComposeUiTest(width = 412, height = 900) {
@@ -94,7 +97,7 @@ class PhoneShellTest {
         onNode(tab(MORE)).assertIsSelected()
         onNode(tab("Projects")).assertIsNotSelected()
         MoreScreens.filter { it != "Settings" && it in ShellModel.SCREEN_STEPS }.forEach { onNodeWithText("$it $LOCK_GLYPH").assertExists() }
-        onNodeWithText("Settings").performClick()
+        onNodeWithText(UiText.SETTINGS_TITLE.text(UiLanguage.ENGLISH)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         onNodeWithText("AI providers").assertExists()
         onNode(tab(MORE)).assertIsSelected()
@@ -108,7 +111,7 @@ class PhoneShellTest {
         assertNull(back, "Back on Projects leaves the app")
         onNode(tab(MORE)).performClick()
         waitForIdle()
-        onNodeWithText("Settings").performClick()
+        onNodeWithText(UiText.SETTINGS_TITLE.text(UiLanguage.ENGLISH)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         onNodeWithText("AI providers").assertExists()
         assertNotNull(back).invoke()
@@ -143,6 +146,30 @@ class PhoneShellTest {
         onNodeWithText("MODE").assertExists()
         onNode(hasText("Flow Handoff") and isSelectable()).assertExists()
         onNodeWithText("Inbox").assertDoesNotExist()
+    }
+
+    @Test
+    fun realAppSettingsClicksRetranslateClassicNavigationAndProviderStatus() = runDesktopComposeUiTest(width = 412, height = 760) {
+        val koin = startPhoneKoin()
+        val settings = koin.get<SettingsStore>()
+        val providers = koin.get<ProviderStatusModel>()
+        setContent { TestApp() }
+        for (language in listOf(UiLanguage.BURMESE, UiLanguage.ENGLISH)) {
+            val old = UiLanguage.fromCode(settings.state.value.uiLanguage)
+            onNode(tab(My.screen(MORE, old))).assertIsDisplayed().performMouseInput { click() }
+            onNodeWithText(UiText.SETTINGS_TITLE.text(old)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            onNodeWithTag("language-${language.code}").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            waitForIdle()
+            assertEquals(language.code, settings.state.value.uiLanguage)
+            onNode(tab(My.screen(MORE, language))).assertIsDisplayed().assertIsSelected()
+            onNodeWithText(providers.current()).assertIsDisplayed()
+            assertEquals(providerStatus(settings.state.value.useFakeProviders,
+                KeyState.MISSING, language), providers.current())
+            onNode(tab(My.screen("Shots", language))).assertIsDisplayed().performMouseInput { click() }
+            onNodeWithText(UiText.LOCK_NO_PROJECT.text(language)).assertIsDisplayed()
+            onNode(tab(My.screen(MORE, language))).assertIsSelected()
+            assertNull(koin.get<CurrentProject>().state.value)
+        }
     }
 
     @Test

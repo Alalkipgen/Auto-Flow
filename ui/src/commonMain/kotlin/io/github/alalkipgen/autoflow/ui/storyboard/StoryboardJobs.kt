@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.storyboard
 
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -9,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /** [running] is the label of the job in progress; [last] is the outcome of the previous one. */
-data class JobState(val running: String? = null, val last: StoryboardResult? = null)
+data class JobState(val running: String? = null, val last: StoryboardResult? = null, val notice: UiNotice? = null)
 
 /**
  * Runs one AI storyboard job at a time in an app-wide [scope], so it survives screen changes and every screen can
@@ -24,9 +25,9 @@ class StoryboardJobs(private val service: StoryboardService, private val scope: 
     val busy: Boolean get() = _state.value.running != null
 
     /** Starts [block] unless another job runs (returns false). [onDone] gets the result on the job's thread. */
-    fun run(label: String, onDone: (StoryboardResult) -> Unit = {}, block: suspend StoryboardService.() -> StoryboardResult): Boolean {
+    fun run(label: String, onDone: (StoryboardResult) -> Unit = {}, notice: UiNotice? = null, block: suspend StoryboardService.() -> StoryboardResult): Boolean {
         if (busy) return false
-        _state.value = JobState(running = label)
+        _state.value = JobState(running = label, notice = notice)
         val launched = scope.launch {
             val result = try {
                 service.block()
@@ -54,6 +55,6 @@ class StoryboardJobs(private val service: StoryboardService, private val scope: 
     }
 
     companion object {
-        val CANCELLED = StoryboardResult.Failed("Cancelled. Nothing was changed.")
+        val CANCELLED = StoryboardResult.Failed("Cancelled. Nothing was changed.", UiNotice(UiText.CANCELLED_UNCHANGED))
     }
 }

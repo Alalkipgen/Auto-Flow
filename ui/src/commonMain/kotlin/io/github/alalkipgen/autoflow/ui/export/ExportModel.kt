@@ -10,6 +10,7 @@ import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.recap.ExportQuality
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.recap.PreflightCheck
 import io.github.alalkipgen.autoflow.core.recap.PublishKit
 import io.github.alalkipgen.autoflow.core.recap.PublishKitText
@@ -103,6 +104,7 @@ data class RecapExport(
     val publishKit: PublishKit = PublishKit(),
     /** Pre-flight items (5B-9): computed from data, no render required. */
     val preflight: List<PreflightCheck.Item> = emptyList(),
+    val workflowBlocker: io.github.alalkipgen.autoflow.core.workflow.Blocker? = null,
     /** Chapters from the story blocks' start times in the export (5B-10), used when the kit has none of its own. */
     val chapters: List<io.github.alalkipgen.autoflow.core.recap.PublishChapter> = emptyList(),
 )
@@ -124,6 +126,8 @@ data class ExportUiState(
     val unavailable: String? = null,
     val run: ExportRun? = null,
     val message: String? = null,
+    /** Resolve action results at display time, including after a UI-language switch. */
+    val notice: UiNotice? = null,
     /** [message] is good news (green), e.g. where Save to Gallery put the copy. */
     val messageOk: Boolean = false,
     val savingToGallery: Boolean = false,
@@ -234,7 +238,7 @@ class ExportModel(
     /** Share sheet for [last]; only while its project is open. */
     fun shareLast(last: LastRender) {
         if (session.open?.dir != last.projectDir) return
-        result(share?.share(last.output, MP4, "Share the video") ?: PlatformResult.Unsupported(NO_SHARE))
+        result(share?.share(last.output, MP4, shareTitle(UiText.EXPORT_SHARE_VIDEO)) ?: PlatformResult.Unsupported(NO_SHARE))
     }
 
     /**
@@ -249,7 +253,7 @@ class ExportModel(
         val times = frames.sampleTimes(max, open)
         if (times.isEmpty()) return say(NO_RECAP_JOB)
         val start = ExportThumbs(open.dir, fingerprint, times)
-        _state.value = _state.value.copy(thumbs = start, message = null)
+        _state.value = _state.value.copy(thumbs = start, message = null, notice = null)
         scope.launch {
             val made = mutableListOf<RecapFrames.Frame>()
             for (t in times) {
@@ -287,13 +291,13 @@ class ExportModel(
         val previous = _state.value.publishThumb?.takeIf { it.projectDir == open.dir }
         if (previous?.working == true) return
         val title = open.project.recap?.publishKit?.title?.trim().orEmpty()
-        if (title.isEmpty()) return say("Write the video title and press Save first.")
+        if (title.isEmpty()) return say("Write the video title and press Save first.", UiNotice(UiText.EXPORT_WRITE_TITLE_FIRST))
         val fingerprint = frames.fingerprint(open) ?: return say(NO_RECAP_JOB)
         val at = atMs ?: previous?.atMs ?: frames.firstTime(open) ?: return say(NO_RECAP_JOB)
         val exports = joinPath(open.dir, EXPORTS_DIR)
         val file = joinPath(open.dir, PublishKitText.thumbPath(EXPORT_NAME))
         val working = PublishThumb(open.dir, file, at, title, frame = previous?.frame, working = true)
-        _state.value = _state.value.copy(publishThumb = working, message = null)
+        _state.value = _state.value.copy(publishThumb = working, message = null, notice = null)
         scope.launch {
             val still = joinPath(joinPath(open.dir, RecapFrames.FRAMES_DIR), "thumb-$at.jpg")
             val r = withContext(Dispatchers.Default) { frames.thumbnail(open, at, title, still) }
@@ -322,8 +326,8 @@ class ExportModel(
     fun sharePublishThumbnail() {
         val open = session.open ?: return
         val thumb = _state.value.publishThumb?.takeIf { it.projectDir == open.dir && it.frame != null && !it.working } ?: return
-        if (!fs.exists(thumb.file)) return say("The thumbnail file is gone; make it again.")
-        result(share?.share(thumb.file, JPEG, "Share the thumbnail") ?: PlatformResult.Unsupported(NO_SHARE))
+        if (!fs.exists(thumb.file)) return say("The thumbnail file is gone; make it again.", UiNotice(UiText.EXPORT_THUMB_GONE))
+        result(share?.share(thumb.file, JPEG, shareTitle(UiText.EXPORT_SHARE_THUMB)) ?: PlatformResult.Unsupported(NO_SHARE))
     }
 
     /** The thumbnail saved in [open]'s exports with its record: stale when the title or the picture changed since. */
@@ -347,11 +351,16 @@ class ExportModel(
 
     /** Copies [text] to the clipboard; shows a message on success/failure. */
     fun copyPublishText(text: String, label: String) {
-        val cb = clipboard ?: return say("Clipboard is not available here")
+        val cb = clipboard ?: return say("Clipboard is not available here", UiNotice(UiText.CLIPBOARD_UNAVAILABLE))
+        val field: Any = when (label) {
+            "title" -> UiNotice(UiText.TITLE)
+            "description" -> UiNotice(UiText.DESCRIPTION)
+            else -> label
+        }
         when (cb.copyText(text)) {
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> say("Copied $label")
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> say("Cannot copy $label")
-            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> say("Clipboard is not supported here")
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Ok -> say("Copied $label", UiNotice(UiText.COPIED_FIELD, "field" to field))
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Failed -> say("Cannot copy $label", UiNotice(UiText.COPY_FAILED_FIELD, "field" to field))
+            is io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported -> say("Clipboard is not supported here", UiNotice(UiText.CLIPBOARD_UNSUPPORTED))
         }
     }
 
@@ -364,9 +373,9 @@ class ExportModel(
         try {
             fs.createDirectories(joinPath(open.dir, "exports"))
             fs.writeDurably(path, PublishKitText.file(kit).encodeToByteArray())
-            result(share?.share(path, "text/plain", "Share publish kit") ?: io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported(NO_SHARE))
+            result(share?.share(path, "text/plain", shareTitle(UiText.EXPORT_SHARE_KIT)) ?: io.github.alalkipgen.autoflow.platform.PlatformResult.Unsupported(NO_SHARE))
         } catch (e: Exception) {
-            say("Cannot write publish file: ${e.message}")
+            say("Cannot write publish file: ${e.message}", UiNotice(UiText.EXPORT_PUBLISH_FAILED, "detail" to e.message))
         }
     }
 
@@ -389,7 +398,7 @@ class ExportModel(
         val name = if (quality == Quality.PREVIEW) PREVIEW_NAME else EXPORT_NAME
         if (isRecap(open.project)) {
             val job = frames.job(open, quality, font?.family, joinPath(EXPORTS_DIR, name), "${open.project.name} · ${label(quality)}")
-                ?: return say("The recap script cannot be read.")
+                ?: return say("The recap script cannot be read.", UiNotice(UiText.EXPORT_SCRIPT_UNREADABLE))
             return start(q, job, open, quality, name)
         }
         val song = session.songPath()?.let { relative(open.dir, it) }
@@ -407,7 +416,7 @@ class ExportModel(
     private fun start(q: RenderQueue, job: RenderJob, open: OpenProject, quality: Quality, name: String) {
         val id = q.enqueue(job)
         val run = ExportRun(open.dir, quality, id, joinPath(joinPath(open.dir, EXPORTS_DIR), "$name.mp4"), RenderState.Queued)
-        _state.value = _state.value.copy(run = run, message = null)
+        _state.value = _state.value.copy(run = run, message = null, notice = null)
         watching?.cancel()
         watching = scope.launch {
             q.observe(id).transformWhile { emit(it); !it.finished }.collect { st ->
@@ -442,6 +451,7 @@ class ExportModel(
             quality = recap.quality,
             publishKit = recap.publishKit ?: PublishKit(),
             preflight = PreflightCheck.check(recap, story, lexicon),
+            workflowBlocker = gate.blockers.firstOrNull(),
             chapters = if (rows.isEmpty() || story == null) emptyList()
             else PublishKitText.chaptersFromBlocks(rows.map { it.clipMs }, story.blocks.map { it.textMy }),
         )
@@ -465,7 +475,7 @@ class ExportModel(
     /** Share sheet for the finished mp4. */
     fun share() {
         val file = finished() ?: return
-        result(share?.share(file, MP4, "Share the video") ?: PlatformResult.Unsupported(NO_SHARE))
+        result(share?.share(file, MP4, shareTitle(UiText.EXPORT_SHARE_VIDEO)) ?: PlatformResult.Unsupported(NO_SHARE))
     }
 
     /**
@@ -478,13 +488,13 @@ class ExportModel(
         val file = finished() ?: return
         val fs = share ?: return say(NO_SHARE)
         if (_state.value.savingToGallery) return
-        _state.value = _state.value.copy(savingToGallery = true, message = null)
+        _state.value = _state.value.copy(savingToGallery = true, message = null, notice = null)
         scope.launch {
             val r = fs.saveToGallery(file, MP4, galleryName(_state.value.projectName ?: "AutoFlow", run))
             _state.value = when (r) {
-                is PlatformResult.Ok -> _state.value.copy(savingToGallery = false, message = "Saved to Gallery ✓ · ${r.value}", messageOk = true)
-                is PlatformResult.Failed -> _state.value.copy(savingToGallery = false, message = r.reason, messageOk = false)
-                is PlatformResult.Unsupported -> _state.value.copy(savingToGallery = false, message = r.reason, messageOk = false)
+                is PlatformResult.Ok -> _state.value.copy(savingToGallery = false, message = "Saved to Gallery ✓ · ${r.value}", notice = UiNotice(UiText.EXPORT_GALLERY_SAVED, "path" to r.value), messageOk = true)
+                is PlatformResult.Failed -> _state.value.copy(savingToGallery = false, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason), messageOk = false)
+                is PlatformResult.Unsupported -> _state.value.copy(savingToGallery = false, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason), messageOk = false)
             }
         }
     }
@@ -499,9 +509,17 @@ class ExportModel(
         }
     }
 
-    private fun say(message: String?) {
-        _state.value = _state.value.copy(message = message, messageOk = false)
+    private fun say(message: String?, notice: UiNotice? = null) {
+        val token = notice ?: when (message) {
+            null -> null
+            NO_SHARE -> UiNotice(UiText.EXPORT_NO_SHARE)
+            NO_RECAP_JOB -> UiNotice(UiText.EXPORT_IMPORT_SCRIPT)
+            else -> UiNotice(UiText.RESULT_DETAIL, "detail" to message)
+        }
+        _state.value = _state.value.copy(message = message, notice = token, messageOk = false)
     }
+
+    private fun shareTitle(key: UiText): String = key.text(UiLanguage.fromCode(settings.state.value.uiLanguage))
 
     private fun videoFile(open: OpenProject, id: ArtifactId): String? {
         val artifact = (session.artifacts()?.get(id) as? CoreResult.Ok)?.value ?: return null
@@ -538,9 +556,10 @@ class ExportModel(
             return "$safe-$kind-$id.mp4"
         }
 
-        fun label(quality: Quality) = if (quality == Quality.PREVIEW) "နမူနာ 540p" else "ထုတ်ယူ 1080p"
+        fun label(quality: Quality, language: UiLanguage = UiLanguage.ENGLISH): String =
+            (if (quality == Quality.PREVIEW) UiText.PREVIEW_BUTTON else UiText.EXPORT_LABEL).text(language)
 
         /** Display label for an [ExportQuality] chip. */
-        fun label(exportQuality: ExportQuality): String = exportQuality.label
+        fun label(exportQuality: ExportQuality, language: UiLanguage = UiLanguage.ENGLISH): String = exportQuality.uiLabel(language)
     }
 }

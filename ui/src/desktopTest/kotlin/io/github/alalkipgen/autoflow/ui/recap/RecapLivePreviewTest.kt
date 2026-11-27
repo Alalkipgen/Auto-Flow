@@ -1,6 +1,13 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
-import androidx.compose.foundation.layout.Column
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performScrollTo
+
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.geometry.Offset
@@ -8,7 +15,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -64,8 +71,8 @@ class RecapLivePreviewTest {
             Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
         val node = onNodeWithTag(MASK_PREVIEW_TAG)
-        // No video player on the desktop (no new dependency, D-65): the still frame stays, no play button.
-        assertFalse(io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported)
+        // Legacy mask placement stays pre-Looks/still; the separate output-timeline card owns playback.
+        assertTrue(io.github.alalkipgen.autoflow.ui.components.moviePlaybackSupported)
         onNodeWithTag(PLAYBACK_TAG).assertDoesNotExist()
         // Touch the middle of the bottom strip (y 0.8–0.97) and drag up by 30 % of the preview height.
         node.performTouchInput {
@@ -127,10 +134,10 @@ class RecapLivePreviewTest {
         val m = open()
         setContent {
             val open by current.state.collectAsState()
-            Column { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { open?.project?.recap?.let { RecapPictureControls(it, idle = true, model = m) } }
         }
-        // A semantics click: with a tall Myanmar fallback font (Windows CI) the button can sit below the test window.
-        onNodeWithText(EXACT_FRAME).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        // Real scroll + visible pointer click; never invoke a hidden control's callback.
+        onNodeWithText(UiText.EXACT_FRAME.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodes(androidx.compose.ui.test.hasText("ffmpeg was not found", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 }
