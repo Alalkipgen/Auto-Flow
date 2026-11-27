@@ -33,13 +33,14 @@ class OnVideoStyleFallbackTest {
             waitUntil(timeoutMillis = 15_000) { onAllNodesWithText("VLC path does not contain", substring = true).fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("output-layer-overlay").assertDoesNotExist(); onNodeWithTag("layer-move-handle").assertDoesNotExist()
             onNodeWithTag("layer-percent-0").performScrollTo().assertIsDisplayed().assertIsEnabled()
-            onNode(hasText(UiText.EXACT_FRAME.en) and hasClickAction()).performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+            // Group 2 A §1: on a phone the Exact frame is the top card's frame button; it waits for Save as before.
+            onNodeWithTag("timeline-exact").assert(hasContentDescription(UiText.EXACT_FRAME.en)).performScrollTo().assertIsDisplayed().assertIsNotEnabled()
             val evidence = onVideoEvidence("fallback")
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(evidence, "style-unsaved-exact-disabled.png"))
             onNodeWithText("VLC path does not contain", substring = true).performScrollTo().assertIsDisplayed()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(evidence, "style-vlc-unavailable-unsaved.png"))
             onNodeWithTag("layer-cancel").performScrollTo().assertIsDisplayed().performMouseInput { click() }
-            onNode(hasText(UiText.EXACT_FRAME.en) and hasClickAction()).performScrollTo().assertIsDisplayed().assertIsEnabled()
+            onNodeWithTag("timeline-exact").assert(hasContentDescription(UiText.EXACT_FRAME.en)).performScrollTo().assertIsDisplayed().assertIsEnabled()
             assertEquals(before, h.bytes())
         }
     }

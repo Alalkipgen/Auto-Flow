@@ -120,7 +120,9 @@ class StudioExportLayoutTest(val width: Int, val font: Float, val language: UiLa
                 assertProjectPanesAndStickyActions(width, "export-render", "export-preview")
                 // F-5 (D-94): the live preview (picture + voice + music) is on the Export step before any render, on a phone too.
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("timeline-play").fetchSemanticsNodes().isNotEmpty() }
-                onNodeWithTag("timeline-sound-hint").assertExists()
+                // Group 2 A §1: on a phone the top card's caption names picture + voice + music instead of the hint.
+                if (width >= 840) onNodeWithTag("timeline-sound-hint").assertExists()
+                else onNode(hasText(My.breakSyllables(UiText.V3_PREVIEW_SCOPE.text(language))) and hasAnyAncestor(hasTestTag("recap-top-preview"))).assertExists()
                 fun click(tag: String) = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() }
                 fun title() = onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("publish-title")))
                 fun capture(state: String) {

@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.i18n
 
 import androidx.compose.runtime.Composable
+import io.github.alalkipgen.autoflow.core.text.BurmeseSyllables
 
 /**
  * Burmese UI words shared by the Studio v2 screens (5B-13, D-41, DESIGN.md §6). Labels only: project files, job
@@ -47,24 +48,10 @@ object My {
         }
     }
 
-    private fun isBurmese(c: Char) = c in '\u1000'..'\u109F'
+    private fun isBurmese(c: Char) = BurmeseSyllables.isBurmese(c)
 
-    /** A consonant or independent vowel that starts a syllable: not stacked under one, not a final with asat. */
-    private fun syllableStart(text: String, i: Int): Boolean {
-        val c = text[i]
-        if (c !in '\u1000'..'\u102A' && c != '\u103F') return false
-        if (text[i - 1] == '\u1039') return false
-        var j = i + 1
-        while (j < text.length && isMark(text[j])) {
-            if (text[j] == '\u103A' || text[j] == '\u1039') return false
-            if (text[j] in '\u102B'..'\u1035') return true // a vowel: a later asat belongs to it (ပေါ်, ကော်)
-            j++
-        }
-        return true
-    }
-
-    private fun isMark(c: Char) =
-        isBurmese(c) && (c.category == CharCategory.NON_SPACING_MARK || c.category == CharCategory.COMBINING_SPACING_MARK)
+    /** A consonant or independent vowel that starts a syllable: not stacked under one, not a final with asat (shared with core). */
+    private fun syllableStart(text: String, i: Int): Boolean = BurmeseSyllables.startsAt(text, i)
 
     /** A project screen chip: the key (routing, saved nothing) stays English; the chip shows Burmese. */
     @Composable

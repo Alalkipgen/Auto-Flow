@@ -17,7 +17,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import io.github.alalkipgen.autoflow.ui.components.GlassCallout
+import io.github.alalkipgen.autoflow.ui.components.GlassDialog
+import io.github.alalkipgen.autoflow.ui.components.GlassDialogAction
+import io.github.alalkipgen.autoflow.ui.components.GlassDialogButtons
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.recap.VoiceLock
 import io.github.alalkipgen.autoflow.ui.components.AfButton
@@ -26,63 +30,76 @@ import io.github.alalkipgen.autoflow.ui.components.AfChip
 import io.github.alalkipgen.autoflow.ui.components.AfText
 import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.GlassButton
+import io.github.alalkipgen.autoflow.ui.components.GlassFact
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Explicit lock changes, never a chip that silently changes the voice of future blocks (D-35). */
 @Composable
-internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: RecapV2, idle: Boolean, compact: Boolean = false) {
+internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: RecapV2, idle: Boolean, compact: Boolean = false,
+    glass: Boolean = false) {
     val controls = model.voiceSettings
     var draft by remember(state.projectDir) { mutableStateOf<VoiceChangeDraft?>(null) }
     val lock = recap.voiceLock
-    AfText(lock?.let { tr(UiText.VOICE_LOCK_STATUS, "provider" to (it.provider), "ifBlankconfigureddef" to (it.model.ifBlank { tr(UiText.VOICE_CONFIG_DEFAULT) }), "voice" to (it.voice)) }
-        ?: tr(UiText.VOICE_NOT_LOCKED))
-    AfButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, enabled = idle, modifier = Modifier.testTag("change-voice"))
+    val status = lock?.let { tr(UiText.VOICE_LOCK_STATUS, "provider" to (it.provider), "ifBlankconfigureddef" to (it.model.ifBlank { tr(UiText.VOICE_CONFIG_DEFAULT) }), "voice" to (it.voice)) }
+        ?: tr(UiText.VOICE_NOT_LOCKED)
+    // The lock icon instead of 🔒 (Group 2 A §2); [glass] (Studio Voice): Change voice is a small glass button.
+    GlassFact(if (lock != null) AfIcons.Regular.Lock else AfIcons.Regular.Info, status)
+    if (glass) WrapRow { GlassButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, Modifier.testTag("change-voice"), enabled = idle,
+        icon = AfIcons.Regular.UserSound, small = true) }
+    else AfButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, enabled = idle, modifier = Modifier.testTag("change-voice"))
     if (!compact) AfText(tr(UiText.VOICE_LOCK_POLICY), muted = true)
     val captured = draft ?: return
-    Dialog(onDismissRequest = { draft = null }) {
-        AfCard(tr(UiText.CHANGE_VOICE), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.heightIn(max = 520.dp).paneScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                var selectedModel by remember(captured) { mutableStateOf(lock?.model?.takeIf { it in controls.models } ?: controls.models.firstOrNull().orEmpty()) }
-                var voice by remember(captured) { mutableStateOf(lock?.voice ?: "Charon") }
-                var error by remember { mutableStateOf<String?>(null) }
-                val next = VoiceLock("gemini", selectedModel, voice, "my")
-                val affected = controls.affected(captured.project.recap!!, captured.story, next)
-                val requests = controls.regenerationCount(captured, next, state.lexicon)
-                if (compact) AfText(tr(UiText.VOICE_LOCK_POLICY), muted = true)
-                AfText(tr(UiText.BURMESE_TTS_MODELS), muted = true)
-                if (controls.models.isEmpty()) AfText(tr(UiText.BURMESE_MODELS_MISSING), color = AutoFlowColors.Amber)
-                WrapRow { controls.models.forEach { id -> AfChip(id, selectedModel == id, { selectedModel = id }) } }
-                WrapRow { RecapModel.TTS_VOICES.forEach { (name, kind) -> AfChip("$name · ${ttsVoiceKind(name)}", voice == name, { voice = name }) } }
-                AfText(tr(UiText.VOICE_CHANGE_IMPACT, "size" to (affected.size)) + affected.joinToString { "#${it + 1}" }, modifier = Modifier.testTag("voice-change-impact"))
-                AfText(tr(UiText.VOICE_CHANGE_PRESERVES), muted = true)
-                error?.let { AfText(it, color = AutoFlowColors.Amber) }
-                fun commit(regenerate: Boolean) {
-                    error = controls.apply(captured, next)
-                    if (error == null) {
-                        draft = null
-                        if (regenerate) model.speakAll(confirmed = true, includeDifferentVoice = true)
-                    }
-                }
-                WrapRow {
-                    AfButton(tr(UiText.KEEP_OLD_TAKES), { commit(false) }, enabled = selectedModel.isNotBlank(), modifier = Modifier.testTag("voice-keep"))
-                    val seconds = requests * 60L / RecapModel.TTS_RPM
-                    AfButton(if (compact) tr(UiText.V3_REVOICE_COUNT, "n" to requests) else
-                        tr(UiText.REGENERATE_TAKES, "requests" to (requests), "seconds5960" to ((seconds + 59) / 60)), { commit(true) }, kind = ButtonKind.Primary,
-                        enabled = selectedModel.isNotBlank() && requests > 0, modifier = Modifier.testTag("voice-regenerate"))
-                    AfButton(tr(UiText.CANCEL), { draft = null })
+    // Group 2 C 13c: the glass dialog (user-sound tile), glass chips, the impact as an amber callout, the buttons stacked
+    // in the code's order (Keep old takes · Re-voice · Cancel).
+    GlassDialog({ draft = null }, AfIcons.Fill.UserSound, GlassColors.RecapPink, tr(UiText.CHANGE_VOICE)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            var selectedModel by remember(captured) { mutableStateOf(lock?.model?.takeIf { it in controls.models } ?: controls.models.firstOrNull().orEmpty()) }
+            var voice by remember(captured) { mutableStateOf(lock?.voice ?: "Charon") }
+            var error by remember { mutableStateOf<String?>(null) }
+            val next = VoiceLock("gemini", selectedModel, voice, "my")
+            val affected = controls.affected(captured.project.recap!!, captured.story, next)
+            val requests = controls.regenerationCount(captured, next, state.lexicon)
+            if (compact) GlassFact(AfIcons.Regular.Info, tr(UiText.VOICE_LOCK_POLICY), colour = AutoFlowColors.Muted, caption = true)
+            AfText(tr(UiText.BURMESE_TTS_MODELS), muted = true)
+            if (controls.models.isEmpty()) GlassCallout(AfIcons.Fill.Warn, tr(UiText.BURMESE_MODELS_MISSING), AutoFlowColors.Amber)
+            WrapRow { controls.models.forEach { id -> RecapChip(id, selectedModel == id, { selectedModel = id }) } }
+            WrapRow { RecapModel.TTS_VOICES.forEach { (name, kind) -> RecapChip("$name · ${ttsVoiceKind(name)}", voice == name, { voice = name }) } }
+            val impact = tr(UiText.VOICE_CHANGE_IMPACT, "size" to (affected.size)) + affected.joinToString { "#${it + 1}" }
+            if (affected.isNotEmpty()) GlassCallout(AfIcons.Fill.Warn, impact, AutoFlowColors.Amber, textColour = AutoFlowColors.WarningText,
+                textModifier = Modifier.testTag("voice-change-impact"))
+            else GlassFact(AfIcons.Regular.Info, impact, colour = AutoFlowColors.Muted, caption = true, textModifier = Modifier.testTag("voice-change-impact"))
+            GlassFact(AfIcons.Regular.CheckCircle, tr(UiText.VOICE_CHANGE_PRESERVES), colour = AutoFlowColors.Muted, caption = true)
+            error?.let { GlassCallout(AfIcons.Fill.Warn, it, AutoFlowColors.Amber) }
+            fun commit(regenerate: Boolean) {
+                error = controls.apply(captured, next)
+                if (error == null) {
+                    draft = null
+                    if (regenerate) model.speakAll(confirmed = true, includeDifferentVoice = true)
                 }
             }
+            val seconds = requests * 60L / RecapModel.TTS_RPM
+            GlassDialogButtons(GlassDialogAction(tr(UiText.CANCEL), { draft = null }),
+                GlassDialogAction(tr(UiText.KEEP_OLD_TAKES), { commit(false) }, icon = AfIcons.Regular.ClockCounterClockwise,
+                    enabled = selectedModel.isNotBlank(), tag = "voice-keep"),
+                GlassDialogAction(if (compact) tr(UiText.V3_REVOICE_COUNT, "n" to requests) else
+                    tr(UiText.REGENERATE_TAKES, "requests" to (requests), "seconds5960" to ((seconds + 59) / 60)), { commit(true) }, ButtonKind.Primary,
+                    AfIcons.Regular.Redo, selectedModel.isNotBlank() && requests > 0, "voice-regenerate"))
         }
     }
 }
 
 @Composable
-internal fun TakeVoiceLabel(take: io.github.alalkipgen.autoflow.core.recap.BlockTake?, lock: VoiceLock?) {
-    when (take?.voiceStatus(lock)) {
-        TakeVoiceStatus.DIFFERENT -> AfText(tr(UiText.DIFFERENT_VOICE), color = AutoFlowColors.Amber)
-        TakeVoiceStatus.UNKNOWN -> AfText(tr(UiText.VOICE_UNKNOWN), color = AutoFlowColors.Amber)
-        else -> Unit
+internal fun TakeVoiceLabel(take: io.github.alalkipgen.autoflow.core.recap.BlockTake?, lock: VoiceLock?, glass: Boolean = false) {
+    val text = when (take?.voiceStatus(lock)) {
+        TakeVoiceStatus.DIFFERENT -> tr(UiText.DIFFERENT_VOICE)
+        TakeVoiceStatus.UNKNOWN -> tr(UiText.VOICE_UNKNOWN)
+        else -> return
     }
+    // Glass block cards (Group 2 A §2): a warning icon line.
+    if (glass) GlassFact(AfIcons.Fill.Warn, text, colour = AutoFlowColors.WarningText, iconColour = AutoFlowColors.Amber)
+    else AfText(text, color = AutoFlowColors.Amber)
 }
 
 /** A take spoken with another voice than the lock (DESIGN.md §7 "Different voice" chip). */

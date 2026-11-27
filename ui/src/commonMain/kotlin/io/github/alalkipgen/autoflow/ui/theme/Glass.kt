@@ -157,6 +157,36 @@ object GlassColors {
     /** Neutral dialog tiles (⋮, folder). */
     val Neutral = Color(0xFF94A3B8)
 
+    // Movie Recap step cards (Group 2 A §2): 30 dp soft header tiles and Style layer tiles.
+    val RecapPink = Color(0xFFF472B6)
+    val RecapMovie = AutoFlowColors.Purple
+    val RecapSplit = AutoFlowColors.Cyan
+    val RecapScan = AutoFlowColors.Info
+    val RecapSubtitles = Subtitles
+    val RecapLavender = LibraryVoices
+    val RecapScenes = AutoFlowColors.Amber
+    val RecapTeal = MusicVideo
+    val LayerImage = Subtitles
+    val LayerText = RecapPink
+    val LayerBorder = AutoFlowColors.Amber
+    val LayerBlur = AutoFlowColors.Cyan
+    val LayerBackground = AutoFlowColors.Info
+    // Movie Recap Export step (Group 2 B): Render preview / Publish Kit Blue, Exact frames lavender, Render package Teal.
+    val ExportBlue = Subtitles
+    val ExportLavender = LibraryVoices
+    val ExportTeal = MusicVideo
+    /** Option (radio) row: White .04 fill, White .10 border; selected Purple .14 (+ its 1.5 dp ring). */
+    val OptionFill = Color.White.copy(alpha = .04f)
+    val OptionBorder = Color.White.copy(alpha = .10f)
+    val OptionOnFill = AutoFlowColors.Purple.copy(alpha = .14f)
+    /** Scene / layer row: White .04 fill, White .09 border; picked Purple .12 with a Purple .55 border. */
+    val RowFill = Color.White.copy(alpha = .04f)
+    val RowBorder = Color.White.copy(alpha = .09f)
+    val RowOnFill = AutoFlowColors.Purple.copy(alpha = .12f)
+    val RowOnBorder = AutoFlowColors.Purple.copy(alpha = .55f)
+    /** The block card playing in the top preview: 1.5 dp Cyan .75. */
+    val PlayingOutline = AutoFlowColors.Cyan.copy(alpha = .75f)
+
     // Settings pages (P9-17a, Settings sample src/gen9.js).
     /** Panel top bar: vertical White .08 → .03, 1 dp White .08 line under it. */
     val TopBarTop = Color.White.copy(alpha = .08f)

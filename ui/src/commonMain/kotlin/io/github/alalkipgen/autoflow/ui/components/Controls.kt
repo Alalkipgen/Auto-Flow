@@ -1,5 +1,10 @@
 package io.github.alalkipgen.autoflow.ui.components
 
+import androidx.compose.ui.focus.onFocusChanged
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -150,7 +155,7 @@ enum class ButtonKind { Primary, Secondary, Flow, Danger, Text }
 /**
  * DESIGN.md §9.4: Primary = filled purple (one per area), Secondary = outline, Text = no frame, Flow = cyan (Flow /
  * external), Danger = error outline (destructive). 44 dp visual ([small] 36) inside a 48 dp touch target, optional
- * 18 dp [icon]; hover / press overlay, keyboard focus ring, disabled at 40 %.
+ * 18 dp [icon] (and [trailingIcon] after the label: Next step →); hover / press overlay, keyboard focus ring, disabled at 40 %.
  */
 @Composable
 fun AfButton(
@@ -161,6 +166,7 @@ fun AfButton(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     small: Boolean = false,
+    trailingIcon: ImageVector? = null,
 ) {
     val (fill, line, ink) = when (kind) {
         ButtonKind.Primary -> Triple(AutoFlowColors.PrimaryFill, AutoFlowColors.PrimaryFill, Color.White)
@@ -181,6 +187,7 @@ fun AfButton(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             if (icon != null) AfIcon(icon, Modifier.testTag("button-icon"), tint = ink, size = AfSize.IconSmall)
             AfText(text, color = ink, type = if (small) AfType.ButtonSmall else AfType.Button)
+            if (trailingIcon != null) AfIcon(trailingIcon, tint = ink, size = AfSize.IconSmall)
         }
     }
 }
@@ -263,16 +270,24 @@ fun AfTextField(
     lines: Int = 1,
     mono: Boolean = true,
     enabled: Boolean = true,
+    glass: Boolean = false,
+    error: Boolean = false,
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = if (glass) GlassShapes.Field else ControlShape
     Box(
         modifier
             .heightIn(min = 48.dp).widthIn(min = 48.dp)
-            .clip(ControlShape)
-            .background(AutoFlowColors.Background)
-            .border(AutoFlowShapes.Border, AutoFlowColors.Line, ControlShape)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .clip(shape)
+            .background(if (glass) GlassColors.FieldFill else AutoFlowColors.Background)
+            .then(if (!glass) Modifier.border(AutoFlowShapes.Border, AutoFlowColors.Line, shape)
+                else if (error) Modifier.border(1.5.dp, AutoFlowColors.Amber, shape)
+                else if (focused) Modifier.border(1.5.dp, AutoFlowColors.Cyan, shape)
+                else Modifier.border(1.dp, GlassColors.FieldBorder, shape))
+            .onFocusChanged { focused = it.hasFocus }
+            .padding(horizontal = if (glass) 14.dp else 10.dp, vertical = if (glass) 10.dp else 8.dp),
     ) {
-        if (value.isEmpty()) AfText(placeholder, muted = true)
+        if (value.isEmpty()) AfText(placeholder, muted = !glass, color = if (glass) AutoFlowColors.Faint else null)
         BasicTextField(
             value = value,
             onValueChange = onChange,
@@ -335,7 +350,8 @@ fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = fal
  */
 @Composable
 fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: Tone? = null, onClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null, onDoubleClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    onLongClick: (() -> Unit)? = null, onDoubleClick: (() -> Unit)? = null, outline: Color? = null,
+    content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(AfRadius.Card)
     val interaction = remember { MutableInteractionSource() }
     Column(
@@ -350,7 +366,8 @@ fun AfCard(modifier: Modifier = Modifier, selected: Boolean = false, attention: 
             })
             .background(AutoFlowColors.Panel)
             .drawBehind { attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) } }
-            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
+            // [outline] (the Recap block playing in the top preview): 1.5 dp in that colour instead of the 1 dp edge.
+            .border(if (outline != null) 1.5.dp else AutoFlowShapes.Border, outline ?: if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
             .interactionOverlay(interaction, shape)
             .padding(start = if (attention != null) 20.dp else 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),

@@ -63,10 +63,23 @@ class StudioPreviewFallbackTest {
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("VLC path does not contain", substring = true).fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("timeline-video").assertDoesNotExist()
             assertEquals(4_000L, model.previewSource.currentPosition())
-            onNodeWithText(UiText.EXACT_FRAME.text(language)).performScrollTo().assertIsDisplayed().performMouseInput { click() }
-            waitUntil(timeoutMillis = 30_000) { onAllNodesWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)).fetchSemanticsNodes().isNotEmpty() }
-            onNodeWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)).performScrollTo().assertIsDisplayed()
-            onNodeWithText("${UiText.EXACT_FRAME.text(language)} · 4.0 s").performScrollTo().assertIsDisplayed()
+            // Group 2 A §1: on a phone the Exact frame is the top card's frame button; the still replaces the picture and
+            // the time-row chip names its time (the desktop keeps the Exact frame card).
+            val phone = width < 840
+            (if (phone) onNodeWithTag("timeline-exact").assert(hasContentDescription(UiText.EXACT_FRAME.text(language)))
+                else onNodeWithText(UiText.EXACT_FRAME.text(language))).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+            if (phone) {
+                // The phone frame button is itself described "Exact frame": wait for the chip, then the still in the picture.
+                val chip = hasText(UiText.EXACT_FRAME_AT.text(language, "atMs" to "0:04")) and hasAnyAncestor(hasTestTag("recap-top-preview"))
+                waitUntil(timeoutMillis = 30_000) { onAllNodes(chip).fetchSemanticsNodes().isNotEmpty() }
+                onNode(chip).performScrollTo().assertIsDisplayed()
+                onNode(hasContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)) and hasAnyAncestor(hasTestTag("recap-top-preview")) and !hasClickAction())
+                    .assertIsDisplayed()
+            } else {
+                waitUntil(timeoutMillis = 30_000) { onAllNodesWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)).fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.text(language)).performScrollTo().assertIsDisplayed()
+                onNodeWithText("${UiText.EXACT_FRAME.text(language)} · 4.0 s").performScrollTo().assertIsDisplayed()
+            }
             assertProjectPanesAndStickyActions(width, "voice-block-request")
             val captures = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "wide-playback").apply { mkdirs() }
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(captures, "11-voice-exact-$width-${language.code}.png"))

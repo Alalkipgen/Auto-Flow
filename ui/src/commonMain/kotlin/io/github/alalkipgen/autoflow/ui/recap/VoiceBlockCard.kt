@@ -42,6 +42,13 @@ import io.github.alalkipgen.autoflow.ui.recap.RecapModel.Companion.clock
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel.Companion.seconds
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import io.github.alalkipgen.autoflow.ui.components.*
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 
 /**
  * Voice & Audio for a single block (5B-5, DESIGN.md §7 Voice step).
@@ -70,16 +77,27 @@ fun VoiceBlockCard(
     ) }
     var playing by remember { mutableStateOf(false) }
 
-    AfCard(if (studio) tr(UiText.V3_BLOCK_TOOLS) else tr(UiText.VOICE_BLOCK_TITLE, "segmentIndex1" to (segmentIndex + 1)), modifier = modifier) {
+    val card: @Composable (@Composable ColumnScope.() -> Unit) -> Unit = { body ->
+        // Studio (Group 2 C 11): the microphone-stage tile card.
+        if (studio) TileCard(tr(UiText.V3_BLOCK_TOOLS), RecapTiles.BlockTools, modifier, content = body)
+        else AfCard(tr(UiText.VOICE_BLOCK_TITLE, "segmentIndex1" to (segmentIndex + 1)), modifier = modifier, content = body)
+    }
+    card {
         // Back link
-        if (showBack) AfButton(tr(UiText.BACK), onClose)
+        if (showBack) AfButton(tr(UiText.BACK), onClose, icon = AfIcons.Regular.Back)
         if (!studio) {
             AfText("${clock(seg.startMs)}–${clock(seg.endMs)} · ${seconds(seg.durationMs)}", muted = true, size = 12.sp)
             TakeVoiceLabel(recap.takeFor(state.story!!.blocks[segmentIndex].id), recap.voiceLock)
         }
 
-        // Tab row
-        WrapRow {
+        // Tab row — studio: one segmented glass control (waveform / microphone / broom) + Clone as a disabled chip.
+        if (studio) {
+            val tabs = VoiceTab.entries.filter { it != VoiceTab.CLONE }
+            GlassSegmented(tabs.map { GlassSegment(voiceTabLabel(it, LocalUiLanguage.current), null, icon = it.icon()) }, tabs.indexOf(tab),
+                { tab = tabs[it] })
+            WrapRow { GlassFilterChip("${voiceTabLabel(VoiceTab.CLONE, LocalUiLanguage.current)} · ${tr(UiText.V3_PLANNED)}", false, {}, enabled = false,
+                leading = { ink -> AfIcon(AfIcons.Regular.Clock, tint = ink, size = 14.dp) }) }
+        } else WrapRow {
             VoiceTab.entries.filter { it != VoiceTab.CLONE }.forEach { t ->
                 AfChip(voiceTabLabel(t, LocalUiLanguage.current), tab == t, onClick = { tab = t })
             }
@@ -89,8 +107,8 @@ fun VoiceBlockCard(
 
         when (tab) {
             VoiceTab.SPEAK -> SpeakTab(model, state, recap, script, segmentIndex, idle, seg.textMy, showScript, !studio)
-            VoiceTab.RECORD -> RecordTab(model, state, recap, script, segmentIndex, idle, seg, take, stale, playing, !studio) { playing = !playing }
-            VoiceTab.CLEAN -> CleanTab(model, state, segmentIndex, idle, take)
+            VoiceTab.RECORD -> RecordTab(model, state, recap, script, segmentIndex, idle, seg, take, stale, playing, !studio, studio) { playing = !playing }
+            VoiceTab.CLEAN -> CleanTab(model, state, segmentIndex, idle, take, studio)
             VoiceTab.CLONE -> AfText(tr(UiText.VOICE_CLONE_LABS), muted = true)
         }
     }
@@ -123,7 +141,9 @@ private fun SpeakTab(
             model.saveSegmentTiming(index, start, end)
         }
     }
-    if (showAction) timing() else io.github.alalkipgen.autoflow.ui.components.SectionCard(tr(UiText.V3_MORE_OPTIONS), initiallyExpanded = false) { timing() }
+    if (showAction) timing() else io.github.alalkipgen.autoflow.ui.components.SectionCard(tr(UiText.V3_MORE_OPTIONS), initiallyExpanded = false,
+        tile = RecapTiles.MoreOptions) { TimingEditRow(window.first, window.second, state.hasCaptionTiming(index), { model.resetCaptionTiming(index) },
+            glass = true) { start, end -> model.saveSegmentTiming(index, start, end) } }
 }
 
 /**
@@ -131,11 +151,40 @@ private fun SpeakTab(
  * starts), two text fields, Save; "Automatic" drops the owner's timing.
  */
 @Composable
-internal fun TimingEditRow(startMs: Long, endMs: Long, custom: Boolean, onReset: () -> Unit, onSave: (Long, Long) -> Boolean) {
+internal fun TimingEditRow(startMs: Long, endMs: Long, custom: Boolean, onReset: () -> Unit, glass: Boolean = false, onSave: (Long, Long) -> Boolean) {
     var editing by remember(startMs, endMs) { mutableStateOf(false) }
     var startText by remember(startMs) { mutableStateOf(msToField(startMs)) }
     var endText by remember(endMs) { mutableStateOf(msToField(endMs)) }
 
+    if (glass) {
+        // Group 2 C 12·4–6: clock row; Edit (pencil) / Automatic (arrow-counter-clockwise); editing = mono fields with an
+        // arrow-right icon between them, Cancel / Save (check) side by side.
+        val save = {
+            val s = fieldToMs(startText)
+            val e = fieldToMs(endText)
+            if (s != null && e != null && onSave(s, e)) editing = false
+        }
+        if (!editing) {
+            GlassFact(AfIcons.Regular.Clock, tr(UiText.CAPTION_WINDOW, "msToFieldstartMs" to (msToField(startMs)), "msToFieldendMs" to (msToField(endMs)),
+                "ifcustomelse" to (if (custom) "" else tr(UiText.AUTOMATIC_SUFFIX))), colour = AutoFlowColors.Muted, caption = true)
+            WrapRow {
+                GlassButton(tr(UiText.EDIT_CAPTION_TIMING), { editing = true }, icon = AfIcons.Regular.Edit, small = true)
+                if (custom) GlassButton(tr(UiText.AUTOMATIC), onReset, icon = AfIcons.Regular.ArrowCounterClockwise, small = true)
+            }
+        } else {
+            AfText(tr(UiText.CAPTION_TIMING_VOICE), bold = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                AfTextField(startText, { startText = it }, tr(UiText.TIME_START), Modifier.weight(1f))
+                AfIcon(AfIcons.Regular.ArrowRight, tint = AutoFlowColors.Muted, size = 16.dp)
+                AfTextField(endText, { endText = it }, tr(UiText.TIME_END), Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassButton(tr(UiText.CANCEL), { editing = false }, Modifier.weight(1f))
+                GlassButton(tr(UiText.SAVE), save, Modifier.weight(1f), kind = ButtonKind.Primary, icon = AfIcons.Regular.Check)
+            }
+        }
+        return
+    }
     if (!editing) {
         AfText(tr(UiText.CAPTION_WINDOW, "msToFieldstartMs" to (msToField(startMs)), "msToFieldendMs" to (msToField(endMs)), "ifcustomelse" to (if (custom) "" else tr(UiText.AUTOMATIC_SUFFIX))), muted = true, size = 11.sp)
         WrapRow {
@@ -149,7 +198,7 @@ internal fun TimingEditRow(startMs: Long, endMs: Long, custom: Boolean, onReset:
                 startText, { startText = it }, tr(UiText.TIME_START),
                 modifier = androidx.compose.ui.Modifier.weight(1f)
             )
-            AfText("→", size = 13.sp)
+            AfIcon(AfIcons.Regular.ArrowRight, tint = AutoFlowColors.Muted, size = 16.dp)
             io.github.alalkipgen.autoflow.ui.components.AfTextField(
                 endText, { endText = it }, tr(UiText.TIME_END),
                 modifier = androidx.compose.ui.Modifier.weight(1f)
@@ -198,11 +247,30 @@ private fun RecordTab(
     stale: Boolean,
     playing: Boolean,
     showPlay: Boolean,
+    glass: Boolean = false,
     onPlay: () -> Unit,
 ) {
     // Teleprompter: current line big, next muted
     val next = script.segments.getOrNull(index + 1)
-    TeleprompterDisplay(seg.textMy, next?.textMy)
+    TeleprompterDisplay(seg.textMy, next?.textMy, recording = glass && state.recording == index, glass = glass)
+    if (glass) {
+        // Group 2 C 12·1–2: glass Record (microphone-stage) / Import file (upload-simple) / play; recording = Stop (danger, stop) + Cancel.
+        WrapRow {
+            if (state.recording == index) {
+                GlassButton(tr(UiText.STOP), { model.stopRecording() }, kind = ButtonKind.Danger, icon = AfIcons.Fill.Stop)
+                GlassButton(tr(UiText.CANCEL), { model.cancelRecording() })
+            } else {
+                if (model.canRecord) GlassButton(tr(UiText.RECORD), { model.startRecording(index) }, kind = ButtonKind.Primary,
+                    enabled = idle && seg.textMy.isNotBlank(), icon = AfIcons.Regular.Dub)
+                GlassButton(tr(UiText.IMPORT_FILE), { model.importTake(index) }, enabled = idle && seg.textMy.isNotBlank(), icon = AfIcons.Regular.Upload)
+            }
+            val file = state.takeFiles[index]
+            if (showPlay && take != null && file != null) AudioPlayButton(file, playing, onPlay, glass = true, glassIcon = AfIcons.Fill.Play)
+        }
+        if (stale) GlassFact(AfIcons.Fill.Warn, tr(UiText.TAKE_TEXT_CHANGED, "STALE" to (tr(UiText.STALE))), colour = AutoFlowColors.WarningText,
+            iconColour = AutoFlowColors.Amber)
+        return
+    }
 
     WrapRow {
         if (state.recording == index) {
@@ -228,9 +296,16 @@ private fun CleanTab(
     index: Int,
     idle: Boolean,
     take: io.github.alalkipgen.autoflow.core.recap.BlockTake?,
+    glass: Boolean = false,
 ) {
     if (take == null) {
         AfText(tr(UiText.TAKE_FIRST), muted = true)
+        return
+    }
+    if (glass) {
+        // Group 2 C 12·3: info row + primary Clean (scissors).
+        GlassFact(AfIcons.Regular.Info, tr(UiText.CLEAN_HINT), colour = AutoFlowColors.Muted, caption = true)
+        WrapRow { GlassButton(tr(UiText.CLEAN_TAKE), { model.cleanTake(index) }, enabled = idle, kind = ButtonKind.Primary, icon = AfIcons.Regular.Scissors) }
         return
     }
     AfText(tr(UiText.CLEAN_HINT), muted = true, size = 12.sp)
@@ -242,13 +317,16 @@ private fun CleanTab(
  * Teleprompter display (5B-5): current segment text large, next segment text muted below.
  */
 @Composable
-private fun TeleprompterDisplay(current: String, next: String?) {
+private fun TeleprompterDisplay(current: String, next: String?, recording: Boolean = false, glass: Boolean = false) {
+    // Glass (Group 2 C 12·1–2): inner glass box; recording = a red 1.5 dp outline and a red dot.
+    val shape = if (glass) GlassShapes.MenuRow else AutoFlowShapes.Card
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(AutoFlowShapes.Card)
-            .background(AutoFlowColors.Well)
-            .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+            .clip(shape)
+            .background(if (glass) GlassColors.MonoFill else AutoFlowColors.Well)
+            .border(if (recording) 1.5.dp else AutoFlowShapes.Border, if (recording) AutoFlowColors.Failed else AutoFlowColors.Line, shape)
+            .drawBehind { if (recording) drawCircle(AutoFlowColors.Failed, 5.dp.toPx(), Offset(size.width - 14.dp.toPx(), 14.dp.toPx())) }
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -270,4 +348,12 @@ internal fun voiceTabLabel(tab: VoiceTab, language: UiLanguage = UiLanguage.ENGL
     VoiceTab.RECORD -> UiText.VOICE_TAB_RECORD.text(language)
     VoiceTab.CLEAN -> UiText.VOICE_TAB_CLEAN.text(language)
     VoiceTab.CLONE -> UiText.VOICE_TAB_CLONE.text(language)
+}
+
+/** The studio tab's icon (Group 2 C 11): Speak waveform · Record microphone · Clean broom. */
+private fun VoiceTab.icon() = when (this) {
+    VoiceTab.SPEAK -> AfIcons.Regular.Wave
+    VoiceTab.RECORD -> AfIcons.Regular.Microphone
+    VoiceTab.CLEAN -> AfIcons.Regular.Broom
+    VoiceTab.CLONE -> AfIcons.Regular.Clock
 }

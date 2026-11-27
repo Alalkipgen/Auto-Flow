@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.Canvas
@@ -85,6 +87,13 @@ import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.decodeImage
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
+import io.github.alalkipgen.autoflow.ui.theme.AfType
+import io.github.alalkipgen.autoflow.ui.components.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcon
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 
 internal enum class PictureSection { LAYERS, CAPTIONS }
 
@@ -98,85 +107,128 @@ const val CAPTIONS_ON_BOX = "ကျွန်ုပ်ရဲ့ စာတန်�
 @Composable
 internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapModel, section: PictureSection? = null) {
     val v = recap.visual
+    // Studio Style (a [section], Group 2 C 15 / 16): each group = an inner glass card with a soft tile; glass chips,
+    // buttons, switches and fields. Classic (no section) keeps its cards; only the emoji literals became icons.
+    val glass = section != null
+    val language = LocalUiLanguage.current
+    @Composable fun card(title: String, tile: CardTile, icon: ImageVector, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
+        if (glass) InnerGlassCard(title, tile, modifier, content = content) else AfCard(title, modifier, icon = icon, content = content)
+    @Composable fun chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) =
+        if (glass) RecapChip(text, selected, onClick, modifier, enabled) else AfChip(text, selected, onClick, modifier, enabled)
+    @Composable fun colourChip(text: String, hex: String, selected: Boolean, onClick: () -> Unit) =
+        if (glass) RecapSwatchChip(text, hexColour(hex), selected, onClick) else AfChip(text, selected, onClick)
+    @Composable fun button(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: ButtonKind = ButtonKind.Secondary,
+        icon: ImageVector? = null) =
+        if (glass) GlassButton(text, onClick, modifier, kind, icon = icon, small = true)
+        else AfButton(text, onClick, modifier)
+    @Composable fun switch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) =
+        if (glass) RecapSwitch(label, checked, onChange) else AfSwitch(label, checked, onChange)
+    @Composable fun hint(text: String) = if (glass) AfText(text, muted = true, type = AfType.Caption) else AfText(text, muted = true, size = 12.sp)
+    // Glass: a heading and its controls 6 dp apart; Classic: straight into the card's column, as before.
+    @Composable fun group(content: @Composable () -> Unit) =
+        if (glass) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { content() } else content()
     if (section != PictureSection.CAPTIONS) {
-    // ── 🎬 Output ──────────────────────────────────────────────────────────────
-    AfCard(tr(UiText.OUTPUT_CARD), icon = AfIcons.Regular.Film) {
+    // ── Output ───────────────────────────────────────────────────────────────
+    card(tr(UiText.OUTPUT_CARD), RecapTiles.Output, AfIcons.Regular.Film) {
         AfH3(tr(UiText.VIDEO_RATIO))
         WrapRow {
-            AfChip(tr(UiText.DEFAULT_RATIO), v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
+            chip(tr(UiText.DEFAULT_RATIO), v.outputRatio == null, { if (idle) model.setOutputRatio(null) })
             Ratio.entries.forEach { r ->
-                AfChip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) }, Modifier.testTag("style-ratio-${r.name}"))
+                chip(r.label, v.outputRatio == r, { if (idle) model.setOutputRatio(r) }, Modifier.testTag("style-ratio-${r.name}"))
             }
         }
     }
 
-    // ── 🙈 Hide things ─────────────────────────────────────────────────────────
-    AfCard(tr(UiText.HIDE_THINGS_CARD), icon = AfIcons.Regular.Square) {
-        AfText(tr(UiText.HIDE_THINGS_HINT), muted = true, size = 12.sp)
+    // ── Hide things ──────────────────────────────────────────────────────────
+    card(tr(UiText.HIDE_THINGS_CARD), RecapTiles.HideThings, AfIcons.Regular.Square) {
+        hint(tr(UiText.HIDE_THINGS_HINT))
         WrapRow {
             MaskPreset.entries.forEach { p ->
-                AfChip(maskLabel(p, LocalUiLanguage.current), v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
+                chip(maskLabel(p, language), v.masks.any { it.preset == p }, { if (idle) model.setVisual { RecapVisuals.toggle(it, p) } })
             }
         }
         if (v.masks.isNotEmpty()) {
-            MaskPreview(recap, model)
-            WrapRow {
-                AfH3(tr(UiText.BLUR_STRENGTH))
+            MaskPreview(recap, model, glass)
+            val strengths: @Composable () -> Unit = {
                 MaskStrength.entries.forEach { s ->
-                    AfChip(strengthLabel(s, LocalUiLanguage.current), v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
+                    chip(strengthLabel(s, language), v.masks.all { it.strength == s }, { if (idle) model.setVisual { RecapVisuals.strength(it, s) } })
                 }
             }
+            if (glass) group { AfH3(tr(UiText.BLUR_STRENGTH)); WrapRow { strengths() } }
+            else WrapRow { AfH3(tr(UiText.BLUR_STRENGTH)); strengths() }
             v.masks.forEach { m ->
-                WrapRow {
-                    AfText(maskLabel(m.preset, LocalUiLanguage.current), size = 12.sp)
-                    // Nudges = the chevron turned to its direction (the icon set has one caret).
-                    AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_UP), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } },
-                        Modifier.graphicsLayer(rotationZ = -90f))
-                    AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_DOWN), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } },
-                        Modifier.graphicsLayer(rotationZ = 90f))
-                    AfButton(tr(UiText.TALLER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
-                    AfButton(tr(UiText.SHORTER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
-                    if (!m.preset.isStrip) {
-                        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_LEFT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } },
-                            Modifier.graphicsLayer(scaleX = -1f))
-                        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_RIGHT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
-                        AfButton(tr(UiText.WIDER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
-                        AfButton(tr(UiText.NARROWER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
+                val moves: @Composable () -> Unit = {
+                    if (glass) {
+                        // Group 2 C 15: 36 dp glass caret buttons, small glass buttons; one darker box per blur box.
+                        GlassIconButton(AfIcons.Regular.CaretUp, tr(UiText.MOVE_UP), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } })
+                        GlassIconButton(AfIcons.Regular.CaretDown, tr(UiText.MOVE_DOWN), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } })
+                    } else {
+                        // Nudges = the chevron turned to its direction (the icon set has one caret).
+                        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_UP), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, -RecapVisuals.STEP) } },
+                            Modifier.graphicsLayer(rotationZ = -90f))
+                        AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_DOWN), { if (idle) model.setVisual { RecapVisuals.move(it, m.preset, RecapVisuals.STEP) } },
+                            Modifier.graphicsLayer(rotationZ = 90f))
                     }
+                    button(tr(UiText.TALLER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, 2 * RecapVisuals.STEP) } })
+                    button(tr(UiText.SHORTER), { if (idle) model.setVisual { RecapVisuals.resize(it, m.preset, -2 * RecapVisuals.STEP) } })
+                    if (!m.preset.isStrip) {
+                        if (glass) {
+                            GlassIconButton(AfIcons.Regular.CaretLeft, tr(UiText.MOVE_LEFT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } })
+                            GlassIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_RIGHT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
+                        } else {
+                            AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_LEFT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, -RecapVisuals.STEP) } },
+                                Modifier.graphicsLayer(scaleX = -1f))
+                            AfIconButton(AfIcons.Regular.Chevron, tr(UiText.MOVE_RIGHT), { if (idle) model.setVisual { RecapVisuals.moveX(it, m.preset, RecapVisuals.STEP) } })
+                        }
+                        button(tr(UiText.WIDER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, 2 * RecapVisuals.STEP) } })
+                        button(tr(UiText.NARROWER), { if (idle) model.setVisual { RecapVisuals.resizeW(it, m.preset, -2 * RecapVisuals.STEP) } })
+                    }
+                }
+                if (glass) InsetGlassBox {
+                    AfText(maskLabel(m.preset, language), type = AfType.Caption)
+                    WrapRow(spacing = 6.dp) { moves() }
+                } else WrapRow {
+                    AfText(maskLabel(m.preset, language), size = 12.sp)
+                    moves()
                 }
             }
             if (v.masks.any { it.centerY >= 0.5f }) {
-                AfSwitch(tr(UiText.CAPTIONS_ON_BOX), v.captionsOnMask, { on -> if (idle) model.setVisual { it.copy(captionsOnMask = on) } })
+                switch(tr(UiText.CAPTIONS_ON_BOX), v.captionsOnMask, { on -> if (idle) model.setVisual { it.copy(captionsOnMask = on) } })
             }
         }
     }
 
     if (section == null) { RecapTimelinePreview(model); ExactFrameCard(model) }
 
-    // ── 🖼 Background ──────────────────────────────────────────────────────────
+    // ── Background ───────────────────────────────────────────────────────────
     if (Look.FILL !in recap.looks) {
-    AfCard(tr(UiText.BACKGROUND_CARD), icon = AfIcons.Regular.Image) {
-        AfText(tr(UiText.BACKGROUND_HINT), muted = true, size = 12.sp)
+    card(tr(UiText.BACKGROUND_CARD), RecapTiles.FrameBackground, AfIcons.Regular.Image) {
+        hint(tr(UiText.BACKGROUND_HINT))
         WrapRow {
             FrameBackground.entries.forEach { b ->
-                AfChip(b.uiLabel(), v.background == b, { if (idle) model.setVisual { it.copy(background = b) } })
+                chip(b.uiLabel(), v.background == b, { if (idle) model.setVisual { it.copy(background = b) } })
             }
         }
         if (v.background == FrameBackground.COLOUR) {
             WrapRow {
                 RecapVisuals.COLOURS.forEach { (name, hex) ->
-                    AfChip(colourPresetLabel(name), v.backgroundColour.equals(hex, ignoreCase = true), { if (idle) model.setVisual { it.copy(backgroundColour = hex) } })
+                    colourChip(colourPresetLabel(name), hex, v.backgroundColour.equals(hex, ignoreCase = true), { if (idle) model.setVisual { it.copy(backgroundColour = hex) } })
                 }
             }
         }
         if (v.background == FrameBackground.IMAGE) {
             val imgFile = v.backgroundImageFile?.substringAfterLast('/') ?: tr(UiText.NOT_SET)
-            WrapRow {
+            val remove = { if (idle) model.setVisual { it.copy(background = FrameBackground.BARS, backgroundImageFile = null) } }
+            if (glass) {
+                GlassFact(AfIcons.Regular.Image, tr(UiText.BACKGROUND_IMAGE_NAME, "imgFile" to (imgFile)))
+                WrapRow {
+                    button(tr(UiText.CHANGE), { if (idle) model.importBackgroundImage() }, icon = AfIcons.Regular.ArrowsClockwise)
+                    if (v.backgroundImageFile != null) button(tr(UiText.REMOVE), remove, kind = ButtonKind.Danger, icon = AfIcons.Regular.Close)
+                }
+            } else WrapRow {
                 AfText(tr(UiText.BACKGROUND_IMAGE_NAME, "imgFile" to (imgFile)), size = 12.sp)
                 AfButton(tr(UiText.CHANGE), { if (idle) model.importBackgroundImage() })
-                if (v.backgroundImageFile != null) {
-                    AfButton(tr(UiText.REMOVE), { if (idle) model.setVisual { it.copy(background = FrameBackground.BARS, backgroundImageFile = null) } })
-                }
+                if (v.backgroundImageFile != null) AfButton(tr(UiText.REMOVE), remove)
             }
         }
     }
@@ -184,12 +236,28 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
 
     if (section == null) RecapLayerControls(recap, idle, model)
 
-    // ── 💧 Watermark ───────────────────────────────────────────────────────────
-    AfCard(tr(UiText.WATERMARK_CARD), icon = AfIcons.Regular.Image) {
-        AfText(tr(UiText.WATERMARK_HINT), muted = true, size = 12.sp)
-        WrapRow {
-            if (v.watermarkFile != null) {
-                AfText("🖼 ${v.watermarkFile!!.substringAfterLast('/')}", size = 12.sp)
+    // ── Watermark ────────────────────────────────────────────────────────────
+    card(tr(UiText.WATERMARK_CARD), RecapTiles.Watermark, AfIcons.Regular.Image) {
+        hint(tr(UiText.WATERMARK_HINT))
+        val file = v.watermarkFile?.substringAfterLast('/')
+        if (glass) {
+            // Group 2 C 15: the file = an image icon + its name (one line; the full name stays readable); Change… / Remove (danger) under it.
+            if (file != null) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AfIcon(AfIcons.Regular.Image, tint = AutoFlowColors.Muted, size = 17.dp)
+                    AfText(file, Modifier.weight(1f).semantics { contentDescription = file }, type = AfType.Body, maxLines = 1, ellipsis = true)
+                }
+                WrapRow {
+                    button(tr(UiText.CHANGE), { if (idle) model.importWatermark() }, icon = AfIcons.Regular.ArrowsClockwise)
+                    button(tr(UiText.REMOVE), { if (idle) model.removeWatermark() }, kind = ButtonKind.Danger, icon = AfIcons.Regular.Close)
+                }
+            } else WrapRow { button(tr(UiText.SET_WATERMARK), { if (idle) model.importWatermark() }, icon = AfIcons.Regular.Upload) }
+        } else WrapRow {
+            if (file != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AfIcon(AfIcons.Regular.Image, tint = AutoFlowColors.Muted, size = 16.dp)
+                    AfText(file, size = 12.sp)
+                }
                 AfButton(tr(UiText.CHANGE), { if (idle) model.importWatermark() })
                 AfButton(tr(UiText.REMOVE), { if (idle) model.removeWatermark() })
             } else {
@@ -197,19 +265,22 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
             }
         }
         if (v.watermarkFile != null) {
-            WatermarkWidth(v.watermarkPercent, idle, model::setWatermarkWidth)
+            WatermarkWidth(v.watermarkPercent, idle, glass, model::setWatermarkWidth)
             AfH3(tr(UiText.POSITION))
             WrapRow {
                 WatermarkAnchor.entries.forEach { anchor ->
-                    AfChip(anchor.uiLabel(), v.watermarkAnchor == anchor, { if (idle) model.setWatermarkAnchor(anchor) })
+                    val on = v.watermarkAnchor == anchor
+                    if (glass) RecapIconChip(anchor.uiLabel(), anchor.icon(), on, { if (idle) model.setWatermarkAnchor(anchor) })
+                    else AfChip(anchor.uiLabel(), on, { if (idle) model.setWatermarkAnchor(anchor) }, icon = anchor.icon())
                 }
             }
         }
     }
 
     }
-    // ── ✍️ Captions ────────────────────────────────────────────────────────────
-    if (section != PictureSection.LAYERS) AfCard(tr(UiText.CAPTIONS_CARD), Modifier.testTag("caption-controls"), icon = AfIcons.Regular.Subtitles) {
+    // ── Captions ─────────────────────────────────────────────────────────────
+    if (section != PictureSection.LAYERS) {
+        val body: @Composable ColumnScope.() -> Unit = {
         val currentState by model.state.collectAsState()
         val open by model.previewSource.projects.collectAsState()
         val projectDir = currentState.projectDir
@@ -226,88 +297,119 @@ internal fun RecapPictureControls(recap: RecapV2, idle: Boolean, model: RecapMod
             val saved = model.project()?.recap?.captionStyle
             if (saved != null && saved != before) manualStyle = saved
         }
+        /** A value field with its Apply / Clear: glass = the field beside its small buttons while it fits (C 16). */
+        @Composable fun valueField(value: String, onValue: (String) -> Unit, placeholder: String, tag: String, actions: @Composable () -> Unit) {
+            if (glass) GlassFieldRow({ AfTextField(value, onValue, placeholder, Modifier.fillMaxWidth().testTag(tag), glass = true) }, actions)
+            else WrapRow { AfTextField(value, onValue, placeholder, Modifier.testTag(tag)); actions() }
+        }
         val preset = if (manualStyle == recap.captionStyle) null else matchingCaptionPreset(recap.captionStyle)
-        AfH3(tr(UiText.V3_CAPTION_PRESETS))
-        AfText(tr(UiText.V3_CAPTION_PRESET_STATUS, "name" to tr(preset?.label ?: UiText.V3_CAPTION_CUSTOM)),
-            modifier = Modifier.testTag("caption-preset-status"))
-        WrapRow {
-            CaptionLookPreset.entries.forEach { choice ->
-                AfChip(tr(choice.label), preset == choice, {
-                    if (idle && currentProject()) {
-                        if (model.project()?.recap?.captionStyle != choice.style) model.setCaptionStyle { choice.style }
-                        if (model.project()?.recap?.captionStyle == choice.style) {
-                            manualStyle = null; colourInput = ""; sizeInput = ""
+        group {
+            AfH3(tr(UiText.V3_CAPTION_PRESETS))
+            AfText(tr(UiText.V3_CAPTION_PRESET_STATUS, "name" to tr(preset?.label ?: UiText.V3_CAPTION_CUSTOM)),
+                modifier = Modifier.testTag("caption-preset-status"))
+            WrapRow {
+                CaptionLookPreset.entries.forEach { choice ->
+                    chip(tr(choice.label), preset == choice, {
+                        if (idle && currentProject()) {
+                            if (model.project()?.recap?.captionStyle != choice.style) model.setCaptionStyle { choice.style }
+                            if (model.project()?.recap?.captionStyle == choice.style) {
+                                manualStyle = null; colourInput = ""; sizeInput = ""
+                            }
                         }
-                    }
-                }, Modifier.testTag("caption-preset-${choice.name}"), enabled = idle)
+                    }, Modifier.testTag("caption-preset-${choice.name}"), enabled = idle)
+                }
             }
         }
-        // Colour presets
-        AfH3(tr(UiText.COLOUR))
-        WrapRow {
-            CaptionStyle.COLOURS.forEach { (name, hex) ->
-                AfChip(
-                    colourPresetLabel(name),
-                    recap.captionStyle.customColour == null && recap.captionStyle.colour.equals(hex, ignoreCase = true),
-                    { manualChange { model.setCaptionColour(hex); model.setCaptionCustomColour(null) } }
-                )
+        // Colour presets (glass: a swatch dot on each chip)
+        group {
+            AfH3(tr(UiText.COLOUR))
+            WrapRow {
+                CaptionStyle.COLOURS.forEach { (name, hex) ->
+                    colourChip(
+                        colourPresetLabel(name),
+                        hex,
+                        recap.captionStyle.customColour == null && recap.captionStyle.colour.equals(hex, ignoreCase = true),
+                        { manualChange { model.setCaptionColour(hex); model.setCaptionCustomColour(null) } }
+                    )
+                }
             }
         }
         // Custom hex override
-        AfH3(tr(UiText.CUSTOM_COLOUR))
-        WrapRow {
-            AfTextField(colourInput, { colourInput = it }, "#RRGGBB", Modifier.testTag("caption-custom-colour"))
-            AfButton(tr(UiText.APPLY), {
-                manualChange { model.setCaptionCustomColour(colourInput.ifBlank { null }); colourInput = model.project()?.recap?.captionStyle?.customColour ?: "" }
-            }, Modifier.testTag("caption-colour-apply"))
-            if (recap.captionStyle.customColour != null) {
-                AfButton(tr(UiText.CLEAR), { manualChange { model.setCaptionCustomColour(null); colourInput = "" } }, Modifier.testTag("caption-colour-clear"))
+        group {
+            AfH3(tr(UiText.CUSTOM_COLOUR))
+            valueField(colourInput, { colourInput = it }, "#RRGGBB", "caption-custom-colour") {
+                button(tr(UiText.APPLY), {
+                    manualChange { model.setCaptionCustomColour(colourInput.ifBlank { null }); colourInput = model.project()?.recap?.captionStyle?.customColour ?: "" }
+                }, Modifier.testTag("caption-colour-apply"))
+                if (recap.captionStyle.customColour != null) {
+                    button(tr(UiText.CLEAR), { manualChange { model.setCaptionCustomColour(null); colourInput = "" } }, Modifier.testTag("caption-colour-clear"))
+                }
             }
         }
         // Size presets + custom factor
-        AfH3(tr(UiText.SIZE))
-        WrapRow {
-            io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { sz ->
-                AfChip(sz.uiLabel(), recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
-                    manualChange { model.update { it.copy(captionStyle = it.captionStyle.copy(size = sz, customSizeFactor = null)) } }
-                }, Modifier.testTag("caption-size-${sz.name}"))
-            }
-            AfChip(tr(UiText.V3_CAPTION_XL), recap.captionStyle.size == io.github.alalkipgen.autoflow.core.recap.CaptionSize.L &&
-                recap.captionStyle.customSizeFactor == CAPTION_XL_FACTOR, {
-                if (currentProject()) manualChange {
-                    model.setCaptionStyle(::captionExtraLarge)
-                    sizeInput = model.project()?.recap?.captionStyle?.customSizeFactor?.toString() ?: ""
+        group {
+            AfH3(tr(UiText.SIZE))
+            WrapRow {
+                io.github.alalkipgen.autoflow.core.recap.CaptionSize.entries.forEach { sz ->
+                    chip(sz.uiLabel(), recap.captionStyle.customSizeFactor == null && recap.captionStyle.size == sz, {
+                        manualChange { model.update { it.copy(captionStyle = it.captionStyle.copy(size = sz, customSizeFactor = null)) } }
+                    }, Modifier.testTag("caption-size-${sz.name}"))
                 }
-            }, Modifier.testTag("caption-size-XL"), enabled = idle)
+                chip(tr(UiText.V3_CAPTION_XL), recap.captionStyle.size == io.github.alalkipgen.autoflow.core.recap.CaptionSize.L &&
+                    recap.captionStyle.customSizeFactor == CAPTION_XL_FACTOR, {
+                    if (currentProject()) manualChange {
+                        model.setCaptionStyle(::captionExtraLarge)
+                        sizeInput = model.project()?.recap?.captionStyle?.customSizeFactor?.toString() ?: ""
+                    }
+                }, Modifier.testTag("caption-size-XL"), enabled = idle)
+            }
         }
-        AfH3(tr(UiText.CUSTOM_SIZE_FACTOR))
-        WrapRow {
-            AfTextField(sizeInput, { sizeInput = it }, tr(UiText.SIZE_FACTOR_EXAMPLE), Modifier.testTag("caption-custom-size"))
-            AfButton(tr(UiText.APPLY), {
-                manualChange { model.setCaptionCustomSize(sizeInput.toFloatOrNull()); sizeInput = model.project()?.recap?.captionStyle?.customSizeFactor?.toString() ?: "" }
-            }, Modifier.testTag("caption-factor-apply"))
-            if (recap.captionStyle.customSizeFactor != null) {
-                AfButton(tr(UiText.CLEAR), { manualChange { model.setCaptionCustomSize(null); sizeInput = "" } }, Modifier.testTag("caption-factor-clear"))
+        group {
+            AfH3(tr(UiText.CUSTOM_SIZE_FACTOR))
+            valueField(sizeInput, { sizeInput = it }, tr(UiText.SIZE_FACTOR_EXAMPLE), "caption-custom-size") {
+                button(tr(UiText.APPLY), {
+                    manualChange { model.setCaptionCustomSize(sizeInput.toFloatOrNull()); sizeInput = model.project()?.recap?.captionStyle?.customSizeFactor?.toString() ?: "" }
+                }, Modifier.testTag("caption-factor-apply"))
+                if (recap.captionStyle.customSizeFactor != null) {
+                    button(tr(UiText.CLEAR), { manualChange { model.setCaptionCustomSize(null); sizeInput = "" } }, Modifier.testTag("caption-factor-clear"))
+                }
             }
         }
         // Stroke
-        AfH3(tr(UiText.OUTLINE_WIDTH))
-        WrapRow {
-            listOf(tr(UiText.OFF) to 0, tr(UiText.THIN) to 1, tr(UiText.MEDIUM) to 3, tr(UiText.THICK) to 6).forEach { (label, px) ->
-                AfChip(label, recap.captionStyle.strokeWidth == px, { manualChange { model.setCaptionStrokeWidth(px) } })
+        group {
+            AfH3(tr(UiText.OUTLINE_WIDTH))
+            WrapRow {
+                listOf(tr(UiText.OFF) to 0, tr(UiText.THIN) to 1, tr(UiText.MEDIUM) to 3, tr(UiText.THICK) to 6).forEach { (label, px) ->
+                    chip(label, recap.captionStyle.strokeWidth == px, { manualChange { model.setCaptionStrokeWidth(px) } })
+                }
             }
         }
         if (recap.captionStyle.strokeWidth > 0) {
-            AfH3(tr(UiText.OUTLINE_COLOUR))
-            WrapRow {
-                CaptionStyle.STROKE_COLOURS.forEach { (name, hex) ->
-                    AfChip(colourPresetLabel(name), recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { manualChange { model.setCaptionStrokeColour(hex) } })
+            group {
+                AfH3(tr(UiText.OUTLINE_COLOUR))
+                WrapRow {
+                    CaptionStyle.STROKE_COLOURS.forEach { (name, hex) ->
+                        colourChip(colourPresetLabel(name), hex, recap.captionStyle.strokeColour.equals(hex, ignoreCase = true), { manualChange { model.setCaptionStrokeColour(hex) } })
+                    }
                 }
             }
         }
         // Dark box toggle
-        AfSwitch(tr(UiText.DARK_CAPTION_BOX), recap.captionStyle.box, { on -> manualChange { model.update { it.copy(captionStyle = it.captionStyle.copy(box = on)) } } })
+        switch(tr(UiText.DARK_CAPTION_BOX), recap.captionStyle.box, { on -> manualChange { model.update { it.copy(captionStyle = it.captionStyle.copy(box = on)) } } })
+        }
+        // Group 2 C 16: the Captions card = a glass card with the blue subtitles tile.
+        if (glass) TileCard(tr(UiText.CAPTIONS_CARD), RecapTiles.Captions, Modifier.testTag("caption-controls"), content = body)
+        else AfCard(tr(UiText.CAPTIONS_CARD), Modifier.testTag("caption-controls"), icon = AfIcons.Regular.Subtitles, content = body)
     }
+}
+
+/** The icon a watermark position chip shows before its name (Group 2 C 15; the names lost their arrows). */
+internal fun WatermarkAnchor.icon(): ImageVector = when (this) {
+    WatermarkAnchor.TOP_LEFT -> AfIcons.Regular.ArrowUpLeft
+    WatermarkAnchor.TOP_RIGHT -> AfIcons.Regular.ArrowUpRight
+    WatermarkAnchor.BOTTOM_LEFT -> AfIcons.Regular.ArrowDownLeft
+    WatermarkAnchor.BOTTOM_RIGHT -> AfIcons.Regular.ArrowDownRight
+    WatermarkAnchor.CENTER -> AfIcons.Regular.Crosshair
 }
 
 /** Test tag of the live mask preview (drag / pinch target). */
@@ -347,7 +449,7 @@ internal fun boxHint(p: MaskPreset, language: UiLanguage = UiLanguage.ENGLISH): 
  * same numbers the export compiler uses.
  */
 @Composable
-private fun MaskPreview(recap: RecapV2, model: RecapModel) {
+private fun MaskPreview(recap: RecapV2, model: RecapModel, glass: Boolean = false) {
     val scene = recap.picked.firstOrNull() ?: recap.scenes.firstOrNull()
     val image by produceState<ImageBitmap?>(null, scene?.startMs, scene?.endMs) { value = scene?.let { model.thumbnail(it) }?.let(::decodeImage) }
     val movie = recap.movie
@@ -357,7 +459,8 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
     val story by model.state.collectAsState()
     val caption = previewCaption(recap, story.story, output)
     var selected by remember { mutableStateOf<MaskPreset?>(null) }
-    AfText(tr(UiText.MASK_PLACEMENT_HINT), muted = true, size = 12.sp)
+    if (glass) AfText(tr(UiText.MASK_PLACEMENT_HINT), muted = true, type = AfType.Caption)
+    else AfText(tr(UiText.MASK_PLACEMENT_HINT), muted = true, size = 12.sp)
     // The box under the fingers while a gesture runs; saved (and cleared) when they lift.
     var draft by remember { mutableStateOf<Pair<MaskPreset, List<Float>>?>(null) }
     val current by rememberUpdatedState(masks)
@@ -416,10 +519,10 @@ private fun MaskPreview(recap: RecapV2, model: RecapModel) {
             recap, output, image, caption, Modifier.fillMaxSize(), selected, draft,
         )
     }
-    AfText(
-        selected?.let { boxHint(it, LocalUiLanguage.current) } ?: tr(UiText.MASK_TOUCH_HINT),
-        muted = true, size = 12.sp,
-    )
+    val touch = selected?.let { boxHint(it, LocalUiLanguage.current) } ?: tr(UiText.MASK_TOUCH_HINT)
+    // Glass (Group 2 C 15): the gesture hint = a muted hand-tap row.
+    if (glass) GlassFact(AfIcons.Regular.HandTap, touch, colour = AutoFlowColors.Muted, caption = true)
+    else AfText(touch, muted = true, size = 12.sp)
 }
 
 /** The first caption the export would burn (first story block's first chunk), or null with captions off / no text. */
@@ -533,22 +636,26 @@ private fun ExactFrameContent(model: RecapModel, enabled: Boolean) {
 }
 
 @Composable
-internal fun WatermarkWidth(value: Int, enabled: Boolean, onSize: (Int) -> Unit) {
+internal fun WatermarkWidth(value: Int, enabled: Boolean, glass: Boolean = false, onSize: (Int) -> Unit) {
     var editingCustom by remember { mutableStateOf(false) }
     val sizes = listOf(WatermarkSize.SMALL, WatermarkSize.MEDIUM, WatermarkSize.LARGE)
     val width = My.breakSyllables(tr(UiText.WATERMARK_WIDTH))
     val labels = listOf(tr(UiText.SMALL), tr(UiText.MEDIUM), tr(UiText.LARGE), tr(UiText.WATERMARK_CUSTOM)).map(My::breakSyllables)
     val selection = sizes.indexOf(value).takeIf { it >= 0 && !editingCustom } ?: labels.lastIndex
     AfH3(width)
-    OptionChips(labels, labels[selection], { label ->
+    val choose: (String) -> Unit = { label ->
         if (enabled) {
             val preset = sizes.getOrNull(labels.indexOf(label))
             editingCustom = preset == null
             preset?.let(onSize)
         }
-    }, Modifier.testTag("watermark-size"))
+    }
+    // Glass (Group 2 C 15): glass chips and a caption for the value.
+    if (glass) WrapRow(Modifier.testTag("watermark-size")) { labels.forEach { RecapChip(it, it == labels[selection], { choose(it) }) } }
+    else OptionChips(labels, labels[selection], choose, Modifier.testTag("watermark-size"))
     val percent = My.breakSyllables(tr(UiText.WATERMARK_WIDTH_VALUE, "n" to value))
-    AfText(percent, Modifier.testTag("watermark-width-value"), muted = true)
+    if (glass) AfText(percent, Modifier.testTag("watermark-width-value"), muted = true, type = AfType.Caption)
+    else AfText(percent, Modifier.testTag("watermark-width-value"), muted = true)
     if (selection == labels.lastIndex) {
         val span = WatermarkSize.MAX - WatermarkSize.MIN
         AfScrubber((value - WatermarkSize.MIN).toFloat() / span, "$width · $percent",

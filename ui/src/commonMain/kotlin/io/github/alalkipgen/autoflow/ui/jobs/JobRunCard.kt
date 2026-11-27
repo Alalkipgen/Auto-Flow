@@ -15,10 +15,10 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun JobRunCard(row: JobRow, modifier: Modifier = Modifier, headerAction: (@Composable () -> Unit)? = null,
-    actions: @Composable ColumnScope.() -> Unit = {}) {
+    tile: CardTile? = null, actions: @Composable ColumnScope.() -> Unit = {}) {
     JobCard(row.projectTitle ?: row.title, row.status, My.breakSyllables(jobDetail(row)), modifier,
         progress = row.progress?.takeIf { row.running && it.isFinite() && it in 0.0..1.0 }?.toFloat(),
-        indeterminate = row.indeterminate, headerAction = headerAction, actions = actions)
+        indeterminate = row.indeterminate, headerAction = headerAction, tile = tile, actions = actions)
 }
 
 /**
@@ -98,13 +98,16 @@ internal fun ToolAiRequestCard(title: String, modifier: Modifier = Modifier, con
         modifier, indeterminate = true, actions = content)
 }
 
+/** A project's AI job; [tile] = the glass job card (Group 2 D §1) with the small danger Cancel (x) in its header. */
 @Composable
 internal fun ProjectAiJobCard(job: AiJob, onCancel: () -> Unit, modifier: Modifier = Modifier,
-    cancelModifier: Modifier = Modifier, onResume: (() -> Unit)? = null) {
+    cancelModifier: Modifier = Modifier, onResume: (() -> Unit)? = null, tile: CardTile? = null) {
     val row = jobRows(null, null, null, listOf(job), LocalUiLanguage.current).single()
     JobRunCard(row.copy(projectTitle = null), modifier, headerAction = if (row.canCancel) ({
-        AfButton(tr(UiText.CANCEL), onCancel, cancelModifier, kind = ButtonKind.Danger)
-    }) else null) {
+        if (tile != null) GlassButton(tr(UiText.CANCEL), onCancel, cancelModifier, kind = ButtonKind.Danger,
+            icon = io.github.alalkipgen.autoflow.ui.icons.AfIcons.Regular.Close, small = true)
+        else AfButton(tr(UiText.CANCEL), onCancel, cancelModifier, kind = ButtonKind.Danger)
+    }) else null, tile = tile) {
         if (row.failed && job.error != null) AfText(job.error.orEmpty(), color = io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors.Failed)
         row.resumeCount?.let { n -> onResume?.let { AfButton(tr(UiText.V3_RESUME_REMAINING, "n" to n), it) } }
     }

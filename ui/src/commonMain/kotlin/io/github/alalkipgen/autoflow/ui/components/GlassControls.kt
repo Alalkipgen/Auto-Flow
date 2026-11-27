@@ -168,9 +168,9 @@ private fun drawsArt(thumbnail: ImageBitmap?) = thumbnail != null && GlassBlurSu
 fun glassCaptionColour(thumbnail: ImageBitmap?): Color = if (drawsArt(thumbnail)) GlassColors.MutedOnArt else AutoFlowColors.Muted
 
 /** 1 dp glass border with the brighter top highlight. */
-internal fun DrawScope.drawGlassBorder(shape: Shape, border: Color, highlight: Color) {
+internal fun DrawScope.drawGlassBorder(shape: Shape, border: Color, highlight: Color, width: Dp = 1.dp) {
     val outline = shape.createOutline(size, layoutDirection, this)
-    val stroke = 1.dp.toPx()
+    val stroke = width.toPx()
     val top = (3.dp.toPx() / size.height).coerceIn(0f, 1f)
     val brush = Brush.verticalGradient(0f to highlight, top to border, 1f to border)
     when (outline) {
@@ -186,7 +186,7 @@ internal fun DrawScope.drawGlassBorder(shape: Shape, border: Color, highlight: C
 /**
  * Glass card (radius 18): linear 160° White .10 → .035 → .02 with a 1 dp White .09 border and top highlight, shadow
  * 10 dp. Behind the content: [thumbnail] (its own frame, blurred — where blur draws) or else the [tint] colour at
- * [tintAlpha]. [flat] = White .03 fill, White .14 border, no shadow. [selected] = primary border; [attention] = a 4 dp
+ * [tintAlpha]. [flat] = White .03 fill, White .14 border, no shadow. [selected] = primary border, [outline] a 1.5 dp one; [attention] = a 4 dp
  * tone bar on the left; [onClick] / [onLongClick] / [onDoubleClick] as [AfCard].
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -205,6 +205,7 @@ fun GlassCard(
     padding: PaddingValues = PaddingValues(GlassShapes.CardPadding),
     gap: Dp = GlassShapes.CardGap,
     centred: Boolean = false,
+    outline: Color? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = GlassShapes.Card
@@ -230,6 +231,8 @@ fun GlassCard(
                 drawContent()
                 attention?.let { drawRect(it.fill, size = Size(AfSize.AttentionBar.toPx(), size.height)) }
                 when {
+                    // [outline] (the Recap block playing in the top preview): 1.5 dp in that colour.
+                    outline != null -> drawGlassBorder(shape, outline, outline, 1.5.dp)
                     selected -> drawGlassBorder(shape, AutoFlowColors.Purple, AutoFlowColors.Purple)
                     flat -> drawGlassBorder(shape, GlassColors.FlatBorder, GlassColors.FlatBorder)
                     else -> drawGlassBorder(shape, GlassColors.CardBorder, GlassColors.CardHighlight)
@@ -301,7 +304,8 @@ internal fun DrawScope.primaryBrush(): Brush = cssLinearGradient(135f, size, 0f 
 /**
  * Glass button, the [AfButton] API: Primary = the primary gradient with a coloured shadow and top highlight,
  * Secondary = White .08 fill + White .14 border, Danger = Failed .10 fill + .45 border, Text = no frame, Flow = cyan.
- * 44 dp ([small] 36) inside a 48 dp touch target that overflows into the spacing; icon 18 ([small] 16).
+ * 44 dp ([small] 36) inside a 48 dp touch target that overflows into the spacing; icon 18 ([small] 16) before the label,
+ * [trailingIcon] after it (Next step →).
  */
 @Composable
 fun GlassButton(
@@ -312,6 +316,7 @@ fun GlassButton(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     small: Boolean = false,
+    trailingIcon: ImageVector? = null,
 ) {
     val visual = if (small) AfSize.ButtonSmall else AfSize.Button
     val shape = RoundedCornerShape(if (small) AfRadius.ButtonSmall else AfRadius.Button)
@@ -373,6 +378,7 @@ fun GlassButton(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (icon != null) AfIcon(icon, Modifier.testTag("button-icon"), tint = ink, size = if (small) 16.dp else AfSize.IconSmall)
             AfText(text, color = ink, type = if (small) AfType.ButtonSmall else AfType.Button)
+            if (trailingIcon != null) AfIcon(trailingIcon, tint = ink, size = if (small) 16.dp else AfSize.IconSmall)
         }
     }
 }

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.voice
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+
 import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -39,7 +41,7 @@ internal fun SpeakPanel(model: VoiceSpeakModel, dir: String, job: AiJob?) {
                 "minutes" to model.minutes(c.parts.size, c.lock))), Modifier.testTag("voice-speak-facts"), bold = true)
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("voice-speak-start"), kind = ButtonKind.Primary)
-                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("voice-speak-back"))
+                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("voice-speak-back"), icon = AfIcons.Regular.Back)
             }
         }
         else -> s.notice?.let {

@@ -81,7 +81,7 @@ jobs:
     # D-19: real DPAPI round trip (AUTOFLOW_EXPECT_DPAPI makes the test fail if it is not on Windows), and JvmFs on NTFS.
     # UI tests on Windows too: a system font must cover Myanmar, and screenshots are uploaded for review.
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults: { run: { shell: bash } }
     steps:
       - uses: actions/checkout@v7

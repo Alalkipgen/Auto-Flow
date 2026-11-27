@@ -47,7 +47,7 @@ internal fun TranslatePanel(model: SubtitleTranslateModel, dir: String) {
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("subtitles-translate-start"),
                     kind = ButtonKind.Primary, enabled = c.lines > 0, icon = AfIcons.Fill.Play)
-                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("subtitles-translate-back"))
+                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("subtitles-translate-back"), icon = AfIcons.Regular.Back)
             }
         }
         else -> s.notice?.let {

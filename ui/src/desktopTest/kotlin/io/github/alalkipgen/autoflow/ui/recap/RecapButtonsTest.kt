@@ -86,15 +86,26 @@ class RecapButtonsTest(val width: Int, val font: Float, val language: UiLanguage
         assertTrue(icons.single().right <= text.left, "$key: icon before the label")
     }
 
-    /** The card titled [key] (inside the [card] tag when the word also names a tab): an 18 dp icon right before the title. */
-    private fun ComposeUiTest.iconCard(key: UiText, card: String? = null) {
+    /** The icon-only button [tag]: labelled [key] for TalkBack / tooltips, no text (so no glyph), ≥ 48 × 48. */
+    private fun ComposeUiTest.iconOnly(key: UiText, tag: String) {
+        val node = onNodeWithTag(tag).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
+        assertEquals(listOf(key.text(language)), node.config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }, "$key label")
+        assertTrue(node.config.getOrElse(SemanticsProperties.Text) { emptyList() }.isEmpty(), "$key: icon only, no glyph text")
+        assertTrue(node.boundsInRoot.width >= 48f && node.boundsInRoot.height >= 48f, "$key: 48 dp target ${node.boundsInRoot}")
+    }
+
+    /**
+     * The card titled [key] (inside the [card] tag when the word also names a tab): one [size] dp icon / soft tile ([tag]) right
+     * before the title. Group 2 C 15–16: Studio's inner cards = a 26 dp `card-tile`, the Captions tile card = a 30 dp one.
+     */
+    private fun ComposeUiTest.iconCard(key: UiText, card: String? = null, tag: String = "card-tile", size: Float = 26f) {
         val title = onAllNodes(hasText(key.text(language)) and (card?.let { hasAnyAncestor(hasTestTag(it)) } ?: hasText(key.text(language))),
             useUnmergedTree = true)[0].performScrollTo().assertIsDisplayed()
             .fetchSemanticsNode().boundsInRoot
-        val icon = onAllNodes(hasTestTag("card-icon"), useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
+        val icon = onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
             .filter { it.right <= title.left && title.left - it.right <= 12f && it.top < title.bottom && title.top < it.bottom }
         assertEquals(1, icon.size, "$key: one icon before the card title $title")
-        assertEquals(18f, icon.single().width, .5f)
+        assertEquals(size, icon.single().width, .5f)
     }
 
     @Composable private fun Recap(model: RecapModel, step: RecapStep) =
@@ -143,15 +154,23 @@ class RecapButtonsTest(val width: Int, val font: Float, val language: UiLanguage
 
             // Style: the preview's Play (fill play) and Close (x), the exact-frame card and the picture cards.
             step = RecapStep.STYLE; waitForIdle()
-            iconButton(UiText.PLAY, "timeline-play")
-            iconButton(UiText.CLOSE_PLAYER, "timeline-close")
-            iconButton(UiText.EXACT_FRAME)
+            if (width >= 840) {
+                iconButton(UiText.PLAY, "timeline-play")
+                iconButton(UiText.CLOSE_PLAYER, "timeline-close")
+                iconButton(UiText.EXACT_FRAME)
+            } else {
+                // Group 2 A §1: the phone top card's controls are labelled icon buttons; Close player leaves the phone card.
+                iconOnly(UiText.PLAY, "timeline-play")
+                iconOnly(UiText.EXACT_FRAME, "timeline-exact")
+                iconOnly(UiText.PREVIEW_FULLSCREEN, "timeline-fullscreen")
+                onNodeWithTag("timeline-close").assertDoesNotExist()
+            }
             onNode(hasContentDescription(UiText.V3_MORE_OPTIONS.text(language)) and hasAnyAncestor(hasTestTag("style-layer-options")))
                 .performScrollTo().performMouseInput { click() }
             listOf(UiText.OUTPUT_CARD, UiText.HIDE_THINGS_CARD, UiText.BACKGROUND_CARD, UiText.WATERMARK_CARD).forEach { iconCard(it) }
             capture("05-style-cards")
             onNodeWithTag("style-section-CAPTIONS").performScrollTo().performMouseInput { click() }
-            iconCard(UiText.CAPTIONS_CARD, "caption-controls")
+            iconCard(UiText.CAPTIONS_CARD, "caption-controls", size = 30f)
             assertEquals(before, h.bytes(), "looking at the buttons must not change any project file")
         }
     }

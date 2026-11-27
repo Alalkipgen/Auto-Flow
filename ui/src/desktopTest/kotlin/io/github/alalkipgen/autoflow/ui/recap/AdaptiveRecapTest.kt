@@ -100,7 +100,7 @@ class AdaptiveRecapTest {
             val node = onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()
             assertTrue(node.boundsInRoot.height >= 48f, "$tag must have a 48 dp touch target")
             assertTrue(node.boundsInRoot.left >= 0f && node.boundsInRoot.right <= width.toFloat())
-            val label = when (tag) { "recap-back" -> UiText.BACK.text(UiLanguage.BURMESE); "recap-next" -> "နောက်အဆင့်: ${RecapStep.VOICE.textKey.my} →"; else -> "Recap ပုံစံဟောင်း" }
+            val label = when (tag) { "recap-back" -> UiText.BACK.text(UiLanguage.BURMESE); "recap-next" -> "နောက်အဆင့်: ${RecapStep.VOICE.textKey.my}"; else -> "Recap ပုံစံဟောင်း" }
             val text = onNode(hasText(label) and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).fetchSemanticsNode()
             val layouts = mutableListOf<TextLayoutResult>()
             text.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)

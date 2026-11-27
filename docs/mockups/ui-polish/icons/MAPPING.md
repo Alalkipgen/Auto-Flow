@@ -65,7 +65,7 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `filter` | `funnel-simple` | Filter |
 | `caretdown` | `caret-down` | Dropdown |
 | `speakerlow` | `speaker-low` | Low volume |
-| `speakerx` | `speaker-slash` | Muted |
+| `speakerx` | `speaker-slash` | Muted; movie without sound (Source) |
 | `archive` | `archive` | Backup, archive |
 | `user` | `user` | Voice gender / speaker (no account UI, D-06) |
 | `usersound` | `user-sound` | Saved voice (Library) |
@@ -75,3 +75,54 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `cpu` | `cpu` | Model config (Settings) |
 | `wrench` | `wrench` | Tools (Settings) |
 | `flask` | `flask` | Preview features (Settings) |
+| `monitorplay` | `monitor-play` | Preview card (Movie Recap top preview) |
+| `caretup` | `caret-up` | Collapse |
+| `clockccw` | `clock-counter-clockwise` | Back 5 seconds |
+| `clockcw` | `clock-clockwise` | Forward 5 seconds |
+| `cornersout` | `corners-out` | Fullscreen |
+| `cornersin` | `corners-in` | Exit fullscreen |
+| `swap` | `swap` | Classic Recap (⋮ action) |
+| `crosshair` | `crosshair-simple` | Seek to time (Diagnostics) |
+| `filmstrip` | `film-strip` | Source preview scene chip (picked scenes · movie time) |
+| `checks` | `checks` | Select all scenes (Source) |
+| `radio` | `radio-button` | Selected option row (Source split) |
+| `circle` | `circle` | Option row not selected |
+| `listsearch` | `list-magnifying-glass` | Scan result card |
+| `notepencil` | `note-pencil` | Summary card |
+| `checksquare` | `check-square` | Picked scene |
+| `caretleft` | `caret-left` | Previous page |
+| `arrowscw` | `arrows-clockwise` | Replace movie / subtitles |
+| `stack` | `stack` | Layers card (Style) |
+| `drophalf` | `drop-half` | Blur layer |
+| `textt` | `text-t` | Text layer |
+| `selection` | `selection` | Border layer |
+| `paintbucket` | `paint-bucket` | Background layer |
+| `sliders` | `sliders-horizontal` | More options card |
+| `arrowright` | `arrow-right` | Next step (sticky bar) |
+| `filevideo` | `file-video` | Movie file name |
+| `mic` | `microphone` | Voice card, voice remaining, transcript |
+| `filmreel` | `film-reel` | Render card (Export) |
+| `batterywarning` | `battery-warning` | Low battery callout (Export) |
+| `downloadsimple` | `download-simple` | Save to Gallery |
+| `framecorners` | `frame-corners` | Exact frames card |
+| `megaphone` | `megaphone` | Publish Kit card |
+| `arrowsquareout` | `arrow-square-out` | Open a render |
+| `arrowCounterClockwise` | `arrow-counter-clockwise` | Automatic (reset caption timing) |
+| `broom` | `broom` | Clean tab |
+| `stop` | `stop` | Stop recording |
+| `arrowsSplit` | `arrows-split` | Split range (clips dialog) |
+| `arrowsMerge` | `arrows-merge` | Join next range (clips dialog) |
+| `arrowUp` | `arrow-up` | Earlier (clips dialog) |
+| `arrowDown` | `arrow-down` | Later (clips dialog) |
+| `handTap` | `hand-tap` | Layer placement gesture hint |
+| `arrowUpLeft` | `arrow-up-left` | Watermark position top-left |
+| `arrowUpRight` | `arrow-up-right` | Watermark position top-right |
+| `arrowDownLeft` | `arrow-down-left` | Watermark position bottom-left |
+| `arrowDownRight` | `arrow-down-right` | Watermark position bottom-right |
+| `briefcase` | `briefcase` | Save as Brand Kit (Style) |
+| `eyeSlash` | `eye-slash` | Hide things on the movie card (Style) |
+| `floppyDisk` | `floppy-disk` | Save caption style (Style) |
+| `magicWand` | `magic-wand` | Look card (Style) |
+| `stamp` | `stamp` | Watermark card (Style) |
+| `musicNote` | `music-note` | Background music file, Add music (Style) |
+| `copy` | `copy` | Copy title / chapters / description / hashtags (Publish Kit) |

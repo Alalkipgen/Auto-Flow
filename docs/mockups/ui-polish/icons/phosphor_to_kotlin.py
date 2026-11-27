@@ -13,7 +13,8 @@ if want - {k for k, _ in rows}:
 
 def camel(key):
     return {'checkc': 'CheckCircle', 'folderopen': 'FolderOpen', 'folderminus': 'FolderMinus', 'usersound': 'UserSound', 'textaa': 'TextAa', 'caretdown': 'CaretDown', 'speakerlow': 'SpeakerLow',
-            'speakerx': 'SpeakerMuted', 'x': 'XCircle', 'cc': 'Subtitles', 'chev': 'Chevron', 'vol': 'Volume'}.get(key, key[:1].upper() + key[1:])
+            'speakerx': 'SpeakerMuted', 'monitorplay': 'MonitorPlay', 'caretup': 'CaretUp', 'clockccw': 'ClockCounterClockwise', 'clockcw': 'ClockClockwise',
+            'cornersout': 'CornersOut', 'cornersin': 'CornersIn', 'x': 'XCircle', 'cc': 'Subtitles', 'chev': 'Chevron', 'vol': 'Volume', 'filmstrip': 'FilmStrip', 'radio': 'RadioButton', 'listsearch': 'ListMagnifyingGlass', 'notepencil': 'NotePencil', 'checksquare': 'CheckSquare', 'caretleft': 'CaretLeft', 'arrowscw': 'ArrowsClockwise', 'drophalf': 'DropHalf', 'textt': 'TextT', 'paintbucket': 'PaintBucket', 'sliders': 'SlidersHorizontal', 'arrowright': 'ArrowRight', 'filevideo': 'FileVideo', 'mic': 'Microphone', 'text': 'FileText', 'filmreel': 'FilmReel', 'batterywarning': 'BatteryWarning', 'downloadsimple': 'DownloadSimple', 'framecorners': 'FrameCorners', 'arrowsquareout': 'ArrowSquareOut'}.get(key, key[:1].upper() + key[1:])
 
 def layers(svg):
     out = []

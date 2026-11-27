@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.recap
 
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,11 +10,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.recap.*
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.storyboard.text
+import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlin.math.abs
 
@@ -82,15 +83,18 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
             color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber) }
     }
     val lockCard: @Composable () -> Unit = {
-        AfCard(tr(UiText.VOICE), Modifier.testTag("voice-lock")) { VoiceLockControls(model, state, recap, idle, compact = true) }
+        TileCard(tr(UiText.VOICE), RecapTiles.Voice, Modifier.testTag("voice-lock")) {
+            VoiceLockControls(model, state, recap, idle, compact = true, glass = true)
+        }
     }
     val blockList: @Composable () -> Unit = {
         val labels = listOf(tr(UiText.V3_ALL_COUNT, "n" to rows.size),
             tr(UiText.V3_ATTENTION_COUNT, "n" to rows.count { it.attention }),
             tr(UiText.V3_VOICED_COUNT, "n" to rows.count { it.voiced }))
-        OptionChips(labels, labels[filter], { filter = labels.indexOf(it) })
+        WrapRow { labels.forEachIndexed { i, label -> RecapChip(label, i == filter, { filter = i }) } }
         gate.blockers.firstOrNull()?.let { AfText(it.text(LocalUiLanguage.current), muted = true) }
         if (rows.isEmpty()) AfText(tr(UiText.WRITE_STORY_FIRST), muted = true)
+        val link = LocalTopPreviewLink.current
         rows.filter { filter == 0 || (filter == 1 && it.attention) || (filter == 2 && it.voiced) }.forEach { row ->
             key(row.block.id) {
                 BlockCard(row.index + 1,
@@ -98,35 +102,44 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                     row.block.textMy, row.status, { selected = VoiceSelection(row.block.id) },
                     Modifier.fillMaxWidth().testTag("block-select-${row.index}"), selected = wide && detail?.block?.id == row.block.id,
                     deltaMs = row.deltaMs, thumbnail = { row.block.clips.firstOrNull()?.let {
-                        RecapThumbnail(model, state, it.inMs, it.outMs, "block-thumbnail-${row.block.id}")
-                    } }) {
-                    TakeVoiceLabel(recap.takeFor(row.block.id), recap.voiceLock)
+                        BlockPreviewThumb(model, state, row.index, row.block.id, it.inMs, it.outMs)
+                    } }, playing = link?.attached == true && link.playing && link.blockId == row.block.id) {
+                    TakeVoiceLabel(recap.takeFor(row.block.id), recap.voiceLock, glass = true)
                     WrapRow {
                         state.takeFiles[row.index]?.takeIf { row.voiced }?.let { file ->
-                            AudioPlayButton(file, playing == row.block.id, { playing = if (playing == row.block.id) null else row.block.id })
+                            AudioPlayButton(file, playing == row.block.id, { playing = if (playing == row.block.id) null else row.block.id },
+                                glass = true)
                         }
                         if (row.status == StudioStatus.TIMING)
-                            AfButton(My.breakSyllables(tr(UiText.V3_FIX_TIMING)), { selected = VoiceSelection(row.block.id, showFit = true) },
-                                Modifier.testTag("voice-fit-${row.index}"))
-                        AfButton(My.breakSyllables(tr(if (row.voiced || state.isStale(row.index)) UiText.V3_REVOICE else UiText.V3_GENERATE_VOICE)),
-                            { selected = VoiceSelection(row.block.id) }, Modifier.testTag("voice-open-${row.index}"))
+                            GlassButton(My.breakSyllables(tr(UiText.V3_FIX_TIMING)), { selected = VoiceSelection(row.block.id, showFit = true) },
+                                Modifier.testTag("voice-fit-${row.index}"), icon = AfIcons.Regular.Wrench, small = true)
+                        // Re-voice (a take exists or the script changed) is secondary; Generate voice is the block's primary action.
+                        val revoice = row.voiced || state.isStale(row.index)
+                        GlassButton(My.breakSyllables(tr(if (revoice) UiText.V3_REVOICE else UiText.V3_GENERATE_VOICE)),
+                            { selected = VoiceSelection(row.block.id) }, Modifier.testTag("voice-open-${row.index}"),
+                            kind = if (revoice) ButtonKind.Secondary else ButtonKind.Primary,
+                            icon = if (revoice) AfIcons.Regular.Redo else AfIcons.Regular.Wave, small = true)
                     }
                 }
             }
         }
     }
+    val diagnostics = remember(state.projectDir) { mutableStateOf(false) }
+    val diagnosticsAction = diagnosticsAction(model, state, diagnostics)
     Column(Modifier.fillMaxSize().background(AutoFlowColors.Background), horizontalAlignment = Alignment.CenterHorizontally) {
         navigation?.let {
-            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, steps = recapStepLabels(), options = listOf(
-                StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap")))
+            ProjectTopBar(open?.project?.name.orEmpty(), 3, tr(UiText.VOICE), back, steps = recapStepLabels(), options = listOfNotNull(
+                StudioAction(tr(UiText.CLASSIC_RECAP), it.classic, tag = "classic-recap", icon = AfIcons.Regular.Swap),
+                diagnosticsAction.takeIf { !wide }))
         }
         RecapForegroundCards(model, state)
         job?.takeIf { it.active }?.let { RecapSpeakAllCard(model, it, pin = true) }
         if (wide) Box(Modifier.weight(1f).fillMaxWidth()) {
             // Concept 11: blocks · real preview · inspector (selected block, else the voice lock).
             ProjectPanes(windowWidthDp, list = {
-                Column(Modifier.fillMaxSize().paneScroll(rememberScrollState()).testTag("voice-list"),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) { blockList() }
+                // The glass chips' 48 dp targets overflow their 34 dp pill: the padding sits inside the scroll viewport.
+                GlassScrollColumn(Modifier.fillMaxSize().testTag("voice-list"), PaddingValues(vertical = (AfSize.Touch - AfSize.FilterChip) / 2),
+                    Arrangement.spacedBy(12.dp)) { blockList() }
             }, editor = {
                 Column(Modifier.fillMaxSize().paneScroll(scroll).padding(14.dp).testTag("voice-content"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -135,7 +148,7 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                         lockCard()
                         AfText(tr(UiText.V3_SELECT_BLOCK), muted = true)
                     } else key(detail.block.id) {
-                        if (navigation == null) AfButton(tr(UiText.BACK), back)
+                        if (navigation == null) AfButton(tr(UiText.BACK), back, icon = AfIcons.Regular.Back)
                         StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true, showPreview = false) {
                             selected = VoiceSelection(it)
                         }
@@ -149,39 +162,41 @@ internal fun StudioVoiceScreen(model: RecapModel, navigation: RecapNavigation?, 
                     AfText(My.breakSyllables(tr(UiText.V3_SHORTCUTS_HINT)), Modifier.testTag("shortcuts-hint"), muted = true)
                 }
             })
-        } else Column(Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth().paneScroll(scroll).padding(14.dp)
-            .testTag("voice-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            status()
-            if (detail == null) {
-                lockCard()
-                blockList()
-            } else {
-                if (navigation == null) AfButton(tr(UiText.BACK), back)
-                key(detail.block.id) {
-                    StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true) {
-                        selected = VoiceSelection(it)
+        } else TopPreviewHost(model, state, true, Modifier.weight(1f).widthIn(max = 900.dp).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().paneScroll(scroll).padding(14.dp).testTag("voice-content"),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Phone / narrow window: the top preview (A §1), at the open block; Voice had no phone preview before.
+                RecapTopPreview(model, diagnostics, blockId = detail?.block?.id)
+                status()
+                if (detail == null) {
+                    lockCard()
+                    blockList()
+                } else {
+                    if (navigation == null) AfButton(tr(UiText.BACK), back, icon = AfIcons.Regular.Back)
+                    key(detail.block.id) {
+                        StudioVoiceDetail(model, state, detail, rows, selected?.showFit == true, showPreview = false) {
+                            selected = VoiceSelection(it)
+                        }
                     }
                 }
             }
         }
         if (detail == null) StickyActionBar(
             StudioAction(tr(UiText.V3_VOICE_REMAINING, "n" to remaining), { model.speakAll() },
-                idle && gate.allowed && remaining > 0, "voice-remaining"),
-            navigation?.let { StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.STYLE)), it.next, idle, "recap-next") },
-            tr(UiText.V3_VOICE_COUNT, "n" to remaining))
+                idle && gate.allowed && remaining > 0, "voice-remaining", AfIcons.Regular.Microphone),
+            navigation?.let { StudioAction(tr(UiText.NEXT_STEP, "step" to tr(UiText.STYLE)), it.next, idle, "recap-next",
+                trailingIcon = AfIcons.Regular.ArrowRight) },
+            tr(UiText.V3_VOICE_COUNT, "n" to remaining), glass = true)
         else key(detail.block.id) { StudioBlockVoiceAction(model, state, detail) }
     }
     state.speakAllEta?.let { confirmation ->
-        Dialog(onDismissRequest = model::cancelSpeakAll) {
-            AfCard(tr(UiText.V3_VOICE_REMAINING, "n" to confirmation.count)) {
-                AfText(tr(UiText.V3_VOICE_REQUESTS, "n" to confirmation.count))
-                AfText(tr(UiText.SPEAK_ALL_HINT), muted = true)
-                WrapRow {
-                    AfButton(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) },
-                        Modifier.testTag("voice-confirm"), kind = ButtonKind.Primary, enabled = idle && gate.allowed, icon = AfIcons.Fill.Play)
-                    AfButton(tr(UiText.CANCEL), model::cancelSpeakAll, Modifier.testTag("voice-confirm-cancel"))
-                }
-            }
+        // Group 2 C 13e: the glass dialog (microphone tile), the hint as an info row, Cancel | Start (play).
+        GlassDialog(model::cancelSpeakAll, AfIcons.Fill.Microphone, GlassColors.RecapPink, tr(UiText.V3_VOICE_REMAINING, "n" to confirmation.count)) {
+            AfText(tr(UiText.V3_VOICE_REQUESTS, "n" to confirmation.count))
+            GlassFact(AfIcons.Regular.Info, tr(UiText.SPEAK_ALL_HINT), colour = AutoFlowColors.Muted, caption = true)
+            GlassDialogButtons(GlassDialogAction(tr(UiText.CANCEL), model::cancelSpeakAll, tag = "voice-confirm-cancel"),
+                GlassDialogAction(tr(UiText.START_PLAY), { model.speakAll(confirmed = true) }, ButtonKind.Primary, AfIcons.Fill.Play,
+                    idle && gate.allowed, "voice-confirm"))
         }
     }
 }

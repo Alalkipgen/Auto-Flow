@@ -292,7 +292,8 @@ fun GlassPill(text: String, modifier: Modifier = Modifier, description: String? 
 }
 
 /** One segment of [GlassSegmented]: its label, test tag and whether it can be picked. */
-class GlassSegment(val label: String, val tag: String, val enabled: Boolean = true)
+/** One segment; [tag] = its testTag (none when the caller has no tag), [icon] = before the label instead of the selected check. */
+class GlassSegment(val label: String, val tag: String?, val enabled: Boolean = true, val icon: ImageVector? = null)
 
 /**
  * Two-segment (or more) control: a track (radius 12, padding 3, gap 3, black .22 + White .10 border) of equal items
@@ -309,7 +310,7 @@ fun GlassSegmented(segments: List<GlassSegment>, selected: Int, onSelect: (Int) 
             val item = GlassShapes.SegmentItem
             Box(
                 Modifier.weight(1f).fillMaxHeight().touchOverflow(vertical = (AfSize.Touch - GlassShapes.SegmentItemHeight) / 2)
-                    .testTag(segment.tag)
+                    .then(segment.tag?.let { Modifier.testTag(it) } ?: Modifier)
                     .selectable(on, interaction, null, enabled = segment.enabled, role = Role.RadioButton) { onSelect(i) }
                     .padding(vertical = (AfSize.Touch - GlassShapes.SegmentItemHeight) / 2)
                     .heightIn(min = GlassShapes.SegmentItemHeight)
@@ -322,11 +323,47 @@ fun GlassSegmented(segments: List<GlassSegment>, selected: Int, onSelect: (Int) 
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (on) AfIcon(AfIcons.Regular.Check, tint = Color.White, size = AfSize.IconXs)
+                val lead: (@Composable () -> Unit)? = when {
+                    segment.icon != null -> { { AfIcon(segment.icon, tint = if (on) Color.White else AutoFlowColors.Muted, size = AfSize.IconXs) } }
+                    on -> { { AfIcon(AfIcons.Regular.Check, tint = Color.White, size = AfSize.IconXs) } }
+                    else -> null
+                }
+                SegmentLabel(lead) {
                     AfText(My.breakSyllables(segment.label), color = if (on) Color.White else AutoFlowColors.Text, type = AfType.ButtonSmall,
                         textAlign = TextAlign.Center)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * A segment's [lead] icon and label: side by side (gap 6) while the label's widest syllable fits beside the icon, else
+ * the icon centred above the label (narrow panes at font 2.0), so a word is never cut inside a syllable.
+ */
+@Composable
+private fun SegmentLabel(lead: (@Composable () -> Unit)?, label: @Composable () -> Unit) {
+    Layout(contents = listOf(lead ?: {}, label)) { (leadM, labelM), constraints ->
+        val gap = 6.dp.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val icon = leadM.firstOrNull()?.measure(loose)
+        val text = labelM.first()
+        val beside = icon?.let { it.width + gap } ?: 0
+        val stack = icon != null && constraints.hasBoundedWidth &&
+            text.minIntrinsicWidth(Constraints.Infinity) > constraints.maxWidth - beside
+        if (stack) {
+            val t = text.measure(loose)
+            val w = maxOf(icon!!.width, t.width)
+            layout(w, icon.height + gap / 2 + t.height) {
+                icon.place((w - icon.width) / 2, 0)
+                t.place((w - t.width) / 2, icon.height + gap / 2)
+            }
+        } else {
+            val t = text.measure(if (constraints.hasBoundedWidth) loose.copy(maxWidth = (constraints.maxWidth - beside).coerceAtLeast(0)) else loose)
+            val h = maxOf(icon?.height ?: 0, t.height)
+            layout(beside + t.width, h) {
+                icon?.place(0, (h - icon.height) / 2)
+                t.place(beside, (h - t.height) / 2)
             }
         }
     }

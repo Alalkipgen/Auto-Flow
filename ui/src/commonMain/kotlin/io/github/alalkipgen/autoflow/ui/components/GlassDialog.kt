@@ -63,8 +63,8 @@ fun GlassDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
 /** A dialog window with one [GlassDialogSurface]. */
 @Composable
 fun GlassDialog(onDismissRequest: () -> Unit, icon: ImageVector, tone: Color, title: String, modifier: Modifier = Modifier,
-    subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    GlassDialog(onDismissRequest) { GlassDialogSurface(icon, tone, title, modifier, subtitle, content) }
+    subtitle: String? = null, footer: (@Composable ColumnScope.() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    GlassDialog(onDismissRequest) { GlassDialogSurface(icon, tone, title, modifier, subtitle, footer, content) }
 }
 
 /**
@@ -74,10 +74,10 @@ fun GlassDialog(onDismissRequest: () -> Unit, icon: ImageVector, tone: Color, ti
  */
 @Composable
 fun GlassDialogSurface(icon: ImageVector, tone: Color, title: String, modifier: Modifier = Modifier, subtitle: String? = null,
-    content: @Composable ColumnScope.() -> Unit) {
+    footer: (@Composable ColumnScope.() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     GlassDialogShell(modifier, {
         GlassDialogHeader(title, subtitle) { SoftTile(icon, tone, Modifier.testTag("glass-dialog-tile"), size = GlassShapes.DialogTile) }
-    }, content)
+    }, content, footer)
 }
 
 /**
@@ -93,9 +93,13 @@ fun GlassDialogSurface(title: String?, modifier: Modifier = Modifier, subtitle: 
     GlassDialogShell(modifier, header, content)
 }
 
-/** The surface shell (see [GlassDialogSurface]): [header] (if any), then [content], 14 dp apart. */
+/**
+ * The surface shell (see [GlassDialogSurface]): [header] (if any), then [content], 14 dp apart. With a [footer] (an editor's
+ * Save / Discard row) only the header and content scroll; the footer stays pinned under them, always in view.
+ */
 @Composable
-private fun GlassDialogShell(modifier: Modifier, header: (@Composable () -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
+private fun GlassDialogShell(modifier: Modifier, header: (@Composable () -> Unit)?, content: @Composable ColumnScope.() -> Unit,
+    footer: (@Composable ColumnScope.() -> Unit)? = null) {
     val shape = GlassShapes.Dialog
     val pad = GlassShapes.DialogPadding
     val overflow = (AfSize.Touch - AfSize.Button) / 2
@@ -110,9 +114,20 @@ private fun GlassDialogShell(modifier: Modifier, header: (@Composable () -> Unit
             }
             .drawWithContent { drawContent(); drawGlassBorder(shape, GlassColors.DialogBorder, GlassColors.DialogHighlight) }
             .testTag("glass-dialog")
-            .paneScroll(rememberScrollState())
+            .then(if (footer == null) Modifier.paneScroll(rememberScrollState()) else Modifier)
             .padding(start = pad, top = pad, end = pad, bottom = pad - overflow),
     ) {
+        if (footer != null) {
+            // As below, the scrolled content ends `overflow` lower so a scroll-to of its last 48 dp target stays in range.
+            Column(Modifier.weight(1f, fill = false).paneScroll(rememberScrollState())) {
+                Column(Modifier.padding(bottom = overflow), verticalArrangement = Arrangement.spacedBy(GlassShapes.DialogGap)) {
+                    header?.invoke()
+                    content()
+                }
+            }
+            Column(Modifier.padding(top = GlassShapes.DialogGap - overflow, bottom = overflow), verticalArrangement = Arrangement.spacedBy(8.dp)) { footer() }
+            return@Column
+        }
         // The last button's 48 dp target overflows its 44 dp slot by 2 dp; keep that inside the scrolled content (the
         // visual padding stays 20), so a scroll-to of the last button never asks a dialog that cannot scroll to scroll.
         Column(Modifier.padding(bottom = overflow), verticalArrangement = Arrangement.spacedBy(GlassShapes.DialogGap)) {
@@ -198,12 +213,13 @@ fun GlassPathBox(path: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** A fact line: 17 dp Muted icon (Regular) + 13 sp text. */
+/** A fact line: 17 dp [iconColour] icon (Muted, Regular) + 13 sp text in [colour] ([caption] = 12 sp); [textModifier] on the text. */
 @Composable
-fun GlassFact(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+fun GlassFact(icon: ImageVector, text: String, modifier: Modifier = Modifier, colour: Color = AutoFlowColors.Text,
+    iconColour: Color = AutoFlowColors.Muted, caption: Boolean = false, textModifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AfIcon(icon, Modifier.padding(top = 2.dp), tint = AutoFlowColors.Muted, size = 17.dp)
-        AfText(text, Modifier.weight(1f))
+        AfIcon(icon, Modifier.padding(top = 2.dp), tint = iconColour, size = 17.dp)
+        AfText(text, textModifier.weight(1f), color = colour, type = if (caption) AfType.Caption else null)
     }
 }
 
@@ -212,7 +228,8 @@ fun GlassFact(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
  * [textColour] ([tone]; the Settings callouts use Text).
  */
 @Composable
-fun GlassCallout(icon: ImageVector, text: String, tone: Color, modifier: Modifier = Modifier, textColour: Color = tone) {
+fun GlassCallout(icon: ImageVector, text: String, tone: Color, modifier: Modifier = Modifier, textColour: Color = tone,
+    textModifier: Modifier = Modifier) {
     val shape = GlassShapes.Callout
     Row(
         modifier.fillMaxWidth().clip(shape).background(tone.copy(alpha = .10f)).border(1.dp, tone.copy(alpha = .30f), shape)
@@ -220,7 +237,7 @@ fun GlassCallout(icon: ImageVector, text: String, tone: Color, modifier: Modifie
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AfIcon(icon, Modifier.padding(top = 2.dp), tint = tone, size = 18.dp)
-        AfText(text, Modifier.weight(1f), color = textColour, type = AfType.Caption)
+        AfText(text, textModifier.weight(1f), color = textColour, type = AfType.Caption)
     }
 }
 

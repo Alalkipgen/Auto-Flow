@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.ui.components.*
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Presentation state only. Persisted project/block identifiers never depend on translated labels. */
@@ -36,9 +37,9 @@ fun RecapStepHeader(step: RecapStep, onBack: () -> Unit, onNext: () -> Unit, onC
             progressBarRangeInfo = ProgressBarRangeInfo((step.ordinal + 1).toFloat(), 0f..5f, 4)
         }, bold = true)
         WrapRow {
-            AfButton(tr(UiText.PREVIOUS_STEP), onBack, Modifier.heightIn(min = 48.dp).testTag("recap-back"))
+            AfButton(tr(UiText.PREVIOUS_STEP), onBack, Modifier.heightIn(min = 48.dp).testTag("recap-back"), icon = AfIcons.Regular.Back)
             if (step.next() != null) AfButton(tr(UiText.NEXT_STEP, "step" to tr(step.next()!!.textKey)), onNext,
-                Modifier.heightIn(min = 48.dp).testTag("recap-next"), kind = ButtonKind.Primary)
+                Modifier.heightIn(min = 48.dp).testTag("recap-next"), kind = ButtonKind.Primary, trailingIcon = AfIcons.Regular.ArrowRight)
             AfButton(tr(UiText.CLASSIC_RECAP), onClassic, Modifier.heightIn(min = 48.dp).testTag("classic-recap"))
         }
     }
@@ -113,7 +114,7 @@ fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, 
                         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("block-select-$i"),
                         kind = if (i == selectedIndex) ButtonKind.Primary else ButtonKind.Secondary)
                     TakeVoiceLabel(recap.takeFor(b.id), recap.voiceLock)
-                    if (state.isStale(i)) AfText("⚠ ${tr(UiText.STALE)}", color = AutoFlowColors.Amber)
+                    if (state.isStale(i)) GlassFact(AfIcons.Fill.Warn, tr(UiText.STALE), colour = AutoFlowColors.Amber, iconColour = AutoFlowColors.Amber)
                     else if (state.currentTake(i) == null) AfText(tr(UiText.NO_VOICE), muted = true)
                 }
             }

@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.dubbing
 
+import io.github.alalkipgen.autoflow.ui.icons.AfIcons
+
 import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import io.github.alalkipgen.autoflow.ui.jobs.ToolAiRequestCard
 import androidx.compose.foundation.layout.*
@@ -141,7 +143,7 @@ private fun Speak(model: DubVoiceModel, s: DubVoiceUi, job: AiJob?) {
                 "minutes" to model.minutes(c.lines.size, c.lock))), Modifier.testTag("dub-speak-facts"), bold = true)
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("dub-speak-start"), kind = ButtonKind.Primary)
-                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("dub-speak-back"))
+                AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("dub-speak-back"), icon = AfIcons.Regular.Back)
             }
         }
         else -> s.notice?.let {
@@ -183,7 +185,7 @@ private fun Shorten(model: DubShortenModel, script: DubScriptModel, dir: String,
                 WrapRow {
                     AfButton(My.breakSyllables(tr(UiText.DUB_USE_LINES, "n" to n)), { if (model.use(script)) toScript() },
                         Modifier.testTag("dub-shorten-apply"), kind = ButtonKind.Primary, enabled = n > 0 && idle)
-                    AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("dub-shorten-back"))
+                    AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("dub-shorten-back"), icon = AfIcons.Regular.Back)
                 }
             }
             else -> {

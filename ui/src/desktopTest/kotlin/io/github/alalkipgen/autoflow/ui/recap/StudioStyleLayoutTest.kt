@@ -226,9 +226,13 @@ class StudioStyleWorkflowTest {
                 onNodeWithText("VLC path does not contain", substring = true).performScrollTo().assertIsDisplayed()
                 onNodeWithTag("timeline-video").assertDoesNotExist()
                 styleCapture("05-style-vlc-unavailable-412-en-1.0-true", 412, 1f)
-                onNodeWithText(UiText.EXACT_FRAME.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
-                waitUntil(timeoutMillis = 180_000) { onAllNodesWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.en).fetchSemanticsNodes().isNotEmpty() }
-                val image = onNodeWithContentDescription(UiText.EXACT_FRAME_DESCRIPTION.en).performScrollTo().assertIsDisplayed()
+                // Group 2 A §1: on a phone the Exact frame is the top card's frame button.
+                onNodeWithTag("timeline-exact").assert(hasContentDescription(UiText.EXACT_FRAME.en)).performScrollTo().assertIsDisplayed()
+                    .performMouseInput { click() }
+                // The frame button is itself described "Exact frame": wait for the still (not clickable) in the top card.
+                val still = hasContentDescription(UiText.EXACT_FRAME_DESCRIPTION.en) and hasAnyAncestor(hasTestTag("recap-top-preview")) and !hasClickAction()
+                waitUntil(timeoutMillis = 180_000) { onAllNodes(still).fetchSemanticsNodes().isNotEmpty() }
+                val image = onNode(still).performScrollTo().assertIsDisplayed()
                 val bitmap = image.captureToImage().toAwtImage(); assertTrue(bitmap.width > 100 && bitmap.height > 50)
                 styleCapture("05-style-real-exact-412-en-1.0-true", 412, 1f)
                 val after = h.bytes()

@@ -78,7 +78,10 @@ class StudioTimelinePlaybackRuntimeTest {
                     println("LIVE_V3_CLICK $tag at=${position()}")
                     reach(tag).performMouseInput { click() }; mainClock.advanceTimeBy(500)
                 }
-                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text == UiText.PAUSE.en }
+                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config.let { c ->
+                    // Phone top card (Group 2 A §1): an icon button named by its content description; desktop: a text button.
+                    c.getOrElse(SemanticsProperties.Text) { emptyList() }.map { it.text } + c.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }
+                }.any { it == UiText.PAUSE.en }
                 fun pause() {
                     if (playing()) click("timeline-play")
                     await { !playing() }
@@ -130,7 +133,8 @@ class StudioTimelinePlaybackRuntimeTest {
                 onNodeWithTag("timeline-video").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "SECOND"))
                 ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File("build/reports/playback/uiv3-container-4500.png"))
                 click("timeline-play"); await { position() > 4_700 }; pause()
-                click("timeline-close"); onNodeWithTag("timeline-video").assertDoesNotExist()
+                // Group 2 A §1: no phone preview page to close any more; folding the top card keeps the same decoder playing unseen.
+                click("recap-top-preview-collapse"); onNodeWithTag("timeline-scrubber").assertDoesNotExist()
                 click("timeline-play"); await { position() > 4_850 }
                 val otherDir = File(root, "other.autoflow").path
                 val other = (store.create(otherDir, "Other", Mode.MOVIE_RECAP) as CoreResult.Ok).value
@@ -140,7 +144,7 @@ class StudioTimelinePlaybackRuntimeTest {
                 click("voice-open-1"); click("timeline-play"); await { position() > 4_200 }
                 runOnIdle { show = false }; mainClock.advanceTimeByFrame()
                 onNodeWithTag("timeline-video").assertDoesNotExist()
-                println("PLAYBACK_UI_V3_EVIDENCE: real Studio container; stable block B starts at output 4000ms; pointer scrub to output 500/2500/4500 decodes green/yellow/blue (source 2500/6500/4500); actual FIRST/SECOND caption ink > blank; pause <100ms; resume; close; project switch; leave disposes player")
+                println("PLAYBACK_UI_V3_EVIDENCE: real Studio container; stable block B starts at output 4000ms; pointer scrub to output 500/2500/4500 decodes green/yellow/blue (source 2500/6500/4500); actual FIRST/SECOND caption ink > blank; pause <100ms; resume; fold the top card and play on; project switch; leave disposes player")
             }
             assertContentEquals(before, File(fixture.dir, "project.json").readBytes())
         } finally { scope.cancel(); root.deleteRecursively() }
