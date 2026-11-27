@@ -51,11 +51,15 @@ object EdgeVoices {
     }
 }
 
-/** Thiha / Nilar chips; a tap locks to that Edge voice ([tag] prefixes the test tags). */
+/**
+ * Thiha / Nilar chips; a tap locks to that Edge voice ([tag] prefixes the test tags). [glass] (Dubbing Group 4 F 1, Voice &
+ * Audio Group 6 C 3): the short label V3_EDGE_VOICES_SHORT with ⓘ (the full EDGE_VOICES caveat; [infoTag] on it) and glass
+ * filter chips.
+ */
 @Composable
-fun EdgeVoiceChips(edge: EdgeTtsConfig, lock: VoiceLock?, enabled: Boolean, tag: String, glass: Boolean = false, onPick: (VoiceLock) -> Unit) {
-    // [glass] (Dubbing, Group 4 F 1): a small 12 sp muted label and glass filter chips; Voice & Audio keeps its look.
-    if (glass) AfText(My.breakSyllables(tr(UiText.EDGE_VOICES)), muted = true, size = 12.sp)
+fun EdgeVoiceChips(edge: EdgeTtsConfig, lock: VoiceLock?, enabled: Boolean, tag: String, glass: Boolean = false, infoTag: String? = null,
+    onPick: (VoiceLock) -> Unit) {
+    if (glass) InfoLabel(tr(UiText.V3_EDGE_VOICES_SHORT), tr(UiText.EDGE_VOICES), infoTag)
     else AfText(My.breakSyllables(tr(UiText.EDGE_VOICES)), muted = true)
     WrapRow {
         edge.voicesFor("my").forEach { v ->

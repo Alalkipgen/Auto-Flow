@@ -157,3 +157,5 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `file` | `file` | Other file in the Inbox — cannot attach (Music Video Inbox) |
 | `gauge` | `gauge` | Faster fit pill (Dubbing Voice lines) |
 | `videocameraslash` | `video-camera-slash` | Preview unavailable (Dubbing preview card) |
+| `listnumbers` | `list-numbers` | Parts card, Speak dialog parts row (Voice & Audio) |
+| `ear` | `ear` | Before / After (Voice & Audio Clean up) |

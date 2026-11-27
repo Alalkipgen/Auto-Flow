@@ -124,20 +124,21 @@ fun SubtitlesScreen(model: SubtitlesModel, session: ProjectSession, editor: Subt
 /**
  * The Subtitles top bar (Group 5 A 1, the Group 2 `ProjectTopBar` look): the glass panel (White .08 → .03, a White .08
  * line under it), the 40 dp glass back button, [title] 17 sp bold on one line, [subtitle] 12 sp muted — while [dirty] a
- * 6 dp amber dot and the text in WarningText — then [actions] (Undo / Redo, 🆕-8) at the right.
+ * 6 dp amber dot and the text in WarningText — then [actions] (Undo / Redo, 🆕-8) at the right. Also the Voice & Audio
+ * bar (Group 6 VA-1): no back button without [onBack], no subtitle line without [subtitle] (the task chooser).
  */
 @Composable
-internal fun SubtitlesTopBar(title: String, subtitle: String, dirty: Boolean, onBack: () -> Unit, tag: String = "subtitles-top-bar",
+internal fun SubtitlesTopBar(title: String, subtitle: String?, dirty: Boolean, onBack: (() -> Unit)?, tag: String = "subtitles-top-bar",
     backTag: String = "subtitles-back", actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().drawBehind {
             drawRect(Brush.verticalGradient(listOf(GlassColors.TopBarTop, GlassColors.TopBarBottom)))
             drawRect(GlassColors.TopBarLine, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
         }.padding(horizontal = GlassShapes.TopBarPadX, vertical = GlassShapes.TopBarPadY).testTag(tag),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        GlassIconButton(AfIcons.Regular.Back, tr(UiText.BACK), onBack, Modifier.testTag(backTag), size = GlassShapes.IconButtonHeader)
+        onBack?.let { GlassIconButton(AfIcons.Regular.Back, tr(UiText.BACK), it, Modifier.testTag(backTag), size = GlassShapes.IconButtonHeader) }
         Column(Modifier.weight(1f)) {
             AfText(title, Modifier.semantics { contentDescription = title }, type = AfType.TopBarTitle, weight = FontWeight.Bold, maxLines = 1, ellipsis = true)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (subtitle != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (dirty) Box(Modifier.size(6.dp).clip(CircleShape).background(AutoFlowColors.Amber))
                 AfText(subtitle, color = if (dirty) AutoFlowColors.WarningText else AutoFlowColors.Muted, type = AfType.Caption)
             }

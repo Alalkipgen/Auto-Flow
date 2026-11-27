@@ -13,7 +13,10 @@ import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
  */
 @Composable
 fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit, glass: Boolean = false,
-    glassIcon: androidx.compose.ui.graphics.vector.ImageVector = AfIcons.Fill.Volume) {
+    glassIcon: androidx.compose.ui.graphics.vector.ImageVector = AfIcons.Fill.Volume,
+    /** Glass while playing (Voice & Audio parts, Group 6 D 2: `pause` Fill on [playingTone] = the cyan button); default: Stop. */
+    playingIcon: androidx.compose.ui.graphics.vector.ImageVector = AfIcons.Fill.Square,
+    playingTone: androidx.compose.ui.graphics.Color? = null) {
     if (!playing) {
         // Glass (Movie Recap block cards, Group 2 A §2): a 40 dp speaker, so it is not taken for the picture's Play;
         // the take rows of a block (Group 2 C 11) pass [glassIcon] = play.
@@ -34,6 +37,7 @@ fun AudioPlayButton(path: String, playing: Boolean, onToggle: () -> Unit, glass:
         while (player.playing) kotlinx.coroutines.delay(200)
         onToggle()
     }
-    if (glass) GlassIconButton(AfIcons.Fill.Square, tr(UiText.AUDIO_STOP), { player.pause(); onToggle() }, size = GlassShapes.IconButtonHeader, selected = true)
+    if (glass) GlassIconButton(playingIcon, tr(UiText.AUDIO_STOP), { player.pause(); onToggle() }, size = GlassShapes.IconButtonHeader,
+        selected = playingTone == null, tone = playingTone)
     else AfIconButton(AfIcons.Fill.Square, tr(UiText.AUDIO_STOP), { player.pause(); onToggle() }, selected = true)
 }

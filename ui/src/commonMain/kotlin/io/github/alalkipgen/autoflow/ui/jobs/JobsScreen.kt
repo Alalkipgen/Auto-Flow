@@ -152,7 +152,7 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
                 progress = progress, running = active, failed = job.state == AiJobState.FAILED, canCancel = active, aiJobId = job.id,
                 timedRun = timed, indeterminate = timed && progress == null && job.state == AiJobState.RUNNING, projectIdentity = job.projectIdentity,
                 projectDir = job.project, jobId = job.id, resumeCount = job.items.size.takeIf { job.canResume() }, aiKind = job.kind,
-                kindLabel = aiKindLabel(job.kind, language), reason = job.error?.takeIf { it.isNotBlank() },
+                kindLabel = aiKindLabel(job.kind, language), reason = (if (job.kind == AiJobKind.TEXT_TTS) jobErrorText(job.error, language) else job.error)?.takeIf { it.isNotBlank() },
                 status = when (job.state) {
                     AiJobState.QUEUED -> StudioStatus.QUEUED; AiJobState.RUNNING -> StudioStatus.RUNNING
                     AiJobState.PAUSED -> StudioStatus.PAUSED; AiJobState.FAILED -> StudioStatus.FAILED

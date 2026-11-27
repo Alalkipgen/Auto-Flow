@@ -80,6 +80,10 @@ class EdgeVoicesTest {
         fun saved() = assertNotNull(store.open(dir).getOrNull()?.voice).lock
         fun tap(tag: String) = onNodeWithTag(tag).performScrollTo().performMouseInput { click() }
         setContent { VoiceAudioScreen(model, session, onBack = {}) }
+        // VA-2: a chosen voice with models keeps the voice card closed; open it first.
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-expand").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(onAllNodesWithTag("voice-edge-Thiha").fetchSemanticsNodes().isEmpty(), "closed by default")
+        tap("voice-expand")
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-edge-Thiha").fetchSemanticsNodes().isNotEmpty() }
         tap("voice-edge-Thiha")
         assertEquals(thiha, saved())

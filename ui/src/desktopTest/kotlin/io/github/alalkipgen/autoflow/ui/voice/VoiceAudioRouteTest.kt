@@ -78,7 +78,7 @@ class VoiceAudioRouteTest {
                 assertTrue(app.koin.get<ProjectIndex>().entries.value.isEmpty(), "nothing is created by the chooser")
                 tap("voice-task-text")
                 onNodeWithTag("voice-continue").assertIsNotEnabled()
-                tap("voice-back")
+                onNodeWithTag("voice-back").performMouseInput { click() } // VA-1: in the fixed top bar, not in the scroll
                 onNodeWithTag("voice-task-text").assertExists()
                 tap("voice-task-text")
                 type("voice-text", "မင်္ဂလာပါ။ Hello there.")

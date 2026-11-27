@@ -67,7 +67,7 @@ internal fun ScriptCard(model: RecapModel, state: RecapUiState, recap: RecapV2, 
             SourceHint(glass, it.text(LocalUiLanguage.current))
             return@content
         }
-        var style by remember(state.projectDir, state.story?.style) { mutableStateOf(state.story?.style ?: recap.style) }
+        var style by remember(state.projectDir, state.story?.style) { mutableStateOf(state.story?.style ?: RecapModel.startStyle(recap)) }
         var register by remember(state.projectDir, state.story?.register) { mutableStateOf(state.story?.register ?: recap.register) }
         LaunchedEffect(state.projectDir, state.story?.style, state.story?.register) {
             if (studioOptions) { model.setStyle(style); model.setRegister(register) }

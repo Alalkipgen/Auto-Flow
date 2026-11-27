@@ -70,6 +70,12 @@ class VoicePartsTest {
         assertEquals(listOf("p1", "p2", "p3"), saved().parts.map { it.id })
         assertEquals(listOf(true, true, false), saved().parts.map { it.take != null })
         waitUntil(timeoutMillis = 5_000) { status("p3") == My.breakSyllables(UiText.VA_NOT_VOICED.en) }
+        // VA-4: the take rule behind the parts card's ⓘ.
+        val rule = My.breakSyllables(UiText.VA_TAKE_RULE.en)
+        assertTrue(onAllNodesWithText(rule).fetchSemanticsNodes().isEmpty(), "the take rule sits behind ⓘ")
+        tap("voice-info-parts")
+        onNodeWithText(rule).assertExists()
+        tap("voice-info-parts")
         assertEquals(My.breakSyllables(UiText.VA_VOICED.en), status("p1"))
 
         tap("voice-tone-news")
@@ -78,6 +84,7 @@ class VoicePartsTest {
         tap("voice-tone-news")
         assertNull(saved().tone, "the chosen tone again clears it")
 
+        tap("voice-expand") // VA-2: the voice card is closed while a voice is chosen
         tap("voice-saved-v1")
         assertEquals(narrator, saved().lock)
         tap("voice-voice-Kore")

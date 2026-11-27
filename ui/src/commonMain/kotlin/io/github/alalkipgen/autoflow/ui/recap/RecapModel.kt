@@ -283,6 +283,8 @@ class RecapModel(
         val keep = _state.value.takeIf { it.projectDir == open?.dir }
         val recap = open?.project?.recap
         val story = recap?.story?.let { id -> session.readJson(id, RecapStory.serializer()) }
+        // Group 6 Q-3: a recap opened without a story yet starts on the Quick Recap wizard's style (`recap.quick`), else Plain.
+        if (keep == null && story == null) _style = startStyle(recap)
         _state.value = RecapUiState(
             projectDir = open?.dir,
             recap = recap,
@@ -1689,6 +1691,14 @@ class RecapModel(
     }
 
     companion object {
+        /**
+         * Group 6 Q-3: the style Writing options starts on before a story exists — the Quick Recap wizard's choice stored in
+         * `recap.quick` ([QuickRecap.style]), else [RecapV2.style] (Plain). Read only; the file format is unchanged.
+         */
+        internal fun startStyle(recap: io.github.alalkipgen.autoflow.core.recap.RecapV2?): RecapStyle =
+            recap?.quick?.let { q -> runCatching { CoreJson.decodeFromJsonElement(io.github.alalkipgen.autoflow.core.recap.QuickRecap.serializer(), q).style }
+                .getOrNull() } ?: recap?.style ?: RecapStyle.PLAIN
+
         const val NO_FFMPEG = "ffmpeg is not available, so the movie cannot be read."
         const val SUMMARY_FILE = "summary.txt"
         const val SUBTITLES_FILE = "subtitles.srt"

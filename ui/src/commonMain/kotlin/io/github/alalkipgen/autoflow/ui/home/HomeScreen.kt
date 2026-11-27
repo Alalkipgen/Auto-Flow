@@ -1,6 +1,12 @@
 package io.github.alalkipgen.autoflow.ui.home
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +68,7 @@ fun HomeScreen(
     onNewVoice: (() -> Unit)? = null,
     /** Opens the picker for a new Dubbing project; null keeps the tile Planned (flag `labs.dubbing` off, D-84). */
     onNewDubbing: (() -> Unit)? = null,
-    /** "All ›" beside Continue. */
+    /** "All" + `caret-right` beside Continue. */
     onOpenProjects: () -> Unit = {},
     /** A project's thumbnail source by folder; null = placeholders only. */
     thumbSource: (suspend (dir: String) -> MediaThumbnails.Source?)? = null,
@@ -165,7 +171,7 @@ private fun HomeHeader(onOpenSettings: () -> Unit) {
     }
 }
 
-/** A section title (14 sp bold, with an optional "All ›") over its cards, 8 dp apart. */
+/** A section title (14 sp bold, with an optional "All" + `caret-right`) over its cards, 8 dp apart. */
 @Composable
 private fun HomeSection(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit) {
@@ -177,7 +183,7 @@ private fun HomeSection(title: String, modifier: Modifier = Modifier, action: (@
 
 @Composable
 private fun SeeAll(onClick: () -> Unit, tag: String) =
-    GlassButton(tr(UiText.HOME_SEE_ALL), onClick, Modifier.testTag(tag), kind = ButtonKind.Text, small = true)
+    GlassButton(tr(UiText.HOME_SEE_ALL), onClick, Modifier.testTag(tag), kind = ButtonKind.Text, small = true, trailingIcon = AfIcons.Regular.CaretRight)
 
 /**
  * The latest project, on a glass card tinted with its own frame: thumbnail 96 × 60 with its recorded duration, title,
@@ -344,50 +350,106 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepBySt
                         kind = ButtonKind.Primary, icon = AfIcons.Fill.Spark, small = !wide)
                 }
                 val stepByStep = @Composable { m: Modifier ->
-                    GlassButton(tr(UiText.V3_STEP_BY_STEP), onStepByStep, m.testTag("home-step-by-step"), small = !wide)
+                    GlassButton(tr(UiText.V3_STEP_BY_STEP), onStepByStep, m.testTag("home-step-by-step"), small = !wide, trailingIcon = AfIcons.Regular.ArrowRight)
                 }
                 // Desktop: the two buttons side by side at their own width; phone: both full width.
                 if (wide) WrapRow(Modifier.align(Alignment.CenterHorizontally)) { start(Modifier); stepByStep(Modifier) }
                 else { start(Modifier.fillMaxWidth()); stepByStep(Modifier.fillMaxWidth()) }
             }
+            // 🆕 Q-1 (Group 6 J 1): each step = the head row (Quick Recap + the three step dots), its label, glass chips, then
+            // Cancel / Back (secondary, own width) + the primary (rest of the row, trailing arrow-right; Confirm = sparkle Start).
             WizardStep.LENGTH -> {
-                AfText(tr(UiText.LENGTH), type = AfType.RowTitle)
+                WizardHead(step)
+                WizardLabel(tr(UiText.LENGTH))
                 WrapRow {
                     listOf(60_000L, 180_000L, 300_000L, 600_000L).map { it to My.minutes(it / 60_000) }.forEach { (ms, label) ->
-                        AfChip(label, targetMs == ms, onClick = { targetMs = ms })
+                        GlassFilterChip(label, targetMs == ms, { targetMs = ms })
                     }
                 }
-                WrapRow {
-                    AfButton(tr(UiText.HOME_NEXT_STYLE), { step = WizardStep.STYLE }, Modifier.testTag("quick-next-style"), kind = ButtonKind.Primary)
-                    AfButton(tr(UiText.CANCEL), { step = WizardStep.IDLE })
+                WizardButtons(tr(UiText.CANCEL), null, { step = WizardStep.IDLE }) {
+                    GlassButton(My.breakSyllables(tr(UiText.HOME_NEXT_STYLE)), { step = WizardStep.STYLE }, it.testTag("quick-next-style"),
+                        kind = ButtonKind.Primary, trailingIcon = AfIcons.Regular.ArrowRight)
                 }
             }
             WizardStep.STYLE -> {
-                AfText(tr(UiText.STYLE), type = AfType.RowTitle)
+                WizardHead(step)
+                WizardLabel(tr(UiText.STYLE))
                 WrapRow {
-                    AfChip(styleLabel(RecapStyle.PLAIN, LocalUiLanguage.current), style == RecapStyle.PLAIN, onClick = { style = RecapStyle.PLAIN })
-                    AfChip(styleLabel(RecapStyle.COMMENTARY, LocalUiLanguage.current), style == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY })
+                    GlassFilterChip(styleLabel(RecapStyle.PLAIN, LocalUiLanguage.current), style == RecapStyle.PLAIN, { style = RecapStyle.PLAIN })
+                    GlassFilterChip(styleLabel(RecapStyle.COMMENTARY, LocalUiLanguage.current), style == RecapStyle.COMMENTARY,
+                        { style = RecapStyle.COMMENTARY })
                 }
-                WrapRow {
-                    AfButton("${tr(UiText.START)} →", { step = WizardStep.CONFIRM }, Modifier.testTag("quick-confirm"), kind = ButtonKind.Primary)
-                    AfButton(tr(UiText.BACK), { step = WizardStep.LENGTH }, icon = AfIcons.Regular.Back)
+                WizardButtons(tr(UiText.BACK), AfIcons.Regular.Back, { step = WizardStep.LENGTH }) {
+                    GlassButton(My.breakSyllables(tr(UiText.START)), { step = WizardStep.CONFIRM }, it.testTag("quick-confirm"), kind = ButtonKind.Primary,
+                        trailingIcon = AfIcons.Regular.ArrowRight)
                 }
             }
             WizardStep.CONFIRM -> {
+                WizardHead(step)
                 val minLabel = My.minutes(targetMs / 60_000)
-                AfText(tr(UiText.HOME_CONFIRM, "minLabel" to (minLabel), "styleLabelstyle" to (styleLabel(style, LocalUiLanguage.current))), type = AfType.RowTitle)
-                AfText(My.breakSyllables(tr(UiText.HOME_CONFIRM_HINT, "APPROVE" to (tr(UiText.APPROVE)), "EDIT" to (tr(UiText.EDIT)))),
-                    color = AutoFlowColors.Muted, type = AfType.Caption)
-                AfText(My.breakSyllables(tr(UiText.HOME_BACKGROUND)), color = AutoFlowColors.Muted, type = AfType.Caption)
-                WrapRow {
-                    AfButton(tr(UiText.START), {
+                AfText(My.breakSyllables(tr(UiText.HOME_CONFIRM, "minLabel" to (minLabel), "styleLabelstyle" to (styleLabel(style, LocalUiLanguage.current)))),
+                    color = Color.White, type = AfType.RowTitle, weight = FontWeight.Bold)
+                // 🆕 Q-2: what Start really does (a new recap opened at Source) and where the jobs go — two icon rows.
+                GlassFact(AfIcons.Regular.Film, My.breakSyllables(tr(UiText.HOME_CONFIRM_HINT)),
+                    colour = AutoFlowColors.Text, iconColour = AutoFlowColors.PrimaryText)
+                GlassFact(AfIcons.Regular.Jobs, My.breakSyllables(tr(UiText.HOME_BACKGROUND)), colour = AutoFlowColors.Text, iconColour = AutoFlowColors.PrimaryText)
+                WizardButtons(tr(UiText.BACK), AfIcons.Regular.Back, { step = WizardStep.STYLE }) {
+                    GlassButton(My.breakSyllables(tr(UiText.START)), {
                         onStart(targetMs, style)
                         step = WizardStep.IDLE
-                    }, Modifier.testTag("quick-create"), kind = ButtonKind.Primary)
-                    AfButton(tr(UiText.BACK), { step = WizardStep.STYLE }, icon = AfIcons.Regular.Back)
+                    }, it.testTag("quick-create"), kind = ButtonKind.Primary, icon = AfIcons.Fill.Spark)
                 }
             }
         }
+    }
+}
+
+/** Q-1 head: JOB_QUICK_RECAP (14 sp bold) and the three step dots ([quickDots]). */
+@Composable
+private fun WizardHead(step: WizardStep) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        AfText(My.breakSyllables(tr(UiText.JOB_QUICK_RECAP)), Modifier.weight(1f), color = Color.White, size = 14.sp, bold = true)
+        QuickDots(step.ordinal - 1)
+    }
+}
+
+/**
+ * 🆕 Q-1 step dots (`quick-dots`): Length · Style · Confirm — the current one a 20 dp gradient pill (purple → cyan), the done
+ * ones purple, the next ones grey; read as "2 / 3".
+ */
+@Composable
+private fun QuickDots(current: Int) {
+    Row(Modifier.testTag("quick-dots").clearAndSetSemantics { contentDescription = "${current + 1} / 3" },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        repeat(3) { k ->
+            val shape = RoundedCornerShape(4.dp)
+            Box(Modifier.size(if (k == current) 20.dp else 8.dp, 8.dp).clip(shape).then(when {
+                k == current -> Modifier.background(Brush.horizontalGradient(listOf(AutoFlowColors.PrimaryText, AutoFlowColors.Cyan)))
+                k < current -> Modifier.background(AutoFlowColors.PrimaryText)
+                else -> Modifier.background(Color.White.copy(alpha = .22f))
+            }))
+        }
+    }
+}
+
+/** Q-1 step label (LENGTH / STYLE), 12 sp muted. */
+@Composable
+private fun WizardLabel(text: String) = AfText(My.breakSyllables(text), muted = true, size = 12.sp)
+
+/**
+ * Q-1 buttons: the secondary (Cancel, or Back with arrow-left) at its own width, then [primary] filling the rest of the row.
+ * A large font (≥ 1.5) stacks them — the primary full width on top, the secondary under it — so no label is squeezed into
+ * a narrow column (a Burmese word would be cut inside a syllable).
+ */
+@Composable
+private fun WizardButtons(secondary: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, onSecondary: () -> Unit,
+    primary: @Composable (Modifier) -> Unit) {
+    if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        primary(Modifier.fillMaxWidth())
+        GlassButton(My.breakSyllables(secondary), onSecondary, Modifier.fillMaxWidth(), icon = icon)
+    } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        GlassButton(My.breakSyllables(secondary), onSecondary, icon = icon)
+        primary(Modifier.weight(1f))
     }
 }
 

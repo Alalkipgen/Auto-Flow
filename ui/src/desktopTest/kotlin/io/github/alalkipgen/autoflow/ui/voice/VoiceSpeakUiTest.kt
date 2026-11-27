@@ -37,7 +37,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlin.test.*
 
-/** V-1e on screen: Speak n parts → confirm (requests, voice) → Start → every part ✓ with ▶ and ↻; the job opens nothing else. */
+/** V-1e on screen: Speak n parts → the confirm dialog (requests, voice) → Start → every part Voiced with play and speak again; the job opens nothing else. */
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class VoiceSpeakUiTest {
     @BeforeTest fun setupDispatcher() { Dispatchers.setMain(Dispatchers.Unconfined) }
@@ -65,10 +65,15 @@ class VoiceSpeakUiTest {
             setContent { VoiceAudioScreen(model, session, onBack = {}, speak = speak) }
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-speak").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("voice-redo-p1").assertDoesNotExist()
+            // 🆕 VA-6: the sticky caption under Speak n parts.
+            assertEquals(My.breakSyllables(UiText.VA_PARTS_CAPTION.en.replace("{done}", "0").replace("{n}", "2")), text("voice-parts-caption"))
             onNodeWithTag("voice-speak").performMouseInput { click() }
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-speak-confirm").fetchSemanticsNodes().isNotEmpty() }
-            assertEquals(My.breakSyllables(UiText.VA_SPEAK_CONFIRM.en.replace("{n}", "2").replace("{voice}", "Puck · tts-a").replace("{minutes}", "1")),
+            // 🆕 VA-3 / §8.1: the dialog names the voice as the voice card does ("Puck · Gemini"), never the raw model id.
+            assertEquals(My.breakSyllables(UiText.VA_SPEAK_CONFIRM.en.replace("{n}", "2").replace("{voice}", "Puck · Gemini").replace("{minutes}", "1")),
                 text("voice-speak-facts"))
+            onNodeWithText(My.breakSyllables(UiText.VA_SPEAK_TITLE.en.replace("{n}", "2")), useUnmergedTree = true).assertExists()
+            onNodeWithTag("voice-speak-back").assertExists()
             onNodeWithTag("voice-speak-start").performScrollTo().performMouseInput { click() }
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("voice-redo-p2").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("voice-redo-p1").assertExists()
@@ -77,6 +82,7 @@ class VoiceSpeakUiTest {
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("voice-speak-notice").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(My.breakSyllables(UiText.VA_SPEAK_DONE.en.replace("{n}", "2")), text("voice-speak-notice"))
             onNodeWithTag("voice-speak").assertIsNotEnabled()
+            assertEquals(My.breakSyllables(UiText.VA_PARTS_CAPTION.en.replace("{done}", "2").replace("{n}", "2")), text("voice-parts-caption"))
         } finally { scope.cancel() }
     }
 }

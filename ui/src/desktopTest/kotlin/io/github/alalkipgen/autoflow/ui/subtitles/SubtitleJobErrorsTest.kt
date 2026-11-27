@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
+import io.github.alalkipgen.autoflow.ui.jobs.jobErrorText
 import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import kotlin.test.*
 
