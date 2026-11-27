@@ -1,6 +1,6 @@
 # One consolidated Studio v2 phone-QA session
 
-Status: **RESTORE FAIL reported; fixed-device retest PHONE_PENDING**. Other acceptance rows remain pending.
+Status: **owner-reported narrow PASS on build 595 / c2cd1e0; UI v3 regression PHONE_PENDING**. All other acceptance rows remain pending/deferred.
 Run this once after the combined QA APK is ready, not after every milestone. JVM tests, Compose desktop screenshots,
 fake providers, simulated executor reconstruction and emulator runs do **not** close these rows.
 
@@ -8,11 +8,11 @@ fake providers, simulated executor reconstruction and emulator runs do **not** c
 
 | Field | Value |
 | --- | --- |
-| Source branch / exact remote SHA | `work/phase-5-ui-language-acceptance`; use the exact `Source:` and run in this artifact’s `BUILD.txt` |
+| Source branch / exact remote SHA | `work/phase-6-ui-v3-final-audit`; use the exact final `Source:` and run in this artifact’s `BUILD.txt` (the report records the full remote SHA; do not substitute an earlier checkpoint) |
 | APK filename / SHA-256 / download | Use the neighboring `autoflow-debug-<sha7>.apk` and its binary `.sha256`; final download/run links are in the acceptance PR handoff |
 | Flags | Record `studioV2`, `quickRecap`, and every non-default override; Labs must remain off |
 | Device / Android / font scale | Owner records here |
-| Signing / update outcome | Record stable signing vs runner-debug; never uninstall real projects to work around a mismatch |
+| Signing / update outcome | Stable baseline595 certificate SHA-256 must equal `d7c3e543c25fa829b31b81cd459febdd10ff1cc67d9b16b32601a1962036f2f0`; app ID `io.github.alalkipgen.autoflow`, versionCode>595. Runner-debug/new-key is BLOCKED-SIGNING, never a substitute; never uninstall/clear data |
 
 The APK above must include **all completed milestones**. A checkpoint APK is not the final queue-complete APK.
 Do not claim missing features are phone-testable. See PLAN for implementation and automation status separately.
@@ -45,8 +45,43 @@ run’s checks are green before installing. Physical-phone/emulator and owner-PC
   via `ProjectZip.restore` and `AndroidProjectBackup.restore`.
 - Bundled ffmpeg concat / Burmese ASS / 1080p audio-mixed self-tests were reported **PASS**.
   This is restore failure evidence, not evidence of failed backup creation or rendering.
-- Hotfix update/retry of the **same** fixture: **PHONE_PENDING**. Keep the consolidated session;
+- Historical status at that build: hotfix update/retry was PHONE_PENDING. Build 595 restore retest is recorded below. Keep the consolidated session;
   never uninstall, clear data or replace the signing key to get past an update failure.
+
+## Owner-reported baseline — not agent-executed acceptance
+
+Installed `io.github.alalkipgen.autoflow`, `0.4.2`, stable-signed versionCode `595`, source
+`c2cd1e08f3f2ea4717ec05a7b928faaacace9c47`; Xiaomi `2312DRA50C`, Android 16 / SDK 36, arm64.
+Owner reports PASS: restore QA Landscape / Portrait / Square; UI language switch; native preview frame/caption;
+play/pause/seek; final export (file opens, audio plays, Save to Gallery); Save / Reopen / Discard; Project A/B isolation.
+Build 559 bundled ffmpeg self-test PASS remains historical evidence. These narrow results do not close broader rows
+or any new UI v3 checks. This baseline is not a release candidate. Do not reinstall after each PR.
+
+## UI v3 regression — one final combined installation
+
+Every row starts **PHONE_PENDING**; owner-PC acceptance stays **OWNER_PC_PENDING**. Emulator absence is not a pass.
+Use the final stable-signed update with versionCode >595, never uninstall/clear data or swap signing to make it install.
+Record actual final SHA, enabled flags, APK/EXE filenames, binary hashes and artifact expiry from the final handoff.
+
+| Check | Status |
+| --- | --- |
+| Back arrow and Android Back: detail → list → previous step → leave; cancel an open draft safely | PHONE_PENDING |
+| Home real project data, Continue, Quick Recap approval stop, running rows; no concept sample data | PHONE_PENDING |
+| Recap Source → Story → Voice → Style → Export end to end; old capabilities/confirmations reachable | PHONE_PENDING |
+| UI v3 thumbnails: scroll Source scenes and Story/Voice blocks at 360/412 dp, font 1.0/1.3/2.0, EN/MY. Visible rows show real source frames (scene midpoint / first block-range midpoint); picks, filters, paging, Back and sticky actions still work. Revisit/reopen, switch A/B during loading, background/foreground, and test missing tools/media: no wrong-project picture, hang or project mutation; unavailable images keep times. Cache/performance/touch checks need actual device evidence. | PHONE_PENDING |
+| Voice filters, block actions, selected/history takes, record/import, Smart Fit and stale/lock warnings | PHONE_PENDING |
+| Style layer create/select/move/resize/order/timing, Discard unchanged, Save/reopen; preview vs Exact Frame/export | PHONE_PENDING |
+| Caption presets/custom values/size independent of UI font scale; captions last | PHONE_PENDING |
+| Export real preflight findings and Fix → exact step/block; output Open/Gallery/Share | PHONE_PENDING |
+| Jobs grouping/badge, supported pause/resume/retry/cancel; project-bound progress/result | PHONE_PENDING |
+| Music Video shot sheet five sections; Copy/manual Flow/import, Use version separate from Accept | PHONE_PENDING |
+| Settings visible Diagnostics, Self-test, masked keys, language, tools, Library pronunciation link, backup | PHONE_PENDING |
+| Burmese at font 2.0 and 360 dp; no syllable cuts, covered action or cut badge; EN switch unchanged content | PHONE_PENDING |
+| Keyboard vs sticky action bar; real scroll reachability of Exact Frame and last row | PHONE_PENDING |
+| Projects: actual Create/Recent sections,folder/rights/Create/Cancel draft after collapse,Open,confirmed Remove only from index; A/B unchanged | PHONE_PENDING |
+| Library: all6 section jumps,empty/editable kit/preset draft retained,visible Delete and long-press confirmation,Lexicon link;real copied assets remain after Library original removal;Music copy-only vs existing Recap BGM picker,font copy-only,partial/save failure and unsupported Planned presets | PHONE_PENDING |
+| Native known RED regression: cold trial7 of CI44413049428 showedBLUE at output1500/source3500 instead ofGREEN;CI44407013390 native-without-captions export at output2500/source6500 decodedGREEN instead ofYELLOW. Compare with Exact Frame/export; do not count later finite passes as a fix. Historical Block1 thumbnail blank remains unconfirmed-cause/open owner review. | PHONE_PENDING |
+| Playback seek/caption/layer timing, project switching, background/foreground and cleanup after leaving | PHONE_PENDING |
 
 ## Safe setup
 
@@ -77,6 +112,7 @@ run’s checks are green before installing. Physical-phone/emulator and owner-PC
 | 4e | **Player lifecycle / project binding.** While playing A, switch to B, leave Style/Story, return, background/foreground the app, then pause/seek/resume. No old movie/caption/cursor/result appears in B; no hidden player continues on leaving the screen; desired pause survives background. Pending layer edit/image picker cannot write into B. | PHONE_PENDING |
 | 4f | **Exact Frame reachability.** Narrow portrait and wide/landscape at font scale 1.0 / 1.3 / 2.0 (bundled Burmese and system fallback): scroll through the real screen, see the button, tap it, verify the resulting frame/output time or truthful unavailable message. Offscreen is acceptable when genuinely scroll-reachable. | PHONE_PENDING |
 | 4g | **Preview versus exported output.** Check 16:9 / 9:16 / 1:1, native overlapping layer order, timing edges, Mirror/Zoom/Fill/background and multiple-clip boundaries with the deterministic fixture. Native output-frame Compose and expanded S10 are implemented; this physical-phone row is still pending. Compare the live native proxy, same-time Exact Frame and exported output separately; legacy placement or a cue readout alone is not output parity. | PHONE_PENDING |
+| 4h | **On-video Style layers (brief §7.2).** On the real phone, scroll to the actual output preview; select BLUR/IMAGE/TEXT, move, corner-resize and pinch in 16:9/9:16/1:1, letterbox and Mirror/Zoom/Fill. IMAGE keeps aspect and uses width; BG/BORDER cannot move/resize. Check ≥48dp uncovered targets and × removes only the reference. Numeric/% fields and handles share the same draft; invalid text blocks handles/Save, Save retains stable IDs/order/timing and same paused output time; Discard/Back/project switch write nothing. Compare same-time saved preview, real Exact Frame and completed output at ±2% geometry; captions last. Missing native frame/assets must not get fake editable handles. EN/MY, bundled/system fallback and font1/1.3/2 require owner review. Automated component/static tests and installed-VLC CI do not satisfy this row. | PHONE_PENDING |
 
 | 5 | Transcribe picked scenes: confirmation shows selected requests and today's usage; cancel/retry/resume/partial failure do not mix projects or skip required output. Never whole-movie transcription. | PHONE_PENDING |
 | 6 | S8 Smart Fit: listen at 1.00/1.05/1.10/1.15/1.20/1.25×, view video at 0.9/0.8×; record tolerable Burmese limits, artifacts unchanged. Existing longer-take/CaptionChunks fit checks included. | PHONE_PENDING |
@@ -84,7 +120,7 @@ run’s checks are green before installing. Physical-phone/emulator and owner-PC
 | 8 | MV Shot sheet: storyboard edit/approval, English prompt stays English, Ref A/B, manual Flow open/copy/import only. Save/reopen, select older/newer version, accept three videos without losing history or selected version. | PHONE_PENDING |
 | 8b | **Classic screens kept one release (5B-13).** Music Video project bar → "အဆင့်ဟောင်းများ" opens the old Storyboard / Shots / References / Flow Handoff screens with the same data; Back goes classic screen → အဆင့်ဟောင်းများ → Shot စာရွက် → list. Recap → "Recap ပုံစံဟောင်း" opens Classic Recap on the same project. Changes made in either place show in the other. | PHONE_PENDING |
 | 9 | Export audio/BGM/ducking, two-pass loudness vs clearly visible fallback note after completion/reopen, Exact Frame thumbnail, readable Publish Kit frame+title JPEG, existing text copy/share and Save to Gallery. | PHONE_PENDING |
-| 10 | Back up disposable project, Restore through Android system picker to a new destination; referenced artifacts/approvals/takes survive. Collision/corruption tests must not overwrite existing projects. Check share-sheet import → Inbox too. | Reported fixture restore FAIL on `4e95a7b` / code `559` (trace above); fixed-build retest PHONE_PENDING |
+| 10 | Back up disposable project, Restore through Android system picker to a new destination; referenced artifacts/approvals/takes survive. Collision/corruption tests must not overwrite existing projects. Check share-sheet import → Inbox too. | Historical fixture restore FAIL on `4e95a7b` / code `559`; fixture restore PASS reported on `c2cd1e0` / code `595`. Broader backup/collision/corruption checks PHONE_PENDING |
 | 11a | Real WorkManager Speak All partially complete → background/screen-off/Doze → completion or truthful PAUSED. Shared queue/pacing/notifications observed. | PHONE_PENDING |
 | 11b | OS kills app process during an item/checkpoint; reopen/resume real WorkManager chain. Completed local outputs reconciled, no duplicate saved takes, false DONE or skipped incomplete items. Record actual kill mechanism and request count. | PHONE_PENDING |
 | 11c | Switch A → B with A item in flight; result saves only to A. Cancel during execution/checkpoint: no partial final output replaces a valid one; following queued job still runs. | PHONE_PENDING |
@@ -139,3 +175,30 @@ None of this passes Android lifecycle, physical-phone or owner-PC acceptance abo
 had no Android emulator/adb or `/dev/kvm`; emulator/instrumentation and physical-phone checks remain **PHONE_PENDING**.
 Windows installer/install/launch/uninstall and no-VLC packaged startup are separate gates, not Windows installed-VLC
 movie playback proof. Installed-VLC playback and real-project acceptance on the owner PC remain **OWNER_PC_PENDING**.
+
+
+### UI-v3 final-source delivery discipline
+
+All phone rows above remain PHONE_PENDING and owner-PC acceptance remains OWNER_PC_PENDING; this document does not upgrade desktop/fake/compile/disposable-runner evidence into device acceptance. The final combined APK must update the existing stable595 installation without uninstall/clear-data. If certificate verification is unavailable or mismatched,report BLOCKED-SIGNING and do not offer a runner-debug substitute. Use only the matching final-source APK/UNSIGNED EXE,BUILD/MANIFEST,binary hashes,FEATURES,QA backup and source/license companions in the final report. Q31 project shortcut semantics and newMY wording remain owner decisions. Native/core/media failure repair is outside this UI-only scope; retain every failure record.
+
+## UI v3 feedback round 1 — PHONE_PENDING
+
+Use a disposable synthetic project/restore, not an owner's irreplaceable media. Confirm the APK has the matching application ID, stable signing and a higher versionCode before installing as an update. On Xiaomi 2312DRA50C (Android 16), repeat at normal and large font in English and Burmese.
+
+1. **F1 Export:** Preview 540p for portrait, landscape and square. Check poster, fit, finish → Replay, fullscreen → Back, Open externally → return, then force-stop/relaunch without regenerating. Try a disposable project with no preview.
+2. **F2 Watermark:** Change Small/Medium/Large/Custom and compare Style, Exact Frame and export for all three ratios. Save/apply a Brand Kit; reopen and confirm the saved size. Open a previous project without editing it.
+3. **F3 Gemini:** With synthetic input only, start a flow and look at the same run in the project, Home and Jobs. Verify Cancel, previous result labelling, saved-clip counts, a single request's elapsed time, and Diagnostics. Check resume only if a real limit occurs.
+4. **F4 Projects:** Long-press and Remove a new disposable project; restart and find it under Removed projects. Restore to Projects without opening it. Remove it again, open its row in Removed projects, cancel the permanent confirmation once, then confirm. Repeat with an older worked-on disposable project containing generated artifacts. Check that active jobs block deletion, the deleted folder and both list entries stay gone after restart, Home Continue no longer links it, and a same-name sibling, external media, Gallery/Downloads and existing backups remain.
+5. **F5 Library:** Tap Apply and verify no visible Delete. Long-press a saved kit and then one of two same-name presets. Confirm only the selected ID disappears after restart and the applied project keeps its style. Repeat with TalkBack action.
+6. **F6 Jobs:** Long-press a finished run, confirm history removal and restart. Check the badge and playback/output remain correct. Long-press active and paused jobs; neither should offer Delete.
+
+### F3 follow-up — Gemini progress in the project (PHONE_PENDING)
+
+- Music Video → Input → Generate storyboard. At 412 dp (also 360 dp) and English/Burmese font scales 1.0/2.0: see `1/2` (lyrics analysis), then `2/2` (single batch with the actual shot count), elapsed time, an indeterminate bar and Cancel in the project. No fake percentage. Open Home → Running and Jobs; verify the same stage. Use Jobs → Open and cancel in the project; the existing storyboard must still be available. Regenerate all and one shot from Shot Sheet; verify a single-shot request is indeterminate and the card stays visible in the detail view.
+- Music Video → Input → Sync lyrics → Suggest timings. Confirm that media prep and waiting are displayed, Jobs → Open returns to the same active run, and saved timings appear after completion. Verify Settings → Test key and Test Gemini TTS display distinct progress with Cancel next to the corresponding action.
+- Movie Recap: start Transcribe from lower in Source, Write script from Story, and Voice remaining and a single Generate/Re-voice from the block detail in Voice and Story. Verify the active card and Cancel are visible without scrolling back, including Classic. A single voice request has a waiting timer (not a percentage); Voice remaining counts saved takes only. Cancel a single voice and reopen; the previous take stays selected.
+
+### Inbox follow-up — delete a shared copy (PHONE_PENDING)
+
+- In a disposable Music Video project, share an MP4 and a JPG from Gallery. Inbox must not show inline **Delete…**, and a short tap or **Attach to Shot…** must not open Delete. Long-press the MP4 card → **Delete…** → Cancel once, then repeat and confirm. Repeat on the photo. At 360/412 dp and English/Burmese large font, check the long filename and both confirmation buttons. Check the per-file TalkBack action; desktop equivalent is right-click.
+- Share the same file twice and delete just one Inbox copy. If shares are waiting, long-press one there to delete it without using **Move here**. Leave Inbox, reopen it, then force-stop/relaunch and check that deleted copies stay gone, the other copy still attaches, and the Gallery originals and any already-attached shot media still play.

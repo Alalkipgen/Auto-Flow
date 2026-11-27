@@ -2,6 +2,7 @@ package io.github.alalkipgen.autoflow.ui.inbox
 
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.platform.InboxFileDeletion
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,8 @@ data class SharedInboxState(val waiting: List<String> = emptyList(), val arrival
  * they wait in [holdDir] (nothing is lost) until the user opens one and taps "Move here" on Inbox.
  */
 class SharedInbox(private val fs: FileSystem, private val session: ProjectSession, val holdDir: String) {
+    private val deletion = fs as? InboxFileDeletion
+    internal val canDelete get() = deletion != null
     private val _state = MutableStateFlow(SharedInboxState(waiting = scan()))
     val state: StateFlow<SharedInboxState> = _state.asStateFlow()
 
@@ -54,6 +57,16 @@ class SharedInbox(private val fs: FileSystem, private val session: ProjectSessio
     /** Re-reads [holdDir] (Inbox calls it when it opens). */
     fun refresh() {
         _state.value = _state.value.copy(waiting = scan())
+    }
+
+    internal fun deleteRequest(name: String): InboxDeleteRequest? {
+        if (name !in state.value.waiting) return null
+        val delete = deletion?.prepareInboxDeletion(holdDir, name) ?: return null
+        return InboxDeleteRequest(name) {
+            val deleted = delete()
+            if (deleted) _state.value = _state.value.copy(message = null, notice = null)
+            deleted
+        }
     }
 
     fun dismissMessage() = say(null)

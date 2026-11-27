@@ -43,7 +43,7 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         val jobsDir = File(applicationContext.filesDir, "autoflow/ai-jobs").absolutePath
         val store = AiJobStore(JvmFs(), jobsDir)
         val job = when (val r = store.read(jobId)) {
-            AiJobStore.Read.Missing -> return Result.success()
+            AiJobStore.Read.Missing, AiJobStore.Read.Removed -> return Result.success()
             is AiJobStore.Read.Damaged -> {
                 // Kept on disk for the Jobs screen / a bug report; the chain goes on with the other jobs.
                 android.util.Log.w("AiWorker", r.reason)
@@ -55,7 +55,10 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
 
         setForeground(buildForeground(labelFor(job), "Starting…"))
         // No processor (not registered in this process) → the executor FAILS the job with a reason; never DONE.
-        AiJobExecutor(store, AiWorkerRegistry.processor, onChange = { updateNotification(labelFor(it), "${it.items.size} items left") }).run(jobId)
+        AiJobExecutor(store, AiWorkerRegistry.processor, onChange = {
+            AiWorkerRegistry.onJobsChanged?.invoke()
+            updateNotification(labelFor(it), "${it.items.size} items left")
+        }).run(jobId)
         return Result.success()
     }
 
@@ -64,6 +67,7 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         AiJobKind.TRANSCRIBE -> "Transcribing"
         AiJobKind.QUICK_RECAP -> "Quick Recap"
         AiJobKind.PUBLISH_KIT -> "Publish Kit"
+        AiJobKind.SCRIPT -> "Script"
     }
 
     private fun buildForeground(title: String, text: String): ForegroundInfo {
@@ -118,6 +122,9 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
  * by [AutoFlowApp.onCreate] before any Worker can run.
  */
 object AiWorkerRegistry {
+    @Volatile
+    internal var onJobsChanged: (() -> Unit)? = null
+
     @Volatile
     var processor: AiItemProcessor? = null
 }

@@ -26,6 +26,9 @@ import io.github.alalkipgen.autoflow.ui.components.SongPlayer
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
 import io.github.alalkipgen.autoflow.ui.components.rememberSongPlayer
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.storyboard.JobState
+import io.github.alalkipgen.autoflow.ui.storyboard.StoryboardResult
+import io.github.alalkipgen.autoflow.ui.storyboard.message
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -35,21 +38,21 @@ const val SYNC_END_BUTTON = "⏹ Last line ends"
 const val SYNC_HELP = "သီချင်းဖွင့်ပြီး စာကြောင်းတစ်ကြောင်း စဆိုတိုင်း \"$SYNC_TAP_BUTTON\" ကို နှိပ်ပါ။ နောက်ဆုံးစာကြောင်း " +
     "ဆိုပြီးရင် \"$SYNC_END_BUTTON\" ကို နှိပ်ပါ။ (Play the song; tap when each line starts, then once when the last ends.)"
 const val SUGGEST_BUTTON = "✨ Suggest timings (Gemini)"
-const val SUGGEST_CONFIRM = "The song (as small 16 kHz mono audio) and the lyric lines go to Gemini: 1 AI request, more " +
-    "if it retries. It can take a minute or two — stay on this screen. Afterwards check the times on Export → Preview."
 const val SYNC_NO_PLAYER = "Playing the song needs the Android app — desktop has no audio player yet."
 
 /** Lyrics timing (PLAN Q-11): status of the saved line timings and the tap-to-sync panel. */
 @Composable
-internal fun LyricSyncCard(model: InputModel, songFile: String, locked: Boolean) {
+internal fun LyricSyncCard(model: InputModel, songFile: String, locked: Boolean, job: JobState) {
     val state by model.sync.state.collectAsState()
     val scope = rememberCoroutineScope()
     var confirming by remember { mutableStateOf(false) }
+    val run = job.gemini?.takeIf { it.action == UiText.JOB_LYRIC_TIMINGS && it.belongsTo(model.openProject) }
+    LaunchedEffect(model, run?.id, job.last) {
+        if (run != null && job.last == StoryboardResult.Done) model.sync.refresh(model.state.value.lyrics)
+    }
     AfCard(tr(UiText.LYRICS_TIMING)) {
         val sync = state.sync
-        if (state.suggesting) {
-            AfText(tr(UiText.GEMINI_LISTENING), muted = true)
-        } else if (confirming) {
+        if (confirming && !locked) {
             AfText(tr(UiText.SUGGEST_TIMINGS_CONFIRM), muted = true)
             WrapRow {
                 AfButton(tr(UiText.SEND), { confirming = false; scope.launch { model.suggestTimings() } }, kind = ButtonKind.Primary)
@@ -77,7 +80,10 @@ internal fun LyricSyncCard(model: InputModel, songFile: String, locked: Boolean)
                 TapPanel(sync, player, model.sync)
             }
         }
-        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = if (state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber, size = 12.sp) }
+        val language = LocalUiLanguage.current
+        val problem = run?.let { job.last?.takeIf { it != StoryboardResult.Done }?.message(language) }
+        val message = problem ?: state.notice?.text(language) ?: state.message
+        message?.let { AfText(it, color = if (problem == null && state.messageOk) AutoFlowColors.Green else AutoFlowColors.Amber, size = 12.sp) }
     }
 }
 

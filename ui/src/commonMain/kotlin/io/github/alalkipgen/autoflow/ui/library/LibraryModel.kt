@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.library
 
+import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.core.library.BrandKit
 import io.github.alalkipgen.autoflow.core.library.Library
 import io.github.alalkipgen.autoflow.core.library.LibraryStore
@@ -9,22 +11,22 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.CoreJson
 import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
-import io.github.alalkipgen.autoflow.core.recap.RecapAudio
-import io.github.alalkipgen.autoflow.core.recap.RecapVisual
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 data class LibraryUiState(
     val library: Library = Library(),
     val message: String? = null,
     val messageOk: Boolean = false,
+    val notice: UiNotice? = null,
 )
 
 /**
@@ -36,6 +38,7 @@ class LibraryModel(
     private val store: LibraryStore,
     private val session: ProjectSession,
     private val scope: CoroutineScope,
+    private val fs: FileSystem? = null,
 ) {
     private val _state = MutableStateFlow(LibraryUiState())
     val state: StateFlow<LibraryUiState> = _state.asStateFlow()
@@ -55,11 +58,10 @@ class LibraryModel(
      * the project's `library/` folder (if present) and stores caption style + visual preset strings.
      */
     fun saveBrandKit(name: String) {
-        if (name.isBlank()) return say("Brand kit name cannot be empty")
-        val open = session.open ?: return say("No project is open")
-        val recap = open.project.recap ?: return say("No Movie Recap project open")
-        val id = "bk_${System.currentTimeMillis()}"
-        val libFiles = "library/"
+        if (name.isBlank()) return say(UiText.V3_LIBRARY_NAME_REQUIRED)
+        val open = session.open ?: return say(UiText.NO_PROJECT_IS_OPEN)
+        val recap = open.project.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
+        val id = savedId("bk")
         // Copy logo / watermark files from the project's library folder into the Library's files dir.
         fun copyIfExists(relative: String): String? {
             val src = joinPath(open.dir, relative)
@@ -83,11 +85,10 @@ class LibraryModel(
             },
             font = null, // font is a Settings-level choice; not per-project
             captionStyle = captionJson,
+            watermarkWidthPercent = recap.visual.watermarkWidthPercent,
         )
         val lib = store.load()
-        store.save(lib.copy(brandKits = lib.brandKits + kit))
-        refresh()
-        say("Brand kit '${name}' saved to Library.", ok = true)
+        saveLibrary(lib.copy(brandKits = lib.brandKits + kit), UiNotice(UiText.V3_LIBRARY_SAVED, "name" to name))
     }
 
     /**
@@ -100,18 +101,21 @@ class LibraryModel(
     /** Delete a Brand Kit by id (D-58). */
     fun deleteBrandKit(id: String) {
         val lib = store.load()
-        store.save(lib.copy(brandKits = lib.brandKits.filter { it.id != id }))
-        refresh()
-        say("Brand kit deleted.", ok = true)
+        if (lib.brandKits.count { it.id == id } != 1) return say(UiText.V3_LIBRARY_NOT_FOUND)
+        saveLibrary(lib.copy(brandKits = lib.brandKits.filter { it.id != id }), UiNotice(UiText.V3_LIBRARY_DELETED))
     }
 
     fun applyBrandKit(id: String): CaptionStyle? {
-        val kit = _state.value.library.brandKits.find { it.id == id } ?: return run { say("Brand kit not found"); null }
-        val open = session.open ?: return run { say("No project is open"); null }
+        val kit = _state.value.library.brandKits.find { it.id == id } ?: return run { say(UiText.V3_LIBRARY_NOT_FOUND); null }
+        val open = session.open ?: return run { say(UiText.NO_PROJECT_IS_OPEN); null }
         val files = listOfNotNull(kit.logo, kit.watermark, kit.font)
         var copied = 0
         files.forEach { rel ->
-            runCatching { store.copyAsset(rel, joinPath(open.dir, "library")) }.onSuccess { copied++ }
+            runCatching {
+                val dest = joinPath(open.dir, "library")
+                fs?.createDirectories(dest) // Existing UI-owned destination, as in RecapModel watermark import.
+                store.copyAsset(rel, dest)
+            }.onSuccess { copied++ }
         }
         // Apply captionStyle to the open recap
         val captionStyle = kit.captionStyle?.let {
@@ -128,37 +132,45 @@ class LibraryModel(
                 // The file was just copied into <project>/library/; store a relative path.
                 destPath
             }
-            updatedRecap = updatedRecap.copy(visual = updatedRecap.visual.copy(watermarkFile = wmDestRel))
-            if (updatedRecap != recap) session.save(open.project.copy(recap = updatedRecap))
+            updatedRecap = updatedRecap.copy(visual = updatedRecap.visual.copy(
+                watermarkFile = wmDestRel, watermarkWidthPercent = kit.watermarkWidthPercent))
+            if (updatedRecap != recap) {
+                val result = session.save(open.project.copy(recap = updatedRecap))
+                if (result is CoreResult.Err) { say(UiNotice(UiText.SAVE_FAILED, "detail" to result.error.message)); return captionStyle }
+            }
         }
-        say("Applied '${kit.name}' (${files.size} files, caption style${if (captionStyle != null) " ✓" else " —"}, watermark ${if (kit.watermark != null) "✓" else "—"}).", ok = true)
+        val complete = copied == files.size && (kit.captionStyle == null || captionStyle != null)
+        val key = if (!complete) UiText.V3_LIBRARY_PARTIAL else if (recap != null) UiText.V3_LIBRARY_KIT_APPLIED else UiText.V3_LIBRARY_KIT_COPIED
+        say(UiNotice(key, "name" to kit.name, "done" to copied, "total" to files.size), ok = complete && (recap != null || copied > 0))
         return captionStyle
     }
 
     // ── Voices ──────────────────────────────────────────────────────────────────────────────────
 
     fun applyVoice(id: String) {
-        val voice = _state.value.library.voices.find { it.id == id } ?: return
-        val open = session.open ?: return say("No project is open")
-        val recap = open.project.recap ?: return say("No Movie Recap project open")
-        session.save(open.project.copy(recap = recap.copy(voiceLock = voice.lock)))
-        say("Applied voice '${voice.name}'", ok = true)
+        val voice = _state.value.library.voices.find { it.id == id } ?: return say(UiText.V3_LIBRARY_NOT_FOUND)
+        val open = session.open ?: return say(UiText.NO_PROJECT_IS_OPEN)
+        val recap = open.project.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
+        when (val result = session.save(open.project.copy(recap = recap.copy(voiceLock = voice.lock)))) {
+            is CoreResult.Ok -> say(UiNotice(UiText.V3_LIBRARY_APPLIED, "name" to voice.name), ok = true)
+            is CoreResult.Err -> say(UiNotice(UiText.SAVE_FAILED, "detail" to result.error.message))
+        }
     }
 
     // ── Music ────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Copy the music item's file into the project, then set it as the BGM artifact (5B-4, D-51).
-     * Returns the destination absolute path so RecapModel can store the artifact.
+     * Copy the music file only. The existing Recap picker separately calls setBgmFromLibrary to
+     * store/wire the BGM artifact (D-51); the standalone Library must not claim that step happened.
      */
     fun applyMusicAsBgm(id: String): String? {
-        val music = _state.value.library.music.find { it.id == id } ?: return run { say("Music track not found"); null }
-        val open = session.open ?: return run { say("No project is open"); null }
+        val music = _state.value.library.music.find { it.id == id } ?: return run { say(UiText.V3_LIBRARY_NOT_FOUND); null }
+        val open = session.open ?: return run { say(UiText.NO_PROJECT_IS_OPEN); null }
         val destDir = joinPath(open.dir, "source")
         return runCatching {
             store.copyAsset(music.file, destDir)
-        }.onSuccess { say("Copied '${music.name}' to project sources", ok = true) }
-            .onFailure { say("Cannot copy music: ${it.message}") }
+        }.onSuccess { say(UiNotice(UiText.V3_LIBRARY_COPIED, "name" to music.name), ok = true) }
+            .onFailure { say(UiNotice(UiText.COPY_FAILED, "detail" to it.message)) }
             .getOrNull()
     }
 
@@ -167,11 +179,15 @@ class LibraryModel(
     }
 
     fun applyFont(id: String) {
-        val font = _state.value.library.fonts.find { it.id == id } ?: return
-        val open = session.open ?: return say("No project is open")
-        runCatching { store.copyAsset(font.file, joinPath(open.dir, "library")) }
-            .onSuccess { say("Copied font '${font.name}'", ok = true) }
-            .onFailure { say("Cannot copy font: ${it.message}") }
+        val font = _state.value.library.fonts.find { it.id == id } ?: return say(UiText.V3_LIBRARY_NOT_FOUND)
+        val open = session.open ?: return say(UiText.NO_PROJECT_IS_OPEN)
+        runCatching {
+            val dest = joinPath(open.dir, "library")
+            fs?.createDirectories(dest)
+            store.copyAsset(font.file, dest)
+        }
+            .onSuccess { say(UiNotice(UiText.V3_LIBRARY_COPIED, "name" to font.name), ok = true) }
+            .onFailure { say(UiNotice(UiText.COPY_FAILED, "detail" to it.message)) }
     }
 
     // ── Caption Presets (5B-8, D-51) ────────────────────────────────────────────────────────────
@@ -180,9 +196,9 @@ class LibraryModel(
      * Save the current project's [CaptionStyle] as a CAPTION preset in the Library (5B-8).
      */
     fun saveCaptionPreset(name: String) {
-        if (name.isBlank()) return say("Preset name cannot be empty")
-        val recap = session.open?.project?.recap ?: return say("No Movie Recap project open")
-        val id = "cp_${System.currentTimeMillis()}"
+        if (name.isBlank()) return say(UiText.V3_LIBRARY_NAME_REQUIRED)
+        val recap = session.open?.project?.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
+        val id = savedId("cp")
         val value = buildJsonObject {
             put("size", recap.captionStyle.size.name)
             put("colour", recap.captionStyle.colour)
@@ -190,35 +206,52 @@ class LibraryModel(
         }
         val preset = Preset(id = id, name = name, kind = PresetKind.CAPTION, value = value)
         val lib = store.load()
-        store.save(lib.copy(presets = lib.presets + preset))
-        refresh()
-        say("Caption preset '$name' saved.", ok = true)
+        saveLibrary(lib.copy(presets = lib.presets + preset), UiNotice(UiText.V3_LIBRARY_SAVED, "name" to name))
+    }
+
+    /** Only the saved Library entry goes away, not style already copied into any project. */
+    fun deletePreset(id: String) {
+        val lib = store.load()
+        if (lib.presets.count { it.id == id } != 1) return say(UiText.V3_LIBRARY_NOT_FOUND)
+        saveLibrary(lib.copy(presets = lib.presets.filter { it.id != id }), UiNotice(UiText.LIBRARY_PRESET_DELETED))
     }
 
     /**
      * Apply a preset to the current project: for CAPTION presets, decodes and applies [CaptionStyle] (5B-8).
      */
     fun applyPreset(id: String) {
-        val preset = _state.value.library.presets.find { it.id == id } ?: return
+        val preset = _state.value.library.presets.find { it.id == id } ?: return say(UiText.V3_LIBRARY_NOT_FOUND)
         when (preset.kind) {
             PresetKind.CAPTION -> {
-                val open = session.open ?: return say("No project is open")
-                val recap = open.project.recap ?: return say("No Movie Recap project open")
-                val sizeName = (preset.value["size"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return say("Cannot read preset")
+                val open = session.open ?: return say(UiText.NO_PROJECT_IS_OPEN)
+                val recap = open.project.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
+                val sizeName = (preset.value["size"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return say(UiText.V3_LIBRARY_PRESET_INVALID)
                 val colour = (preset.value["colour"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: "#FFFFFF"
                 val box = (preset.value["box"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: false
                 val size = runCatching { io.github.alalkipgen.autoflow.core.recap.CaptionSize.valueOf(sizeName) }.getOrElse { io.github.alalkipgen.autoflow.core.recap.CaptionSize.M }
                 val newStyle = recap.captionStyle.copy(size = size, colour = colour, box = box)
-                session.save(open.project.copy(recap = recap.copy(captionStyle = newStyle)))
-                say("Caption preset '${preset.name}' applied.", ok = true)
+                when (val result = session.save(open.project.copy(recap = recap.copy(captionStyle = newStyle)))) {
+                    is CoreResult.Ok -> say(UiNotice(UiText.V3_LIBRARY_APPLIED, "name" to preset.name), ok = true)
+                    is CoreResult.Err -> say(UiNotice(UiText.SAVE_FAILED, "detail" to result.error.message))
+                }
             }
-            else -> say("Preset '${preset.name}' (${preset.kind.name}) applied (values copied).", ok = true)
+            else -> say(UiText.V3_LIBRARY_PRESET_UNSUPPORTED)
         }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────────────
 
-    private fun say(msg: String, ok: Boolean = false) {
-        _state.value = _state.value.copy(message = msg, messageOk = ok)
+    @OptIn(ExperimentalUuidApi::class)
+    private fun savedId(prefix: String) = "${prefix}_${Uuid.random()}"
+
+    private fun saveLibrary(library: Library, success: UiNotice) {
+        runCatching { store.save(library); refresh() }
+            .onSuccess { say(success, ok = true) }
+            .onFailure { say(UiNotice(UiText.SAVE_FAILED, "detail" to it.message)) }
+    }
+
+    private fun say(key: UiText) = say(UiNotice(key))
+    private fun say(notice: UiNotice, ok: Boolean = false) {
+        _state.value = _state.value.copy(message = notice.text(UiLanguage.ENGLISH), notice = notice, messageOk = ok)
     }
 }

@@ -2,14 +2,12 @@ package io.github.alalkipgen.autoflow.ui.projects
 
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -21,15 +19,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
 import io.github.alalkipgen.autoflow.ui.components.AfSwitch
@@ -39,6 +40,7 @@ import io.github.alalkipgen.autoflow.ui.components.ButtonKind
 import io.github.alalkipgen.autoflow.ui.components.FieldRow
 import io.github.alalkipgen.autoflow.ui.components.LocalCompact
 import io.github.alalkipgen.autoflow.ui.components.WrapRow
+import io.github.alalkipgen.autoflow.ui.components.SectionCard
 import io.github.alalkipgen.autoflow.ui.components.screenPadding
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
@@ -54,14 +56,20 @@ const val RIGHTS_TICK = "I own this footage or have permission to use it"
 
 /** Dashboard (DESIGN.md §3): project list, New Music Video, New Movie Recap, Open folder. */
 @Composable
-fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modifier = Modifier, clock: Clock = Clock.System) {
+fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modifier = Modifier, clock: Clock = Clock.System,
+    createMode: Mode? = null, onCreateModeChange: ((Mode?) -> Unit)? = null,
+) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
-    var creating by remember { mutableStateOf<Mode?>(null) }
+    var localCreating by remember { mutableStateOf<Mode?>(null) }
+    val creating = if (onCreateModeChange == null) localCreating else createMode
+    val setCreating: (Mode?) -> Unit = onCreateModeChange ?: { localCreating = it }
     val compact = LocalCompact.current
+    var showRemoved by remember { mutableStateOf(false) }
+    if (showRemoved && state.removed.isNotEmpty()) RemovedProjectsDialog(state.removed, model) { showRemoved = false }
     LaunchedEffect(model) { model.refresh() }
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
+        modifier.fillMaxSize().background(AutoFlowColors.Background).verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // With a projects home (Android, D-27) every project lives there; there is no folder to open.
@@ -69,28 +77,39 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
             if (model.projectsHome == null) AfButton(tr(UiText.OPEN_FOLDER), { scope.launch { if (model.openFolder()) onOpened() } })
         }
         val newMusicVideo: @Composable () -> Unit = {
-            AfButton(tr(UiText.NEW_MUSIC_VIDEO), { creating = Mode.MUSIC_VIDEO }, kind = ButtonKind.Primary, enabled = creating == null)
+            AfButton(tr(UiText.NEW_MUSIC_VIDEO), { setCreating(Mode.MUSIC_VIDEO) }, kind = ButtonKind.Primary, enabled = creating == null)
         }
-        val newMovieRecap: @Composable () -> Unit = { AfButton(tr(UiText.NEW_MOVIE_RECAP), { creating = Mode.MOVIE_RECAP }, enabled = creating == null) }
+        val newMovieRecap: @Composable () -> Unit = { AfButton(tr(UiText.NEW_MOVIE_RECAP), { setCreating(Mode.MOVIE_RECAP) }, enabled = creating == null) }
         // Long translations / large fonts need wrapping on desktop too, not just in the phone layout.
-        AfText(tr(UiText.PROJECTS), size = 18.sp, bold = true)
-        WrapRow {
-            if (compact) { newMusicVideo(); openFolder(); newMovieRecap() }
-            else { openFolder(); newMovieRecap(); newMusicVideo() }
+        AfText(tr(UiText.PROJECTS), Modifier.testTag("projects-heading"), size = 20.sp, bold = true)
+        SectionCard(tr(UiText.V3_PROJECT_CREATE), Modifier.testTag("projects-create")) {
+            WrapRow {
+                if (compact) { newMusicVideo(); openFolder(); newMovieRecap() }
+                else { openFolder(); newMovieRecap(); newMusicVideo() }
+            }
         }
-        state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
+        state.message?.let { AfText(My.breakSyllables(state.notice?.text(LocalUiLanguage.current) ?: it), color = AutoFlowColors.Amber) }
+        // Keep the existing form mounted when its action section is collapsed or translated.
         creating?.let { mode ->
-            NewProjectCard(model, mode, onCancel = { creating = null }, onCreated = { creating = null; onOpened() })
+            NewProjectCard(model, mode, onCancel = { setCreating(null) }, onCreated = { setCreating(null); onOpened() })
         }
-        if (state.rows.isEmpty()) {
-            AfText(
-                if (model.projectsHome == null) tr(UiText.PROJECTS_EMPTY_DESKTOP)
-                else tr(UiText.PROJECTS_EMPTY),
-                muted = true,
-            )
+        if (state.removed.isNotEmpty()) AfButton(My.breakSyllables(tr(UiText.OPEN_REMOVED_PROJECT)), { showRemoved = true }, Modifier.testTag("projects-open-removed"))
+        SectionCard(tr(UiText.HOME_RECENT), Modifier.testTag("projects-recent")) {
+            if (state.rows.isEmpty()) {
+                AfText(
+                    if (model.projectsHome == null) tr(UiText.PROJECTS_EMPTY_DESKTOP)
+                    else tr(UiText.PROJECTS_EMPTY),
+                    muted = true,
+                )
+            }
+            val now = clock.now()
+            state.rows.forEach { row ->
+                key(row.entry.path) {
+                    ProjectRow(row, now, onOpen = { if (model.open(row.entry.path)) onOpened() },
+                        onRemove = { model.remove(row.entry.path) }, managed = model.projectsHome != null)
+                }
+            }
         }
-        val now = clock.now()
-        state.rows.forEach { row -> ProjectRow(row, now, onOpen = { if (model.open(row.entry.path)) onOpened() }, onRemove = { model.remove(row.entry.path) }) }
     }
 }
 
@@ -119,7 +138,7 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
         if (home == null && name.isNotBlank() && parent.isNotBlank()) {
             AfText(tr(UiText.CREATES_PATH, "trimEndprojectFolder" to (joinPath(parent.trimEnd('/'), projectFolderName(name)))), muted = true, size = 12.sp, mono = true)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        WrapRow {
             AfButton(tr(UiText.CREATE), {
                 val ok = if (recap) model.createMovieRecap(parent, name, rights) else model.createMusicVideo(parent, name)
                 if (ok) onCreated()
@@ -130,10 +149,96 @@ private fun NewProjectCard(model: DashboardModel, mode: Mode, onCancel: () -> Un
 }
 
 @Composable
-private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit) {
-    var confirmDelete by remember { mutableStateOf(false) }
-    if (confirmDelete) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { confirmDelete = false }) {
+private fun RemovedProjectsDialog(rows: List<RemovedProject>, model: DashboardModel, close: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var selected by remember { mutableStateOf<RemovedProject?>(null) }
+    var inspection by remember { mutableStateOf<ProjectFolderDeletion.Result?>(null) }
+    var target by remember { mutableStateOf<ProjectFolderDeletion.Target?>(null) }
+    var error by remember { mutableStateOf<UiText?>(null) }
+    var deleting by remember { mutableStateOf(false) }
+    val row = selected
+    val confirm = target
+    fun back() {
+        if (deleting) return
+        error = null
+        when {
+            confirm != null -> target = null
+            row != null -> selected = null
+            else -> close()
+        }
+    }
+    Dialog(onDismissRequest = ::back) {
+        val title = when {
+            confirm != null -> tr(UiText.PROJECT_DELETE_TITLE, "name" to confirm.name)
+            row != null -> row.name
+            else -> tr(UiText.OPEN_REMOVED_PROJECT)
+        }
+        AfCard(My.breakSyllables(title)) {
+            key(row, confirm) {
+                Column(Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    when {
+                        confirm != null -> {
+                            AfText(confirm.folder, mono = true)
+                            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_BYTES, "n" to confirm.bytes)))
+                            if (confirm.backups.isNotEmpty()) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_KEEP_BACKUPS)), muted = true)
+                            AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_PERMANENT)), color = AutoFlowColors.Failed)
+                            AfButton(My.breakSyllables(tr(UiText.PROJECT_DELETE_CONFIRM)), {
+                                deleting = true
+                                scope.launch {
+                                    try {
+                                        error = model.deleteProject(confirm)
+                                        if (error == null) { target = null; selected = null; close() }
+                                    } finally { deleting = false }
+                                }
+                            }, Modifier.testTag("project-delete-confirm"), kind = ButtonKind.Danger, enabled = !deleting)
+                        }
+                        row != null -> {
+                            AfText(row.dir, mono = true)
+                            val ready = inspection as? ProjectFolderDeletion.Result.Ready
+                            val refused = inspection as? ProjectFolderDeletion.Result.Refused
+                            refused?.let { AfText(My.breakSyllables(tr(it.reason.label())), muted = true) }
+                            AfButton(My.breakSyllables(tr(UiText.PROJECT_RESTORE)), {
+                                error = model.restoreRemoved(row)
+                                if (error == null) close()
+                            }, Modifier.testTag("project-restore"))
+                            if (ready != null) AfButton(My.breakSyllables(tr(UiText.PROJECT_DELETE_MENU)), {
+                                val latest = model.inspectDeletion(row)
+                                inspection = latest
+                                target = (latest as? ProjectFolderDeletion.Result.Ready)?.target
+                                error = null
+                            }, Modifier.testTag("project-delete-action"), kind = ButtonKind.Danger)
+                        }
+                        else -> rows.forEach { removed ->
+                            AfButton(My.breakSyllables(removed.name + " · " + removed.dir.substringAfterLast('/')), {
+                                selected = removed
+                                inspection = model.inspectDeletion(removed)
+                            })
+                        }
+                    }
+                    error?.let { AfText(My.breakSyllables(tr(it)), color = AutoFlowColors.Failed) }
+                    AfButton(My.breakSyllables(tr(UiText.CANCEL)), ::back, Modifier.testTag("removed-projects-cancel"), enabled = !deleting)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRemove: () -> Unit, managed: Boolean) {
+    var options by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    if (options) Dialog(onDismissRequest = { options = false }) {
+        AfCard(tr(UiText.PROJECT_ACTIONS)) {
+            if (!managed) AfText(My.breakSyllables(tr(UiText.PROJECT_DELETE_UNSUPPORTED)), muted = true)
+            WrapRow {
+                AfButton(tr(UiText.REMOVE_FROM_LIST), { options = false; confirmRemove = true }, Modifier.testTag("project-remove-action"))
+                AfButton(tr(UiText.CANCEL), { options = false })
+            }
+        }
+    }
+    if (confirmRemove) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { confirmRemove = false }) {
             androidx.compose.foundation.layout.Column(
                 androidx.compose.ui.Modifier
                     .fillMaxWidth(0.85f)
@@ -145,8 +250,8 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
                 AfText(tr(UiText.REMOVE_PROJECT_QUESTION, "name" to (row.entry.name)), bold = true)
                 AfText(tr(UiText.REMOVE_PROJECT_HINT), muted = true)
                 WrapRow {
-                    AfButton(tr(UiText.REMOVE), { onRemove(); confirmDelete = false }, kind = ButtonKind.Danger)
-                    AfButton(tr(UiText.CANCEL), { confirmDelete = false })
+                    AfButton(tr(UiText.REMOVE), { onRemove(); confirmRemove = false }, kind = ButtonKind.Danger)
+                    AfButton(tr(UiText.CANCEL), { confirmRemove = false })
                 }
             }
         }
@@ -154,54 +259,32 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
     val e = row.entry
     val box = Modifier
         .fillMaxWidth()
-        .clip(AutoFlowShapes.Card)
-        .background(AutoFlowColors.Panel)
-        .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
         .combinedClickable(
             enabled = !row.missing,
             role = Role.Button,
             onClick = onOpen,
-            onLongClick = { confirmDelete = true },
+            onLongClick = { options = true },
         )
-        .padding(horizontal = 16.dp, vertical = 12.dp)
     val mode = if (e.mode == Mode.MUSIC_VIDEO) tr(UiText.MUSIC_VIDEO) else tr(UiText.MOVIE_RECAP)
     val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
     val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted
-    if (LocalCompact.current) {
-        // Phone: name, then one wrapped line of facts; the folder path is left out (it is app storage, D-27).
-        Column(box, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            AfText(e.name, bold = true, muted = row.missing, size = 15.sp)
-            if (row.missing) {
-                AfText(e.path, muted = true, size = 11.sp, mono = true)
-                WrapRow {
-                    AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
-                    AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
-                }
-            } else {
-                WrapRow(spacing = 10.dp) {
-                    AfText(mode, muted = true)
-                    AfText(e.ratio.label, muted = true)
-                    AfText(shots, color = shotsColor)
-                    AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), muted = true)
-                    // Long-press the row to remove. No visible delete button — cleaner UI.
-                }
-            }
-        }
-        return
-    }
-    Row(box, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            AfText(e.name, bold = true, muted = row.missing)
+    AfCard(e.name, box) {
+        // Same row actions at every width. Facts wrap instead of competing with a weighted title.
+        if (!LocalCompact.current || row.missing) {
             AfText(e.path, muted = true, size = 11.sp, mono = true)
         }
         if (row.missing) {
-            AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
-            AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
+            WrapRow {
+                AfText(tr(UiText.FOLDER_NOT_FOUND), color = AutoFlowColors.Amber)
+                AfButton(tr(UiText.REMOVE_FROM_LIST), onRemove, kind = ButtonKind.Danger)
+            }
         } else {
-            AfText(mode, muted = true)
-            AfText(e.ratio.label, muted = true)
-            AfText(shots, color = shotsColor)
-            AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), muted = true)
+            WrapRow(spacing = 10.dp) {
+                AfText(mode, muted = true)
+                AfText(e.ratio.label, muted = true)
+                AfText(shots, color = shotsColor)
+                AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), muted = true)
+            }
         }
     }
 }

@@ -9,8 +9,8 @@ import io.github.alalkipgen.autoflow.core.model.HandoffState
 import io.github.alalkipgen.autoflow.core.model.Project
 import io.github.alalkipgen.autoflow.core.model.Shot
 import io.github.alalkipgen.autoflow.core.workflow.Inputs
+import io.github.alalkipgen.autoflow.platform.InboxFileDeletion
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
-import io.github.alalkipgen.autoflow.ui.shots.ShotsModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +22,7 @@ data class InboxItem(
     val name: String,
     val path: String,
     val kind: InboxItemKind,
+    val projectId: String,
 )
 
 data class InboxUiState(
@@ -31,7 +32,10 @@ data class InboxUiState(
     val message: String? = null,
     val notice: UiNotice? = null,
     val inboxDir: String? = null,
+    val projectId: String? = null,
 )
+
+internal data class InboxDeleteRequest(val name: String, val confirm: () -> Boolean)
 
 /**
  * Inbox screen: lists files in `<project>/inbox/`, lets the user attach a video or image to a shot.
@@ -39,12 +43,15 @@ data class InboxUiState(
  * Done files are moved to `.cache/inbox-done/` (spec).
  */
 class InboxModel(private val session: ProjectSession, private val fs: FileSystem) {
+    private val deletion = fs as? InboxFileDeletion
+    internal val canDelete get() = deletion != null
     private val _state = MutableStateFlow(InboxUiState())
     val state: Flow<InboxUiState> = session.state.map { open ->
         _state.value.copy(
             projectName = open?.project?.name,
             shotNumbers = open?.project?.shots?.map { it.number } ?: emptyList(),
             inboxDir = open?.let { joinPath(it.dir, INBOX_DIR) },
+            projectId = open?.project?.id,
         )
     }
     private val _message = MutableStateFlow<String?>(null)
@@ -63,15 +70,17 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
             message = _message.value,
             notice = _notice.value,
             inboxDir = open?.let { joinPath(it.dir, INBOX_DIR) },
+            projectId = open?.project?.id,
         )
     }
 
     /** Scan the inbox folder and return the items. */
     fun refresh(): InboxUiState {
-        val dir = session.open?.let { joinPath(it.dir, INBOX_DIR) } ?: run {
+        val open = session.open ?: run {
             reportNotice(UiNotice(UiText.NO_PROJECT_OPEN))
-            return current()
+            return current().copy(items = emptyList())
         }
+        val dir = joinPath(open.dir, INBOX_DIR)
         val items = try {
             if (!fs.exists(dir)) {
                 fs.createDirectories(dir)
@@ -83,6 +92,7 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
                         InboxItem(
                             name = name,
                             path = joinPath(dir, name),
+                            projectId = open.project.id,
                             kind = when (name.substringAfterLast('.').lowercase()) {
                                 "mp4", "mov" -> InboxItemKind.VIDEO
                                 "png", "jpg", "jpeg" -> InboxItemKind.IMAGE
@@ -99,6 +109,17 @@ class InboxModel(private val session: ProjectSession, private val fs: FileSystem
         val next = current().copy(items = items, message = _message.value, notice = _notice.value)
         _state.value = next
         return next
+    }
+
+    internal fun deleteRequest(item: InboxItem): InboxDeleteRequest? {
+        val open = session.open ?: return null
+        val dir = joinPath(open.dir, INBOX_DIR)
+        if (item.projectId != open.project.id || item.path != joinPath(dir, item.name)) return null
+        val delete = deletion?.prepareInboxDeletion(dir, item.name) ?: return null
+        return InboxDeleteRequest(item.name) {
+            val active = session.open
+            active != null && active.dir == open.dir && active.project.id == item.projectId && delete()
+        }
     }
 
     /**

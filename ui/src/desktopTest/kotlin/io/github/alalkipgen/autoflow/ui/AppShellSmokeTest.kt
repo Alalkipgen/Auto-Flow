@@ -29,6 +29,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.click
+import io.github.alalkipgen.autoflow.ui.i18n.UiText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.alalkipgen.autoflow.ai.AiResult
 import io.github.alalkipgen.autoflow.ai.JsonSchema
@@ -127,12 +131,13 @@ class AppShellSmokeTest {
         setContent { TestApp() }
         fun sidebar(name: String) = onNode(hasText(name) and isSelectable())
         sidebar("Dashboard").assertIsSelected()
-        sidebar("Settings").performClick()
+        sidebar("Settings").assertIsDisplayed().performMouseInput { click() }
         waitForIdle()
         sidebar("Settings").assertIsSelected()
         sidebar("Dashboard").assertIsNotSelected()
         onAllNodesWithText("Settings").assertCountEquals(2)
-        onNodeWithText("AI providers").assertExists()
+        onNodeWithContentDescription(UiText.V3_AI_KEYS.en).performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText(UiText.USE_FAKE_AI.en).assertIsDisplayed()
         // Without a project the pipeline screens are locked; clicking one names what to do instead of opening it.
         sidebar("Input").performClick()
         waitForIdle()

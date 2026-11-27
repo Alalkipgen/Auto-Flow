@@ -58,14 +58,29 @@ class InputModel(
     transcribe: TranscribeProvider? = null,
     private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
 ) {
+    private val draftOwner = session.open?.let { it.dir to it.project.id }
     private val _state = MutableStateFlow(load())
     val state: StateFlow<InputUiState> = _state.asStateFlow()
+
+    internal val openProject get() = session.open
 
     /** Tap-to-sync of the lyric lines (PLAN Q-11). */
     val sync = LyricSyncModel(session, transcribe, media)
 
-    /** "✨ Suggest timings": saves the draft, then asks Gemini (D-31). */
-    suspend fun suggestTimings(): Boolean = !jobs.busy && save() && sync.suggest()
+    /** Join the app-scope request without cancelling it when the Input screen closes. */
+    suspend fun suggestTimings(): Boolean {
+        if (jobs.busy || !save()) return false
+        val origin = session.open ?: return false
+        val action = UiNotice(UiText.JOB_LYRIC_TIMINGS)
+        var saved = false
+        val job = jobs.launchGemini(origin, "Input", action.text(UiLanguage.ENGLISH), action) {
+            saved = sync.suggest()
+            if (saved) StoryboardResult.Done
+            else sync.state.value.let { StoryboardResult.Failed(it.message.orEmpty(), it.notice) }
+        } ?: return false
+        job.join()
+        return saved
+    }
 
     /** "Sync lyrics": saves the draft (the timings belong to the saved lyrics), then opens the tap panel. */
     fun startSync(): Boolean = !jobs.busy && save() && sync.start(_state.value.lyrics)
@@ -145,6 +160,7 @@ class InputModel(
     /** Writes the draft (lyrics file + project.json) if it differs from what is saved. */
     fun save(): Boolean {
         val open = session.open ?: return false
+        if (draftOwner != (open.dir to open.project.id)) return false
         val s = _state.value
         if (s.lyrics != session.readLyrics()) {
             (session.writeLyrics(s.lyrics) as? CoreResult.Err)?.let { return fail(it.error.message) }
@@ -160,14 +176,14 @@ class InputModel(
     /** "Storyboard ထုတ်မယ်": saves, then starts the job; [onDone] runs after a successful generation. */
     fun generate(onDone: () -> Unit): Boolean {
         if (!save() || _state.value.blockers.isNotEmpty()) return false
-        return jobs.run(
-            GENERATE_LABEL,
+        return jobs.runGemini(
+            session.open ?: return false, "Input", GENERATE_LABEL,
             notice = UiNotice(UiText.GENERATING_STORYBOARD),
             onDone = {
                 _state.value = load().copy(message = null, notice = null)
                 if (it == StoryboardResult.Done) onDone()
             },
-        ) { generateAll() }
+        ) { report -> generateAll(report) }
     }
 
     private fun chip(edit: (ProjectSettings) -> ProjectSettings) {

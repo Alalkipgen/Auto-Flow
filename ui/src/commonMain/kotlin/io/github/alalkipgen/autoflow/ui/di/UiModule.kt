@@ -52,7 +52,20 @@ val uiModule = module {
     single { ProjectStore(get()) }
     single { ProjectIndex(get(), get<AppDirs>().projectsIndex) }
     single { CurrentProject() }
-    factory { DashboardModel(get(), get(), get(), get(), get(), get(), get<AppDirs>().projectsHome, modelConfig = getOrNull()) }
+    factory {
+        val index = get<ProjectIndex>()
+        val recap = { getOrNull<io.github.alalkipgen.autoflow.ui.recap.RecapModel>() }
+        val current = get<CurrentProject>()
+        val storyboard = { getOrNull<StoryboardJobs>()?.state?.value }
+        DashboardModel(get(), get(), index, get(), get(), current, get<AppDirs>().projectsHome, modelConfig = getOrNull(),
+            deletion = getOrNull(), ai = getOrNull(), renders = getOrNull(), foregroundBusy = { key ->
+                recap()?.foregroundVoiceRuns?.value?.any { index.canonical(it.dir) == key } == true ||
+                    recap()?.state?.value?.let { it.projectDir != null && index.canonical(it.projectDir) == key && (it.busy || it.recording != null) } == true ||
+                    (storyboard()?.takeIf { it.running != null }?.let { job ->
+                        (job.gemini?.dir ?: current.state.value?.dir)?.let(index::canonical) == key
+                    } == true)
+            })
+    }
     single { BackupModel(getOrNull(), get(), get(), MainScope(), filePicker = getOrNull(), appDirs = getOrNull(),
         language = { io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     single { ProjectSession(get(), get(), get(), get()) }
@@ -84,12 +97,13 @@ val uiModule = module {
     single { ShellModel(get()) }
     // Movie Recap (D-33): a single, so copying / finding scenes keeps going off-screen.
     // Exact frames (D-42): one recap job + still renderer shared by the Recap Style preview and Export.
-    single { io.github.alalkipgen.autoflow.ui.export.RecapFrames(get(), get(), get(), media = getOrNull(), builtInFonts = getOrNull(), lexicon = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon) }
-    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull(), frames = getOrNull(), jobs = getOrNull(), lexicons = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, modelConfig = get(), transcriber = getOrNull(), usage = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
+    single { io.github.alalkipgen.autoflow.ui.export.RecapFrames(get(), get(), get(), media = getOrNull(), builtInFonts = getOrNull(), lexicon = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, previewCacheDir = joinPath(get<AppDirs>().root, "cache/export-preview")) }
+    single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull(), frames = getOrNull(), jobs = getOrNull(), lexicons = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, modelConfig = get(), transcriber = getOrNull(), usage = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }, thumbnailCacheDir = joinPath(get<AppDirs>().root, "cache/scene-thumbnails-v1")) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull(), frames = getOrNull()) }
+    single { io.github.alalkipgen.autoflow.ui.jobs.RenderHistory(get(), get<AppDirs>().root) }
     // Library (5A-7)
     single { io.github.alalkipgen.autoflow.core.library.LibraryStore(get(), get<AppDirs>().library) }
-    single { io.github.alalkipgen.autoflow.ui.library.LibraryModel(get(), get(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.library.LibraryModel(get(), get(), MainScope(), fs = get()) }
     factory {
         val registry = get<ProviderRegistry>()
         val dirs = getOrNull<AppDirs>()

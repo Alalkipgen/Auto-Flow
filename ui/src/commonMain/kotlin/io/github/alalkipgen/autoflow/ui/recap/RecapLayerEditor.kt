@@ -26,7 +26,8 @@ data class LayerDraft(
     val index: Int,
     val isNew: Boolean,
 )
-data class LayerEditorState(val draft: LayerDraft? = null, val problem: String? = null, val importing: Boolean = false, val notice: UiNotice? = null)
+data class LayerEditorState(val draft: LayerDraft? = null, val problem: String? = null, val importing: Boolean = false,
+    val notice: UiNotice? = null, val fields: Map<String, String> = emptyMap())
 
 /** Cohesive native-v2 editing; the existing session/store owns locks, atomic saves and revision conflicts. */
 class RecapLayerEditor(
@@ -45,7 +46,7 @@ class RecapLayerEditor(
         val open = session.open ?: return
         val layers = open.project.recap?.layers ?: return
         val index = layers.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return
-        _state.value = LayerEditorState(LayerDraft(++nextToken, open.dir, open.project, layers[index], index, false))
+        _state.value = LayerEditorState(LayerDraft(++nextToken, open.dir, open.project, layers[index], index, false), fields = LayerForm.of(layers[index]).fields)
     }
 
     fun add(type: LayerType) {
@@ -58,10 +59,37 @@ class RecapLayerEditor(
             LayerType.TEXT -> listOf(0.1f, 0.1f, 0.8f, 0.2f)
             else -> listOf(0f, 0f, 1f, 1f)
         }
-        _state.value = LayerEditorState(LayerDraft(++nextToken, open.dir, open.project, Layer(id, type, rect), recap.layers.size, true))
+        val layer = Layer(id, type, rect)
+        _state.value = LayerEditorState(LayerDraft(++nextToken, open.dir, open.project, layer, recap.layers.size, true), fields = LayerForm.of(layer).fields)
     }
 
     fun cancel() { _state.value = LayerEditorState() }
+
+    /** One transient form for numeric controls and on-video handles, never a second persisted model. */
+    internal fun field(token: Long, name: String, text: String) {
+        val d = _state.value.draft ?: return
+        if (d.token == token && isCurrent(d) && !_state.value.importing)
+            _state.value = _state.value.copy(fields = _state.value.fields + (name to text))
+    }
+    internal fun value(): Layer? {
+        val d = _state.value.draft ?: return null
+        if (!isCurrent(d)) return null
+        return LayerForm(_state.value.fields).read(d.layer)?.takeIf { LayerEdits.problem(it) == null }
+    }
+    internal fun rect(token: Long, rect: List<Float>) {
+        val d = _state.value.draft ?: return
+        val layer = value() ?: return
+        if (d.token != token || _state.value.importing || !LayerEdits.usesRect(layer.type) || LayerEdits.problem(layer.copy(rect = rect)) != null) return
+        _state.value = _state.value.copy(fields = LayerForm(_state.value.fields).rect(rect).fields)
+    }
+    internal fun preview(recap: RecapV2): RecapV2 {
+        val d = _state.value.draft ?: return recap
+        val layer = value() ?: return recap
+        if (d.project.recap != recap) return recap
+        val layers = recap.layers.filterNot { it.id == layer.id }.toMutableList()
+        layers.add(d.index.coerceIn(0, layers.size), layer)
+        return recap.copy(layers = layers)
+    }
     fun report(problem: String) = reportNotice(UiNotice(UiText.RESULT_DETAIL, "detail" to problem))
     private fun reportNotice(notice: UiNotice) {
         _state.value = _state.value.copy(problem = notice.text(UiLanguage.ENGLISH), notice = notice)

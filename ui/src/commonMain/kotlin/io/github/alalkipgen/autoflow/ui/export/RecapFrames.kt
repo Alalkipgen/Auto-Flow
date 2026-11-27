@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.export
 import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.io.FileSystem
+import io.github.alalkipgen.autoflow.core.io.ProjectWrites
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
 import io.github.alalkipgen.autoflow.core.recap.RecapStory
@@ -14,6 +15,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.StateFlow
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
+import io.github.alalkipgen.autoflow.media.probe.FrameGrab
+import io.github.alalkipgen.autoflow.media.probe.MediaInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.github.alalkipgen.autoflow.media.render.ExactFrame
 import io.github.alalkipgen.autoflow.media.render.FfmpegRunner
 import io.github.alalkipgen.autoflow.media.render.FontInfo
@@ -44,8 +49,30 @@ class RecapFrames(
     private val builtInFonts: BuiltInFonts? = null,
     /** The Library snapshot used by preview, Exact frames, export and their stale checks. */
     val lexicon: StateFlow<Lexicon>? = null,
+    private val previewCacheDir: String? = null,
 ) {
     private val lock = Mutex()
+    private val posterLock = Mutex()
+
+    internal data class PreviewMedia(val info: MediaInfo, val poster: ByteArray?)
+    internal fun previewVlcDir() = media?.vlcDir()
+
+    /** Read the actual encoded asset, not the project setting. Use one bounded app-cache scratch slot. */
+    internal suspend fun inspectPreview(path: String): PreviewMedia? = withContext(Dispatchers.Default) {
+        val runner = media?.runner ?: return@withContext null
+        val probe = media.ffprobe() ?: return@withContext null
+        val info = (MediaProbe(runner, probe).probe(path, MediaTools.parentOf(path)) as? MediaProbe.Result.Ok)?.info
+            ?.takeIf { it.hasVideo && (it.width ?: 0) > 0 && (it.height ?: 0) > 0 } ?: return@withContext null
+        val dir = previewCacheDir
+        val ffmpeg = media.ffmpeg()
+        val poster = if (dir == null || ffmpeg == null) null else posterLock.withLock {
+            val target = joinPath(dir, "poster.jpg")
+            if (runCatching { fs.createDirectories(dir) }.isFailure) null
+            else if (FrameGrab(runner, ffmpeg).thumb(path, 0L, target, dir, width = 480) == FrameGrab.Result.Ok)
+                runCatching { fs.read(target) }.getOrNull() else null
+        }
+        PreviewMedia(info, poster)
+    }
 
     class LyricFont(val family: String, val fileName: String, val bytes: ByteArray)
 
@@ -161,17 +188,21 @@ class RecapFrames(
         val runner = tools.runner ?: return Result.Failed(NO_FFMPEG)
         val ffmpeg = tools.ffmpeg() ?: return Result.Failed(NO_FFMPEG)
         val font = font()
-        installFont(open, font)?.let { return Result.Failed(it) }
         val job = job(open, quality, font?.family, "exports/frame", "Exact frame")?.let(extra)
             ?: return Result.Failed("Import the movie and write the script first.")
         return lock.withLock {
-            val ffprobe = tools.ffprobe() ?: ffmpeg
-            when (val r = RenderJobRunner(fs, FfmpegRunner(runner, ffmpeg), MediaProbe(runner, ffprobe)).frame(job, atMs, image)) {
-                is RenderState.Done -> runCatching { fs.read(r.output) }.getOrNull()?.let { Result.Ok(Frame(atMs, r.output, it)) }
-                    ?: Result.Failed("The frame was made but cannot be read.")
-                is RenderState.Failed -> Result.Failed(listOf(r.reason, r.tail.lastOrNull { it.isNotBlank() }.orEmpty()).filter { it.isNotBlank() }.joinToString(": "))
-                else -> Result.Failed("The frame was not made.")
-            }
+            val release = ProjectWrites.awaitWriter(fs.canonicalPath(open.dir))
+            try {
+                if (session.projectAt(open.dir)?.id != open.project.id) return@withLock Result.Failed("Project unavailable")
+                installFont(open, font)?.let { return@withLock Result.Failed(it) }
+                val ffprobe = tools.ffprobe() ?: ffmpeg
+                when (val r = RenderJobRunner(fs, FfmpegRunner(runner, ffmpeg), MediaProbe(runner, ffprobe)).frame(job, atMs, image)) {
+                    is RenderState.Done -> runCatching { fs.read(r.output) }.getOrNull()?.let { Result.Ok(Frame(atMs, r.output, it)) }
+                        ?: Result.Failed("The frame was made but cannot be read.")
+                    is RenderState.Failed -> Result.Failed(listOf(r.reason, r.tail.lastOrNull { it.isNotBlank() }.orEmpty()).filter { it.isNotBlank() }.joinToString(": "))
+                    else -> Result.Failed("The frame was not made.")
+                }
+            } finally { release() }
         }
     }
 

@@ -8,6 +8,9 @@ package io.github.alalkipgen.autoflow.core.io
 interface FileSystem {
     fun exists(path: String): Boolean
 
+    /** Stable folder identity for the rebuildable recents index, not an authorization check. */
+    fun canonicalPath(path: String): String = path.trimEnd('/').ifEmpty { "/" }
+
     /** Creates [path] and any missing parents. No-op when it already exists. */
     fun createDirectories(path: String)
 

@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.settings
 
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.core.CoreResult
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
@@ -106,7 +107,18 @@ class BackupModel(
             }
             val path = paths.firstOrNull() ?: run { _state.update { it.copy(progress = null) }; return@launch }
             when (val r = b.restore(path, dest)) {
-                is PlatformResult.Ok -> _state.update { it.copy(progress = null, message = restored(r.value), notice = restoredNotice(r.value)) }
+                is PlatformResult.Ok -> {
+                    val store = ProjectStore(fs)
+                    var listError: String? = null
+                    for (entry in r.value) {
+                        // Only the actual published destination, not the original/same-name project.
+                        val dir = joinPath(dest, entry.folder)
+                        val project = (store.open(dir) as? CoreResult.Ok)?.value ?: continue
+                        (index.record(dir, project) as? PlatformResult.Failed)?.let { listError = it.reason }
+                    }
+                    val notice = listError?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to "${restored(r.value, language())} · $it") } ?: restoredNotice(r.value)
+                    _state.update { it.copy(progress = null, message = notice.text(UiLanguage.ENGLISH), notice = notice) }
+                }
                 is PlatformResult.Failed -> _state.update { it.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }
                 is PlatformResult.Unsupported -> _state.update { it.copy(progress = null, message = r.reason, notice = UiNotice(UiText.RESULT_DETAIL, "detail" to r.reason)) }
             }

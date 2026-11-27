@@ -200,7 +200,7 @@ internal fun PromptSection(detail: ShotDetail, model: ShotsModel) {
                     .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
                     .padding(10.dp),
             ) {
-                AfText(detail.promptText, size = 12.sp)
+                AfText(detail.promptText, size = 12.sp, mono = true)
             }
             val approveLabel = if (detail.approvedPrompt) "✓ ${tr(UiText.APPROVED)}" else "✓ Prompt ${tr(UiText.APPROVE)}"
             WrapRow {

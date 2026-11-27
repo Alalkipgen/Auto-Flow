@@ -6,6 +6,8 @@ import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.ai.TranscriptSegment
 import io.github.alalkipgen.autoflow.ai.retry.isBusy
 import io.github.alalkipgen.autoflow.core.CoreResult
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
@@ -105,11 +107,13 @@ class SceneTranscriber(
         if (!movie.hasAudio) error(NO_SOUND)
         // A given [cutter] runs in the caller's context (it picks its own threads); ffmpeg and the file work run on
         // Dispatchers.Default.
-        val audio = cutter?.let { soundOf(it, dir, movie.file, item, chunk) }
-            ?: withContext(Dispatchers.Default) { soundOf(ffmpegCutter() ?: error(RecapModel.NO_FFMPEG), dir, movie.file, item, chunk) }
+        val audio = timedAiStage(AiTimingStage.MEDIA_PREP) {
+            cutter?.let { soundOf(it, dir, movie.file, item, chunk) }
+                ?: withContext(Dispatchers.Default) { soundOf(ffmpegCutter() ?: error(RecapModel.NO_FFMPEG), dir, movie.file, item, chunk) }
+        }
         val spans = chunk.scenes.map { SceneSpan(it.offsetMs, it.endOffsetMs) }
         when (val r = p.transcribeScenes(audio, SceneAudio.MIME, spans, lang = null)) {
-            is AiResult.Ok -> save(dir, project.id, key, chunk, r.value)
+            is AiResult.Ok -> timedAiStage(AiTimingStage.SAVE) { save(dir, project.id, key, chunk, r.value) }
             is AiResult.RateLimited -> throw AiItemPaused("Gemini is busy (${r.message.ifBlank { "rate limited" }}). Resume to go on.")
             is AiResult.Failed -> if (r.isBusy()) throw AiItemPaused("Gemini is busy (${r.msg}). Resume to go on.") else error("Gemini: ${r.msg}")
             is AiResult.Deferred -> error(r.instruction)

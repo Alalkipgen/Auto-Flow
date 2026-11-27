@@ -28,7 +28,7 @@ actual fun MoviePlayback(path: String, request: MovieRequest, modifier: Modifier
     val activity = LocalContext.current.activity()
     val callback by rememberUpdatedState(onSnapshot)
     val frameCallback by rememberUpdatedState(onFrame)
-    val player = remember(path, activity) { activity?.let { AndroidMoviePlayer(it, path) } }
+    val player = remember(path, activity, request.muted) { activity?.let { AndroidMoviePlayer(it, path, request.muted) } }
     var texture by remember(player) { mutableStateOf<TextureView?>(null) }
     DisposableEffect(player) { onDispose { player?.close() } }
     LaunchedEffect(player) {

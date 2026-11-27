@@ -41,7 +41,12 @@ fun RecapStepHeader(step: RecapStep, onBack: () -> Unit, onNext: () -> Unit, onC
     }
 }
 
-/** The 840 dp breakpoint is the WINDOW width, not the width remaining after the navigation rail. */
+/**
+ * The 840 dp breakpoint is the WINDOW width, not the width remaining after the navigation rail.
+ * At/above 840 dp: list · preview · inspector (UI v3 PR-8, concept 11). [editor] is the inspector; its pane keeps the
+ * `project-editor` tag. Below 1200 dp the inspector keeps the former 44 % share so 840 dp editors do not get
+ * narrower; from 1200 dp the preview takes the centre as in concept 11.
+ */
 @Composable
 fun ProjectPanes(
     windowWidthDp: Float,
@@ -50,21 +55,32 @@ fun ProjectPanes(
     preview: @Composable () -> Unit,
 ) {
     if (windowWidthDp >= 840f) {
+        val (listShare, previewShare, inspectorShare) = if (windowWidthDp >= 1200f) Triple(.23f, .45f, .32f) else Triple(.24f, .32f, .44f)
         Row(Modifier.fillMaxSize().padding(8.dp).testTag("project-three-panes"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(0.23f).fillMaxHeight().testTag("project-list")) { list() }
-            Box(Modifier.weight(0.44f).fillMaxHeight().testTag("project-editor")) { editor() }
-            Box(Modifier.weight(0.33f).fillMaxHeight().testTag("project-preview")) { preview() }
+            Box(Modifier.weight(listShare).fillMaxHeight().testTag("project-list")) { list() }
+            Box(Modifier.weight(previewShare).fillMaxHeight().testTag("project-preview")) { preview() }
+            Box(Modifier.weight(inspectorShare).fillMaxHeight().testTag("project-editor")) { editor() }
         }
     } else Box(Modifier.fillMaxSize().testTag("project-single-pane")) { editor() }
 }
 
 /** Native v2 editor presentation; Classic Recap still uses the original numbered cards. */
 @Composable
-fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, onGoToExport: () -> Unit) {
+fun StudioRecapScreen(model: RecapModel, step: RecapStep, windowWidthDp: Float, onGoToExport: () -> Unit,
+    navigation: RecapNavigation? = null,
+) {
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.refresh() }
     val recap = state.recap
     if (recap == null) { AfText(tr(UiText.OPEN_RECAP_PROJECT)); return }
+    // One focus/shortcut host per native step; the Classic Recap screen keeps no shortcuts.
+    when (step) {
+        RecapStep.VOICE -> { ProjectShortcutHost { StudioVoiceScreen(model, navigation, windowWidthDp) }; return }
+        RecapStep.STORY -> { ProjectShortcutHost { StudioStoryScreen(model, windowWidthDp, navigation) }; return }
+        RecapStep.SOURCE -> { ProjectShortcutHost { StudioSourceScreen(model, windowWidthDp, navigation) }; return }
+        RecapStep.STYLE -> { ProjectShortcutHost { StudioStyleScreen(model, windowWidthDp, navigation, onGoToExport) }; return }
+        RecapStep.EXPORT -> Unit
+    }
     var selectedId by remember(state.projectDir) { mutableStateOf<String?>(null) }
     var selectedScene by remember(state.projectDir) { mutableIntStateOf(0) }
     val blocks = state.story?.blocks.orEmpty()

@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import io.github.alalkipgen.autoflow.core.recap.AiJob
 import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
+import io.github.alalkipgen.autoflow.core.recap.AiRunTiming
 import io.github.alalkipgen.autoflow.core.recap.AiJobStore
 import io.github.alalkipgen.autoflow.platform.JvmFs
 import java.io.File
@@ -49,34 +50,47 @@ class WorkManagerAiJobRunner internal constructor(
 
     private val _jobs = MutableStateFlow<List<AiJob>>(emptyList())
     override val jobs: StateFlow<List<AiJob>> = _jobs.asStateFlow()
+    private val _history = MutableStateFlow<List<AiJob>>(emptyList())
+    override val history = _history.asStateFlow()
+    override val supportsHistoryRemoval = true
 
     init {
         scope.launch { refresh() }
     }
 
-    override suspend fun refresh() {
-        _jobs.value = store.loadAll().filter { it.state != AiJobState.CANCELLED }
+    override suspend fun refresh() = publish()
+
+    override fun hasPendingProject(key: String, canonical: (String) -> String) = store.loadAll().any {
+        it.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING) && canonical(it.project) == key
+    }
+
+    @Synchronized private fun publish() {
+        val all = store.loadAll()
+        _jobs.value = all.filter { it.state != AiJobState.CANCELLED }
+        _history.value = all
+    }
+
+    override suspend fun removeFinished(id: String, project: String): Boolean = withContext(Dispatchers.IO) {
+        store.removeFinished(id, project).also { publish() }
     }
 
     /** Returns the id the job runs under: [job]'s, or `<id>-r` when a damaged file of that id is kept aside. */
     override suspend fun enqueue(job: AiJob): String {
-        val toRun = when (val existing = store.read(job.id)) {
-            AiJobStore.Read.Missing -> job.copy(state = AiJobState.QUEUED, error = null)
-            // A damaged file is kept aside, never overwritten in place (same as desktop).
-            is AiJobStore.Read.Damaged -> job.copy(id = "${job.id}-r", state = AiJobState.QUEUED, error = null)
-            is AiJobStore.Read.Ok -> when (existing.job.state) {
-                AiJobState.PAUSED, AiJobState.FAILED -> existing.job.copy(state = AiJobState.QUEUED, error = null)
-                AiJobState.QUEUED, AiJobState.RUNNING -> existing.job // append again (see above)
-                AiJobState.DONE, AiJobState.CANCELLED -> return job.id
-            }
-        }
-        store.save(toRun)
+        val claim = store.prepareEnqueue(job)
         refresh()
-        appendToChain(toRun.id)
-        return toRun.id
+        if (claim.shouldLaunch) appendToChain(claim.id)
+        return claim.id
+    }
+
+    override suspend fun recordForeground(job: AiJob) {
+        require(job.kind == io.github.alalkipgen.autoflow.core.recap.AiJobKind.SCRIPT &&
+            job.state !in setOf(AiJobState.QUEUED, AiJobState.RUNNING))
+        store.save(job)
+        refresh()
     }
 
     override suspend fun cancel(id: String) {
+        AiRunTiming.forgetQueue(id)
         // Read-modify-write under the jobs-folder lock, so a Worker checkpoint cannot interleave with it.
         store.update(id) { if (it.state == AiJobState.DONE) it else it.copy(state = AiJobState.CANCELLED) }
         refresh()
@@ -87,7 +101,9 @@ class WorkManagerAiJobRunner internal constructor(
         /** Build a [WorkManagerAiJobRunner] from the application context. */
         fun of(context: Context): WorkManagerAiJobRunner {
             val jobsDir = File(context.filesDir, "autoflow/ai-jobs").absolutePath
-            return WorkManagerAiJobRunner(context, AiJobStore(JvmFs(), jobsDir))
+            return WorkManagerAiJobRunner(context, AiJobStore(JvmFs(), jobsDir)).also { runner ->
+                AiWorkerRegistry.onJobsChanged = runner::publish
+            }
         }
 
         private fun appendWork(context: Context, jobId: String) {

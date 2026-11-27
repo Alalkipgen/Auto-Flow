@@ -23,7 +23,7 @@ object DesktopMoviePlayer {
     private var loadedFrom: String? = null
     private var loaded = false
 
-    fun open(path: String, configuredVlcDir: String? = null): MovieOpen = synchronized(discoveryLock) {
+    fun open(path: String, configuredVlcDir: String? = null, muted: Boolean = true): MovieOpen = synchronized(discoveryLock) {
         if (!File(path).isFile) return MovieOpen.Unavailable("Movie file is unavailable. Still / Exact frame remain available.")
         val dir = configuredVlcDir?.let { File(it).absoluteFile.normalize() }
         if (dir != null && (!dir.isDirectory || listOf("libvlc.dll", "libvlc.so.5", "libvlc.so", "libvlc.dylib").none { File(dir, it).isFile })) {
@@ -41,7 +41,8 @@ object DesktopMoviePlayer {
                     NativeLibrary.addSearchPath("libvlc", dir.path)
                 } else NativeDiscovery().discover()
             }
-            factory = MediaPlayerFactory("--quiet", "--no-audio", "--no-video-title-show")
+            factory = MediaPlayerFactory(*if (muted) arrayOf("--quiet", "--no-audio", "--no-video-title-show")
+                else arrayOf("--quiet", "--no-video-title-show"))
             loaded = true; loadedFrom = dir?.path
             val version = factory.application().version()
             if (!version.startsWith("3.0.")) {

@@ -16,9 +16,20 @@ import io.github.alalkipgen.autoflow.platform.SecureStorage
 import io.github.alalkipgen.autoflow.platform.ToolLocator
 import io.github.alalkipgen.autoflow.platform.UrlOpener
 import io.github.alalkipgen.autoflow.platform.getOrNull
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.core.recap.timedAiStage
+import io.github.alalkipgen.autoflow.ui.jobs.foregroundRunId
+import io.github.alalkipgen.autoflow.ui.jobs.withGeminiProgress
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+
+data class GeminiDiagnosticRun(val id: String, val label: UiText)
 
 /** Everything the Settings screen shows. [message] is the result of the last action. */
 data class SettingsUiState(
@@ -26,7 +37,7 @@ data class SettingsUiState(
     val keyState: KeyState,
     /** `••••abcd` for a saved key; never the whole key. */
     val maskedKey: String?,
-    val testing: Boolean = false,
+    val geminiTest: GeminiDiagnosticRun? = null,
     val usageToday: Map<String, Int> = emptyMap(),
     /** The VLC folder playback will use: the configured one if valid, else the detected one (D-16). */
     val vlcDir: String?,
@@ -45,7 +56,9 @@ data class SettingsUiState(
     val ttsSample: String? = null,
     /** Feature flags with user overrides applied. */
     val features: FeatureFlags = FeatureFlags(),
-)
+) {
+    val testing: Boolean get() = geminiTest != null
+}
 
 /** Settings screen logic. Actions return quickly except the `suspend` ones, which the screen launches. */
 class SettingsModel(
@@ -83,6 +96,7 @@ class SettingsModel(
 
     private val _state = MutableStateFlow(snapshot(message = settings.problem ?: models.problem))
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+    private var testJob: Job? = null
 
     private fun language() = UiLanguage.fromCode(settings.state.value.uiLanguage)
 
@@ -93,9 +107,10 @@ class SettingsModel(
 
     fun removeKey() = result(secrets.remove(SecretNames.GEMINI_API_KEY), UiNotice(UiText.KEY_REMOVED))
 
-    suspend fun testKey() {
-        _state.value = _state.value.copy(testing = true, message = null, notice = null)
-        val text = when (val r = testKeyCall()) {
+    suspend fun testKey() = runDiagnostic(UiText.JOB_TEST_GEMINI_KEY) {
+        val result = testKeyCall()
+        currentCoroutineContext().ensureActive()
+        val text = when (val r = result) {
             is AiResult.Ok -> UiNotice(UiText.KEY_WORKS, "model" to (r.usage?.model?.let { " ($it)" } ?: ""))
             is AiResult.RateLimited -> UiNotice(UiText.KEY_RATE_LIMIT)
             is AiResult.Failed -> UiNotice(UiText.RESULT_DETAIL, "detail" to r.msg)
@@ -106,13 +121,14 @@ class SettingsModel(
     }
 
     /** Settings → Test Gemini TTS (S5): speaks one Burmese sentence and names the model that answered. */
-    suspend fun testTts() {
-        val call = testTtsCall ?: return
-        _state.value = _state.value.copy(testing = true, message = null, notice = null)
+    suspend fun testTts() = runDiagnostic(UiText.TEST_TTS) {
+        val call = testTtsCall ?: return@runDiagnostic
+        val result = call()
+        currentCoroutineContext().ensureActive()
         var sample: String? = null
-        val text = when (val r = call()) {
+        val text = when (val r = result) {
             is AiResult.Ok -> {
-                sample = saveTtsSample(r.value)
+                sample = timedAiStage(AiTimingStage.SAVE) { saveTtsSample(r.value) }
                 UiNotice(if (sample != null) UiText.TTS_WORKS_PLAY else UiText.TTS_WORKS, "model" to (r.usage?.model?.let { " ($it)" } ?: ""))
             }
             is AiResult.RateLimited -> UiNotice(UiText.TTS_RATE_LIMIT, "detail" to (r.message.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""))
@@ -122,6 +138,24 @@ class SettingsModel(
         refreshUsage()
         report(text)
         _state.value = _state.value.copy(ttsSample = sample)
+    }
+
+    private suspend fun runDiagnostic(label: UiText, block: suspend () -> Unit) = coroutineScope {
+        if (testJob != null) return@coroutineScope
+        val run = GeminiDiagnosticRun(foregroundRunId(), label)
+        testJob = coroutineContext.job
+        _state.value = _state.value.copy(geminiTest = run, message = null, notice = null)
+        try { withGeminiProgress(run.id) { block() } }
+        finally {
+            testJob = null
+            _state.value = _state.value.copy(geminiTest = null)
+        }
+    }
+
+    internal fun cancelGeminiTest(id: String) {
+        if (_state.value.geminiTest?.id != id) return
+        testJob?.cancel()
+        report(UiNotice(UiText.JOB_CANCELLED))
     }
 
     suspend fun refreshUsage() {
@@ -136,7 +170,7 @@ class SettingsModel(
     }
 
     /** Reopening Settings after Self-test must show overrides saved by the other settings model. */
-    fun refresh() { _state.value = snapshot(message = settings.problem ?: models.problem) }
+    fun refresh() { _state.value = snapshot(message = settings.problem ?: models.problem).copy(geminiTest = _state.value.geminiTest) }
 
     fun setUseFakes(fake: Boolean) = change { it.copy(useFakeProviders = fake) }
 
@@ -220,6 +254,7 @@ class SettingsModel(
     private fun done(message: String?, notice: UiNotice? = null) {
         status.refreshKey()
         _state.value = snapshot(message, notice).copy(
+            geminiTest = _state.value.geminiTest,
             usageToday = _state.value.usageToday,
             ffmpegCheck = _state.value.ffmpegCheck,
             ffmpegNotice = _state.value.ffmpegNotice,

@@ -15,6 +15,7 @@ object AutoFlowColors {
 
     /** Primary actions. */
     val Purple = Color(0xFF8B5CF6)
+    val PrimaryFill = Color(0xFF7C3AED) // white action text exceeds WCAG AA 4.5:1
 
     /** Flow / external. */
     val Cyan = Color(0xFF22D3EE)
@@ -24,6 +25,7 @@ object AutoFlowColors {
 
     /** Stale / warning. */
     val Amber = Color(0xFFF59E0B)
+    val Failed = Color(0xFFF87171)
 
     /** Title bar background, taken from docs/mockups/autoflow-ui.html. */
     val TitleBar = Color(0xFF0E1428)

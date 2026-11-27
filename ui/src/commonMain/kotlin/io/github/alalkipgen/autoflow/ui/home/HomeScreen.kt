@@ -1,54 +1,32 @@
 package io.github.alalkipgen.autoflow.ui.home
 
-import io.github.alalkipgen.autoflow.ui.i18n.*
-import io.github.alalkipgen.autoflow.ui.i18n.UiText
-import io.github.alalkipgen.autoflow.ui.i18n.tr
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.collectAsState
-import io.github.alalkipgen.autoflow.core.recap.AiJob
-import io.github.alalkipgen.autoflow.core.recap.AiJobKind
-import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
-import io.github.alalkipgen.autoflow.core.recap.AiJobState
-import org.koin.compose.getKoin
-import io.github.alalkipgen.autoflow.core.recap.QuickRecapStage
-import io.github.alalkipgen.autoflow.core.recap.Recap
+import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
-import io.github.alalkipgen.autoflow.core.recap.etaSeconds
-import io.github.alalkipgen.autoflow.ui.components.AfButton
-import io.github.alalkipgen.autoflow.ui.components.AfCard
-import io.github.alalkipgen.autoflow.ui.components.AfChip
-import io.github.alalkipgen.autoflow.ui.components.AfText
-import io.github.alalkipgen.autoflow.ui.components.ButtonKind
-import io.github.alalkipgen.autoflow.ui.components.WrapRow
-import io.github.alalkipgen.autoflow.ui.components.screenPadding
-import io.github.alalkipgen.autoflow.ui.i18n.My
+import io.github.alalkipgen.autoflow.ui.components.*
+import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.jobs.*
+import io.github.alalkipgen.autoflow.ui.projects.ProjectEntry
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
-/** Quick Recap wizard state for the UI (not persisted here). */
+/** Transient wizard state only; the existing Quick Recap engine owns creation and approval. */
 private enum class WizardStep { IDLE, LENGTH, STYLE, CONFIRM }
 
-/**
- * Studio v2 Home screen (5A-6 / 5B-11, DESIGN.md §7 "Home").
- * Shows:
- * - Quick Recap wizard: movie → length chips (1·3·5·10 min) → style → Start
- * - Running jobs progress (placeholder until 5A-5 runner fully connected)
- * - Create: Recap · Music Video buttons
- */
+/** Home never probes/decodes media or estimates project progress. Jobs uses the identical projection. */
 @Composable
 fun HomeScreen(
     onNewRecap: () -> Unit = {},
@@ -56,57 +34,99 @@ fun HomeScreen(
     onQuickRecapStart: (targetMs: Long, style: RecapStyle) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     onOpenSettings: () -> Unit = {},
-    /** AI provider status line (title bar text in the classic shell). */
     status: String? = null,
-    recent: List<io.github.alalkipgen.autoflow.ui.projects.ProjectEntry> = emptyList(),
+    notice: String? = null,
+    recent: List<ProjectEntry> = emptyList(),
     onOpenProject: (dir: String) -> Unit = {},
+    jobs: List<JobRow> = rememberJobRows(),
+    onViewJobs: () -> Unit = {},
+    continueStep: String? = null,
+    continueProjectPath: String? = null,
+    backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
+    jobActions: io.github.alalkipgen.autoflow.ui.jobs.JobsActions? = null,
 ) {
-    Column(
-        modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(screenPadding),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            AfText(tr(UiText.HOME), Modifier.weight(1f), size = 20.sp, bold = true)
-            AfButton(tr(UiText.SETTINGS), onOpenSettings, Modifier.testTag("home-settings"))
-        }
-        status?.let { AfText(it, muted = true, size = 12.sp) }
-
-        // Quick Recap wizard card (5B-11)
-        QuickRecapWizardCard(onQuickRecapStart)
-
-        // Create shortcuts
-        AfCard(tr(UiText.HOME_CREATE)) {
-            WrapRow {
-                AfButton(tr(UiText.HOME_NEW_RECAP), onNewRecap, kind = ButtonKind.Primary)
-                AfButton(tr(UiText.HOME_NEW_MV), onNewMusicVideo)
+    Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
+        Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
+            .testTag("home-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            WrapRow(Modifier.testTag("home-header")) {
+                AfText(tr(UiText.V3_APP_NAME), size = 24.sp, bold = true)
+                AfButton(tr(UiText.SETTINGS_TITLE), onOpenSettings, Modifier.testTag("home-settings"))
             }
-        }
-
-        AfCard(tr(UiText.HOME_RECENT)) {
-            if (recent.isEmpty()) AfText(tr(UiText.HOME_EMPTY), muted = true)
-            recent.forEach { entry ->
-                val kind = if (entry.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "🎬" else "🎵"
-                AfButton("$kind ${entry.name}", { onOpenProject(entry.path) }, Modifier.fillMaxWidth().testTag("recent-${entry.name}"))
+            status?.let { AfText(My.breakSyllables(it), muted = true) }
+            notice?.let { AfText(My.breakSyllables(it), color = AutoFlowColors.Failed) }
+            QuickRecapWizardCard(onQuickRecapStart, onNewRecap, backHandler)
+            if (recent.isEmpty()) AfText(My.breakSyllables(tr(UiText.HOME_EMPTY)), muted = true)
+            recent.maxByOrNull { it.lastOpenedAt }?.let { entry ->
+                AfCard(tr(UiText.V3_CONTINUE), Modifier.testTag("home-continue")) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HomeModeIcon(entry.mode)
+                        AfText(tr(if (entry.mode == Mode.MOVIE_RECAP) UiText.MOVIE_RECAP else UiText.MUSIC_VIDEO), muted = true)
+                    }
+                    AfButton(entry.name, { onOpenProject(entry.path) }, Modifier.fillMaxWidth().testTag("recent-${entry.name}"))
+                    if (entry.path == continueProjectPath) continueStep?.let {
+                        AfText(My.breakSyllables(it), Modifier.testTag("home-continue-step"), muted = true)
+                    }
+                }
+            }
+            AfCard(tr(UiText.HOME_CREATE)) {
+                AfButton(tr(UiText.HOME_NEW_RECAP), onNewRecap, Modifier.fillMaxWidth().testTag("home-new-recap"))
+                AfButton(tr(UiText.HOME_NEW_MV), onNewMusicVideo, Modifier.fillMaxWidth().testTag("home-new-mv"))
+                PlannedTile(tr(UiText.V3_DUBBING), modifier = Modifier.testTag("home-dubbing"))
+            }
+            SectionCard(tr(UiText.V3_QUICK_TOOLS)) {
+                AfText(My.breakSyllables(tr(UiText.V3_TOOLS_IN_PROJECT)), muted = true)
+                PlannedTile(tr(UiText.V3_VOICE_AUDIO), modifier = Modifier.testTag("home-voice-tool"))
+                PlannedTile(tr(UiText.V3_SUBTITLES), modifier = Modifier.testTag("home-subtitles-tool"))
+            }
+            val running = jobs.filter { it.running }
+            if (running.isNotEmpty()) SectionCard(tr(UiText.JOB_RUNNING), Modifier.testTag("home-running")) {
+                running.forEachIndexed { i, row ->
+                    JobRunCard(row, Modifier.testTag("home-job-$i")) {
+                        if (row.canCancel && jobActions?.canCancel(row) == true) {
+                            AfButton(tr(UiText.CANCEL), { jobActions.cancel(row) }, Modifier.testTag("home-job-cancel-$i"), kind = ButtonKind.Danger)
+                        }
+                    }
+                }
+                AfButton(tr(UiText.V3_VIEW_JOBS), onViewJobs, Modifier.testTag("home-view-jobs"))
             }
         }
     }
 }
 
+/** A decorative fallback next to the full localized mode label; never depends on the system emoji font. */
 @Composable
-private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
+private fun HomeModeIcon(mode: Mode) {
+    Canvas(Modifier.size(20.dp).testTag("home-mode-${mode.name}")) {
+        val u = size.width / 20f
+        if (mode == Mode.MOVIE_RECAP) {
+            drawRoundRect(AutoFlowColors.Purple, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
+            for (x in listOf(5f, 15f)) for (y in listOf(7f, 13f)) {
+                drawCircle(AutoFlowColors.Panel, u, Offset(x * u, y * u))
+            }
+        } else {
+            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 13 * u), Offset(10 * u, 4 * u), 2 * u)
+            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 4 * u), Offset(16 * u, 6 * u), 2 * u)
+            drawOval(AutoFlowColors.Cyan, Offset(4 * u, 11 * u), Size(7 * u, 5 * u))
+        }
+    }
+}
+
+@Composable
+private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit, onStepByStep: () -> Unit,
+    backHandler: @Composable (Boolean, () -> Unit) -> Unit,
+) {
     var step by remember { mutableStateOf(WizardStep.IDLE) }
     var targetMs by remember { mutableStateOf(300_000L) }
     var style by remember { mutableStateOf(RecapStyle.PLAIN) }
 
-    AfCard(tr(UiText.HOME_QUICK)) {
+    backHandler(step != WizardStep.IDLE) { step = WizardStep.entries[(step.ordinal - 1).coerceAtLeast(0)] }
+    AfCard(tr(UiText.HOME_QUICK), selected = true) {
         when (step) {
             WizardStep.IDLE -> {
-                AfText(tr(UiText.HOME_QUICK_HINT), muted = true, size = 12.sp)
-                AfText(tr(UiText.HOME_QUICK_SOURCE), muted = true, size = 11.sp)
-                AfButton(tr(UiText.HOME_QUICK_START), { step = WizardStep.LENGTH }, kind = ButtonKind.Primary)
+                AfText(My.breakSyllables(tr(UiText.V3_APPROVAL_BEFORE_VOICE)), muted = true)
+                AfText(My.breakSyllables(tr(UiText.HOME_QUICK_SOURCE)), muted = true)
+                AfButton(tr(UiText.HOME_QUICK_START), { step = WizardStep.LENGTH }, Modifier.fillMaxWidth().testTag("home-quick-start"), kind = ButtonKind.Primary)
+                AfButton(tr(UiText.V3_STEP_BY_STEP), onStepByStep, Modifier.testTag("home-step-by-step"))
             }
             WizardStep.LENGTH -> {
                 AfText(tr(UiText.LENGTH), bold = true)
@@ -116,7 +136,7 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
                     }
                 }
                 WrapRow {
-                    AfButton(tr(UiText.HOME_NEXT_STYLE), { step = WizardStep.STYLE }, kind = ButtonKind.Primary)
+                    AfButton(tr(UiText.HOME_NEXT_STYLE), { step = WizardStep.STYLE }, Modifier.testTag("quick-next-style"), kind = ButtonKind.Primary)
                     AfButton(tr(UiText.CANCEL), { step = WizardStep.IDLE })
                 }
             }
@@ -127,7 +147,7 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
                     AfChip(styleLabel(RecapStyle.COMMENTARY, LocalUiLanguage.current), style == RecapStyle.COMMENTARY, onClick = { style = RecapStyle.COMMENTARY })
                 }
                 WrapRow {
-                    AfButton("${tr(UiText.START)} →", { step = WizardStep.CONFIRM }, kind = ButtonKind.Primary)
+                    AfButton("${tr(UiText.START)} →", { step = WizardStep.CONFIRM }, Modifier.testTag("quick-confirm"), kind = ButtonKind.Primary)
                     AfButton(tr(UiText.BACK), { step = WizardStep.LENGTH })
                 }
             }
@@ -140,53 +160,16 @@ private fun QuickRecapWizardCard(onStart: (Long, RecapStyle) -> Unit) {
                     AfButton(tr(UiText.START), {
                         onStart(targetMs, style)
                         step = WizardStep.IDLE
-                    }, kind = ButtonKind.Primary)
+                    }, Modifier.testTag("quick-create"), kind = ButtonKind.Primary)
                     AfButton(tr(UiText.BACK), { step = WizardStep.STYLE })
                 }
             }
         }
     }
 
-    // Running stages display — shown when a quick recap job is active
-    // Full impl wired to AiJobRunner in 5A-5; placeholder here.
-    QuickRecapStageList()
 }
 
-/**
- * Live Quick Recap stage list (5B-11): shows active/recent AI jobs of kind QUICK_RECAP (D-52).
- * Each row shows the project name, state, items left, and ETA.
- */
-@Composable
-private fun QuickRecapStageList() {
-    val koin = getKoin()
-    val runner = remember(koin) { koin.getOrNull<AiJobRunner>() }
-    val jobs by (runner?.jobs?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
-    val active = jobs.filter { it.kind == AiJobKind.QUICK_RECAP || it.kind == AiJobKind.TTS_ALL }
-        .filter { it.state != AiJobState.DONE && it.state != AiJobState.CANCELLED }
-    if (active.isEmpty()) return
-    AfCard(tr(UiText.HOME_ACTIVE)) {
-        active.forEach { job ->
-            val eta = job.etaSeconds()
-            val etaText = if (eta != null && eta > 0) " · ~${eta}s" else ""
-            val itemsLeft = job.items.size
-            val stateLabel = when (job.state) {
-                AiJobState.RUNNING -> tr(UiText.JOB_RUNNING)
-                AiJobState.QUEUED -> tr(UiText.JOB_QUEUED)
-                AiJobState.PAUSED -> tr(UiText.JOB_PAUSED)
-                AiJobState.FAILED -> tr(UiText.JOB_FAILED)
-                else -> job.state.name
-            }
-            val name = job.project.substringAfterLast('/').removeSuffix(".autoflow")
-            AfText(
-                tr(UiText.HOME_JOB_ROW, "stateLabel" to (stateLabel), "name" to (name), "value3" to (io.github.alalkipgen.autoflow.ui.jobs.aiKindLabel(job.kind, LocalUiLanguage.current)), "itemsLeft" to (itemsLeft), "etaText" to (etaText)),
-                size = 12.sp,
-                color = if (job.state == AiJobState.FAILED) AutoFlowColors.Amber else AutoFlowColors.Text,
-            )
-        }
-    }
-}
-
-/** Burmese name of a Quick Recap style (5B-13); the saved value stays the enum. */
+/** The saved style remains an enum; project contents are never translated. */
 internal fun styleLabel(style: RecapStyle, language: UiLanguage = UiLanguage.ENGLISH): String = when (style) {
     RecapStyle.PLAIN -> UiText.STYLE_PLAIN.text(language)
     RecapStyle.COMMENTARY -> UiText.STYLE_COMMENTARY.text(language)

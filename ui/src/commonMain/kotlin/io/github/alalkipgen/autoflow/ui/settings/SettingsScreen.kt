@@ -25,10 +25,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.alalkipgen.autoflow.ui.jobs.JobRow
+import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
+import io.github.alalkipgen.autoflow.ui.jobs.JobSource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.core.recap.AiTimingStage
+import io.github.alalkipgen.autoflow.ui.jobs.aiKindLabel
+import io.github.alalkipgen.autoflow.ui.components.SectionCard
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AudioPlayButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
@@ -51,31 +58,42 @@ const val TEST_TTS = "🔊 Test Gemini TTS (S5)"
  * "Back up all projects" (Android, D-27), [info] adds About.
  */
 @Composable
-fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null, backup: BackupModel? = null) {
-    AppLanguage(model.appSettings) { SettingsContent(model, modifier, info, backup) }
+fun SettingsScreen(model: SettingsModel, modifier: Modifier = Modifier, info: AppInfo? = null, backup: BackupModel? = null,
+    onOpenLexicon: (() -> Unit)? = null,
+    runner: AiJobRunner? = null,
+) {
+    AppLanguage(model.appSettings) { SettingsContent(model, modifier, info, backup, onOpenLexicon, runner) }
 }
 
 @Composable
-private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppInfo?, backup: BackupModel?) {
+private fun SettingsContent(model: SettingsModel, modifier: Modifier, info: AppInfo?, backup: BackupModel?, onOpenLexicon: (() -> Unit)?, runner: AiJobRunner?) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(model) { model.refresh(); model.refreshUsage() }
     LaunchedEffect(backup) { backup?.refresh() }
+    Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 760.dp),
+        Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AfText(tr(UiText.SETTINGS_TITLE), size = 18.sp, bold = true)
+        AfText(tr(UiText.SETTINGS_TITLE), Modifier.testTag("settings-heading"), size = 24.sp, bold = true)
         LanguageCard(model)
         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: tr(UiText.RESULT_DETAIL, "detail" to it), color = AutoFlowColors.Cyan) }
         AiCard(state, model, scope)
-        DefaultsCard(state.settings, model)
-        ToolsCard(state, model, scope)
-        FontsCard(state.settings.fontPaths, model.builtInFontPaths, model, scope)
-        PreviewFeaturesCard(model)
         ModelsCard(state, model, scope)
+        onOpenLexicon?.let { open ->
+            AfCard(tr(UiText.V3_PRONUNCIATION)) {
+                AfButton(tr(UiText.V3_OPEN_LEXICON), open, Modifier.fillMaxWidth().testTag("settings-lexicon"))
+            }
+        }
+        DefaultsCard(state.settings, model)
+        FontsCard(state.settings.fontPaths, model.builtInFontPaths, model, scope)
+        ToolsCard(state, model, scope)
         backup?.let { BackupCard(it) }
+        PreviewFeaturesCard(model, initiallyExpanded = false)
+        DiagnosticsCard(state, model, info, runner)
         info?.let { AboutCard(it) }
+    }
     }
 }
 
@@ -98,7 +116,7 @@ fun LanguageCard(model: SettingsModel) {
 @Composable
 private fun BackupCard(model: BackupModel) {
     val state by model.state.collectAsState()
-    AfCard(tr(UiText.BACKUP)) {
+    SectionCard(tr(UiText.BACKUP), Modifier.testTag("settings-backup"), initiallyExpanded = false) {
         AfText(
             tr(UiText.BACKUP_STORAGE_HINT) +
                 tr(UiText.BACKUP_DOWNLOAD_HINT),
@@ -120,11 +138,52 @@ private fun BackupCard(model: BackupModel) {
     }
 }
 
+/** Visible entry to real build/tool readouts and the same on-device Self-test as version long-press. */
+@Composable
+private fun DiagnosticsCard(state: SettingsUiState, model: SettingsModel, info: AppInfo?, runner: AiJobRunner?) {
+    SectionCard(tr(UiText.V3_DIAGNOSTICS), Modifier.testTag("settings-diagnostics"), initiallyExpanded = false) {
+        LaunchedEffect(model) { model.checkFfmpeg() }
+        AfText(info?.version ?: tr(UiText.V3_BUILD_UNAVAILABLE), Modifier.testTag("diagnostics-build"), mono = true)
+        AfText(state.ffmpegNotice?.text(LocalUiLanguage.current) ?: state.ffmpegCheck
+            ?: tr(if (state.ffmpegFound) UiText.V3_TOOL_DETECTED else UiText.FFMPEG_NOT_FOUND), muted = true)
+        if (!state.toolsBundled) AfText(state.vlcDir?.let { tr(UiText.VLC_USING, "vlcDir" to it) }
+            ?: tr(UiText.VLC_MISSING), muted = true)
+        val runs = runner?.jobs?.collectAsState()?.value.orEmpty()
+        AfText(tr(UiText.LAST_RUN_TIMINGS), Modifier.testTag("diagnostics-run-timings"), bold = true)
+        val recent = runs.filter { it.timings.isNotEmpty() }.maxByOrNull { it.timingsUpdatedAt ?: Long.MIN_VALUE }
+        if (recent == null) AfText(tr(UiText.NO_RUN_TIMINGS), muted = true)
+        else {
+            AfText(aiKindLabel(recent.kind, LocalUiLanguage.current), muted = true)
+            for ((stage, samples) in recent.timings.groupBy { it.stage }) {
+                val values = "${samples.sumOf { it.ms }} ms · ×${samples.size}" +
+                    (samples.mapNotNull { it.bytes }.takeIf { it.isNotEmpty() }?.let { " · ${it.sum()} B" } ?: "")
+                AfText("${tr(stage.timingLabel())} · $values", muted = true)
+            }
+        }
+        AfButton(tr(UiText.SELF_TEST), { info?.onVersionLongPress?.invoke() }, Modifier.testTag("settings-self-test"),
+            enabled = info?.onVersionLongPress != null)
+        if (info?.onVersionLongPress == null) AfText(My.breakSyllables(tr(UiText.V3_SELFTEST_ANDROID)), muted = true)
+    }
+}
+
+private fun AiTimingStage.timingLabel() = when (this) {
+    AiTimingStage.QUEUE -> UiText.TIMING_QUEUE
+    AiTimingStage.MEDIA_PREP -> UiText.TIMING_MEDIA
+    AiTimingStage.PACER -> UiText.TIMING_PACER
+    AiTimingStage.UPLOAD -> UiText.TIMING_UPLOAD
+    AiTimingStage.FIRST_BYTE -> UiText.TIMING_FIRST_BYTE
+    AiTimingStage.RESPONSE -> UiText.TIMING_RESPONSE
+    AiTimingStage.RETRY_WAIT -> UiText.TIMING_RETRY
+    AiTimingStage.PARSE -> UiText.TIMING_PARSE
+    AiTimingStage.SAVE -> UiText.SAVE
+    AiTimingStage.UI_UPDATE -> UiText.TIMING_UI
+}
+
 /** Version line; on Android a long press opens the Self-test (PLAN S6), so it stays out of the way of normal use. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AboutCard(info: AppInfo) {
-    AfCard(tr(UiText.ABOUT)) {
+    SectionCard(tr(UiText.ABOUT), Modifier.testTag("settings-about"), initiallyExpanded = false) {
         val open = info.onVersionLongPress
         AfText(
             "Auto Flow ${info.version}",
@@ -138,7 +197,7 @@ private fun AboutCard(info: AppInfo) {
 private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
     var input by remember { mutableStateOf("") }
     val hasKey = state.keyState == KeyState.SET
-    AfCard(tr(UiText.AI_PROVIDERS)) {
+    SectionCard(tr(UiText.V3_AI_KEYS), Modifier.testTag("settings-ai"), initiallyExpanded = false) {
         AfSwitch(
             tr(UiText.USE_FAKE_AI),
             checked = state.settings.useFakeProviders,
@@ -158,19 +217,25 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
             actions = {
                 AfButton(tr(UiText.SAVE), { model.saveKey(input); input = "" }, kind = ButtonKind.Primary, enabled = input.isNotBlank())
                 AfButton(
-                    if (state.testing) tr(UiText.TESTING) else tr(UiText.TEST),
+                    tr(UiText.TEST),
                     { scope.launch { model.testKey() } },
                     enabled = hasKey && !state.testing,
                 )
                 AfButton(tr(UiText.REMOVE), model::removeKey, kind = ButtonKind.Danger, enabled = hasKey)
             },
         )
+        state.geminiTest?.takeIf { it.label == UiText.JOB_TEST_GEMINI_KEY }?.let {
+            GeminiDiagnosticCard(it, model)
+        }
         AfText(tr(UiText.KEY_TEST_HINT), muted = true, size = 12.sp)
         if (model.canTestTts) {
             var playing by remember { mutableStateOf(false) }
             WrapRow {
                 AfButton(tr(UiText.TEST_TTS), { scope.launch { model.testTts() } }, enabled = hasKey && !state.testing)
                 state.ttsSample?.let { AudioPlayButton(it, playing, { playing = !playing }) }
+            }
+            state.geminiTest?.takeIf { it.label == UiText.TEST_TTS }?.let {
+                GeminiDiagnosticCard(it, model)
             }
             AfText(tr(UiText.TTS_TEST_HINT), muted = true, size = 12.sp)
         }
@@ -186,8 +251,16 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
 }
 
 @Composable
+private fun GeminiDiagnosticCard(run: GeminiDiagnosticRun, model: SettingsModel) {
+    JobRunCard(JobRow(JobSource.AI, tr(run.label), canCancel = true, jobId = run.id, timedRun = true, indeterminate = true),
+        Modifier.testTag("gemini-diagnostic-run"), headerAction = {
+            AfButton(tr(UiText.CANCEL), { model.cancelGeminiTest(run.id) }, kind = ButtonKind.Danger)
+        })
+}
+
+@Composable
 private fun DefaultsCard(settings: AppSettings, model: SettingsModel) {
-    AfCard(tr(UiText.NEW_PROJECT_DEFAULTS)) {
+    SectionCard(tr(UiText.V3_EXPORT_DEFAULTS), Modifier.testTag("settings-defaults"), initiallyExpanded = false) {
         AfText(tr(UiText.RATIO), muted = true)
         WrapRow {
             Ratio.entries.forEach { r -> AfChip(r.label, r == settings.defaultRatio, { model.setDefaultRatio(r) }) }
@@ -212,7 +285,7 @@ private fun FfmpegCheckRow(state: SettingsUiState, model: SettingsModel, scope: 
 
 @Composable
 private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
-    AfCard(tr(UiText.TOOLS)) {
+    SectionCard(tr(UiText.TOOLS), Modifier.testTag("settings-tools"), initiallyExpanded = false) {
         if (state.toolsBundled) {
             // Android (D-23): ffmpeg is inside the APK; there is nothing to point at or install.
             if (state.ffmpegFound) {
@@ -244,7 +317,7 @@ private fun ToolsCard(state: SettingsUiState, model: SettingsModel, scope: Corou
 
 @Composable
 private fun FontsCard(fonts: List<String>, builtIn: List<String>, model: SettingsModel, scope: CoroutineScope) {
-    AfCard(tr(UiText.FONTS_OVERLAYS)) {
+    SectionCard(tr(UiText.FONTS_OVERLAYS), Modifier.testTag("settings-fonts"), initiallyExpanded = false) {
         if (builtIn.isNotEmpty()) {
             AfText(tr(UiText.FONTS_BUNDLED_HINT), muted = true, size = 12.sp)
         }
@@ -261,11 +334,13 @@ private fun FontsCard(fonts: List<String>, builtIn: List<String>, model: Setting
 
 @Composable
 private fun ModelsCard(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
-    AfCard(tr(UiText.MODEL_CONFIG)) {
+    SectionCard(tr(UiText.MODEL_CONFIG), Modifier.testTag("settings-models"), initiallyExpanded = false) {
         AfText(tr(UiText.MODEL_IN_USE, "source" to (state.models.source)), muted = true)
         state.models.problem?.let { AfText(it, color = AutoFlowColors.Amber, size = 12.sp) }
-        PathRow(tr(UiText.MODELS_OVERRIDE), state.settings.modelsConfigPath, tr(UiText.BUNDLED_CONFIG), model::setModelsConfigPath) {
-            AfButton(tr(UiText.BROWSE), { scope.launch { model.browseModelsConfig() } })
+        SectionCard(tr(UiText.V3_MORE_OPTIONS), initiallyExpanded = false) {
+            PathRow(tr(UiText.MODELS_OVERRIDE), state.settings.modelsConfigPath, tr(UiText.BUNDLED_CONFIG), model::setModelsConfigPath) {
+                AfButton(tr(UiText.BROWSE), { scope.launch { model.browseModelsConfig() } })
+            }
         }
         Box(
             Modifier.fillMaxWidth().heightIn(max = 240.dp).background(AutoFlowColors.Background)
@@ -281,11 +356,11 @@ private fun ModelsCard(state: SettingsUiState, model: SettingsModel, scope: Coro
  * Shared with Android Self-test so both routes use the same stored overrides.
  */
 @Composable
-fun PreviewFeaturesCard(model: SettingsModel) {
+fun PreviewFeaturesCard(model: SettingsModel, initiallyExpanded: Boolean = true) {
     val state by model.state.collectAsState()
     val flags = state.features.asMap()
     if (flags.isEmpty()) return
-    AfCard(tr(UiText.PREVIEW_FEATURES)) {
+    SectionCard(tr(UiText.PREVIEW_FEATURES), Modifier.testTag("settings-labs"), initiallyExpanded = initiallyExpanded) {
         AfText(tr(UiText.PREVIEW_FEATURES_HINT), muted = true)
         flags.forEach { (key, value) ->
             AfSwitch(key, value, { model.setFeature(key, it) })

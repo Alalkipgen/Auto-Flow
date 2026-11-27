@@ -122,8 +122,11 @@ class RecapVoiceTargetTest {
         entered.await()
         val b = create("/b", "B") // the user opens another project while A's request is out
         m.refresh()
+        assertNull(m.state.value.voiceRun)
+        assertEquals("/a", m.foregroundVoiceRuns.value.single().dir)
         release.complete(Unit)
         job.join()
+        assertTrue(m.foregroundVoiceRuns.value.isEmpty())
 
         assertEquals(listOf("A written"), sent)
         val bDisk = disk("/b")

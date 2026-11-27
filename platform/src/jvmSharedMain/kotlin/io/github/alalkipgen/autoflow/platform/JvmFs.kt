@@ -25,10 +25,12 @@ class JvmFs internal constructor(
     private val move: (Path, Path) -> Unit,
     private val sleep: (Long) -> Unit,
     private val moveAttempts: Int,
-) : FileSystem {
+) : FileSystem, InboxFileDeletion by JvmInboxFileDeletion {
     constructor() : this(::nioAtomicMove, Thread::sleep, MOVE_ATTEMPTS)
 
     override fun exists(path: String): Boolean = Files.exists(p(path))
+
+    override fun canonicalPath(path: String): String = p(path).toFile().canonicalPath.replace(java.io.File.separatorChar, '/')
 
     override fun createDirectories(path: String) {
         Files.createDirectories(p(path))
@@ -94,27 +96,32 @@ class JvmFs internal constructor(
      * network shares), only the in-process lock is held: a missing or read-only folder cannot be written anyway, and
      * a share without locks gets no protection from other processes (a documented limit).
      */
-    override fun <T> withFolderLock(dir: String, block: () -> T): T {
+    override fun <T> withFolderLock(dir: String, block: () -> T): T = withPathLock(dir) { folder, lock ->
+        if (lock.holdCount > 1) return@withPathLock block()
+        val channel = openLockFile(folder) ?: return@withPathLock block()
+        try {
+            val osLock = try {
+                channel.lock()
+            } catch (e: IOException) {
+                null
+            }
+            try {
+                block()
+            } finally {
+                osLock?.release()
+            }
+        } finally {
+            channel.close()
+        }
+    }
+
+    /** Same process lock, without touching the folder. For moving an app-owned directory out of the namespace. */
+    internal fun <T> withPathLock(dir: String, block: (Path, ReentrantLock) -> T): T {
         val folder = p(dir).toAbsolutePath().normalize()
         val lock = FOLDER_LOCKS.computeIfAbsent(folder.toString()) { ReentrantLock() }
         lock.lock()
         try {
-            if (lock.holdCount > 1) return block()
-            val channel = openLockFile(folder) ?: return block()
-            try {
-                val osLock = try {
-                    channel.lock()
-                } catch (e: IOException) {
-                    null
-                }
-                try {
-                    return block()
-                } finally {
-                    osLock?.release()
-                }
-            } finally {
-                channel.close()
-            }
+            return block(folder, lock)
         } finally {
             lock.unlock()
         }

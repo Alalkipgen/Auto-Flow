@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.projects
 
 import io.github.alalkipgen.autoflow.ui.i18n.UiLanguage
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -105,6 +106,26 @@ class DashboardScreenTest {
         waitForIdle()
         assertEquals(1, opened)
         assertTrue(fs.exists("/ext/projects/Rain.autoflow/project.json"))
+    }
+
+    @Test fun touchRemovalHidesTheProjectUntilExplicitRestore() = runDesktopComposeUiTest(width = 360, height = 800) {
+        val dir = "/ext/projects/Grace.autoflow"
+        val phone = DashboardModel(fs, store, index, SettingsStore(fs, "/h/.autoflow/settings.json"), picker, current, projectsHome = "/ext/projects")
+        store.create(dir, "Grace", Mode.MUSIC_VIDEO)
+        val bytes = fs.read("$dir/project.json")
+        var opened = 0
+        setContent { DashboardScreen(phone, onOpened = { opened++ }) }
+        onNodeWithText("Grace").performScrollTo().performTouchInput { longClick() }
+        onNodeWithTag("project-remove-action").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText("Remove").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithText("Grace").assertDoesNotExist()
+        runOnIdle { phone.refresh(); assertTrue(phone.state.value.rows.isEmpty()) }
+        onNodeWithTag("projects-open-removed").performScrollTo().performMouseInput { click() }
+        onNodeWithText("Grace · Grace.autoflow").assertIsDisplayed().performMouseInput { click() }
+        onNodeWithTag("project-restore").assertIsDisplayed().performMouseInput { click() }
+        runOnIdle { assertEquals(0, opened); assertEquals(dir, phone.state.value.rows.single().entry.path) }
+        onNodeWithText("Grace").performScrollTo().assertIsDisplayed().performMouseInput { click() }
+        runOnIdle { assertEquals(1, opened); kotlin.test.assertContentEquals(bytes, fs.read("$dir/project.json")) }
     }
 
     @Test

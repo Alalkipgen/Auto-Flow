@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.core.recap
 
+import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.CoreJson
@@ -19,13 +20,14 @@ class AiJobStore(
 ) {
     sealed interface Read {
         data object Missing : Read
+        data object Removed : Read
         data class Damaged(val reason: String) : Read
         data class Ok(val job: AiJob) : Read
     }
 
     fun save(job: AiJob) {
         fs.createDirectories(jobsDir)
-        fs.withFolderLock(jobsDir) { write(job) }
+        fs.withFolderLock(jobsDir) { if (read(job.id) != Read.Removed) write(job) }
     }
 
     /** The job file [id] as it is on disk now. */
@@ -37,6 +39,7 @@ class AiJobStore(
         } catch (e: Exception) {
             return Read.Damaged("cannot read $id.json: ${e.message}")
         }
+        if (text == REMOVED) return Read.Removed
         return try {
             Read.Ok(CoreJson.decodeFromString(AiJob.serializer(), text))
         } catch (e: Exception) {
@@ -59,14 +62,61 @@ class AiJobStore(
         }
     }
 
+    /** Claim equivalent active inputs atomically, without resubmitting the same request sequence. */
+    fun prepareEnqueue(job: AiJob): Enqueue {
+        val request = if (job.projectIdentity == null) job.copy(projectIdentity = projectIdentity(job.project)) else job
+        fs.createDirectories(jobsDir)
+        return fs.withFolderLock(jobsDir) {
+            val existing = request.inputKey?.let { key ->
+                loadAll().firstOrNull {
+                    it.id != request.id && it.inputKey == key && it.project == request.project && it.kind == request.kind &&
+                        it.state in setOf(AiJobState.QUEUED, AiJobState.RUNNING)
+                }
+            }
+            if (existing != null) return@withFolderLock Enqueue(existing.id, false)
+            val queued = when (val found = read(request.id)) {
+                Read.Removed -> return@withFolderLock Enqueue(request.id, false)
+                Read.Missing -> request.copy(state = AiJobState.QUEUED, error = null, initialItemCount = request.initialItemCount ?: request.items.size,
+                    savedClips = if (request.kind == AiJobKind.TTS_ALL) 0 else null)
+                is Read.Damaged -> request.copy(id = "${request.id}-r", state = AiJobState.QUEUED, error = null, initialItemCount = request.items.size,
+                    savedClips = if (request.kind == AiJobKind.TTS_ALL) 0 else null)
+                is Read.Ok -> when (found.job.state) {
+                    AiJobState.DONE, AiJobState.CANCELLED -> return@withFolderLock Enqueue(request.id, false)
+                    AiJobState.QUEUED, AiJobState.RUNNING -> return@withFolderLock Enqueue(request.id, true)
+                    AiJobState.PAUSED, AiJobState.FAILED -> found.job.copy(state = AiJobState.QUEUED, error = null)
+                }
+            }
+            AiRunTiming.queued(queued.id)
+            write(queued)
+            Enqueue(queued.id, true)
+        }
+    }
+
+    internal fun projectKey(dir: String) = fs.canonicalPath(dir)
+    internal fun projectStillMatches(job: AiJob): Boolean = job.projectIdentity == null || projectIdentity(job.project) == job.projectIdentity
+    private fun projectIdentity(dir: String): String? = io.github.alalkipgen.autoflow.core.store.ProjectStore(fs).open(dir).getOrNull()?.id
+
+    data class Enqueue(val id: String, val shouldLaunch: Boolean)
+
     fun loadAll(): List<AiJob> = ids().mapNotNull { load(it) }.sortedBy { it.id }
 
     /** Ids of job files that cannot be read: left untouched, for the Jobs screen and a bug report. */
     fun damaged(): List<String> = ids().filter { read(it) is Read.Damaged }.sorted()
 
     fun delete(id: String) {
-        // FileSystem has no delete; we mark the job CANCELLED instead.
+        // Existing cancellation API, not the terminal-only Jobs history action.
         update(id) { it.copy(state = AiJobState.CANCELLED) }
+    }
+
+    /** Discard the job payload, retaining only an ID tombstone so an old worker can't put it back. */
+    fun removeFinished(id: String, project: String): Boolean {
+        if (!jobId.matches(id) || !fs.exists(jobsDir)) return false
+        return fs.withFolderLock(jobsDir) {
+            val job = load(id) ?: return@withFolderLock false
+            if (job.id != id || job.project != project || !job.state.finished) return@withFolderLock false
+            replace(id, REMOVED)
+            true
+        }
     }
 
     private fun ids(): List<String> {
@@ -74,12 +124,19 @@ class AiJobStore(
         return fs.list(jobsDir).filter { it.endsWith(".json") }.map { it.removeSuffix(".json") }
     }
 
-    private fun write(job: AiJob) {
-        val path = pathOf(job.id)
+    private fun write(job: AiJob) = replace(job.id, CoreJson.encodeToString(AiJob.serializer(), job))
+
+    private fun replace(id: String, text: String) {
+        val path = pathOf(id)
         val tmp = "$path.tmp"
-        fs.writeDurably(tmp, CoreJson.encodeToString(AiJob.serializer(), job).encodeToByteArray())
+        fs.writeDurably(tmp, text.encodeToByteArray())
         fs.atomicMove(tmp, path)
     }
 
     private fun pathOf(id: String) = joinPath(jobsDir, "$id.json")
+
+    private companion object {
+        const val REMOVED = """{"removed":true}"""
+        val jobId = Regex("[a-zA-Z0-9_-]{1,128}")
+    }
 }

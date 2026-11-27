@@ -30,14 +30,14 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
 /** Explicit lock changes, never a chip that silently changes the voice of future blocks (D-35). */
 @Composable
-internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: RecapV2, idle: Boolean) {
+internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: RecapV2, idle: Boolean, compact: Boolean = false) {
     val controls = model.voiceSettings
     var draft by remember(state.projectDir) { mutableStateOf<VoiceChangeDraft?>(null) }
     val lock = recap.voiceLock
     AfText(lock?.let { tr(UiText.VOICE_LOCK_STATUS, "provider" to (it.provider), "ifBlankconfigureddef" to (it.model.ifBlank { tr(UiText.VOICE_CONFIG_DEFAULT) }), "voice" to (it.voice)) }
         ?: tr(UiText.VOICE_NOT_LOCKED))
     AfButton(tr(UiText.CHANGE_VOICE), { draft = controls.begin() }, enabled = idle, modifier = Modifier.testTag("change-voice"))
-    AfText(tr(UiText.VOICE_LOCK_POLICY), muted = true)
+    if (!compact) AfText(tr(UiText.VOICE_LOCK_POLICY), muted = true)
     val captured = draft ?: return
     Dialog(onDismissRequest = { draft = null }) {
         AfCard(tr(UiText.CHANGE_VOICE), modifier = Modifier.fillMaxWidth()) {
@@ -48,6 +48,7 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
                 val next = VoiceLock("gemini", selectedModel, voice, "my")
                 val affected = controls.affected(captured.project.recap!!, captured.story, next)
                 val requests = controls.regenerationCount(captured, next, state.lexicon)
+                if (compact) AfText(tr(UiText.VOICE_LOCK_POLICY), muted = true)
                 AfText(tr(UiText.BURMESE_TTS_MODELS), muted = true)
                 if (controls.models.isEmpty()) AfText(tr(UiText.BURMESE_MODELS_MISSING), color = AutoFlowColors.Amber)
                 WrapRow { controls.models.forEach { id -> AfChip(id, selectedModel == id, { selectedModel = id }) } }
@@ -65,7 +66,8 @@ internal fun VoiceLockControls(model: RecapModel, state: RecapUiState, recap: Re
                 WrapRow {
                     AfButton(tr(UiText.KEEP_OLD_TAKES), { commit(false) }, enabled = selectedModel.isNotBlank(), modifier = Modifier.testTag("voice-keep"))
                     val seconds = requests * 60L / RecapModel.TTS_RPM
-                    AfButton(tr(UiText.REGENERATE_TAKES, "requests" to (requests), "seconds5960" to ((seconds + 59) / 60)), { commit(true) }, kind = ButtonKind.Primary,
+                    AfButton(if (compact) tr(UiText.V3_REVOICE_COUNT, "n" to requests) else
+                        tr(UiText.REGENERATE_TAKES, "requests" to (requests), "seconds5960" to ((seconds + 59) / 60)), { commit(true) }, kind = ButtonKind.Primary,
                         enabled = selectedModel.isNotBlank() && requests > 0, modifier = Modifier.testTag("voice-regenerate"))
                     AfButton(tr(UiText.CANCEL), { draft = null })
                 }

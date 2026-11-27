@@ -18,12 +18,15 @@ import io.github.alalkipgen.autoflow.ui.projects.OpenProject
 import io.github.alalkipgen.autoflow.ui.projects.ProjectIndex
 import io.github.alalkipgen.autoflow.ui.projects.ProjectSession
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonElement
 
@@ -70,6 +73,34 @@ class StoryboardServiceTest {
             assertFalse(Stale.spec(p, shot, session.lookup()))
         }
         assertEquals(p, (store.open(dir) as CoreResult.Ok).value, "saved to disk")
+    }
+
+    @Test
+    fun aLateBatchCannotWriteIntoTheProjectOpenedDuringTheRequest() = runTest {
+        open()
+        session.writeLyrics("Synthetic lyrics")
+        val otherDir = "/p/Other.autoflow"
+        val other = (store.create(otherDir, "Other", Mode.MUSIC_VIDEO) as CoreResult.Ok).value
+        val before = listOf(dir, otherDir).associateWith { fs.read("$it/project.json") to fs.list("$it/artifacts") }
+        val batchStarted = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val fake = FakeTextProvider()
+        val provider = object : TextProvider {
+            var calls = 0
+            override suspend fun json(prompt: String, schema: JsonSchema, system: String?): AiResult<JsonElement> {
+                if (++calls == 2) { batchStarted.complete(Unit); release.await() }
+                return fake.json(prompt, schema, system)
+            }
+        }
+        val result = async { StoryboardService(session, StoryboardGenerator(provider)).generateAll() }
+        batchStarted.await()
+        current.set(OpenProject(otherDir, other))
+        release.complete(Unit)
+        assertEquals(StoryboardService.projectChanged, result.await())
+        for ((path, snapshot) in before) {
+            assertContentEquals(snapshot.first, fs.read("$path/project.json"))
+            assertEquals(snapshot.second, fs.list("$path/artifacts"))
+        }
     }
 
     @Test

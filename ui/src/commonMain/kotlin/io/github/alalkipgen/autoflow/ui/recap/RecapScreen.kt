@@ -64,13 +64,24 @@ const val SCENES_PER_PAGE = 30
 fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: () -> Unit = {}) {
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.refresh() }
+    val voice = recapSpeakAllJob(model, state)
+    Column(modifier.fillMaxSize()) {
+        RecapForegroundCards(model, state)
+        state.transcribe.job?.takeIf { it.active }?.let { RecapTranscribeRun(model, it, pin = true) }
+        voice?.let { RecapSpeakAllCard(model, it, pin = true) }
+        ClassicRecapContent(model, state, Modifier.weight(1f), onGoToExport)
+    }
+}
+
+@Composable
+private fun ClassicRecapContent(model: RecapModel, state: RecapUiState, modifier: Modifier, onGoToExport: () -> Unit) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).widthIn(max = 900.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AfText("Movie Recap", size = 18.sp, bold = true)
         AfText(tr(UiText.RIGHTS_NOTICE), color = AutoFlowColors.Amber, size = 12.sp)
-        state.job?.let { job ->
+        state.job?.takeIf { state.scriptRunId == null && state.runnerJobId == null }?.let { job ->
             val pct = state.progress?.let { " ${(it * 100).toInt()} %" }.orEmpty()
             AfText("⏳ ${state.jobNotice?.text(LocalUiLanguage.current) ?: job}$pct", color = AutoFlowColors.Cyan)
         }
@@ -87,7 +98,7 @@ fun RecapScreen(model: RecapModel, modifier: Modifier = Modifier, onGoToExport: 
         }
         MovieCard(model, state, recap)
         ScenesCard(model, state, recap)
-        ScriptCard(model, state, recap)
+        ScriptCard(model, state, recap, pinnedRun = true)
         VoiceCard(model, state, recap)
         FitCard(model, state, recap, onGoToExport)
     }

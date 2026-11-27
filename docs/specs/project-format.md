@@ -15,7 +15,7 @@
 ## 1. Artifact naming
 `<kind>_<first 12 hex of sha256(bytes)>.<ext>` with a sidecar `<kind>_<hash12>.meta.json` (Artifact record; no data extension in the sidecar name, so the id alone locates it). The artifact list is always rebuildable by scanning `artifacts/` for sidecars; no index file is authoritative.
 Kinds: `an` analysis · `sb` storyboard · `sp` shotspec · `pr` promptIR · `im` image · `vd` video · `au` audio · `tx` transcript · `rg` rendergraph · `rs` recap script (D-33).
-Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recordInputs` may then refresh that sidecar's `inputs` (D-29). Deleting is never done by the app; a "Clean unreferenced" tool may list them for the user (phase 2+).
+Putting identical bytes twice returns the same id (dedupe); `ArtifactStore.recordInputs` may then refresh that sidecar's `inputs` (D-29). A live project never deletes artifacts, including unreferenced ones. D-76 permits deletion only as part of the user's explicitly confirmed whole-project deletion.
 
 ## 2. project.json
 ```json

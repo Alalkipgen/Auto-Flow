@@ -56,6 +56,9 @@ fun VoiceBlockCard(
     segmentIndex: Int,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    showBack: Boolean = true,
+    showScript: Boolean = true,
+    studio: Boolean = false,
 ) {
     val seg = script.segments.getOrNull(segmentIndex) ?: return
     val take = state.currentTake(segmentIndex)
@@ -66,11 +69,13 @@ fun VoiceBlockCard(
     ) }
     var playing by remember { mutableStateOf(false) }
 
-    AfCard(tr(UiText.VOICE_BLOCK_TITLE, "segmentIndex1" to (segmentIndex + 1)), modifier = modifier) {
+    AfCard(if (studio) tr(UiText.V3_BLOCK_TOOLS) else tr(UiText.VOICE_BLOCK_TITLE, "segmentIndex1" to (segmentIndex + 1)), modifier = modifier) {
         // Back link
-        AfButton(tr(UiText.BACK), onClose)
-        AfText("${clock(seg.startMs)}–${clock(seg.endMs)} · ${seconds(seg.durationMs)}", muted = true, size = 12.sp)
-        TakeVoiceLabel(recap.takeFor(state.story!!.blocks[segmentIndex].id), recap.voiceLock)
+        if (showBack) AfButton(tr(UiText.BACK), onClose)
+        if (!studio) {
+            AfText("${clock(seg.startMs)}–${clock(seg.endMs)} · ${seconds(seg.durationMs)}", muted = true, size = 12.sp)
+            TakeVoiceLabel(recap.takeFor(state.story!!.blocks[segmentIndex].id), recap.voiceLock)
+        }
 
         // Tab row
         WrapRow {
@@ -78,12 +83,12 @@ fun VoiceBlockCard(
                 AfChip(voiceTabLabel(t, LocalUiLanguage.current), tab == t, onClick = { tab = t })
             }
             // Clone: Labs placeholder (always disabled)
-            AfChip("${voiceTabLabel(VoiceTab.CLONE, LocalUiLanguage.current)} 🔬", false, onClick = {})
+            AfChip("${voiceTabLabel(VoiceTab.CLONE, LocalUiLanguage.current)} · ${tr(UiText.V3_PLANNED)}", false, onClick = {}, enabled = false)
         }
 
         when (tab) {
-            VoiceTab.SPEAK -> SpeakTab(model, state, recap, script, segmentIndex, idle, seg.textMy)
-            VoiceTab.RECORD -> RecordTab(model, state, recap, script, segmentIndex, idle, seg, take, stale, playing) { playing = !playing }
+            VoiceTab.SPEAK -> SpeakTab(model, state, recap, script, segmentIndex, idle, seg.textMy, showScript, !studio)
+            VoiceTab.RECORD -> RecordTab(model, state, recap, script, segmentIndex, idle, seg, take, stale, playing, !studio) { playing = !playing }
             VoiceTab.CLEAN -> CleanTab(model, state, segmentIndex, idle, take)
             VoiceTab.CLONE -> AfText(tr(UiText.VOICE_CLONE_LABS), muted = true)
         }
@@ -99,20 +104,25 @@ private fun SpeakTab(
     index: Int,
     idle: Boolean,
     text: String,
+    showScript: Boolean,
+    showAction: Boolean,
 ) {
     val seg = script.segments[index]
-    AfText(seg.textMy, size = 13.sp)
-    AfText(tr(UiText.VOICE_DETAILS, "ttsVoice" to (recap.ttsVoice), "name" to (recap.voiceSource.name)), muted = true, size = 11.sp)
-    WrapRow {
+    if (showScript) AfText(seg.textMy, size = 13.sp)
+    if (showAction) AfText(tr(UiText.VOICE_DETAILS, "ttsVoice" to (recap.ttsVoice), "name" to (recap.voiceSource.name)), muted = true, size = 11.sp)
+    if (showAction) WrapRow {
         AfButton(tr(UiText.SPEAK_BLOCK), { model.speak(index) },
             kind = ButtonKind.Primary, enabled = idle && text.isNotBlank())
     }
     // Per-chunk caption timing edit (D-53, audit F05): the caption window in voice time (0 = the take starts);
     // saved as captions.chunkEdits — the movie clips are not changed.
     val window = state.captionWindow(index) ?: return
-    TimingEditRow(window.first, window.second, state.hasCaptionTiming(index), { model.resetCaptionTiming(index) }) { start, end ->
-        model.saveSegmentTiming(index, start, end)
+    val timing: @Composable () -> Unit = {
+        TimingEditRow(window.first, window.second, state.hasCaptionTiming(index), { model.resetCaptionTiming(index) }) { start, end ->
+            model.saveSegmentTiming(index, start, end)
+        }
     }
+    if (showAction) timing() else io.github.alalkipgen.autoflow.ui.components.SectionCard(tr(UiText.V3_MORE_OPTIONS), initiallyExpanded = false) { timing() }
 }
 
 /**
@@ -186,6 +196,7 @@ private fun RecordTab(
     take: io.github.alalkipgen.autoflow.core.recap.BlockTake?,
     stale: Boolean,
     playing: Boolean,
+    showPlay: Boolean,
     onPlay: () -> Unit,
 ) {
     // Teleprompter: current line big, next muted
@@ -204,7 +215,7 @@ private fun RecordTab(
             AfButton(tr(UiText.IMPORT_FILE), { model.importTake(index) }, enabled = idle && seg.textMy.isNotBlank())
         }
         val file = state.takeFiles[index]
-        if (take != null && file != null) AudioPlayButton(file, playing, onPlay)
+        if (showPlay && take != null && file != null) AudioPlayButton(file, playing, onPlay)
     }
     if (stale) AfText(tr(UiText.TAKE_TEXT_CHANGED, "STALE" to (tr(UiText.STALE))), color = AutoFlowColors.Amber, size = 12.sp)
 }

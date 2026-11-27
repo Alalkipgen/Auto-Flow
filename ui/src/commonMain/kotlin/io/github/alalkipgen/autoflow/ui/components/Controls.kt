@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,7 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,18 +20,30 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -35,6 +51,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
@@ -58,14 +75,40 @@ fun AfText(
     mono: Boolean = false,
     color: Color? = null,
 ) {
+    // The bundled Burmese fonts do not contain U+21BB, and a system symbol font is
+    // not guaranteed. Draw that decoration only; retain the exact label/semantics and prose font.
+    val content = remember(text) {
+        if ('↻' !in text) AnnotatedString(text) else buildAnnotatedString {
+            text.forEach { char ->
+                if (char == '↻') appendInlineContent("regenerate-symbol", "↻") else append(char)
+            }
+        }
+    }
+    val ink = color ?: if (muted) AutoFlowColors.Muted else AutoFlowColors.Text
     BasicText(
-        text = text,
+        text = content,
         modifier = modifier,
         style = TextStyle(
-            color = color ?: if (muted) AutoFlowColors.Muted else AutoFlowColors.Text,
+            color = ink,
             fontSize = size,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
             fontFamily = if (mono) FontFamily.Monospace else LocalUiFontFamily.current,
+        ),
+        inlineContent = if ('↻' !in text) emptyMap() else mapOf(
+            "regenerate-symbol" to InlineTextContent(Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val w = this.size.width
+                    val h = this.size.height
+                    drawArc(ink, 45f, 315f, false, Offset(w * .17f, h * .17f),
+                        Size(w * .66f, h * .66f), style = Stroke(w * .10f, cap = StrokeCap.Round))
+                    drawPath(Path().apply {
+                        moveTo(w * .69f, h * .39f)
+                        lineTo(w * .83f, h * .58f)
+                        lineTo(w * .97f, h * .39f)
+                        close()
+                    }, ink)
+                }
+            },
         ),
     )
 }
@@ -82,13 +125,14 @@ fun AfButton(
     enabled: Boolean = true,
 ) {
     val (fill, line, ink) = when (kind) {
-        ButtonKind.Primary -> Triple(AutoFlowColors.Purple, AutoFlowColors.Purple, Color.White)
+        ButtonKind.Primary -> Triple(AutoFlowColors.PrimaryFill, AutoFlowColors.Purple, Color.White)
         ButtonKind.Flow -> Triple(AutoFlowColors.Cyan, AutoFlowColors.Cyan, AutoFlowColors.Background)
         ButtonKind.Secondary -> Triple(AutoFlowColors.Card, AutoFlowColors.Line, AutoFlowColors.Text)
         ButtonKind.Danger -> Triple(AutoFlowColors.Card, AutoFlowColors.Amber, AutoFlowColors.Amber)
     }
     Box(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(ControlShape)
             .background(if (enabled) fill else AutoFlowColors.Panel)
             .border(AutoFlowShapes.Border, if (enabled) line else AutoFlowColors.Line, ControlShape)
@@ -102,16 +146,18 @@ fun AfButton(
 
 /** Single-choice chip (ratio, clip length, filters). */
 @Composable
-fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val shape = RoundedCornerShape(50)
     Box(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(shape)
             .background(if (selected) AutoFlowColors.Purple.copy(alpha = 0.25f) else AutoFlowColors.Card)
             .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, shape)
-            .clickable(role = Role.RadioButton, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .semantics { stateDescription = if (selected) "selected" else "not selected" }
             .padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
     ) {
         AfText(text, color = if (selected) AutoFlowColors.Text else AutoFlowColors.Muted)
     }
@@ -122,6 +168,7 @@ fun AfChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
 fun AfSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(ControlShape)
             .clickable(role = Role.Switch) { onChange(!checked) }
             .semantics { stateDescription = if (checked) "on" else "off" }
@@ -164,6 +211,7 @@ fun AfTextField(
 ) {
     Box(
         modifier
+            .heightIn(min = 48.dp).widthIn(min = 48.dp)
             .clip(ControlShape)
             .background(AutoFlowColors.Background)
             .border(AutoFlowShapes.Border, AutoFlowColors.Line, ControlShape)
@@ -210,17 +258,20 @@ fun AfH3(text: String, modifier: Modifier = Modifier) {
 
 /** Panel card with a [title] (DESIGN.md §1: radius 12, 1px border, no shadow). */
 @Composable
-fun AfCard(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun AfCard(title: String, modifier: Modifier = Modifier, selected: Boolean = false, headerAction: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
             .fillMaxWidth()
             .clip(AutoFlowShapes.Card)
             .background(AutoFlowColors.Panel)
-            .border(AutoFlowShapes.Border, AutoFlowColors.Line, AutoFlowShapes.Card)
+            .border(AutoFlowShapes.Border, if (selected) AutoFlowColors.Purple else AutoFlowColors.Line, AutoFlowShapes.Card)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        AfText(title, size = 14.sp, bold = true)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AfText(title, Modifier.weight(1f), size = 14.sp, bold = true)
+            headerAction?.invoke()
+        }
         content()
     }
 }

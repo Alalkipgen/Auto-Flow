@@ -89,6 +89,33 @@ class DashboardModelTest {
     }
 
     @Test
+    fun sameNameRemovalSurvivesPassiveSaveScanAndRestartAndExplicitOpenReturnsIt() {
+        val home = "/ext/files/projects"
+        val a = "$home/Grace.autoflow"; val b = "$home/Grace (restored).autoflow"
+        val manifest = "$a/project.json"
+        val before = store.create(a, "Grace", Mode.MUSIC_VIDEO).getOrNull()!!
+        store.create(b, "Grace", Mode.MUSIC_VIDEO)
+        val savedBytes = fs.read(manifest)
+        val indexPath = "/home/u/.autoflow/projects.json"
+        val phone = DashboardModel(fs, store, index, settings, picker, current, projectsHome = home)
+        phone.refresh()
+        assertEquals(setOf(a, b), phone.state.value.rows.map { it.entry.path }.toSet())
+        phone.remove(a)
+        val reloaded = ProjectIndex(fs, indexPath)
+        assertTrue(reloaded.isRemoved(a))
+        // Another ProjectSession/window with a stale object cannot undo a durable removal.
+        index.record(a, before, opened = false)
+        reloaded.record(a, before, opened = false)
+        val restarted = DashboardModel(fs, store, reloaded, settings, picker, CurrentProject(), projectsHome = home)
+        restarted.refresh()
+        assertEquals(listOf(b), restarted.state.value.rows.map { it.entry.path })
+        assertEquals(listOf(RemovedProject(a, before.id, "Grace")), restarted.state.value.removed)
+        kotlin.test.assertContentEquals(savedBytes, fs.read(manifest))
+        assertTrue(restarted.open(a))
+        assertEquals(setOf(a, b), ProjectIndex(fs, indexPath).entries.value.map { it.path }.toSet())
+    }
+
+    @Test
     fun corruptProjectMentionsTheBackup() {
         store.create("/p/A.autoflow", "A", Mode.MUSIC_VIDEO)
         store.save("/p/A.autoflow", store.open("/p/A.autoflow").getOrNull()!!) // second save leaves project.json.bak

@@ -85,10 +85,10 @@ fun InputScreen(model: InputModel, jobs: StoryboardJobs, onGenerated: () -> Unit
             )
         }
         SongCard(state, model, locked)
-        state.songFile?.let { LyricSyncCard(model, it, locked) }
+        state.songFile?.let { LyricSyncCard(model, it, locked, job) }
         VideoCard(state, model, locked)
         CharactersCard(state, model, locked)
-        GenerateCard(state, job, jobs, onStart = { model.generate { if (open.value) goOn() } })
+        GenerateCard(state, job, jobs, model.openProject, onStart = { model.generate { if (open.value) goOn() } })
     }
 }
 
@@ -183,14 +183,14 @@ private fun <T> ChipRow(items: List<T>, label: (T) -> String, selected: (T) -> B
 }
 
 @Composable
-private fun GenerateCard(state: InputUiState, job: JobState, jobs: StoryboardJobs, onStart: () -> Unit) {
+private fun GenerateCard(state: InputUiState, job: JobState, jobs: StoryboardJobs,
+    open: io.github.alalkipgen.autoflow.ui.projects.OpenProject?, onStart: () -> Unit) {
     var confirming by remember { mutableStateOf(false) }
     val running = job.running
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         state.blockers.forEach { AfText("• ${it.text(LocalUiLanguage.current)}", color = AutoFlowColors.Amber) }
         state.message?.let { AfText(state.notice?.text(LocalUiLanguage.current) ?: it, color = AutoFlowColors.Amber) }
-        job.last?.takeIf { it != StoryboardResult.Done }?.message(LocalUiLanguage.current)?.let { AfText(it, color = AutoFlowColors.Amber) }
-        // A running job (with Cancel) shows in the shell's JobBanner.
+        job.lastFor(open)?.takeIf { it != StoryboardResult.Done && job.gemini?.action != UiText.JOB_LYRIC_TIMINGS }?.message(LocalUiLanguage.current)?.let { AfText(it, color = AutoFlowColors.Amber) }
         if (confirming && running == null) {
             AfCard(if (state.hasStoryboard) tr(UiText.NEW_STORYBOARD_VERSION) else tr(UiText.GENERATE_STORYBOARD_QUESTION)) {
                 AfText(confirmText(state, LocalUiLanguage.current), muted = true)

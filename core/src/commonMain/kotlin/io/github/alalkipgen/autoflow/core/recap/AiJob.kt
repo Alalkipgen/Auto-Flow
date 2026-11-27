@@ -22,6 +22,13 @@ data class AiJob(
     val msPerItem: Long? = null,
     /** RPM limit for this job's model. */
     val rpm: Int = 60,
+    /** Digest of immutable enqueue inputs; remaining [items] shrink during execution. */
+    val inputKey: String? = null,
+    val initialItemCount: Int? = null,
+    val savedClips: Int? = null,
+    val projectIdentity: String? = null,
+    val timings: List<AiTimingSample> = emptyList(),
+    val timingsUpdatedAt: Long? = null,
 )
 
 @Serializable
@@ -31,6 +38,7 @@ enum class AiJobKind {
     @SerialName("TRANSCRIBE") TRANSCRIBE,
     @SerialName("QUICK_RECAP") QUICK_RECAP,
     @SerialName("PUBLISH_KIT") PUBLISH_KIT,
+    @SerialName("SCRIPT") SCRIPT,
 }
 
 @Serializable
@@ -41,7 +49,9 @@ enum class AiJobState {
     @SerialName("PAUSED") PAUSED,
     @SerialName("DONE") DONE,
     @SerialName("FAILED") FAILED,
-    @SerialName("CANCELLED") CANCELLED,
+    @SerialName("CANCELLED") CANCELLED;
+
+    val finished: Boolean get() = this == DONE || this == FAILED || this == CANCELLED
 }
 
 /** ETA in seconds for [job], given remaining items. */

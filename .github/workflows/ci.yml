@@ -33,6 +33,9 @@ jobs:
         run: |
           chmod +x gradlew
           AUTOFLOW_EXPECT_FFMPEG=1 xvfb-run -a ./gradlew check --rerun-tasks --no-build-cache --continue --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1600m -Pkotlin.compiler.execution.strategy=in-process
+      - name: UI v3 real-build concept contact sheets
+        if: always()
+        run: bash tools/ui-v3-contact-sheets.sh
       - name: Fresh executed / failed / skipped counts
         if: always()
         run: python tools/ci-test-summary.py
@@ -44,6 +47,7 @@ jobs:
             */build/test-results/**/*.xml
             ui/build/reports/s10
             ui/build/reports/playback
+            ui/build/reports/ui-v3
             build/qa
           if-no-files-found: warn
           retention-days: 30
@@ -59,13 +63,14 @@ jobs:
         with: { distribution: temurin, java-version: "21" }
       - uses: gradle/actions/setup-gradle@v6
       - name: Package the desktop app (app image)
-        run: chmod +x gradlew && ./gradlew :app-desktop:createDistributable
+        env: { SMOKE_OUT: "${{ runner.temp }}/desktop-smoke" }
+        run: bash tools/ci-desktop-package.sh
       - name: Launch the packaged app headlessly (smoke test)
         env: { SMOKE_OUT: "${{ runner.temp }}/desktop-smoke" }
         run: bash tools/desktop-smoke.sh
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: desktop-smoke, path: "${{ runner.temp }}/desktop-smoke", if-no-files-found: warn }
+        with: { name: desktop-smoke, path: "${{ runner.temp }}/desktop-smoke", if-no-files-found: warn, retention-days: 30 }
 
   windows:
     # D-19: real DPAPI round trip (AUTOFLOW_EXPECT_DPAPI makes the test fail if it is not on Windows), and JvmFs on NTFS.
@@ -81,8 +86,20 @@ jobs:
       - name: ":platform tests on Windows (fakes only, no secrets)"
         env: { AUTOFLOW_EXPECT_DPAPI: "1" }
         run: ./gradlew :platform:desktopTest
+      - name: ffmpeg for real UI QA fixtures (disposable runner only; never bundled)
+        shell: pwsh
+        run: |
+          choco install ffmpeg --version=7.0.2 -y --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) { throw "Pinned ffmpeg install failed" }
+          # Match Linux's pinned 7.0.2 major/minor. Use the real binaries, not Chocolatey process shims.
+          $bin = Join-Path $env:ChocolateyInstall 'lib/ffmpeg/tools/ffmpeg/bin'
+          if (!(Test-Path "$bin/ffmpeg.exe") -or !(Test-Path "$bin/ffprobe.exe")) { throw "Pinned ffmpeg binaries missing" }
+          "$bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          "AUTOFLOW_FFMPEG=$bin/ffmpeg.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "AUTOFLOW_FFPROBE=$bin/ffprobe.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          & "$bin/ffmpeg.exe" -version
       - name: ":ui tests on Windows (Myanmar font fallback, screenshots)"
-        env: { AUTOFLOW_EXPECT_MYANMAR_FONT: "1", AUTOFLOW_SCREENSHOTS_DIR: "${{ github.workspace }}/ui/build/screenshots" }
+        env: { AUTOFLOW_EXPECT_MYANMAR_FONT: "1", AUTOFLOW_EXPECT_FFMPEG: "1", AUTOFLOW_SCREENSHOTS_DIR: "${{ github.workspace }}/ui/build/screenshots" }
         run: ./gradlew :ui:desktopTest
       - uses: actions/upload-artifact@v4
         if: always()
@@ -91,6 +108,14 @@ jobs:
         # Actual executed/skip counts remain available for successful runs too.
         if: always()
         with: { name: windows-test-results, path: "*/build/test-results/**/*.xml", if-no-files-found: warn, retention-days: 30 }
+      - uses: actions/upload-artifact@v4
+        # Preserve actual Compose/ffmpeg pixels, commands and failure inputs for platform diagnosis.
+        if: always()
+        with:
+          name: windows-render-evidence
+          path: ui/build/reports/s10
+          if-no-files-found: warn
+          retention-days: 14
       - name: Windows executed / failed / skipped counts
         if: always()
         run: python tools/ci-test-summary.py

@@ -5,6 +5,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -47,24 +49,53 @@ class TimelinePlaybackRuntimeTest {
                 var show by mutableStateOf(true)
                 setContent {
                     CompositionLocalProvider(LocalUiFontFamily provides BurmeseTestFont.family) {
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { if (show) RecapTimelinePreview(model) }
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("runtime-content")) { if (show) RecapTimelinePreview(model) }
                     }
                 }
+                // Like the portrait/square and Studio runtime cases below: pump Compose only.
+                // Auto-idle can chase native frames to EOF; a second toggle would then restart playback.
+                mainClock.autoAdvance = false
+                fun await(timeout: Long, condition: () -> Boolean) = waitUntil(timeoutMillis = timeout) {
+                    mainClock.advanceTimeByFrame(); condition()
+                }
                 fun position(): Long = onNodeWithTag("timeline-position").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }.substringBefore(" /").toLong()
-                fun click(tag: String) { onNodeWithTag(tag).performScrollTo().assertIsDisplayed().performMouseInput { click() } }
+                fun reach(node: SemanticsNodeInteraction): SemanticsNodeInteraction {
+                    repeat(20) {
+                        mainClock.advanceTimeByFrame()
+                        val target = node.fetchSemanticsNode()
+                        val viewport = onNodeWithTag("runtime-content").fetchSemanticsNode().boundsInRoot
+                        val y = target.positionInRoot.y
+                        if (y >= viewport.top - .5f && y + target.size.height <= viewport.bottom + .5f) return node.assertIsDisplayed()
+                        val above = y < viewport.top
+                        onNodeWithTag("runtime-content").performTouchInput {
+                            swipe(Offset(width * .5f, height * if (above) .25f else .75f),
+                                Offset(width * .5f, height * if (above) .75f else .25f), 250)
+                        }
+                        mainClock.advanceTimeBy(300)
+                    }
+                    error("real scrolling could not reach $node")
+                }
+                fun click(tag: String) {
+                    reach(onNodeWithTag(tag)).performMouseInput { click() }; mainClock.advanceTimeByFrame()
+                }
+                fun playing() = onNodeWithTag("timeline-play").fetchSemanticsNode().config[SemanticsProperties.Text].any { it.text.contains("⏸") }
                 click("timeline-play")
-                try { waitUntil(timeoutMillis = 20_000) { position() > 200 } }
-                catch (e: Throwable) { println(onRoot().printToString()); throw e }
-                click("timeline-play") // pause the real decoder, not just the text clock
+                await(20_000) { position() > 200 && playing() }
+                assertTrue(playing(), "pause must exercise a live native decoder, not EOF")
+                click("timeline-play")
+                await(5_000) { !playing() }
                 val paused = position()
-                Thread.sleep(300); waitForIdle(); assertTrue(kotlin.math.abs(position() - paused) < 100)
+                Thread.sleep(300); mainClock.advanceTimeByFrame(); waitForIdle()
+                val drift = kotlin.math.abs(position() - paused)
+                println("LIVE_CLASSIC_PAUSE at=$paused drift=$drift playing=${playing()}")
+                assertTrue(drift < 100, "real output clock freezes after user pause")
                 fun seek(ms: String) {
-                    onNodeWithContentDescription("Output ms").performScrollTo().performTextReplacement(ms)
+                    reach(onNodeWithContentDescription("Output ms")).performTextReplacement(ms)
                     click("timeline-seek")
                 }
                 fun decodedPatch(red: Boolean, green: Boolean, blue: Boolean) {
-                    val node = onNodeWithTag("timeline-video").performScrollTo().assertIsDisplayed()
-                    try { waitUntil(timeoutMillis = 5_000) {
+                    val node = reach(onNodeWithTag("timeline-video"))
+                    try { await(5_000) {
                         val pixels = node.captureToImage().toPixelMap()
                         val c = pixels[(pixels.width * 0.1f).toInt(), (pixels.height * 0.1f).toInt()]
                         (if (red) c.red > 0.7f else c.red < 0.2f) && (if (green) c.green > 0.7f else c.green < 0.2f) && (if (blue) c.blue > 0.7f else c.blue < 0.2f)
@@ -79,7 +110,8 @@ class TimelinePlaybackRuntimeTest {
                 seek("500"); waitForIdle(); decodedPatch(false, true, false)
                 onNodeWithTag("timeline-caption").assertTextEquals("FIRST")
                 Thread.sleep(250)
-                val first = onNodeWithTag("timeline-video").performScrollTo().captureToImage().toPixelMap()
+                mainClock.advanceTimeByFrame()
+                val first = reach(onNodeWithTag("timeline-video")).captureToImage().toPixelMap()
                 val colorful = (0 until first.height step 4).sumOf { y -> (0 until first.width step 4).count { x ->
                     val c = first[x, y]; maxOf(c.red, c.green, c.blue) - minOf(c.red, c.green, c.blue) > 0.2f
                 } }
@@ -89,18 +121,18 @@ class TimelinePlaybackRuntimeTest {
                 assertEquals(4_500L, position(), "second block source 4.5s maps to OUTPUT 4.5s, not first-clip looping")
                 seek("2_500".replace("_", "")); waitForIdle()
                 onNodeWithTag("timeline-caption").assertTextEquals("—"); decodedPatch(true, true, false)
-                click("timeline-play"); waitUntil(timeoutMillis = 10_000) { position() > 2_700 }
+                click("timeline-play"); await(10_000) { position() > 2_700 }
                 click("timeline-close"); onNodeWithTag("timeline-video").assertDoesNotExist()
-                click("timeline-play"); waitUntil(timeoutMillis = 10_000) { position() > 2_900 }
+                click("timeline-play"); await(10_000) { position() > 2_900 }
                 // Project replacement removes the old source and its player. A late cursor must not leak into B.
                 val otherDir = File(root, "other.autoflow").path
                 val other = (store.create(otherDir, "Other", Mode.MOVIE_RECAP) as CoreResult.Ok).value
-                runOnIdle { current.set(OpenProject(otherDir, other)); model.refresh() }; waitForIdle()
+                runOnIdle { current.set(OpenProject(otherDir, other)); model.refresh() }; mainClock.advanceTimeByFrame(); waitForIdle()
                 onNodeWithTag("timeline-video").assertDoesNotExist()
                 assertNull(model.previewSource.currentPosition())
-                runOnIdle { current.set(OpenProject(dir, saved)); model.refresh() }; waitForIdle()
-                click("timeline-play"); waitUntil(timeoutMillis = 10_000) { position() > 200 }
-                runOnIdle { show = false }; waitForIdle() // real DisposableEffect tears down the native player
+                runOnIdle { current.set(OpenProject(dir, saved)); model.refresh() }; mainClock.advanceTimeByFrame(); waitForIdle()
+                click("timeline-play"); await(10_000) { position() > 200 }
+                runOnIdle { show = false }; mainClock.advanceTimeByFrame(); waitForIdle() // real DisposableEffect tears down the native player
                 onNodeWithTag("timeline-video").assertDoesNotExist()
                 println("PLAYBACK_UI_EVIDENCE: Compose native pixels=$colorful; decoded source-time patches green/blue/yellow match output seek FIRST/SECOND/no-cue; pause <100ms; resume; stop/reopen; project switch; screen dispose")
             }

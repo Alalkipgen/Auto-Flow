@@ -16,6 +16,11 @@ import io.github.alalkipgen.autoflow.core.recap.RecapMigration
 import io.github.alalkipgen.autoflow.core.recap.RecapStyle
 import io.github.alalkipgen.autoflow.core.recap.RecapV2
 import io.github.alalkipgen.autoflow.core.store.ProjectStore
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion.Refusal
+import io.github.alalkipgen.autoflow.platform.ProjectFolderDeletion.Result
+import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
+import io.github.alalkipgen.autoflow.media.render.RenderQueue
 import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.settings.SettingsStore
@@ -39,7 +44,10 @@ class CurrentProject {
 /** [missing] = the folder or its `project.json` is gone; the row offers "Remove from list". */
 data class DashboardRow(val entry: ProjectEntry, val missing: Boolean)
 
-data class DashboardUiState(val rows: List<DashboardRow>, val message: String? = null, val notice: UiNotice? = null)
+data class RemovedProject(val dir: String, val id: String, val name: String)
+
+data class DashboardUiState(val rows: List<DashboardRow>, val removed: List<RemovedProject>,
+    val message: String? = null, val notice: UiNotice? = null)
 
 /**
  * Dashboard logic (DESIGN.md §3): project list, New Music Video, Open folder. With a [projectsHome] (Android, D-27)
@@ -55,6 +63,10 @@ class DashboardModel(
     private val current: CurrentProject,
     val projectsHome: String? = null,
     private val modelConfig: ModelConfig? = null,
+    private val deletion: ProjectFolderDeletion? = null,
+    private val ai: AiJobRunner? = null,
+    private val renders: RenderQueue? = null,
+    private val foregroundBusy: (String) -> Boolean = { false },
 ) {
     private val _state = MutableStateFlow(snapshot(index.problem))
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
@@ -172,9 +184,60 @@ class DashboardModel(
         }
     }
 
+    /** Android has no arbitrary folder picker. Offer only explicitly hidden, existing managed folders. */
+    private fun removedManagedProjects(): List<RemovedProject> {
+        val home = projectsHome ?: return emptyList()
+        val managed = index.canonical(home).trimEnd('/')
+        return index.removedPaths().sorted().mapNotNull { dir ->
+            if (dir.substringBeforeLast('/') != managed) return@mapNotNull null
+            (store.open(dir) as? CoreResult.Ok)?.value?.let { RemovedProject(dir, it.id, it.name) }
+        }
+    }
+
+    internal fun restoreRemoved(removed: RemovedProject): UiText? {
+        val project = (store.open(removed.dir) as? CoreResult.Ok)?.value
+        if (!index.isRemoved(removed.dir) || project == null || removed.id != project.id) return UiText.PROJECT_DELETE_CHANGED
+        val restored = index.record(removed.dir, project)
+        done((restored as? PlatformResult.Failed)?.reason)
+        return if (restored is PlatformResult.Failed) UiText.PROJECT_RESTORE_FAILED else null
+    }
+
     fun remove(dir: String) {
         val r = index.remove(dir)
         done((r as? PlatformResult.Failed)?.reason)
+    }
+
+    internal fun inspectDeletion(removed: RemovedProject): Result {
+        val root = projectsHome ?: return Result.Refused(Refusal.UNSUPPORTED)
+        if (!index.isRemoved(removed.dir)) return Result.Refused(Refusal.CHANGED)
+        val result = deletion?.inspect(root, removed.dir) ?: return Result.Refused(Refusal.UNSUPPORTED)
+        if (result is Result.Ready && result.target.projectId != removed.id) return Result.Refused(Refusal.CHANGED)
+        return result
+    }
+
+    internal suspend fun deleteProject(target: ProjectFolderDeletion.Target): UiText? {
+        val root = projectsHome ?: return UiText.PROJECT_DELETE_UNSUPPORTED
+        val guard = deletion ?: return UiText.PROJECT_DELETE_UNSUPPORTED
+        val key = index.canonical(target.folder)
+        fun busy() = ai?.hasPendingProject(key, index::canonical) == true || foregroundBusy(key)
+        val renderPending = try { renders?.hasPendingProject(key, index::canonical) == true }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { return UiText.PROJECT_DELETE_BUSY }
+        if (!index.isRemoved(target.folder)) return UiText.PROJECT_DELETE_CHANGED
+        if (renderPending || busy()) return UiText.PROJECT_DELETE_BUSY
+        return when (val result = guard.delete(root, target, ::busy)) {
+            is Result.Deleted -> {
+                if (current.state.value?.let { it.project.id == target.projectId && index.canonical(it.dir) == key } == true) current.set(null)
+                val written = index.markDeleted(target.folder, target.projectId)
+                val kept = result.backupsAt?.let { UiNotice(UiText.PROJECT_DELETE_BACKUPS_KEPT, "folder" to it) }
+                val problem = (written as? PlatformResult.Failed)?.reason
+                if (problem != null || kept == null) done(problem)
+                else _state.value = snapshot(kept.text(UiLanguage.ENGLISH)).copy(notice = kept)
+                if (written is PlatformResult.Failed) UiText.PROJECT_DELETE_INDEX_ERROR else null
+            }
+            is Result.Refused -> result.reason.label()
+            is Result.Ready -> UiText.PROJECT_DELETE_FAILED
+        }
     }
 
     /** Re-checks which folders still exist (e.g. after a USB drive comes back) and lists new ones in [projectsHome]. */
@@ -191,8 +254,11 @@ class DashboardModel(
         }
         for (name in names) {
             val dir = joinPath(home, name)
-            if (!name.endsWith(".autoflow") || dir in known) continue
+            if (!name.endsWith(".autoflow") || index.isRemoved(dir)) continue
+            // Refresh an already-listed recap's shape if older index versions copied only the fallback ratio.
+            val existing = index.entries.value.firstOrNull { dir in known && it.path == dir }
             val project = (store.open(dir) as? CoreResult.Ok)?.value ?: continue
+            if (existing != null && existing.ratio == (project.recap?.visual?.outputRatio ?: project.settings.ratio)) continue
             (index.record(dir, project, opened = false) as? PlatformResult.Failed)?.let { return it.reason }
         }
         return null
@@ -221,6 +287,7 @@ class DashboardModel(
 
     private fun snapshot(message: String?) = DashboardUiState(
         rows = index.entries.value.map { DashboardRow(it, missing = !exists(joinPath(it.path, ProjectStore.PROJECT_FILE))) },
+        removed = removedManagedProjects(),
         message = message,
         notice = message?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to it) },
     )
@@ -241,4 +308,13 @@ class DashboardModel(
         is CoreError.Corrupt -> message + if (backupAvailable) ". A backup (project.json.bak) exists." else ""
         else -> message
     }
+}
+
+
+internal fun Refusal.label(): UiText = when (this) {
+    Refusal.UNSUPPORTED -> UiText.PROJECT_DELETE_UNSUPPORTED
+    Refusal.KEEP_BACKUPS_FAILED -> UiText.PROJECT_DELETE_BACKUP_FAILED
+    Refusal.CHANGED -> UiText.PROJECT_DELETE_CHANGED
+    Refusal.BUSY -> UiText.PROJECT_DELETE_BUSY
+    Refusal.IO -> UiText.PROJECT_DELETE_FAILED
 }
