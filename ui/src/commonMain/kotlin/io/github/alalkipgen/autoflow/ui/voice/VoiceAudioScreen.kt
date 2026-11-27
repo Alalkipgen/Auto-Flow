@@ -91,11 +91,12 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
             val v by video.state.collectAsState()
             val idle = v.busy == null || v.dir != s.dir
             val action = v.action.takeIf { v.dir == s.dir } ?: SOUND_ONLY
+            // Group 6 H 6: Save wav / m4a download-simple; Make the video film-strip.
             if (action == SOUND_ONLY) StickyActionBar(
-                primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { video.save("m4a") }, enabled = idle, tag = "video-sound-m4a"),
-                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { video.save("wav") }, enabled = idle, tag = "video-sound-wav"))
+                primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { video.save("m4a") }, enabled = idle, tag = "video-sound-m4a", icon = AfIcons.Regular.DownloadSimple),
+                secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { video.save("wav") }, enabled = idle, tag = "video-sound-wav", icon = AfIcons.Regular.DownloadSimple))
             else StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.SUB_MAKE_VIDEO)), { video.save() },
-                enabled = idle && v.dir == s.dir && v.sound != null, tag = "video-sound-make"))
+                enabled = idle && v.dir == s.dir && v.sound != null, tag = "video-sound-make", icon = AfIcons.Regular.FilmStrip))
         } else if (s.task == VoiceTool.TASK_TEXT && job == null) {
             val n = s.rows.count { !it.voiced }
             // Group 6 D 3: all voiced → Save wav · Save m4a (download-simple); else Speak n parts (microphone) + 🆕 VA-6 "3 of 5 parts voiced".

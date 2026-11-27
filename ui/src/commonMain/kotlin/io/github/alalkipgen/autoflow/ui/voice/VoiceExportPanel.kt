@@ -95,7 +95,8 @@ private fun SavedText(path: String, modifier: Modifier) {
     Column(modifier.testTag("voice-saved").semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (words.isNotEmpty() && full.endsWith(path)) {
             AfText(My.breakSyllables(words), color = AutoFlowColors.Green, weight = FontWeight.Bold)
-            AfText(path, muted = true, size = 12.sp, mono = true)
+            // A long path breaks after / - . _ (and inside a piece only when it is wider than the card), as in the dialogs.
+            MonoText(path, 12.sp, AutoFlowColors.Muted)
         } else AfText(My.breakSyllables(full), color = AutoFlowColors.Green, weight = FontWeight.Bold)
     }
 }

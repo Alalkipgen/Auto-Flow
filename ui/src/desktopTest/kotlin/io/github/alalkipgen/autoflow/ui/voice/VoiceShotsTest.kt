@@ -199,6 +199,14 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
                 width = 1920, height = 1080, fps = 30.0, hasAudio = sound)))
         }
 
+        /** Video sound's in-memory state (the busy line has no stand-in to wait on): [change] applied to the open project's state. */
+        fun videoState(change: (VideoSoundUi) -> VideoSoundUi) {
+            @Suppress("UNCHECKED_CAST")
+            val flow = VideoSoundModel::class.java.getDeclaredField("_state").apply { isAccessible = true }.get(video)
+                as kotlinx.coroutines.flow.MutableStateFlow<VideoSoundUi>
+            flow.value = change(flow.value.takeIf { it.dir == session.open?.dir } ?: VideoSoundUi(session.open?.dir))
+        }
+
         override fun close() { scope.cancel() }
     }
 
@@ -369,5 +377,35 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
         shot("10-clean-notice", prep = { clean() }) { click("voice-clean-preview") }
         shot("10-clean-saving", prep = { ffmpeg = { 0 to "" }; clean(); render.value = running }) { click("voice-clean-m4a") }
         if (font == 1f) shot("12-desktop-clean", desktop = true, prep = { ffmpeg = { 0 to "" }; clean() }) { click("voice-clean-preview") }
+    }
+    /** PR 6 (H): Video sound — the file card, the three actions, the sound card (pick / picked + Change), Add's card, busy, notice, the job and the saved video. */
+    @Test fun videoSound() {
+        val running = io.github.alalkipgen.autoflow.media.render.RenderState.Running(.72, 1.0)
+        val phone = object : io.github.alalkipgen.autoflow.platform.FileShare {
+            override val sharesFiles = true
+            override fun open(path: String, mime: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+            override fun share(path: String, mime: String, title: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+            override suspend fun saveToGallery(path: String, mime: String, displayName: String) =
+                io.github.alalkipgen.autoflow.platform.PlatformResult.Ok("Movies/AutoFlow/$displayName")
+            override fun openFolder(path: String) = io.github.alalkipgen.autoflow.platform.PlatformResult.Ok(Unit)
+        }
+        /** Add on top with voice_over.m4a picked (copied into source/ by the model), starting at 4 s. */
+        fun Demo.added() {
+            videoSound(); video.setAction(ADD); video.setStart(4_000)
+            fs.createDirectories("/in"); fs.writeDurably("/in/voice_over.m4a", ByteArray(64) { 1 }); files.files = listOf("/in/voice_over.m4a")
+            kotlinx.coroutines.runBlocking { video.pickSound()?.join() }
+        }
+        shot("11-video-add", prep = { added() })
+        shot("11-video-sound-only", prep = { videoSound() })
+        shot("11-video-replace", prep = { videoSound(); video.setAction(REPLACE) })
+        shot("11-video-no-sound", prep = { videoSound(sound = false); video.setAction(ADD) })
+        shot("11-video-copying", prep = { videoSound(); video.setAction(REPLACE)
+            videoState { it.copy(busy = io.github.alalkipgen.autoflow.ui.i18n.UiNotice(io.github.alalkipgen.autoflow.ui.i18n.UiText.VA_COPYING)) } }, crop = "video-sound-busy")
+        shot("11-video-making", prep = { added(); kotlinx.coroutines.runBlocking { video.save()?.join() }; render.value = running }, crop = "voice-m4a-job")
+        shot("11-video-saved", prep = { share = phone; added(); kotlinx.coroutines.runBlocking { video.save()?.join() }; done() }, crop = "voice-share")
+        shot("11-video-notice", prep = { videoSound(); video.setAction(REPLACE); files.unsupported = true }, crop = "video-sound-notice") {
+            click("video-sound-pick")
+        }
+        if (font == 1f) shot("12-desktop-video", desktop = true, prep = { added() })
     }
 }
