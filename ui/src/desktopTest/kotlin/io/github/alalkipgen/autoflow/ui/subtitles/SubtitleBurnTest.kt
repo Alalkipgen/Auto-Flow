@@ -198,15 +198,18 @@ class SubtitleBurnTest {
         onNodeWithTag("subtitles-export-open").performMouseInput { click() }
         onNodeWithTag("subtitles-export-video-planned").assertDoesNotExist()
         // F-6 (D-95): the burn card previews the video before Make video; without a decoder it says so and the card goes on.
+        // Group 5 F 4: the hint is behind the card's `info` button (Group 4 rule), shown only while it is open.
+        onNodeWithTag("burn-preview-hint").assertDoesNotExist()
+        onNodeWithTag("burn-preview-info").performMouseInput { click() }
         onNodeWithTag("burn-preview-hint").assertExists()
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("burn-preview-unavailable").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-CLEAN").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "selected"))
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-notice").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-notice").assertTextContains("Burmese font", substring = true)
         onNodeWithTag("subtitles-export-ORIGINAL").performScrollTo().performMouseInput { click() }
         onNodeWithTag("subtitles-burn-OUTLINE").performScrollTo().performMouseInput { click() }
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-job").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(f.out(TextChoice.ORIGINAL, "outline-medium-1l-short"), f.task().output)
         f.queue.states.getValue("job1").value = RenderState.Running(0.42, 1.0)
@@ -228,11 +231,11 @@ class SubtitleBurnTest {
         show(f)
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-export-open").performMouseInput { click() }
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-cancel").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-burn-cancel").performScrollTo().performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-cancelled").fetchSemanticsNodes().isNotEmpty() }
-        onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+        onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
         waitUntil(timeoutMillis = 5_000) { f.queue.jobs.size == 2 }
         val out = "$dir/" + f.task(1).output
         f.queue.states.getValue("job2").value = RenderState.Done(out, 1, 60_000, null)
@@ -242,6 +245,41 @@ class SubtitleBurnTest {
         assertEquals(listOf("folder $dir/exports"), f.share.calls)
     }
 
+    /** H 3 (P9-G5-8): on the desktop the Export page is two panes — the video card left; language, .srt, Look, the job, the package right. */
+    @Test fun desktopExportIsTwoPanes() {
+        for (language in UiLanguage.entries) runDesktopComposeUiTest(width = 1440, height = 900) {
+            val f = Fixture(shares = false, withFont = true)
+            show(f, language = language)
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+            val main = hasAnyAncestor(hasTestTag("editor-main")); val side = hasAnyAncestor(hasTestTag("editor-side"))
+            onNode(hasTestTag("subtitles-export-video") and main).assertExists()
+            onNode(hasTestTag("subtitles-check-frame") and main, useUnmergedTree = true).assertExists()
+            for (tag in listOf("subtitles-export-BURMESE", "subtitles-export-srt", "subtitles-export-look", "subtitles-burn-BOXED", "subtitles-burn-LARGE", "subtitles-burn-lines-2"))
+                onNode(hasTestTag(tag) and side, useUnmergedTree = true).assertExists()
+            onNode(hasTestTag("subtitles-burn-BOXED") and hasAnyAncestor(hasTestTag("subtitles-export-video")), useUnmergedTree = true).assertDoesNotExist()
+            assertCardIcon("subtitles-export-look", My.breakSyllables(UiText.V3_STYLE_LOOK.text(language)), 30f, "card-tile")
+            val video = onNodeWithTag("subtitles-export-video").fetchSemanticsNode().boundsInRoot
+            val srt = onNodeWithTag("subtitles-export-srt").fetchSemanticsNode().boundsInRoot
+            assertTrue(video.right < srt.left, "video card left of the .srt card")
+            assertTrue(kotlin.math.abs(onNodeWithTag("editor-side").fetchSemanticsNode().boundsInRoot.width - 540f) < 1f, "right pane 540 dp")
+            assertTrue(kotlin.math.abs(onNodeWithTag("subtitles-burn-make").fetchSemanticsNode().boundsInRoot.width - 300f) < 1f, "Make video 300 dp")
+            onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-job").fetchSemanticsNodes().isNotEmpty() }
+            onNode(hasTestTag("subtitles-burn-job") and side).assertExists()
+        }
+        // A phone keeps the one column: the choices and the job inside the video card, no Look card.
+        runDesktopComposeUiTest(width = 360, height = 900) {
+            val f = Fixture(shares = true, withFont = true)
+            show(f)
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("subtitles-export-open").performMouseInput { click() }
+            onNodeWithTag("subtitles-export-look").assertDoesNotExist()
+            onNodeWithTag("editor-side").assertDoesNotExist()
+            onNode(hasTestTag("subtitles-burn-BOXED") and hasAnyAncestor(hasTestTag("subtitles-export-video")), useUnmergedTree = true).assertExists()
+        }
+    }
+
     @Test fun videoCardFits() {
         for (width in listOf(360, 1440)) for (font in listOf(1f, 2f)) for (language in UiLanguage.entries) {
             runDesktopComposeUiTest(width = width, height = 900) {
@@ -249,14 +287,14 @@ class SubtitleBurnTest {
                 show(f, font, language)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("subtitles-export-open").performMouseInput { click() }
-                onNodeWithTag("subtitles-burn-make").performScrollTo().performMouseInput { click() }
+                onNodeWithTag("subtitles-burn-make").performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { f.queue.jobs.size == 1 }
                 f.queue.states.getValue("job1").value = RenderState.Running(0.5, 1.0)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-cancel").fetchSemanticsNodes().isNotEmpty() }
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language running")
                 f.queue.states.getValue("job1").value = RenderState.Done("$dir/" + f.task().output, 1, 60_000, null)
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-burn-done").fetchSemanticsNodes().isNotEmpty() }
-                if (width >= 840) assertIconButton("subtitles-burn-folder", UiText.OPEN_FOLDER, language) // as the .srt's Open folder
+                if (width >= 840) assertIconButton("subtitles-burn-folder", UiText.OPEN_FOLDER, language, iconDp = 16f) // as the .srt's Open folder
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language done")
             }
         }
@@ -313,12 +351,12 @@ class SubtitleBurnTest {
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-export-open").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("subtitles-export-open").performMouseInput { click() }
                 // P9-12d: ‹ › are chevron icon buttons with their names; Check one frame = picture, Make video = film.
-                assertCardIcon("subtitles-export-video", My.breakSyllables(UiText.SUB_EXPORT_VIDEO.text(language)))
+                assertCardIcon("subtitles-export-video", My.breakSyllables(UiText.SUB_EXPORT_VIDEO.text(language)), 30f, "card-tile")
                 assertIconOnly("subtitles-check-prev", UiText.SUB_PREV_LINE, language)
                 assertIconOnly("subtitles-check-next", UiText.SUB_NEXT_LINE, language)
                 onAllNodes(hasText("‹", substring = true) or hasText("›", substring = true), useUnmergedTree = true).assertCountEquals(0)
                 assertIconButton("subtitles-check-frame", UiText.SUB_CHECK_FRAME, language)
-                assertIconButton("subtitles-burn-make", UiText.SUB_MAKE_VIDEO, language)
+                assertIconButton("subtitles-burn-make", UiText.SUB_MAKE_VIDEO, language, scroll = false) // F 5: the sticky
                 onNodeWithTag("subtitles-check-frame").performScrollTo().performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-check-image").fetchSemanticsNodes().isNotEmpty() }
                 assertEquals(emptyList(), textFitProblems(width, font, strict = true), "$width × $font × $language")

@@ -42,15 +42,24 @@ import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 import io.github.alalkipgen.autoflow.ui.theme.GlassShapes
 import io.github.alalkipgen.autoflow.ui.theme.Tone
 
-/** UI callback, not a persisted command or engine state. [trailingIcon] = after the label (glass bars: Next →). */
+/**
+ * UI callback, not a persisted command or engine state. [trailingIcon] = after the label (glass bars: Next →). [danger] = the
+ * Danger button (Cancel job); [accent] = a glass Secondary with that outline ([GlassButton]); [hug] = on a phone's sticky bar
+ * this button takes its label's width and the other one the rest (Group 5 A 10: Discard + Save, Translate + Export).
+ */
 data class StudioAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val tag: String? = null,
-    val icon: ImageVector? = null, val trailingIcon: ImageVector? = null)
+    val icon: ImageVector? = null, val trailingIcon: ImageVector? = null, val danger: Boolean = false, val accent: Color? = null,
+    val hug: Boolean = false,
+    /** The button's width in a desktop sticky bar (Group 5 H 2: Discard 170, Save 200, Make video 300); null = its label's (≥ 150 dp). */
+    val desktopWidth: androidx.compose.ui.unit.Dp? = null)
 
 @Composable
 private fun Action(action: StudioAction, primary: Boolean = false, modifier: Modifier = Modifier, glass: Boolean = false) {
-    val m = modifier.then(action.tag?.let { Modifier.testTag(it) } ?: Modifier)
-    val kind = if (primary) ButtonKind.Primary else ButtonKind.Secondary
-    if (glass) GlassButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon)
+    val m = modifier.then(action.desktopWidth?.takeIf { !LocalCompact.current }?.let { Modifier.width(it) } ?: Modifier)
+        .then(action.tag?.let { Modifier.testTag(it) } ?: Modifier)
+    val kind = when { action.danger -> ButtonKind.Danger; primary -> ButtonKind.Primary; else -> ButtonKind.Secondary }
+    if (glass) GlassButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon,
+        accent = action.accent)
     else AfButton(action.label, action.onClick, m, kind = kind, enabled = action.enabled, icon = action.icon, trailingIcon = action.trailingIcon)
 }
 
@@ -59,12 +68,14 @@ private fun Action(action: StudioAction, primary: Boolean = false, modifier: Mod
  * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels); with [onStep] its steps are
  * tabs tagged [stepTags] (Dubbing moves between its steps there). [glass] (Dubbing, Group 4 A 1–2): the glass panel
  * (White .08 → .03 with a White .08 line under it, as the Music Video project bar), the 40 dp glass back button, the
- * name 17 sp bold on one line, and the glass [StepBar].
+ * name 17 sp bold on one line, and the glass [StepBar]. [trailing] comes first among the right-hand icon buttons (Dubbing
+ * step 2's Undo / Redo, Group 5 🆕-8).
  */
 @Composable
 fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit,
     modifier: Modifier = Modifier, options: List<StudioAction> = emptyList(), saveState: StudioStatus? = null,
     steps: List<String> = emptyList(), onStep: ((Int) -> Unit)? = null, stepTags: List<String> = emptyList(), glass: Boolean = false,
+    trailing: @Composable RowScope.() -> Unit = {},
 ) {
     require(step in 1..5)
     var open by remember(name) { mutableStateOf(false) }
@@ -76,6 +87,7 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
     Column(modifier.fillMaxWidth().then(panel), verticalArrangement = Arrangement.spacedBy(if (glass) 8.dp else 6.dp)) {
         val subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step))
         val actions: @Composable RowScope.() -> Unit = {
+            trailing()
             if (page != null) {
                 val icon = if (page.shown) AfIcons.Regular.Edit else AfIcons.Fill.Play
                 val label = tr(if (page.shown) UiText.EDIT else UiText.PROJECT_PAGE_PREVIEW)
@@ -125,7 +137,8 @@ fun StickyActionBar(primary: StudioAction, secondary: StudioAction? = null, capt
     Column(modifier.fillMaxWidth().background(AutoFlowColors.TitleBar).imePadding().testTag("sticky-action-bar")) {
         Box(Modifier.fillMaxWidth().height(AutoFlowShapes.Border).background(AutoFlowColors.Line))
         Box(Modifier.padding(horizontal = if (LocalCompact.current) 12.dp else 16.dp, vertical = 12.dp)) {
-            StickyActions({ Action(primary, true, it, glass) }, secondary?.let { s -> { Action(s, modifier = it, glass = glass) } }, caption, leading, keys, captionIcon, captionColour, captionTag)
+            StickyActions({ Action(primary, true, it, glass) }, secondary?.let { s -> { Action(s, modifier = it, glass = glass) } }, caption, leading, keys, captionIcon, captionColour, captionTag,
+                hug = when { secondary?.hug == true -> 0; primary.hug && secondary != null -> 1; else -> -1 })
         }
     }
 }

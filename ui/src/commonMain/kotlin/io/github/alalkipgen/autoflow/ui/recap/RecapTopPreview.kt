@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
@@ -315,13 +316,15 @@ private fun Controls(ui: TopPreviewUi, modifier: Modifier = Modifier, middle: (@
 
 /** 48 dp primary-gradient circle with a coloured shadow and top highlight; Fill play / pause 22 dp (also the Music Video Preview's). */
 @Composable
-internal fun PlayCircle(playing: Boolean, onClick: () -> Unit, tag: String = "timeline-play", label: String = tr(if (playing) UiText.PAUSE else UiText.PLAY)) {
+internal fun PlayCircle(playing: Boolean, onClick: () -> Unit, tag: String = "timeline-play", label: String = tr(if (playing) UiText.PAUSE else UiText.PLAY),
+    enabled: Boolean = true) {
     val interaction = remember { MutableInteractionSource() }
-    Box(Modifier.testTag(tag).afTooltip(label).size(48.dp)
+    // [enabled] false (Group 5: the Subtitles preview without a decoder) = the same circle at α .38, no click.
+    Box(Modifier.testTag(tag).afTooltip(label).size(48.dp).alpha(if (enabled) 1f else .38f)
         .shadow(10.dp, CircleShape, ambientColor = GlassColors.PrimaryGlow, spotColor = GlassColors.PrimaryGlow).clip(CircleShape)
         .drawBehind { drawRect(primaryBrush()) }
         .border(1.dp, Color.White.copy(alpha = .18f), CircleShape)
-        .clickable(interaction, null, role = Role.Button, onClick = onClick)
+        .clickable(interaction, null, enabled = enabled, role = Role.Button, onClick = onClick)
         .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         AfIcon(if (playing) AfIcons.Fill.Pause else AfIcons.Fill.Play, tint = Color.White, size = 22.dp)
     }

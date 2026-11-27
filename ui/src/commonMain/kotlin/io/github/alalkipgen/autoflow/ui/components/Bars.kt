@@ -222,7 +222,9 @@ private fun NumberedSteps(texts: List<String>, current: Int, tab: @Composable (I
 @Composable
 internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (@Composable (Modifier) -> Unit)?,
     hint: String?, leading: (@Composable () -> Unit)?, keys: (@Composable () -> Unit)? = null, hintIcon: ImageVector? = null,
-    hintColour: Color? = null, hintTag: String? = null) {
+    hintColour: Color? = null, hintTag: String? = null, hug: Int = -1) {
+    // [hug] (phone, two buttons): 0 = [secondary], 1 = [primary] takes its label's width and the other one the rest, while
+    // that rest is at least half the row or the other's whole label; else the equal / stacked layout below.
     // [hintIcon] (15 dp, before the hint) and [hintColour] (default Muted): e.g. Dubbing's approved caption (green check-circle).
     // [hintTag] = the hint text's test tag.
     val tag = hintTag?.let { Modifier.testTag(it) } ?: Modifier
@@ -243,7 +245,17 @@ internal fun StickyActions(primary: @Composable (Modifier) -> Unit, secondary: (
             val buttons = if (leading != null) items.drop(1) else items
             val leadWidth = lead?.maxIntrinsicWidth(Constraints.Infinity) ?: 0
             val share = (c.maxWidth - (if (lead != null) leadWidth + gap else 0) - gap * (buttons.size - 1)) / buttons.size
-            if (buttons.all { it.maxIntrinsicWidth(Constraints.Infinity) <= share }) {
+            val room = c.maxWidth - (if (lead != null) leadWidth + gap else 0) - gap
+            val hugWidth = if (hug in 0..1 && buttons.size == 2) buttons[hug].maxIntrinsicWidth(Constraints.Infinity) else Int.MAX_VALUE
+            val rest = room - hugWidth
+            if (hug in 0..1 && buttons.size == 2 && rest > 0 &&
+                (rest >= room / 2 || rest >= buttons[1 - hug].maxIntrinsicWidth(Constraints.Infinity))) {
+                val widths = if (hug == 0) listOf(hugWidth, rest) else listOf(rest, hugWidth)
+                val placed = listOfNotNull(lead?.measure(Constraints(maxWidth = leadWidth))) +
+                    buttons.mapIndexed { i, b -> b.measure(Constraints.fixedWidth(widths[i])) }
+                val h = placed.maxOf { it.height }
+                layout(c.maxWidth, h) { var x = 0; placed.forEach { it.place(x, (h - it.height) / 2); x += it.width + gap } }
+            } else if (buttons.all { it.maxIntrinsicWidth(Constraints.Infinity) <= share }) {
                 val placed = listOfNotNull(lead?.measure(Constraints(maxWidth = leadWidth))) + buttons.map { it.measure(Constraints.fixedWidth(share)) }
                 val h = placed.maxOf { it.height }
                 layout(c.maxWidth, h) { var x = 0; placed.forEach { it.place(x, (h - it.height) / 2); x += it.width + gap } }

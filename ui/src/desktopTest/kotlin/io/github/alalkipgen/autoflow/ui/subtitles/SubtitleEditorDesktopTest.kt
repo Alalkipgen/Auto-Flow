@@ -63,6 +63,44 @@ class SubtitleEditorDesktopTest {
         }
     }
 
+    /** 🆕-7 (P9-G5-8): "Lines" + the count over the pane's list; "#2 / 3" once line 2 is selected. */
+    @Test fun theListPaneHasALinesHeader() {
+        for (language in UiLanguage.entries) runDesktopComposeUiTest(width = 1440, height = 900) {
+            val f = fixture()
+            show(f, language = language)
+            val header = onNode(hasTestTag("subtitles-lines-header") and hasAnyAncestor(hasTestTag("subtitles-list-pane")))
+            header.assertIsDisplayed()
+            header.assert(hasText(My.breakSyllables(UiText.V3_SUB_LINES.text(language)))).assert(hasText("3"))
+            assertTrue(bounds("subtitles-lines-header").bottom <= bounds("subtitles-cue-c1").top, "the header sits over the lines")
+            assertTrue(abs(bounds("subtitles-lines-header").width - bounds("subtitles-list-pane").width) < 1f, "full pane width")
+            onNodeWithTag("subtitles-cue-c2").performMouseInput { click() }
+            waitForIdle()
+            onNodeWithTag("subtitles-lines-header").assert(hasText("#2 / 3"))
+        }
+        runDesktopComposeUiTest(width = 412, height = 900) { // a phone has no pane and no header
+            show(fixture())
+            onAllNodesWithTag("subtitles-lines-header").assertCountEquals(0)
+        }
+    }
+
+    /** H 2 (P9-G5-8): keys left, then 🆕-6's caption, Discard 170 dp and Save 200 dp on the right. */
+    @Test fun theDesktopBarHasTheCaptionBeforeFixedButtons() {
+        for (language in UiLanguage.entries) runDesktopComposeUiTest(width = 1440, height = 900) {
+            val f = fixture()
+            show(f, language = language)
+            f.editor.edit { SubtitleOps.setText(it, "c3", "Typed") }
+            waitForIdle()
+            assertTrue(abs(bounds("subtitles-discard").width - 170f) < 1f, "Discard ${bounds("subtitles-discard").width}")
+            assertTrue(abs(bounds("subtitles-save").width - 200f) < 1f, "Save ${bounds("subtitles-save").width}")
+            val caption = onNodeWithTag("subtitles-edited-caption", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            onNodeWithTag("subtitles-edited-caption", useUnmergedTree = true)
+                .assert(hasText(My.breakSyllables(UiText.V3_SUB_EDITED_CAPTION.text(language, "n" to 1))))
+            assertTrue(bounds("subtitles-keys").right < caption.left, "keys left of the caption")
+            assertTrue(caption.right <= bounds("subtitles-discard").left, "caption before Discard")
+            assertTrue(bounds("subtitles-discard").right <= bounds("subtitles-save").left, "Discard before Save")
+        }
+    }
+
     /** The sticky bar names the editor's real keys left of the buttons (no Esc: the editor has none); phones show none. */
     @Test fun theDesktopBarListsTheEditorsKeys() {
         for (language in UiLanguage.entries) runDesktopComposeUiTest(width = 1440, height = 900) {
@@ -95,7 +133,7 @@ class SubtitleEditorDesktopTest {
 
     /** 1024 × 680 (the smallest window, P9-18) and 1440 × 900, fonts 1.0 / 1.3, both languages, Both view: strict no-clip. */
     @Test fun fitsWithoutClippingOnTheDesktop() {
-        for ((size, font) in listOf((1024 to 680) to 1f, (1024 to 680) to 1.3f, (1440 to 900) to 1f, (1440 to 900) to 1.3f)) for (language in UiLanguage.entries) {
+        for ((size, font) in listOf((1024 to 680) to 1f, (1024 to 680) to 1.3f, (1440 to 900) to 1f, (1440 to 900) to 1.3f, (1440 to 900) to 2f)) for (language in UiLanguage.entries) {
             runDesktopComposeUiTest(width = size.first, height = size.second) {
                 val f = fixture()
                 show(f, font, language)

@@ -91,6 +91,7 @@ Weights: **Regular** = default · **Fill** = active nav item, play/pause, status
 | `notepencil` | `note-pencil` | Summary card |
 | `checksquare` | `check-square` | Picked scene |
 | `caretleft` | `caret-left` | Previous page |
+| `caretright` | `caret-right` | Next line (Subtitles Edit line) |
 | `arrowscw` | `arrows-clockwise` | Replace movie / subtitles |
 | `stack` | `stack` | Layers card (Style) |
 | `drophalf` | `drop-half` | Blur layer |

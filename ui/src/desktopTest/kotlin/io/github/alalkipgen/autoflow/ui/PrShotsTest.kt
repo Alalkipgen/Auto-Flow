@@ -290,7 +290,7 @@ class PrShotsTest(val width: Int, val font: Float) {
     /** P9-12d: Export — the .srt card, then the video card's ‹ › line chevrons, Check one frame and Make video. */
     @Test fun subtitlesExport() = subtitles("subtitles-export", TextChoice.BURMESE, edited = false) {
         onNodeWithTag("subtitles-export-open").performMouseInput { click() }
-        onNodeWithTag("subtitles-burn-make").performScrollTo()
+        onNodeWithTag("subtitles-check-frame").performScrollTo() // Group 5 F 5: Make video is the page's sticky
     }
 
     private fun subtitles(screen: String, view: TextChoice, edited: Boolean = true, ready: ComposeUiTest.() -> Unit) {

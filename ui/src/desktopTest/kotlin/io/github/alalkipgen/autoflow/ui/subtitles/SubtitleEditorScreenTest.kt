@@ -139,17 +139,21 @@ class SubtitleEditorScreenTest {
                         File(shots, "03-editor-$width-$font-${language.name.lowercase()}.png"))
                 }
                 // P9-12d: the edit panel's title and its Split / Add / Play line / Done buttons carry icons.
-                assertCardIcon("subtitles-edit-panel", My.breakSyllables(UiText.SUB_EDIT_LINE.text(language)))
-                listOf("subtitles-split" to UiText.SUB_SPLIT, "subtitles-add" to UiText.SUB_ADD_AFTER, "subtitles-play-line" to UiText.SUB_PLAY_LINE,
-                    "subtitles-done" to UiText.SUB_DONE).forEach { (tag, key) -> assertIconButton(tag, key, language) }
+                // Group 5 B: the 30 dp purple `pencil` tile before the title; the tools and the move row are small glass buttons (16 dp icons).
+                assertCardIcon("subtitles-edit-panel", My.breakSyllables(UiText.SUB_EDIT_LINE.text(language)), iconDp = 30f)
+                listOf("subtitles-split" to UiText.SUB_SPLIT, "subtitles-merge" to UiText.SUB_MERGE_NEXT, "subtitles-add" to UiText.SUB_ADD_AFTER,
+                    "subtitles-delete" to UiText.SUB_DELETE, "subtitles-play-line" to UiText.SUB_PLAY_LINE, "subtitles-done" to UiText.SUB_DONE)
+                    .forEach { (tag, key) -> assertIconButton(tag, key, language, iconDp = 16f) }
             }
         }
     }
 
     @Test fun editThenSaveMakesANewVersionAndDiscardGoesBack() = runDesktopComposeUiTest(width = 412, height = 900) {
         val f = Fixture()
-        show(f, 412, 1f, UiLanguage.ENGLISH)
-        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cue-c3").fetchSemanticsNodes().isNotEmpty() }
+        show(f, 412, 1f, UiLanguage.ENGLISH, onBack = {}) // 🆕-8: Undo / Redo live in the top bar
+        // Group 5 G: the preview card (strip seek bar + controls row) pushes line 3 just below the fold.
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-cues").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("subtitles-cues").performScrollToKey("c3")
         click("subtitles-cue-edit-c3")
         onNode(hasAnyAncestor(hasTestTag("subtitles-edit-text")) and hasSetTextAction()).performTextReplacement("The third line, typed")
         click("subtitles-done")
@@ -207,7 +211,7 @@ class SubtitleEditorScreenTest {
         // A new editor reads the file, as after a restart.
         val editor = SubtitleEditorModel(f.session, f.fs, MainScope())
         setContent {
-            CompositionLocalProvider(LocalUiLanguage provides UiLanguage.ENGLISH) { SubtitlesScreen(f.model, f.session, editor, player = noDecoder) }
+            CompositionLocalProvider(LocalUiLanguage provides UiLanguage.ENGLISH) { SubtitlesScreen(f.model, f.session, editor, player = noDecoder, onBack = {}) } // 🆕-8: Undo is in its top bar
         }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("subtitles-restore").fetchSemanticsNodes().isNotEmpty() }
         onNodeWithTag("subtitles-undo").assertIsNotEnabled() // answer the offer first
@@ -237,7 +241,7 @@ class SubtitleEditorScreenTest {
         assertEquals(5_500, f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.endMs)
         click("subtitles-play-line") // from 0:04.0; the clock passes the line's end → paused
         onNodeWithTag("subtitles-playhead").assertTextEquals("0:08.5")
-        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PLAY.en)
+        onNodeWithTag("subtitles-play").assertContentDescriptionEquals(UiText.SUB_PLAY.en)
     }
 
     @Test fun shiftTimesMovesAllOrFromTheSelectedLine() = runDesktopComposeUiTest(width = 412, height = 900) {
@@ -294,7 +298,7 @@ class SubtitleEditorScreenTest {
         host.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.S) } }
         assertNotEquals(f.first, f.saved())
         host.performKeyInput { pressKey(Key.Spacebar) }
-        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PAUSE.en)
+        onNodeWithTag("subtitles-play").assertContentDescriptionEquals(UiText.SUB_PAUSE.en)
     }
 
     /** Keys typed into a line's text stay text: Space and Enter are not shortcuts inside a field. */
@@ -305,7 +309,7 @@ class SubtitleEditorScreenTest {
         click("subtitles-cue-edit-c3")
         onNodeWithTag("subtitles-edit-text").performScrollTo().performMouseInput { click() }
         onNodeWithTag("subtitles-edit-text").performKeyInput { pressKey(Key.Spacebar); pressKey(Key.DirectionDown); pressKey(Key.Enter) }
-        onNodeWithTag("subtitles-play").assertTextEquals(UiText.SUB_PLAY.en)
+        onNodeWithTag("subtitles-play").assertContentDescriptionEquals(UiText.SUB_PLAY.en)
         assertEquals(4_000, f.editor.state.value.draft!!.doc.cues.first { it.id == "c3" }.startMs) // ↑/↓/Enter did nothing either
     }
 }

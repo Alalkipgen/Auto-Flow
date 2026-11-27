@@ -316,7 +316,8 @@ internal fun DrawScope.primaryBrush(): Brush = cssLinearGradient(135f, size, 0f 
  * Glass button, the [AfButton] API: Primary = the primary gradient with a coloured shadow and top highlight,
  * Secondary = White .08 fill + White .14 border, Danger = Failed .10 fill + .45 border, Text = no frame, Flow = cyan.
  * 44 dp ([small] 36) inside a 48 dp touch target that overflows into the spacing; icon 18 ([small] 16) before the label,
- * [trailingIcon] after it (Next step →).
+ * [trailingIcon] after it (Next step →). [accent] (Secondary only): an [accent] .12 fill and .70 border instead of the White
+ * ones — a toggle that is on (Subtitles' Shift times while its card is open) or the offered next step (Translate, Group 5 A 10).
  */
 @Composable
 fun GlassButton(
@@ -328,6 +329,7 @@ fun GlassButton(
     icon: ImageVector? = null,
     small: Boolean = false,
     trailingIcon: ImageVector? = null,
+    accent: Color? = null,
 ) {
     val visual = if (small) AfSize.ButtonSmall else AfSize.Button
     val shape = RoundedCornerShape(if (small) AfRadius.ButtonSmall else AfRadius.Button)
@@ -369,7 +371,7 @@ fun GlassButton(
                 when (kind) {
                     ButtonKind.Primary -> drawRect(primaryBrush())
                     ButtonKind.Flow -> drawRect(AutoFlowColors.Cyan)
-                    ButtonKind.Secondary -> drawRect(GlassColors.SecondaryFill)
+                    ButtonKind.Secondary -> drawRect(accent?.copy(alpha = .12f) ?: GlassColors.SecondaryFill)
                     else -> drawRect(GlassColors.DangerFill)
                 }
             }
@@ -377,7 +379,7 @@ fun GlassButton(
                 drawContent()
                 when (kind) {
                     ButtonKind.Primary -> drawRect(GlassColors.PrimaryHighlight, size = Size(size.width, 1.dp.toPx()))
-                    ButtonKind.Secondary -> drawGlassBorder(shape, GlassColors.SecondaryBorder, GlassColors.SecondaryBorder)
+                    ButtonKind.Secondary -> (accent?.copy(alpha = .7f) ?: GlassColors.SecondaryBorder).let { drawGlassBorder(shape, it, it) }
                     ButtonKind.Danger -> drawGlassBorder(shape, GlassColors.DangerBorder, GlassColors.DangerBorder)
                     else -> Unit
                 }
