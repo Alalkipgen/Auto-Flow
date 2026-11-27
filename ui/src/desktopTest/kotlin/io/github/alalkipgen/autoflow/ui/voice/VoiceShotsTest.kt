@@ -250,15 +250,15 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
 
     /**
      * One shot after [prep] and [open]: phone 360 dp wide (density 2) and as tall as its whole scroll ([full]; else
-     * [height]), desktop 1280 × 800; [only] = that node with 8 dp around it ('|' = the first that exists); [crop] = from
+     * [height]), desktop [size] (1280 × 800); [only] = that node with 8 dp around it ('|' = the first that exists); [crop] = from
      * the top to that node's bottom + 8 dp.
      */
     fun shot(name: String, desktop: Boolean = false, height: Int = HEIGHT, full: Boolean = !desktop, prep: Demo.() -> Unit = {},
-        only: String? = null, crop: String? = null, dialog: Boolean = false, open: ComposeUiTest.() -> Unit = {}) {
+        only: String? = null, crop: String? = null, dialog: Boolean = false, size: Pair<Int, Int> = 1280 to 800, open: ComposeUiTest.() -> Unit = {}) {
         if (out == null) return
-        val w = if (desktop) 1280 else WIDTH
+        val w = if (desktop) size.first else WIDTH
         val scale = if (desktop) 1f else SCALE
-        var h = if (desktop) 800 else height
+        var h = if (desktop) size.second else height
         if (full) runDesktopComposeUiTest(width = (w * scale).toInt(), height = (h * scale).toInt()) {
             Demo().use { d -> d.prep(); setContent(screen(d, w, scale)); waitForIdle(); open(); waitForIdle(); h += overflow(scale) }
         }
@@ -407,5 +407,30 @@ class VoiceShotsTest(val language: UiLanguage, val font: Float) {
             click("video-sound-pick")
         }
         if (font == 1f) shot("12-desktop-video", desktop = true, prep = { added() })
+    }
+
+    /** Clicks the first node showing [text] (the wizard's chips have no tag); none in a before tree is skipped. */
+    private fun ComposeUiTest.clickText(text: String) {
+        val nodes = onAllNodes(hasText(text), useUnmergedTree = true)
+        if (nodes.fetchSemanticsNodes().isEmpty()) return
+        nodes.onFirst().performClick()
+        waitForIdle()
+    }
+
+    /** PR 7 (J 🆕 Q-1 / Q-2, I 🆕 VA-5): the Quick Recap wizard (5 min · Commentary) and Text → voice on a desktop, 1280 × 800 and 1440 × 900. */
+    @Test fun quickRecapDesktop() {
+        // 01-home-idle / -length / -style: in [shell] (the same shots, now with the Q-1 look).
+        shot("01-home-style-commentary", prep = { home = true }, only = "home-quick") {
+            click("home-quick-start"); click("quick-next-style")
+            clickText(io.github.alalkipgen.autoflow.ui.home.styleLabel(io.github.alalkipgen.autoflow.core.recap.RecapStyle.COMMENTARY, language))
+        }
+        shot("01-home-confirm", prep = { home = true }, only = "home-quick") {
+            click("home-quick-start"); click("quick-next-style")
+            clickText(io.github.alalkipgen.autoflow.ui.home.styleLabel(io.github.alalkipgen.autoflow.core.recap.RecapStyle.COMMENTARY, language))
+            click("quick-confirm")
+        }
+        shot("12-desktop-1280", desktop = true, prep = { text() })
+        shot("12-desktop-1440", desktop = true, size = 1440 to 900, prep = { text() })
+        shot("12-desktop-1440-speak", desktop = true, size = 1440 to 900, prep = { text() }, dialog = true) { click("voice-speak") }
     }
 }

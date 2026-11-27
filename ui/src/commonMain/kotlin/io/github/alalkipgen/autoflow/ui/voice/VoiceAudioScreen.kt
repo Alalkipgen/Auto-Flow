@@ -65,29 +65,62 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
         }
         SubtitlesTopBar(open?.project?.name?.takeIf { !s.fresh } ?: tr(UiText.V3_VOICE_AUDIO),
             task?.let { My.breakSyllables(tr(it)) }, dirty = false, onBack = back, tag = "voice-top-bar", backTag = "voice-back")
-        Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().weight(1f).paneScroll(rememberScrollState()).padding(screenPadding)
-            .testTag("voice-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        val title = open?.project?.name.orEmpty()
+        val notice = @Composable {
             // Group 6 A 4: the notice = a red callout under the top bar.
             s.notice?.let { GlassCallout(AfIcons.Fill.XCircle, My.breakSyllables(it.text(LocalUiLanguage.current)), AutoFlowColors.Failed,
                 textModifier = Modifier.testTag("voice-notice")) }
-            when (s.task) {
-                null -> Chooser(model, clean, video, onOpened)
-                VoiceTool.TASK_CLEAN -> if (clean != null) CleanStep(clean, open?.project?.voice, s.dir, export, open?.project?.name.orEmpty())
-                VoiceTool.TASK_VIDEO_SOUND -> if (video != null) VideoSoundStep(video, open?.project?.voice, s.dir, export, open?.project?.name.orEmpty())
-                VoiceTool.TASK_TEXT -> TextStep(model, s, speak, job, export, open?.project?.name.orEmpty())
-                else -> AfText(My.breakSyllables(tr(UiText.NEEDS_NEWER_APP)), muted = true)
+        }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // 🆕 VA-5 (Group 6 I): from 840 dp Text → voice is two panes — left (≈ 46 %) the text, the voice card (open) and
+            // the tone; right the Speak / Save panels and the parts (own scroll) with the sticky under them. Everything else
+            // (and Text → voice before the project exists) is one column, at most 720 dp, centred.
+            val wide = maxWidth >= 840.dp
+            if (wide && s.task == VoiceTool.TASK_TEXT && !s.fresh) Row(Modifier.fillMaxSize().testTag("voice-wide")) {
+                Column(Modifier.weight(.46f).fillMaxHeight().paneScroll(rememberScrollState()).padding(screenPadding).testTag("voice-scroll"),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    notice()
+                    TextTop(model, s, job, wide = true)
+                }
+                Column(Modifier.weight(.54f).fillMaxHeight()) {
+                    Column(Modifier.weight(1f).fillMaxWidth().paneScroll(rememberScrollState()).padding(screenPadding),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        TextBottom(model, s, speak, job, export, title)
+                    }
+                    TextSticky(model, s, speak, job, export)
+                }
+            } else Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.widthIn(max = if (wide) 720.dp else 900.dp).fillMaxWidth().weight(1f).paneScroll(rememberScrollState()).padding(screenPadding)
+                    .testTag("voice-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    notice()
+                    when (s.task) {
+                        null -> Chooser(model, clean, video, onOpened)
+                        VoiceTool.TASK_CLEAN -> if (clean != null) CleanStep(clean, open?.project?.voice, s.dir, export, title)
+                        VoiceTool.TASK_VIDEO_SOUND -> if (video != null) VideoSoundStep(video, open?.project?.voice, s.dir, export, title)
+                        VoiceTool.TASK_TEXT -> { TextTop(model, s, job, wide = false); if (!s.fresh) TextBottom(model, s, speak, job, export, title) }
+                        else -> AfText(My.breakSyllables(tr(UiText.NEEDS_NEWER_APP)), muted = true)
+                    }
+                }
+                Stickies(model, s, open?.project?.voice?.source != null, speak, job, export, clean, video, onOpened)
             }
         }
+    }
+}
+
+/** The sticky bar of the task (as before): Continue · Clean's / Video sound's saves · Text → voice's Speak or Save. */
+@Composable
+private fun Stickies(model: VoiceAudioModel, s: VoiceAudioUi, hasSource: Boolean, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?,
+    export: VoiceExportModel?, clean: VoiceCleanModel?, video: VideoSoundModel?, onOpened: () -> Unit) {
         if (s.fresh && s.task == VoiceTool.TASK_TEXT) StickyActionBar(
             primary = StudioAction(My.breakSyllables(tr(UiText.VA_CONTINUE_TEXT)), { model.createWithText(onOpened) }, enabled = s.text.isNotBlank(),
                 tag = "voice-continue", trailingIcon = AfIcons.Regular.ArrowRight),
-        ) else if (s.task == VoiceTool.TASK_CLEAN && clean != null && open?.project?.voice?.source != null) {
+        ) else if (s.task == VoiceTool.TASK_CLEAN && clean != null && hasSource) {
             val c by clean.state.collectAsState()
             val idle = c.busy == null || c.dir != s.dir
             // Group 6 G 5: both download-simple.
             StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_M4A)), { clean.save("m4a") }, enabled = idle, tag = "voice-clean-m4a", icon = AfIcons.Regular.DownloadSimple),
                 secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { clean.save("wav") }, enabled = idle, tag = "voice-clean-wav", icon = AfIcons.Regular.DownloadSimple))
-        } else if (s.task == VoiceTool.TASK_VIDEO_SOUND && video != null && open?.project?.voice?.source != null) {
+        } else if (s.task == VoiceTool.TASK_VIDEO_SOUND && video != null && hasSource) {
             val v by video.state.collectAsState()
             val idle = v.busy == null || v.dir != s.dir
             val action = v.action.takeIf { v.dir == s.dir } ?: SOUND_ONLY
@@ -97,7 +130,14 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
                 secondary = StudioAction(My.breakSyllables(tr(UiText.VA_SAVE_WAV)), { video.save("wav") }, enabled = idle, tag = "video-sound-wav", icon = AfIcons.Regular.DownloadSimple))
             else StickyActionBar(primary = StudioAction(My.breakSyllables(tr(UiText.SUB_MAKE_VIDEO)), { video.save() },
                 enabled = idle && v.dir == s.dir && v.sound != null, tag = "video-sound-make", icon = AfIcons.Regular.FilmStrip))
-        } else if (s.task == VoiceTool.TASK_TEXT && job == null) {
+        } else if (s.task == VoiceTool.TASK_TEXT) TextSticky(model, s, speak, job, export)
+}
+
+/** Text → voice's sticky (Group 6 D 3): all voiced → Save wav · Save m4a; else Speak n parts + 🆕 VA-6 caption; none while a job is open. */
+@Composable
+private fun TextSticky(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?,
+    export: VoiceExportModel?) {
+        if (job == null) {
             val n = s.rows.count { !it.voiced }
             // Group 6 D 3: all voiced → Save wav · Save m4a (download-simple); else Speak n parts (microphone) + 🆕 VA-6 "3 of 5 parts voiced".
             if (n == 0 && s.rows.isNotEmpty() && export != null) StickyActionBar(
@@ -108,7 +148,6 @@ fun VoiceAudioScreen(model: VoiceAudioModel, session: ProjectSession, modifier: 
                 caption = My.breakSyllables(tr(UiText.VA_PARTS_CAPTION, "done" to s.rows.size - n, "n" to s.rows.size)).takeIf { s.rows.isNotEmpty() },
                 captionTag = "voice-parts-caption")
         }
-    }
 }
 
 @Composable
@@ -171,8 +210,7 @@ private fun ChooserNotice(notice: UiNotice, tag: String) {
 }
 
 @Composable
-private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?,
-    export: VoiceExportModel?, title: String) {
+private fun TextTop(model: VoiceAudioModel, s: VoiceAudioUi, job: io.github.alalkipgen.autoflow.core.recap.AiJob?, wide: Boolean) {
     val idle = job == null
     // Group 6 C 1: no H2 (the top bar's subtitle names the task); the glass text field, its count right-aligned under it.
     AfTextField(s.text, model::setText, tr(UiText.VA_PASTE), Modifier.fillMaxWidth().testTag("voice-text"), lines = 8, mono = false, enabled = idle,
@@ -181,12 +219,18 @@ private fun TextStep(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakM
     AfText(My.breakSyllables(tr(UiText.VA_COUNT, "chars" to s.text.length, "n" to parts)), Modifier.fillMaxWidth().testTag("voice-count"),
         color = AutoFlowColors.Muted.copy(alpha = if (idle) 1f else .5f), size = 12.sp, textAlign = TextAlign.End)
     if (s.fresh) return
-    VoicePicker(model, s, idle)
+    VoicePicker(model, s, idle, wide)
     // C 4: the tone — a 14 sp bold label and glass filter chips (off while speaking).
     AfText(tr(UiText.VA_TONE), size = 14.sp, bold = true)
     WrapRow {
         TONES.forEach { (id, label) -> GlassFilterChip(My.breakSyllables(tr(label)), s.tone == id, { model.setTone(id) }, Modifier.testTag("voice-tone-$id"), enabled = idle) }
     }
+}
+
+/** Text → voice under the tone (or the right pane at ≥ 840 dp): the Speak and Save panels, then the parts card. */
+@Composable
+private fun TextBottom(model: VoiceAudioModel, s: VoiceAudioUi, speak: VoiceSpeakModel?, job: io.github.alalkipgen.autoflow.core.recap.AiJob?,
+    export: VoiceExportModel?, title: String) {
     s.dir?.let { dir -> speak?.let { SpeakPanel(it, dir, job, s, model.edgeVoices()) } }
     s.dir?.let { dir -> export?.let { ExportPanel(it, dir, title) } }
     PartsCard(model, s, speak, job)
@@ -259,11 +303,12 @@ internal val TONES = listOf("calm" to UiText.VA_TONE_CALM, "lively" to UiText.VA
  * while Speak runs the caret is off and the card stays closed. A tap saves the new lock.
  */
 @Composable
-private fun VoicePicker(model: VoiceAudioModel, s: VoiceAudioUi, idle: Boolean) {
+private fun VoicePicker(model: VoiceAudioModel, s: VoiceAudioUi, idle: Boolean, wide: Boolean = false) {
     val lock = s.lock
     val edge = model.edgeVoices()
     val noModels = model.models.isEmpty()
-    var expanded by remember(s.dir) { mutableStateOf(lock == null || noModels) }
+    // VA-5: open by default on a computer (two panes).
+    var expanded by remember(s.dir, wide) { mutableStateOf(wide || lock == null || noModels) }
     val open = expanded && idle
     val voiceTitle = tr(UiText.VA_VOICE)
     GlassCard(Modifier.fillMaxWidth(), gap = 12.dp) {
