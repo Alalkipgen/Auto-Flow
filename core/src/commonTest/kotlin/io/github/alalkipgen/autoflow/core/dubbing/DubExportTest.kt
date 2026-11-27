@@ -48,4 +48,16 @@ class DubExportTest {
         ), lines)
         assertNull(DubExport.lines(tool(all - "c1"), doc, 10_000, 100, 1.0, lex))
     }
+
+    @Test fun thePreviewPlacesEveryCurrentTakeBeforeApprovalOrTheLastTake() {
+        // F-6 (D-95): not approved and c1 not spoken yet — Export is blocked, the preview still plays c2 and c3 where the mix would.
+        val partial = tool(all - "c1", approved = false)
+        assertNull(DubExport.lines(partial, doc, 10_000, 100, 1.0, lex))
+        assertEquals(listOf(
+            DubMixLine("c2", all.getValue("c2").au, 3_000, 0, 2_900, 1.0),
+            DubMixLine("c3", all.getValue("c3").au, 6_000, 0, 4_000, 1.0),
+        ), DubExport.voiced(partial, doc, 10_000, 100, 1.0, lex))
+        assertEquals(DubExport.lines(tool(all), doc, 10_000, 100, 1.0, lex), DubExport.voiced(tool(all), doc, 10_000, 100, 1.0, lex))
+        assertEquals(emptyList(), DubExport.voiced(null, doc, 10_000, 100, 1.0, lex))
+    }
 }

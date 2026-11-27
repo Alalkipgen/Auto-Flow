@@ -29,6 +29,10 @@ data class AppSettings(
     val projectsDir: String? = null,
     /** Self-test → "Preview features": flag key (`studioV2`, `labs.dubbing`, …) → on / off over `config/features.json` (D-41). */
     val featureOverrides: Map<String, Boolean> = emptyMap(),
+    /** F-4 (D-93): `gemini` or `chatbox` — who answers Script, Translate, Shorten and Storyboard calls. */
+    val textService: String = "gemini",
+    /** F-4: `gemini` or `chatbox` — who answers Transcribe (audio) calls. */
+    val transcribeService: String = "gemini",
 )
 
 /**

@@ -18,9 +18,14 @@ import io.github.alalkipgen.autoflow.media.playback.RecapPlaybackClock
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
-/** Real muted native-v2 timeline playback, decoded once underneath the output-frame Compose compositor. */
+/**
+ * Real native-v2 timeline playback, decoded once underneath the output-frame Compose compositor. The movie picture is
+ * muted; the voice takes and the music play beside it on the same clock (F-5, [RecapPreviewSound]).
+ */
 @Composable
-internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false, editLayers: Boolean = false) {
+internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, studio: Boolean = false, editLayers: Boolean = false,
+    autoShow: Boolean = io.github.alalkipgen.autoflow.ui.components.moviePreviewAtOnce,
+) {
     val state by model.state.collectAsState()
     val open by model.previewSource.projects.collectAsState()
     val source = remember(state, open) { model.previewSource.resolve(state) } ?: return
@@ -71,6 +76,16 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
             }
             // Save/Discard during preparation must not expose an old priming frame either.
             // The same handshake may finish with no draft; project/movie/timeline changes dispose it.
+        }
+        // F-6: open on the paused first frame (same warm/pause/seek handshake as a layer edit) so the preview is
+        // there without pressing Play.
+        LaunchedEffect(Unit) {
+            if (autoShow && !enabled && !editLayers) {
+                frame = null
+                editFramePrime = LayerEditFramePrime(clock.request)
+                enabled = true
+                refresh++
+            }
         }
         LaunchedEffect(source.key, outputMs) { model.previewSource.position(source, outputMs) }
         // Space (studio project screens only) runs exactly this Play/Pause button action.
@@ -129,6 +144,7 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                         else AfText(tr(UiText.PREPARING_FRAME), muted = true)
                     }
                 }
+                RecapPreviewSound(source.timeline, source.music, outputMs, playing)
             }
             problem?.let { AfText(it, color = AutoFlowColors.Amber) }
             val readouts: @Composable () -> Unit = {
@@ -152,6 +168,10 @@ internal fun RecapTimelinePreview(model: RecapModel, blockId: String? = null, st
                 AfButton(tr(UiText.BACK_FIVE_SECONDS), { clock.seek(clock.positionMs - 5_000); refresh++ }, Modifier.testTag("timeline-back"))
                 AfButton(tr(UiText.FORWARD_FIVE_SECONDS), { clock.seek(clock.positionMs + 5_000); refresh++ }, Modifier.testTag("timeline-forward"))
                 AfButton(tr(UiText.CLOSE_PLAYER), { enabled = false; editFramePrime = null; frame = null; clock.setPlaying(false); refresh++ }, Modifier.testTag("timeline-close"), enabled = enabled)
+            }
+            // Below the controls, so the picture, scrubber and Play keep their place.
+            if (source.timeline.voice.isNotEmpty() || source.music != null) {
+                AfText(My.breakSyllables(tr(UiText.PREVIEW_SOUND_HINT)), Modifier.testTag("timeline-sound-hint"), muted = true, size = 12.sp)
             }
             if (studio) SectionCard(tr(UiText.V3_DIAGNOSTICS), Modifier.testTag("timeline-diagnostics"), initiallyExpanded = false) {
                 AfText(tr(UiText.TIMELINE_HINT), muted = true, size = 12.sp)

@@ -68,7 +68,7 @@ val uiModule = module {
                     (storyboard()?.takeIf { it.running != null }?.let { job ->
                         (job.gemini?.dir ?: current.state.value?.dir)?.let(index::canonical) == key
                     } == true)
-            })
+            }, packages = getOrNull(), library = get())
     }
     single { BackupModel(getOrNull(), get(), get(), MainScope(), filePicker = getOrNull(), appDirs = getOrNull(),
         language = { io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
@@ -92,9 +92,11 @@ val uiModule = module {
     single { io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber(get(), get(), getOrNull(), getOrNull(), config = get()) }
     single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob(get(), get(), getOrNull(), config = get()) }
     single { io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob(get(), get(), getOrNull(), config = get(),
-        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
+        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value },
+        edgeRpm = getOrNull<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()?.tts?.edge?.rpm ?: io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig().rpm) }
     single { io.github.alalkipgen.autoflow.ui.dubbing.DubSpeakJob(get(), get(), getOrNull(), config = get(),
-        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
+        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value },
+        edgeRpm = getOrNull<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()?.tts?.edge?.rpm ?: io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig().rpm) }
     single { io.github.alalkipgen.autoflow.ui.dubbing.DubShortenModel(getOrNull(), MainScope()) }
     single { io.github.alalkipgen.autoflow.ui.dubbing.DubExportModel(get(), get(), get(), MainScope(), frames = getOrNull(), config = get(),
         share = getOrNull(), lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
@@ -148,6 +150,10 @@ val uiModule = module {
     // Exact frames (D-42): one recap job + still renderer shared by the Recap Style preview and Export.
     single { io.github.alalkipgen.autoflow.ui.export.RecapFrames(get(), get(), get(), media = getOrNull(), builtInFonts = getOrNull(), lexicon = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, previewCacheDir = joinPath(get<AppDirs>().root, "cache/export-preview")) }
     single { io.github.alalkipgen.autoflow.ui.recap.RecapModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(), generator = getOrNull(), tts = getOrNull(), recorder = getOrNull(), library = getOrNull(), frames = getOrNull(), jobs = getOrNull(), lexicons = get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon, modelConfig = get(), transcriber = getOrNull(), usage = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }, thumbnailCacheDir = joinPath(get<AppDirs>().root, "cache/scene-thumbnails-v1")) }
+    // F-7 (D-96): render packages; the app modules bind RenderPackages (JvmRenderPackages on desktop and Android).
+    single { io.github.alalkipgen.autoflow.ui.pack.RenderPackageModel(get(), get(), getOrNull(), getOrNull(),
+        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }, share = getOrNull(), scope = MainScope(),
+        app = getOrNull<io.github.alalkipgen.autoflow.ui.settings.AppInfo>()?.version.orEmpty()) }
     single { ExportModel(get(), get(), get(), queue = getOrNull(), share = getOrNull(), battery = getOrNull(), scope = MainScope(), clipboard = getOrNull(), builtInFonts = getOrNull(), frames = getOrNull()) }
     single { io.github.alalkipgen.autoflow.ui.jobs.RenderHistory(get(), get<AppDirs>().root) }
     // Library (5A-7)
@@ -160,6 +166,7 @@ val uiModule = module {
         SettingsModel(
             get(), get(), get(), get(), get(), get(), get(), get(), testKeyCall = registry::testGeminiKey, ffmpegRunner = getOrNull(),
             testTtsCall = { registry.testGeminiTts() },
+            testChatboxCall = registry::testChatboxKey,
             saveTtsSample = { bytes ->
                 dirs?.let { d ->
                     runCatching { joinPath(d.root, "tts-test.wav").also { fs.createDirectories(d.root); fs.writeDurably(it, bytes) } }.getOrNull()

@@ -128,6 +128,9 @@ private class VlcMoviePlayer(private val factory: MediaPlayerFactory, private va
         pendingRate = rate
         if (started) check(player.controls().setRate(rate)) { "VLC could not apply playback speed" }
     }
+    override fun setVolume(volume: Float) = control {
+        if (volume.isFinite()) player.audio().setVolume((volume.coerceIn(0f, 1f) * 100).toInt())
+    }
     override fun snapshot(): MovieSnapshot = synchronized(lock) {
         if (closed) MovieSnapshot(phase = MoviePhase.CLOSED)
         else try {

@@ -28,7 +28,8 @@ are refused at Video with `DUB_LIMIT`.
   Sticky: Speak n lines (confirm card) → Go to Export. Shorten shows old/new side by side; Use → spoken line changes →
   needs approval again → ↻.
 - **Export:** pre-flight blocks on any "too long", missing or old takes, or no Burmese font when burning. Options:
-  burn Burmese subtitles (`textMy`), save the voice track as wav. Output mp4 + `.srt`; Done card Open · Share · Save
+  burn Burmese subtitles (`textMy`; Size, Lines on screen 1 / 2 and Line length Short / Long, by default from the frame —
+  D-91), save the voice track as wav. Output mp4 + `.srt`; Done card Open · Share · Save
   to Gallery. Video stream copied when nothing is burned.
 
 ## 3. Data

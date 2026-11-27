@@ -58,9 +58,14 @@ class DubSpeakJob(
     private val config: ToolsConfig = ToolsConfig(),
     private val lexicon: () -> Lexicon = { Lexicon.EMPTY },
     private val clock: Clock = Clock.System,
+    /** `tts.edge.rpm` (F-3): an Edge lock's pace. */
+    private val edgeRpm: Int = io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig().rpm,
 ) {
     private val versions = SubtitleVersions(session, fs, clock)
     val available: Boolean get() = tts != null
+
+    /** Requests per minute a job with [lock] sends: Edge's own pace, else Gemini's [VoiceSpeakJob.RPM]. */
+    fun rpm(lock: VoiceLock?): Int = io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.rpm(lock, edgeRpm)
 
     /** The project at [dir] and its current `st`, when the script may be voiced (lock set, `DubRules.canSpeak`). */
     private fun speakable(dir: String): Pair<Project, SubtitleDoc>? {
@@ -90,7 +95,7 @@ class DubSpeakJob(
             CoreJson.encodeToString(DubSpeakRequest.serializer(), request).encodeToByteArray())
         val key = Sha256.hex((listOf(project.id, request.lock.toString(), request.tone.orEmpty()) + request.lines.map { "${it.id}:${it.key}" })
             .joinToString("|").encodeToByteArray())
-        return runner.enqueue(AiJob(id, AiJobKind.DUB_TTS, dir, request.lines.map { it.id }, rpm = VoiceSpeakJob.RPM, inputKey = key))
+        return runner.enqueue(AiJob(id, AiJobKind.DUB_TTS, dir, request.lines.map { it.id }, rpm = rpm(request.lock), inputKey = key))
     }
 
     /** One line of job [jobId]: [AiItemPaused] when the model is busy, an exception when the request failed (Resume retries it). */

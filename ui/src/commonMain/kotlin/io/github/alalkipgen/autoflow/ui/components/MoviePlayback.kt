@@ -8,6 +8,9 @@ import io.github.alalkipgen.autoflow.media.playback.MovieSnapshot
 /** Platform surface only; native decoder ownership lives in :media, never in common screen/business logic. */
 expect val moviePlaybackSupported: Boolean
 
+/** F-6: show the paused first frame as soon as a preview opens (Android), instead of only after Play (desktop VLC). */
+expect val moviePreviewAtOnce: Boolean
+
 /** Source-clock controlled, muted movie under Compose overlays. A changed seekRevision applies one seek.
  * Optional frame feed reuses this decoder (never a second player or repeated Exact frame). [frameSize] describes
  * the source aspect for Android TextureView capture, not the output-frame aspect. */

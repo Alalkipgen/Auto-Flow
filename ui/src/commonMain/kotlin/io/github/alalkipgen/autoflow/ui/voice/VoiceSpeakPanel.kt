@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.voice
 
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -16,7 +17,7 @@ internal fun SpeakPanel(model: VoiceSpeakModel, dir: String, job: AiJob?) {
     val s = all.takeIf { it.dir == dir } ?: VoiceSpeakUi()
     val c = s.confirm
     when {
-        job != null -> AfCard(My.breakSyllables(tr(UiText.JOB_TEXT_TTS)), Modifier.testTag("voice-speak-job")) {
+        job != null -> ToolAiJobCard(job, Modifier.testTag("voice-speak-job")) {
             val n = maxOf(job.initialItemCount ?: 0, job.items.size)
             val done = n - job.items.size
             val text = when (job.state) {
@@ -35,7 +36,7 @@ internal fun SpeakPanel(model: VoiceSpeakModel, dir: String, job: AiJob?) {
         }
         c != null -> AfCard(My.breakSyllables(tr(UiText.VA_SPEAK_PARTS, "n" to c.parts.size)), Modifier.testTag("voice-speak-confirm")) {
             AfText(My.breakSyllables(tr(UiText.VA_SPEAK_CONFIRM, "n" to c.parts.size, "voice" to "${c.lock.voice} · ${c.lock.model}",
-                "minutes" to (c.parts.size + VoiceSpeakJob.RPM - 1) / VoiceSpeakJob.RPM)), Modifier.testTag("voice-speak-facts"), bold = true)
+                "minutes" to model.minutes(c.parts.size, c.lock))), Modifier.testTag("voice-speak-facts"), bold = true)
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("voice-speak-start"), kind = ButtonKind.Primary)
                 AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("voice-speak-back"))

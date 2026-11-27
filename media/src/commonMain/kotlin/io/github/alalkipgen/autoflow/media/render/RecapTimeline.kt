@@ -22,9 +22,15 @@ data class RecapTimelineClip(
         .coerceIn(outputFromMs, outputToMs)
 }
 
-/** Shared explicit output timeline for player seeking, active block/clip, captions and native layers. */
-data class RecapTimeline(val clips: List<RecapTimelineClip>, val captions: List<SrtCue>) {
+/**
+ * Shared explicit output timeline for player seeking, active block/clip, captions and native layers. [voice] are the
+ * render's voice cues (F-5): each voiced block's take at its output start + `RecapFit.LEAD_MS`, at its SmartFit speed.
+ */
+data class RecapTimeline(val clips: List<RecapTimelineClip>, val captions: List<SrtCue>, val voice: List<VoiceCue> = emptyList()) {
     val durationMs: Long get() = clips.lastOrNull()?.outputToMs ?: 0
     fun clipAt(outputMs: Long): RecapTimelineClip? = clips.firstOrNull { outputMs >= it.outputFromMs && outputMs < it.outputToMs }
     fun captionsAt(outputMs: Long): List<SrtCue> = captions.filter { outputMs >= it.startMs && outputMs < it.endMs }
+
+    /** The voice cue speaking at [outputMs] (the last one started), or null before the first. */
+    fun voiceAt(outputMs: Long): VoiceCue? = voice.lastOrNull { it.startMs <= outputMs }
 }

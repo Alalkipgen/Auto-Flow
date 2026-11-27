@@ -12,6 +12,12 @@ interface SongPlayer {
     fun play()
     fun pause()
     fun seekTo(ms: Long)
+
+    /** Playback rate with the pitch kept (F-5: a SmartFit SPEED take in the live preview); ignored where unsupported. */
+    fun setSpeed(speed: Float) {}
+
+    /** 0–1 (F-5: the music bed at its mix volume). */
+    fun setVolume(volume: Float) {}
 }
 
 /** A player for the audio file at [path], released with the composition; null where audio playback is unsupported. */

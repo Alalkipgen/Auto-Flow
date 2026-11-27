@@ -7,6 +7,7 @@ import io.github.alalkipgen.autoflow.ai.TranscribeProvider
 import io.github.alalkipgen.autoflow.ai.Transcript
 import io.github.alalkipgen.autoflow.ai.TranscriptSegment
 import io.github.alalkipgen.autoflow.ai.retry.Attempt
+import io.github.alalkipgen.autoflow.ai.retry.JsonWire
 import io.github.alalkipgen.autoflow.ai.retry.ModelChain
 import io.ktor.client.HttpClient
 import kotlin.math.roundToLong
@@ -31,18 +32,20 @@ class GeminiTranscribeProvider(
     private val candidates: List<String>,
     private val chain: ModelChain = ModelChain(),
     private val baseUrl: String = GeminiTextProvider.DEFAULT_BASE_URL,
+    /** F-4: Chatbox AI sends the same prompts and audio as OpenAI-compatible chat completions (`input_audio`). */
+    private val wire: JsonWire = GeminiJsonWire(http, baseUrl),
 ) : TranscribeProvider {
     override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> {
         val key = apiKey()?.trim().orEmpty()
-        if (key.isEmpty()) return AiResult.Failed("no_api_key", "Add a Gemini API key in Settings")
+        if (key.isEmpty()) return AiResult.Failed("no_api_key", wire.noKey)
         if (audio.isEmpty()) return AiResult.Failed("empty_audio", "Audio is empty")
         if (audio.size > MAX_AUDIO_BYTES) {
             return AiResult.Failed("audio_too_big", "The song is too big to send (${audio.size / 1_000_000} MB, at most ${MAX_AUDIO_BYTES / 1_000_000} MB)")
         }
         val (prompt, schema) = if (lines.isEmpty()) transcribePrompt(lang) to SEGMENTS_SCHEMA else alignPrompt(lang, lines) to LINES_SCHEMA
-        val body = GeminiWire.request(prompt, schema, system = null, temperature = null, media = mime to audio).toString()
+        val body = wire.body(prompt, schema, system = null, temperature = null, media = mime to audio)
         return chain.run<Transcript>(candidates) { model ->
-            when (val a: Attempt<JsonElement> = GeminiWire.post(http, baseUrl, model, key, body)) {
+            when (val a: Attempt<JsonElement> = wire.post(model, key, body)) {
                 is Attempt.Success -> {
                     val segments = if (lines.isEmpty()) segments(a.value) else aligned(a.value, lines)
                     if (segments == null) {
@@ -66,16 +69,16 @@ class GeminiTranscribeProvider(
      */
     override suspend fun transcribeScenes(audio: ByteArray, mime: String, scenes: List<SceneSpan>, lang: String?): AiResult<List<List<TranscriptSegment>>> {
         val key = apiKey()?.trim().orEmpty()
-        if (key.isEmpty()) return AiResult.Failed("no_api_key", "Add a Gemini API key in Settings")
+        if (key.isEmpty()) return AiResult.Failed("no_api_key", wire.noKey)
         if (audio.isEmpty()) return AiResult.Failed("empty_audio", "Audio is empty")
         if (scenes.isEmpty()) return AiResult.Failed("no_scenes", "No scenes to transcribe")
         if (audio.size > MAX_AUDIO_BYTES) {
             return AiResult.Failed("audio_too_big", "The scenes' sound is too big to send (${audio.size / 1_000_000} MB, at most ${MAX_AUDIO_BYTES / 1_000_000} MB)")
         }
-        val body = GeminiWire.request(scenesPrompt(scenes, lang), SCENES_SCHEMA, system = null, temperature = null, media = mime to audio).toString()
+        val body = wire.body(scenesPrompt(scenes, lang), SCENES_SCHEMA, system = null, temperature = null, media = mime to audio)
         var invalid = 0
         return chain.run<List<List<TranscriptSegment>>>(candidates) { model ->
-            when (val a: Attempt<JsonElement> = GeminiWire.post(http, baseUrl, model, key, body)) {
+            when (val a: Attempt<JsonElement> = wire.post(model, key, body)) {
                 is Attempt.Success -> {
                     val lines = sceneLines(a.value, scenes)
                     when {

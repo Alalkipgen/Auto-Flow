@@ -42,11 +42,15 @@ class RestoreException(message: String) : IOException(message)
 object ProjectZip {
     const val MANIFEST = "autoflow-backup.json"
 
-    data class Entry(val file: File, val path: String, val size: Long)
+    /** One file to write at [path]: [file]'s bytes, or [bytes] for a file made only for the zip (a render package's extras). */
+    class Entry(val file: File?, val path: String, val size: Long, val bytes: ByteArray? = null) {
+        override fun toString(): String = "Entry($path, $size)"
+    }
 
     data class ProjectPlan(val name: String, val files: Int, val bytes: Long)
 
-    data class Plan(val entries: List<Entry>, val projects: List<ProjectPlan>) {
+    /** [kind] goes into the manifest (`render-package`); restore ignores it, so a render package restores like a backup. */
+    data class Plan(val entries: List<Entry>, val projects: List<ProjectPlan>, val kind: String? = null) {
         val totalBytes: Long get() = entries.sumOf { it.size }
     }
 
@@ -85,8 +89,8 @@ object ProjectZip {
         for (e in plan.entries) {
             currentCoroutineContext().ensureActive()
             zip.setLevel(if (isCompressed(e.path)) Deflater.NO_COMPRESSION else Deflater.DEFAULT_COMPRESSION)
-            zip.putNextEntry(ZipEntry(e.path).apply { time = e.file.lastModified() })
-            e.file.inputStream().use { input ->
+            zip.putNextEntry(ZipEntry(e.path).apply { e.file?.let { time = it.lastModified() } })
+            (e.bytes?.inputStream() ?: e.file!!.inputStream()).use { input ->
                 while (true) {
                     val n = input.read(buffer)
                     if (n < 0) break
@@ -269,6 +273,7 @@ object ProjectZip {
     fun manifest(plan: Plan, createdAt: String): String = buildJsonObject {
         put("format", "autoflow-backup")
         put("version", 1)
+        plan.kind?.let { put("kind", it) }
         put("createdAt", createdAt)
         putJsonArray("projects") {
             plan.projects.forEach { p -> addJsonObject { put("folder", p.name); put("files", p.files); put("bytes", p.bytes) } }

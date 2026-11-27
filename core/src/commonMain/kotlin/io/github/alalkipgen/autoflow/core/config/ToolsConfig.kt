@@ -33,9 +33,13 @@ data class ToolsConfig(
     @Serializable
     data class Translate(val batchLines: Int = 40, val contextLines: Int = 5, val style: String = "spoken")
 
-    /** Subtitle checks and nudges; line length is measured like `CaptionChunks` (characters after joining spaces). */
+    /**
+     * Subtitle checks and nudges; line length is measured like `CaptionChunks` (characters after joining spaces).
+     * [shortCharsPerLine] = a burned caption's "Short" line (`BurnLength.SHORT`); "Long" = [maxCharsPerLine].
+     */
     @Serializable
-    data class Subtitles(val minCueMs: Long = 700, val maxCharsPerLine: Int = 42, val maxLines: Int = 2, val nudgeMs: Long = 100)
+    data class Subtitles(val minCueMs: Long = 700, val maxCharsPerLine: Int = 42, val maxLines: Int = 2, val nudgeMs: Long = 100,
+        val shortCharsPerLine: Int = 30)
 
     @Serializable
     data class Tts(val maxCharsPerPart: Int = 500, val partGapMs: Long = 300, val m4aBitrate: String = "160k", val tones: JsonObject = TONES) {

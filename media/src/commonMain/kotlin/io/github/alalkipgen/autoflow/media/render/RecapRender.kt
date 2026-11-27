@@ -111,7 +111,8 @@ object RecapRender {
                     c.inMs, p.row.videoSlow, duration).also { at += c.durationMs }
             }
         }
-        return RecapTimeline(clips, if (recap.burnCaptions) captions(placed, recap, story, output) else emptyList())
+        val voice = placed.mapNotNull { p -> p.voiced?.let { VoiceCue(it.file, p.startMs + RecapFit.LEAD_MS, speedFactor = p.row.voiceSpeed) } }
+        return RecapTimeline(clips, if (recap.burnCaptions) captions(placed, recap, story, output) else emptyList(), voice)
     }
 
     /** v1 shape: [graph] of [Recap.toV2]. */

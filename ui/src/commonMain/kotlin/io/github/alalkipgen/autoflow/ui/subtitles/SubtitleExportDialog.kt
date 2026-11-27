@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.alalkipgen.autoflow.core.model.ArtifactId
+import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.core.model.SourceVideo
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleExport
 import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
@@ -23,6 +25,8 @@ import io.github.alalkipgen.autoflow.media.render.RenderState
 import kotlinx.coroutines.launch
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.pack.RenderPackageCard
+import io.github.alalkipgen.autoflow.ui.pack.RenderPlan
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
 
@@ -33,7 +37,7 @@ import io.github.alalkipgen.autoflow.ui.theme.AutoFlowShapes
  */
 @Composable
 internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDoc, version: ArtifactId?, onClose: () -> Unit,
-    burner: SubtitleBurnModel? = null, line: Int? = null) {
+    burner: SubtitleBurnModel? = null, line: Int? = null, preview: BurnPreviewVideo? = null) {
     val s by exporter.state.collectAsState()
     var choice by remember(version) { mutableStateOf(SubtitleExport.defaultChoice(doc)) }
     val shareTitle = tr(UiText.SUB_EXPORT_SRT)
@@ -67,16 +71,24 @@ internal fun SubtitleExportDialog(exporter: SubtitleExportModel, doc: SubtitleDo
                         color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
                 }
             }
-            if (burner != null) BurnCard(burner, doc, version, choice, line)
+            if (burner != null) BurnCard(burner, doc, version, choice, line, preview)
             else PlannedTile(tr(UiText.SUB_EXPORT_VIDEO), tr(UiText.SUB_TRANSCRIBE_NEXT), Modifier.testTag("subtitles-export-video-planned"))
             AfButton(My.breakSyllables(tr(UiText.CLOSE)), onClose, Modifier.testTag("subtitles-export-close"))
         }
     }
 }
 
-/** Video with subtitles (S-4c): look, size, Make video → a Jobs task with progress and Cancel, then Play · Share · Save. */
+/** The source video for the burn's live preview (F-6): its file, its size and length, and the platform player. */
+internal class BurnPreviewVideo(val path: String, val video: SourceVideo, val player: SubtitlePlayer)
+
+/**
+ * Video with subtitles (S-4c): look, size, Make video → a Jobs task with progress and Cancel, then Play · Share · Save.
+ * F-6 (D-95): above the choices, the video plays with the subtitles drawn as they will be burned (each chip changes it
+ * at once), so they are checked before the render.
+ */
 @Composable
-private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice, startLine: Int?) {
+private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: ArtifactId?, choice: TextChoice, startLine: Int?,
+    preview: BurnPreviewVideo? = null) {
     val s by burner.state.collectAsState()
     val runs by burner.runs.collectAsState()
     val run = remember(runs, s.output) { burner.run() }
@@ -84,6 +96,12 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
     val shareTitle = tr(UiText.SUB_EXPORT_VIDEO)
     val state = run?.state
     AfCard(My.breakSyllables(tr(UiText.SUB_EXPORT_VIDEO)), Modifier.testTag("subtitles-export-video")) {
+        if (preview != null) {
+            val playhead = remember(doc) { Playhead().apply { seek(doc.cues.getOrNull(startLine ?: 0)?.startMs ?: 0) } }
+            val burned = remember(doc, choice, s.look, s.size, s.fit) { burner.previewOverlays(doc, choice) }
+            AfText(My.breakSyllables(tr(UiText.BURN_PREVIEW_HINT)), Modifier.testTag("burn-preview-hint"), muted = true)
+            SubtitlePreview(preview.path, preview.video, doc.cues, choice, playhead, preview.player, heightShare = 0.3f, tag = "burn", burned = burned)
+        }
         AfText(My.breakSyllables(tr(UiText.V3_STYLE_LOOK)), color = AutoFlowColors.Muted)
         WrapRow {
             listOf(BurnLook.CLEAN to UiText.V3_CAPTION_CLEAN, BurnLook.BOXED to UiText.V3_CAPTION_BOXED, BurnLook.OUTLINE to UiText.V3_CAPTION_OUTLINE)
@@ -91,12 +109,8 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
                     AfChip(My.breakSyllables(tr(label)), s.look == look, { burner.setLook(look) }, Modifier.testTag("subtitles-burn-${look.name}"))
                 }
         }
-        AfText(My.breakSyllables(tr(UiText.SIZE)), color = AutoFlowColors.Muted)
-        WrapRow {
-            listOf(BurnSize.SMALL to UiText.SMALL, BurnSize.MEDIUM to UiText.MEDIUM, BurnSize.LARGE to UiText.LARGE).forEach { (size, label) ->
-                AfChip(My.breakSyllables(tr(label)), s.size == size, { burner.setSize(size) }, Modifier.testTag("subtitles-burn-${size.name}"))
-            }
-        }
+        BurnSizeChips(s.size, burner::setSize, "subtitles-burn")
+        BurnFitChips(burner.fit(), burner::setFit, "subtitles-burn")
         AfText(My.breakSyllables(tr(UiText.SUB_BURN_KEEPS)), color = AutoFlowColors.Muted)
         CheckFrame(burner, doc, version, choice, startLine)
         when (state) {
@@ -129,6 +143,11 @@ private fun BurnCard(burner: SubtitleBurnModel, doc: SubtitleDoc, version: Artif
             AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("subtitles-burn-notice"),
                 color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber)
         }
+        RenderPackageCard({
+            val fit = burner.fit()
+            RenderPlan(mode = Mode.SUBTITLES, look = s.look.name, size = s.size.name, lines = fit.lines, length = fit.length.name,
+                text = choice.name, docVersion = version?.value, doc = doc)
+        })
     }
 }
 

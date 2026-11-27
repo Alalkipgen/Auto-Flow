@@ -149,7 +149,9 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
             },
             job.error,
         ).joinToString(" · ")
-        val progress = total?.let { n -> (clips ?: completed?.takeIf { multi })?.toDouble()?.div(n) }
+        // Voice jobs speak one item per request, so their bar is the items done (F-2), like a multi-part transcription.
+        val voiceItems = (job.kind == AiJobKind.TEXT_TTS || job.kind == AiJobKind.DUB_TTS) && total != null && total > 1
+        val progress = total?.let { n -> (clips ?: completed?.takeIf { multi || voiceItems })?.toDouble()?.div(n) }
         add(
             JobRow(
                 JobSource.AI, "${aiKindLabel(job.kind, language)} — ${aiStateLabel(job.state, language)}", detail,

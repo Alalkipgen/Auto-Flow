@@ -44,6 +44,21 @@ class RecapTimelineTest {
         assertEquals(emptyList(), timeline(r, exists = false).captions)
     }
 
+    /** F-5: the live preview plays the same voice cues the export mixes. */
+    @Test fun voiceCuesAreTheExportGraphsCues() {
+        val chosen = take(a, 6_000); val other = take(b, 1_500, "abcdef012345")
+        val r = RecapV2(movie = movie, takes = listOf(chosen, other), fit = mapOf(a.id to FitChoice.SPEED.name))
+        val t = timeline(r)
+        val graph = RecapRender.graph(r, story, Ratio.R16_9, Quality.PREVIEW, { "artifacts/${it.audio}.wav" }, "Pyidaungsu")
+        assertEquals(graph.voice!!.cues, t.voice)
+        assertEquals(listOf(RecapFit.LEAD_MS, t.clips.first { it.blockId == b.id }.outputFromMs + RecapFit.LEAD_MS), t.voice.map { it.startMs })
+        assertTrue(t.voice.first().speedFactor > 1f)
+        assertNull(t.voiceAt(RecapFit.LEAD_MS - 1))
+        assertEquals(t.voice[0], t.voiceAt(RecapFit.LEAD_MS))
+        assertEquals(t.voice[1], t.voiceAt(t.durationMs - 1))
+        assertEquals(emptyList(), timeline(r, exists = false).voice, "a missing take is not played")
+    }
+
     @Test fun speedMapsPersistedCaptionEdgesIntoTheOutputWithoutChangingSourceClips() {
         val take = take(a, 6_000)
         val r = RecapV2(movie = movie, takes = listOf(take), fit = mapOf(a.id to FitChoice.SPEED.name),

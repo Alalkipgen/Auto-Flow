@@ -88,9 +88,13 @@ class RecapFrames(
         data class Failed(val reason: String) : Result
     }
 
-    /** The Burmese font (Pyidaungsu, else Noto Sans Myanmar; regular weight first) from Settings or built in, or null. */
-    fun font(): LyricFont? {
-        val paths = BuiltInFonts.withBuiltIns(settings.state.value.fontPaths, builtInFonts)
+    /**
+     * The Burmese font (Pyidaungsu, else Noto Sans Myanmar; regular weight first) from Settings or built in, or null.
+     * F-7 (D-96): a project from a render package carries the font its render used in `fonts/`; then only those
+     * count, so the video looks the same on the phone, the PC and the server that renders it.
+     */
+    fun font(projectDir: String? = session.open?.dir): LyricFont? {
+        val paths = projectDir?.let(::packagedFonts).orEmpty().ifEmpty { BuiltInFonts.withBuiltIns(settings.state.value.fontPaths, builtInFonts) }
         val read = paths.mapNotNull { path ->
             val bytes = runCatching { fs.read(path) }.getOrNull() ?: return@mapNotNull null
             val info = FontInfo.parse(bytes) ?: return@mapNotNull null
@@ -102,6 +106,12 @@ class RecapFrames(
         val safe = best.family.filter { it.isLetterOrDigit() }.ifEmpty { "lyrics" }
         return LyricFont(best.family, "$safe.$ext", bytes)
     }
+
+    private fun packagedFonts(dir: String): List<String> = runCatching {
+        val fonts = joinPath(dir, PACKAGED_FONTS_DIR)
+        if (!fs.exists(fonts)) emptyList()
+        else fs.list(fonts).filter { it.substringAfterLast('.').lowercase() in setOf("ttf", "otf") }.sorted().map { joinPath(fonts, it) }
+    }.getOrDefault(emptyList())
 
     /** Copies [font] into the project's `.cache/fonts` (libass reads fonts only from there); null = done. */
     fun installFont(open: OpenProject, font: LyricFont?): String? {
@@ -218,6 +228,8 @@ class RecapFrames(
 
     companion object {
         const val FONTS_DIR = ".cache/fonts"
+        /** A render package's font folder (`RenderPackage.FONTS` in :platform). */
+        const val PACKAGED_FONTS_DIR = "fonts"
         const val FRAMES_DIR = ".cache/frames"
         private val FINGERPRINT_JSON = Json { encodeDefaults = true }
 

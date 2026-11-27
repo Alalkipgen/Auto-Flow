@@ -68,9 +68,14 @@ jobs:
       - name: Launch the packaged app headlessly (smoke test)
         env: { SMOKE_OUT: "${{ runner.temp }}/desktop-smoke" }
         run: bash tools/desktop-smoke.sh
+      - name: Command-line render (F-7, D-96) exit codes and the Linux app as a download
+        env: { SMOKE_OUT: "${{ runner.temp }}/desktop-smoke" }
+        run: bash tools/linux-app-package.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: desktop-smoke, path: "${{ runner.temp }}/desktop-smoke", if-no-files-found: warn, retention-days: 30 }
+      - uses: actions/upload-artifact@v4
+        with: { name: "${{ env.LINUX_APP }}", path: "${{ runner.temp }}/linux-app", if-no-files-found: error, retention-days: 30 }
 
   windows:
     # D-19: real DPAPI round trip (AUTOFLOW_EXPECT_DPAPI makes the test fail if it is not on Windows), and JvmFs on NTFS.

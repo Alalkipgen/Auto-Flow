@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.ui.dubbing
 
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiRequestCard
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,7 +31,7 @@ private fun sec(ms: Long) = ((ms + 99) / 100) / 10.0
 /** The Voice step (D-2b): voice, tone and original sound, the Speak card, and every line with its take and fit. */
 @Composable
 internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, toExport: () -> Unit,
-    shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}) {
+    shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}, preview: @Composable () -> Unit = {}) {
     val all by model.state.collectAsState()
     val jobs by model.jobs.collectAsState()
     val dir = open?.dir
@@ -42,6 +44,8 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
     Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
         LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("dub-voice-rows"), contentPadding = PaddingValues(screenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // F-6: the preview scrolls with the step, so a phone with a large font keeps room for the controls.
+            item(key = "preview") { preview() }
             item(key = "settings") { Settings(model, open, idle) }
             item(key = "speak") { Speak(model, s, job) }
             if (shorten != null && script != null && dir != null) item(key = "shorten") { Shorten(shorten, script, dir, rows, doc, idle, toScript) }
@@ -116,7 +120,7 @@ private fun Settings(model: DubVoiceModel, open: OpenProject?, idle: Boolean) {
 private fun Speak(model: DubVoiceModel, s: DubVoiceUi, job: AiJob?) {
     val c = s.confirm
     when {
-        job != null -> AfCard(My.breakSyllables(tr(UiText.JOB_DUB_TTS)), Modifier.testTag("dub-speak-job")) {
+        job != null -> ToolAiJobCard(job, Modifier.testTag("dub-speak-job")) {
             val n = maxOf(job.initialItemCount ?: 0, job.items.size)
             val done = n - job.items.size
             val text = when (job.state) {
@@ -134,7 +138,7 @@ private fun Speak(model: DubVoiceModel, s: DubVoiceUi, job: AiJob?) {
         }
         c != null -> AfCard(My.breakSyllables(tr(UiText.DUB_SPEAK_LINES, "n" to c.lines.size)), Modifier.testTag("dub-speak-confirm")) {
             AfText(My.breakSyllables(tr(UiText.VA_SPEAK_CONFIRM, "n" to c.lines.size, "voice" to "${c.lock.voice} · ${c.lock.model}",
-                "minutes" to (c.lines.size + VoiceSpeakJob.RPM - 1) / VoiceSpeakJob.RPM)), Modifier.testTag("dub-speak-facts"), bold = true)
+                "minutes" to model.minutes(c.lines.size, c.lock))), Modifier.testTag("dub-speak-facts"), bold = true)
             WrapRow {
                 AfButton(My.breakSyllables(tr(UiText.START)), { model.start() }, Modifier.testTag("dub-speak-start"), kind = ButtonKind.Primary)
                 AfButton(My.breakSyllables(tr(UiText.BACK)), { model.dismiss() }, Modifier.testTag("dub-speak-back"))
@@ -154,10 +158,15 @@ private fun Shorten(model: DubShortenModel, script: DubScriptModel, dir: String,
     val all by model.state.collectAsState()
     val s = all.takeIf { it.dir == dir } ?: DubShortenUi()
     val long = remember(rows, doc) { model.lines(rows, doc).size }
-    if (long == 0 && s.rows.isEmpty() && s.notice == null) return
+    if (long == 0 && s.rows.isEmpty() && s.notice == null && !s.busy) return
+    if (s.busy) {
+        ToolAiRequestCard(My.breakSyllables(tr(UiText.DUB_SHORTEN)), Modifier.testTag("dub-shorten-card")) {
+            AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_WORKING)), Modifier.testTag("dub-shorten-working"), muted = true)
+        }
+        return
+    }
     AfCard(My.breakSyllables(tr(UiText.DUB_SHORTEN)), Modifier.testTag("dub-shorten-card")) {
         when {
-            s.busy -> AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_WORKING)), Modifier.testTag("dub-shorten-working"), muted = true)
             s.rows.isNotEmpty() -> {
                 AfText(My.breakSyllables(tr(UiText.DUB_SHORTEN_TITLE)), bold = true)
                 s.rows.forEach { r ->

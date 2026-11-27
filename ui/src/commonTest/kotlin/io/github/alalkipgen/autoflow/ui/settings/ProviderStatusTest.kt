@@ -30,6 +30,26 @@ class ProviderStatusTest {
     }
 
     @Test
+    fun hostSendsTextAndTranscribeWhereSettingsSay() = runTest {
+        val settings = SettingsStore(fs, "/c/settings.json")
+        val secrets = MemorySecureStorage()
+        val host = AppAiHost(settings, secrets, { PlatformResult.Ok(Unit) }, { PlatformResult.Ok(Unit) })
+        assertEquals("gemini", host.textService())
+        assertEquals("gemini", host.transcribeService())
+        assertNull(host.chatboxKey())
+        secrets.put(SecretNames.CHATBOX_LICENSE_KEY, "LIC")
+        settings.update { it.copy(textService = "chatbox", useFakeProviders = false) }
+        assertEquals("chatbox", host.textService())
+        assertEquals("gemini", host.transcribeService())
+        assertEquals("LIC", host.chatboxKey())
+        val status = ProviderStatusModel(settings, secrets)
+        assertEquals("Chatbox AI ● License key · Flow ● Manual", status.current())
+        secrets.remove(SecretNames.CHATBOX_LICENSE_KEY)
+        status.refreshKey()
+        assertEquals("Chatbox AI ● No key · Flow ● Manual", status.status.first())
+    }
+
+    @Test
     fun nonWindowsRealModeSaysWindowsOnly() {
         assertEquals("Gemini API ● Windows only · Flow ● Manual", providerStatus(false, MemorySecureStorage(unsupported = true).geminiKeyState()))
     }

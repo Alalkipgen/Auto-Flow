@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.subtitles
 
+import io.github.alalkipgen.autoflow.ui.jobs.ToolAiJobCard
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -60,7 +61,7 @@ internal fun TranslatePanel(model: SubtitleTranslateModel, dir: String) {
 private fun TranslateJobCard(model: SubtitleTranslateModel, job: AiJob) {
     val n = maxOf(job.initialItemCount ?: 0, job.items.size)
     val done = n - job.items.size
-    AfCard(My.breakSyllables(tr(UiText.JOB_SUB_TRANSLATE)), Modifier.testTag("subtitles-translate-job")) {
+    ToolAiJobCard(job, Modifier.testTag("subtitles-translate-job")) {
         val text = when (job.state) {
             AiJobState.PAUSED -> tr(UiText.SUB_TRANSLATE_PAUSED, "done" to done, "n" to n) + (job.error?.let { " $it" } ?: "")
             AiJobState.FAILED -> tr(UiText.SUB_TRANSLATE_STOPPED, "detail" to (job.error ?: ""), "done" to done, "n" to n)

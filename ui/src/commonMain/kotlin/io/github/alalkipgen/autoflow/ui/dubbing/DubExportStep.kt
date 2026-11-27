@@ -8,12 +8,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.alalkipgen.autoflow.core.model.DubOriginal
+import io.github.alalkipgen.autoflow.core.model.Mode
+import io.github.alalkipgen.autoflow.ui.pack.RenderPackageCard
+import io.github.alalkipgen.autoflow.ui.pack.RenderPlan
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.media.audio.DubMixer
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
+import io.github.alalkipgen.autoflow.ui.subtitles.BurnFitChips
+import io.github.alalkipgen.autoflow.ui.subtitles.BurnSizeChips
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import kotlinx.coroutines.launch
 
@@ -23,7 +28,8 @@ import kotlinx.coroutines.launch
  * Save to Gallery (phone) or Open folder (desktop).
  */
 @Composable
-internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: SubtitleDoc, go: (DubStep) -> Unit) {
+internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: SubtitleDoc, go: (DubStep) -> Unit,
+    preview: @Composable () -> Unit = {}) {
     val all by model.state.collectAsState()
     val runs by model.runs.collectAsState()
     val s = all.takeIf { it.dir == open?.dir } ?: DubExportUi()
@@ -33,6 +39,7 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
     Column(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(screenPadding).testTag("dub-export"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            preview() // F-6: scrolls with the step
             if (check != null && !check.ok) AfCard(My.breakSyllables(tr(UiText.DUB_EXPORT_NOT_READY)), Modifier.testTag("dub-export-blocks")) {
                 if (!check.approved) Block(tr(UiText.DUB_LOCK_NOT_APPROVED), "approval", DubStep.SCRIPT, go)
                 if (check.noVoice.isNotEmpty()) Block(tr(UiText.DUB_EXPORT_NO_VOICE, "n" to check.noVoice.size), "voice", DubStep.VOICE, go)
@@ -47,8 +54,18 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                     AfChip(My.breakSyllables(tr(UiText.DUB_SAVE_WAV)), s.wav, { model.setWav(!s.wav) }, Modifier.testTag("dub-save-wav"), enabled = !s.busy)
                 }
                 AfText(My.breakSyllables(tr(UiText.DUB_EXPORT_KEEPS)), muted = true)
+                if (tool?.burnSubtitles == true) {
+                    BurnSizeChips(s.size, model::setSize, "dub-burn-size", enabled = !s.busy)
+                    BurnFitChips(model.fit(open), model::setFit, "dub-burn", enabled = !s.busy)
+                }
             }
             if (run != null) Progress(model, s, run.kind, run.state)
+            // F-7 (D-96): this export's choices and script in a render package, to render it elsewhere.
+            RenderPackageCard({
+                val fit = model.fit(open)
+                RenderPlan(mode = Mode.DUBBING, size = s.size.name, lines = fit.lines, length = fit.length.name, wav = s.wav,
+                    docVersion = open?.project?.subtitles?.current?.value, doc = doc)
+            })
             s.notice?.let { AfText(My.breakSyllables(it.text(LocalUiLanguage.current)), Modifier.testTag("dub-export-notice"),
                 color = if (s.ok) AutoFlowColors.Green else AutoFlowColors.Amber) }
         }

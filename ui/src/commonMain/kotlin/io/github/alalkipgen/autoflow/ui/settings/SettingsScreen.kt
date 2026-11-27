@@ -239,6 +239,7 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
             }
             AfText(tr(UiText.TTS_TEST_HINT), muted = true, size = 12.sp)
         }
+        if (model.chatboxOffered) ChatboxRows(state, model, scope)
         val total = state.usageToday.values.sum()
         AfText(
             tr(UiText.TODAY_CALLS_FIRST, "total" to (total)) + (if (LocalUiLanguage.current == UiLanguage.ENGLISH && total != 1) "s" else "") + tr(UiText.TODAY_CALLS_RETRIES) +
@@ -247,6 +248,48 @@ private fun AiCard(state: SettingsUiState, model: SettingsModel, scope: Coroutin
                 },
             muted = true,
         )
+    }
+}
+
+/** F-4 (D-93): the Chatbox AI license key next to the Gemini key, and which service answers text and Transcribe calls. */
+@Composable
+private fun ChatboxRows(state: SettingsUiState, model: SettingsModel, scope: CoroutineScope) {
+    var input by remember { mutableStateOf("") }
+    val hasKey = state.chatboxKeyState == KeyState.SET
+    AfText(tr(UiText.CHATBOX_AI), Modifier.testTag("settings-chatbox"))
+    AfText(
+        when (state.chatboxKeyState) {
+            KeyState.SET -> tr(UiText.CHATBOX_KEY_SAVED_MASKED, "orEmpty" to state.maskedChatboxKey.orEmpty())
+            KeyState.MISSING -> tr(UiText.CHATBOX_KEY_NOT_SAVED)
+            KeyState.UNREADABLE, KeyState.UNSUPPORTED -> tr(UiText.CHATBOX_KEY_PROBLEM)
+        },
+        muted = true,
+    )
+    FieldRow(
+        field = { AfTextField(input, { input = it }, tr(UiText.CHATBOX_KEY_PASTE), it.testTag("chatbox-key-field"), secret = true) },
+        actions = {
+            AfButton(tr(UiText.SAVE), { model.saveChatboxKey(input); input = "" }, Modifier.testTag("chatbox-key-save"),
+                kind = ButtonKind.Primary, enabled = input.isNotBlank())
+            AfButton(tr(UiText.TEST), { scope.launch { model.testChatboxKey() } }, Modifier.testTag("chatbox-key-test"),
+                enabled = hasKey && !state.testing)
+            AfButton(tr(UiText.REMOVE), model::removeChatboxKey, Modifier.testTag("chatbox-key-remove"), kind = ButtonKind.Danger, enabled = hasKey)
+        },
+    )
+    state.geminiTest?.takeIf { it.label == UiText.JOB_TEST_CHATBOX_KEY }?.let { GeminiDiagnosticCard(it, model) }
+    AfText(tr(UiText.CHATBOX_KEY_HINT), muted = true, size = 12.sp)
+    ServiceChips(tr(UiText.AI_SERVICE_TEXT), state.settings.textService, hasKey, "text-service", model::setTextService)
+    ServiceChips(tr(UiText.AI_SERVICE_TRANSCRIBE), state.settings.transcribeService, hasKey, "transcribe-service", model::setTranscribeService)
+    AfText(tr(UiText.CHATBOX_TRANSCRIBE_HINT), muted = true, size = 12.sp)
+}
+
+@Composable
+private fun ServiceChips(label: String, service: String, chatboxReady: Boolean, tag: String, onPick: (String) -> Unit) {
+    val chatbox = service == io.github.alalkipgen.autoflow.ai.registry.AiService.CHATBOX
+    AfText(label, muted = true)
+    WrapRow {
+        AfChip("Gemini", !chatbox, { onPick(io.github.alalkipgen.autoflow.ai.registry.AiService.GEMINI) }, Modifier.testTag("$tag-gemini"))
+        AfChip("Chatbox AI", chatbox, { onPick(io.github.alalkipgen.autoflow.ai.registry.AiService.CHATBOX) }, Modifier.testTag("$tag-chatbox"),
+            enabled = chatboxReady || chatbox)
     }
 }
 

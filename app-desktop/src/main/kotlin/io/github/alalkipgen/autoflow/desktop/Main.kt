@@ -11,8 +11,14 @@ import io.github.alalkipgen.autoflow.ui.shell.App
 import java.awt.Frame
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import kotlin.system.exitProcess
 
-fun main() {
+fun main(args: Array<String>) {
+    // F-7 (D-96): `--render` / `--help` run on the command line, without the window.
+    if (HeadlessRender.wanted(args)) {
+        System.setProperty("java.awt.headless", "true")
+        exitProcess(HeadlessRender.run(args.toList()))
+    }
     var mainWindow: Frame? = null
     startKoin { modules(desktopModule { mainWindow }, uiModule, aiModule) }
     application {

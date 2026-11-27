@@ -37,4 +37,6 @@ private class ExoSongPlayer(private val exo: ExoPlayer) : SongPlayer {
     override fun play() = exo.play()
     override fun pause() = exo.pause()
     override fun seekTo(ms: Long) = exo.seekTo(ms)
+    override fun setSpeed(speed: Float) { exo.setPlaybackSpeed(speed.coerceIn(0.5f, 2f)) }
+    override fun setVolume(volume: Float) { exo.volume = volume.coerceIn(0f, 1f) }
 }

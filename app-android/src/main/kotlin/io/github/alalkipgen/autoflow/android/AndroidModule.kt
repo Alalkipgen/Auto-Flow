@@ -66,6 +66,8 @@ fun androidModule(app: Application) = module {
     single<ProjectBackup> { AndroidProjectBackup(app) }
     // Export screen (Q-09 c): open / share the mp4, battery warning before a render.
     single<FileShare> { AndroidFileShare(app) }
+    // F-7 (D-96): render packages (Export ▸ Render package; Projects ▸ Open package).
+    single<io.github.alalkipgen.autoflow.platform.RenderPackages> { io.github.alalkipgen.autoflow.platform.JvmRenderPackages() }
     single<BatteryReader> { BatteryReader { Battery.read(app).let { BatteryReading(it.percent, it.charging) } } }
     single<BundledConfig> {
         object : BundledConfig {

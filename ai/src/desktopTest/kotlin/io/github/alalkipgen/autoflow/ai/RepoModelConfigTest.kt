@@ -20,6 +20,7 @@ class RepoModelConfigTest {
         // Edge voices (D-86): set up, Burmese Thiha + Nilar, and their model id is never a Gemini candidate.
         assertTrue(config.tts.edge.available)
         assertEquals(listOf("Thiha", "Nilar"), config.tts.edge.voicesFor("my").map { it.name })
+        assertEquals(20, config.tts.edge.rpm, "F-3: Edge keeps its own pace, not Gemini's 3 rpm")
         assertTrue(config.tts.candidates.none { it.id == config.tts.edge.model })
     }
 }

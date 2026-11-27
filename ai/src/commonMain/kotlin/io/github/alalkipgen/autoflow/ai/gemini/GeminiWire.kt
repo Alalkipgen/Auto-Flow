@@ -240,3 +240,14 @@ internal object GeminiWire {
     private fun JsonObject.int(key: String) = (this[key] as? JsonPrimitive)?.intOrNull
     private fun JsonArray?.orEmpty(): List<JsonElement> = this ?: emptyList()
 }
+
+/** [GeminiWire] as a [io.github.alalkipgen.autoflow.ai.retry.JsonWire] for the text and transcribe providers. */
+class GeminiJsonWire(private val http: HttpClient, private val baseUrl: String = GeminiTextProvider.DEFAULT_BASE_URL) :
+    io.github.alalkipgen.autoflow.ai.retry.JsonWire {
+    override val noKey: String = "Add a Gemini API key in Settings"
+
+    override fun body(prompt: String, schema: JsonSchema, system: String?, temperature: Double?, media: Pair<String, ByteArray>?): String =
+        GeminiWire.request(prompt, schema, system, temperature, media).toString()
+
+    override suspend fun post(model: String, key: String, body: String): Attempt<JsonElement> = GeminiWire.post(http, baseUrl, model, key, body)
+}

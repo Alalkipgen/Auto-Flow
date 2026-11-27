@@ -149,6 +149,7 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
     LaunchedEffect(arrivals) { if (arrivals > 0) screen = "Inbox" }
     val koin = getKoin()
     val appInfo = remember(koin) { koin.getOrNull<AppInfo>() }
+    val renderPackages = remember(koin) { koin.getOrNull<io.github.alalkipgen.autoflow.ui.pack.RenderPackageModel>() }
     val currentProject = koinInject<CurrentProject>()
     val backup = koinInject<BackupModel>().takeIf { it.available }
     val settingsStore = koinInject<SettingsStore>()
@@ -213,7 +214,8 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                 else -> ScreenPlaceholder(current)
             }
         }
-        CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(settings.uiLanguage), LocalCompact provides compact, LocalUiFontFamily provides uiFont) {
+        CompositionLocalProvider(io.github.alalkipgen.autoflow.ui.i18n.LocalUiLanguage provides io.github.alalkipgen.autoflow.ui.i18n.UiLanguage.fromCode(settings.uiLanguage), LocalCompact provides compact, LocalUiFontFamily provides uiFont,
+            io.github.alalkipgen.autoflow.ui.pack.LocalRenderPackages provides renderPackages) {
             if (features.studioV2) {
                 StudioV2App(
                     status = status,
@@ -267,11 +269,13 @@ const val SHOT_SHEET = "Shot sheet"
 
 /** The classic Music Video steps, kept for one release behind this entry (like Classic Recap, D-41). */
 const val MV_CLASSIC = "Classic steps"
+/** F-6: the Music Video Preview page (no render). */
+const val MV_PREVIEW = "Preview"
 val MV_CLASSIC_SCREENS = listOf("Storyboard", "Shots", "References", "Flow Handoff")
 
 /** Project screens reachable in Studio v2, per project mode. */
 fun v2ProjectScreens(recap: Boolean): List<String> =
-    if (recap) listOf("Recap", "Export") else listOf("Input", SHOT_SHEET, "Inbox", "Export", MV_CLASSIC)
+    if (recap) listOf("Recap", "Export") else listOf("Input", SHOT_SHEET, "Inbox", MV_PREVIEW, "Export", MV_CLASSIC)
 
 /**
  * Studio v2 root (5A-6): Home · Projects · Library · Jobs with adaptive shell.
@@ -517,7 +521,19 @@ private fun V2ProjectScreen(screen: String, windowWidthDp: Float,
             io.github.alalkipgen.autoflow.ui.handoff.FlowHandoffScreen(model = koinInject(), readBytes = { path -> runCatching { fs.read(path) }.getOrNull() })
         }
         "Inbox" -> io.github.alalkipgen.autoflow.ui.inbox.InboxScreen(koinInject(), shared = koinInject())
-        "Export" -> io.github.alalkipgen.autoflow.ui.export.ExportScreen(koinInject())
+        // F-6 (D-95): the Music Video before any render, as its own page and on top of Export.
+        MV_PREVIEW -> {
+            val model = koinInject<io.github.alalkipgen.autoflow.ui.export.ExportModel>()
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding).testTag("mv-preview-page")) {
+                io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview(model, io.github.alalkipgen.autoflow.ui.subtitles.moviePlayer(model.previewVlcDir()))
+            }
+        }
+        "Export" -> {
+            val model = koinInject<io.github.alalkipgen.autoflow.ui.export.ExportModel>()
+            io.github.alalkipgen.autoflow.ui.export.ExportScreen(model, livePreview = {
+                io.github.alalkipgen.autoflow.ui.export.MusicVideoPreview(model, io.github.alalkipgen.autoflow.ui.subtitles.moviePlayer(model.previewVlcDir()))
+            })
+        }
         else -> ScreenPlaceholder(screen)
     }
 }

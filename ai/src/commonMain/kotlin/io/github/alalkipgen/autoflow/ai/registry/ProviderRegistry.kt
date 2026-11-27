@@ -12,6 +12,7 @@ import io.github.alalkipgen.autoflow.ai.TranscriptSegment
 import io.github.alalkipgen.autoflow.ai.TtsCapabilities
 import io.github.alalkipgen.autoflow.ai.TtsProvider
 import io.github.alalkipgen.autoflow.ai.VoiceRef
+import io.github.alalkipgen.autoflow.ai.chatbox.ChatCompletionsWire
 import io.github.alalkipgen.autoflow.ai.config.ImageMode
 import io.github.alalkipgen.autoflow.ai.config.ModelCapability
 import io.github.alalkipgen.autoflow.ai.config.ModelConfig
@@ -47,13 +48,29 @@ interface AiHost {
 
     /** Edge voices (D-86): an mp3 as 16-bit PCM WAV (ffmpeg); null when it cannot be decoded here. */
     suspend fun mp3ToWav(mp3: ByteArray): ByteArray? = null
+
+    /** F-4 (D-93): the service for text calls (Script, Translate, Shorten, Storyboard): [AiService.GEMINI] or [AiService.CHATBOX]. */
+    fun textService(): String = AiService.GEMINI
+
+    /** F-4: the service for Transcribe (audio in the request). */
+    fun transcribeService(): String = AiService.GEMINI
+
+    /** The Chatbox AI license key from SecureStorage; null or blank when not set. Never logged or persisted by :ai. */
+    suspend fun chatboxKey(): String? = null
+}
+
+/** Settings values of [AiHost.textService] / [AiHost.transcribeService]; anything else means Gemini. */
+object AiService {
+    const val GEMINI = "gemini"
+    const val CHATBOX = "chatbox"
 }
 
 /**
  * Picks fake or real providers per call from [AiHost.useFakeProviders], so switching the setting takes effect
  * without restarting. Real = [GeminiTextProvider] + [ManualImageProvider] (D-14) + [GeminiTranscribeProvider]
  * (audio input on the text models, D-31) + [GeminiTtsProvider] (D-34), or [EdgeTtsProvider] when the voice lock names the
- * Edge model (D-86). The HTTP client is created on first real call.
+ * Edge model (D-86). Text and Transcribe go to Chatbox AI instead when Settings chooses it (F-4, D-93): the same prompts as
+ * OpenAI-compatible chat completions. The HTTP client is created on first real call.
  */
 class ProviderRegistry(
     private val host: AiHost,
@@ -83,12 +100,32 @@ class ProviderRegistry(
             ModelChain(usage = usage),
         )
     }
+    private val chatboxWire by lazy { ChatCompletionsWire(http.value, config.chatbox.baseUrl) }
+    private val chatboxText by lazy {
+        GeminiTextProvider(http.value, { host.chatboxKey() }, config.chatbox.text, ModelChain(), wire = chatboxWire)
+    }
+    private val chatboxTranscribe by lazy {
+        GeminiTranscribeProvider(http.value, { host.chatboxKey() }, config.chatbox.transcribeModels, ModelChain(), wire = chatboxWire)
+    }
     private val edgeTts by lazy { EdgeTtsProvider(config.tts.edge, edgeSocket.value, host::mp3ToWav) }
     private val manualImage = ManualImageProvider(host::copyToClipboard, host::openUrl, config.image.manualUrl)
 
     val text: TextProvider = object : TextProvider {
         override suspend fun json(prompt: String, schema: JsonSchema, system: String?): AiResult<JsonElement> =
-            (if (usingFakes) fakeText else gemini).json(prompt, schema, system)
+            textNow().json(prompt, schema, system)
+    }
+
+    /** Fakes, else the service chosen in Settings (F-4); Chatbox AI calls are not counted in Gemini's daily usage. */
+    private fun textNow(): TextProvider = when {
+        usingFakes -> fakeText
+        host.textService() == AiService.CHATBOX -> chatboxText
+        else -> gemini
+    }
+
+    private fun transcribeNow(): TranscribeProvider = when {
+        usingFakes -> fakeTranscribe
+        host.transcribeService() == AiService.CHATBOX -> chatboxTranscribe
+        else -> geminiTranscribe
     }
 
     val image: ImageProvider = object : ImageProvider {
@@ -113,10 +150,10 @@ class ProviderRegistry(
 
     val transcribe: TranscribeProvider = object : TranscribeProvider {
         override suspend fun transcribe(audio: ByteArray, lang: String, mime: String, lines: List<String>): AiResult<Transcript> =
-            (if (usingFakes) fakeTranscribe else geminiTranscribe).transcribe(audio, lang, mime, lines)
+            transcribeNow().transcribe(audio, lang, mime, lines)
 
         override suspend fun transcribeScenes(audio: ByteArray, mime: String, scenes: List<SceneSpan>, lang: String?): AiResult<List<List<TranscriptSegment>>> =
-            (if (usingFakes) fakeTranscribe else geminiTranscribe).transcribeScenes(audio, mime, scenes, lang)
+            transcribeNow().transcribeScenes(audio, mime, scenes, lang)
     }
 
     /** What the UI may offer right now. Fakes can do everything offline. */
@@ -138,6 +175,14 @@ class ProviderRegistry(
      * toward today's usage like any other call. `RateLimited` still means the key itself was accepted.
      */
     suspend fun testGeminiKey(): AiResult<Unit> = when (val r = gemini.json(KEY_TEST_PROMPT, KEY_TEST_SCHEMA)) {
+        is AiResult.Ok -> AiResult.Ok(Unit, r.usage)
+        is AiResult.RateLimited -> r
+        is AiResult.Failed -> r
+        is AiResult.Deferred -> r
+    }
+
+    /** Settings → Chatbox AI "Test" (F-4): one tiny request with the saved license key and the first `chatbox.text` model. */
+    suspend fun testChatboxKey(): AiResult<Unit> = when (val r = chatboxText.json(KEY_TEST_PROMPT, KEY_TEST_SCHEMA)) {
         is AiResult.Ok -> AiResult.Ok(Unit, r.usage)
         is AiResult.RateLimited -> r
         is AiResult.Failed -> r

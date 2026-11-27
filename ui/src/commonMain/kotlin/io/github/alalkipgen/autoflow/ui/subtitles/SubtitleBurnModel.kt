@@ -14,10 +14,12 @@ import io.github.alalkipgen.autoflow.core.subtitles.TextChoice
 import io.github.alalkipgen.autoflow.media.probe.MediaProbe
 import io.github.alalkipgen.autoflow.media.render.BurnLook
 import io.github.alalkipgen.autoflow.media.render.BurnSize
+import io.github.alalkipgen.autoflow.media.render.BurnFit
 import io.github.alalkipgen.autoflow.media.render.FontInfo
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.media.render.SubtitleBurn
+import io.github.alalkipgen.autoflow.media.render.Overlay
 import io.github.alalkipgen.autoflow.media.tool.ToolExec
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
@@ -35,7 +37,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** The video part of the export dialog: look, size, the last started burn ([output]) and why one did not start. */
 data class SubtitleBurnUi(val look: BurnLook = BurnLook.CLEAN, val size: BurnSize = BurnSize.MEDIUM, val output: String? = null,
-    val notice: UiNotice? = null, val ok: Boolean = false, val checking: Boolean = false, val frame: BurnFrame? = null)
+    val notice: UiNotice? = null, val ok: Boolean = false, val checking: Boolean = false, val frame: BurnFrame? = null,
+    /** Lines on screen and line length; null = [BurnFit.auto] by the video's frame. */
+    val fit: BurnFit? = null)
 
 /** A checked frame: line index [line] at [atMs], PNG [bytes]. */
 class BurnFrame(val line: Int, val atMs: Long, val bytes: ByteArray)
@@ -45,7 +49,7 @@ class BurnFrame(val line: Int, val atMs: Long, val bytes: ByteArray)
  * burned into the source video as a [MediaTaskJob] — Jobs row, real progress, Cancel. Pre-flight: no lines / bad
  * times (as `.srt`), and a Burmese burn needs a Burmese font (Settings → Fonts or built in). The font is copied into
  * the project's `.cache/fonts` like the Recap export; the `.ass` goes to `.cache/burn/` (not an artifact). Output
- * `exports/<project>-<lang>-<version>-<look>-<size>.mp4`: the same choice gives the same file, never overwritten.
+ * `exports/<project>-<lang>-<version>-<look>-<size>-<lines>l-<length>.mp4`: the same choice gives the same file, never overwritten.
  */
 class SubtitleBurnModel(
     private val session: ProjectSession,
@@ -62,6 +66,24 @@ class SubtitleBurnModel(
 
     fun setLook(look: BurnLook) { _state.value = _state.value.copy(look = look, notice = null, frame = null) }
     fun setSize(size: BurnSize) { _state.value = _state.value.copy(size = size, notice = null, frame = null) }
+    fun setFit(fit: BurnFit) { _state.value = _state.value.copy(fit = fit, notice = null, frame = null) }
+
+    /** The lines / line length the burn uses now: the owner's choice, else by the open video's frame. */
+    fun fit(): BurnFit = _state.value.fit ?: session.open?.project?.subtitles?.video.let { v ->
+        BurnFit.auto(v?.width?.takeIf { it > 0 } ?: 1920, v?.height?.takeIf { it > 0 } ?: 1080)
+    }
+
+    /**
+     * F-6 (D-95): the subtitles of [choice] exactly as Make video will burn them now (look, size, lines, line length;
+     * [SubtitleBurn.overlays], the same call as the `.ass`), for the live preview before the render.
+     */
+    fun previewOverlays(doc: SubtitleDoc, choice: TextChoice): List<Overlay> {
+        val video = session.open?.project?.subtitles?.video
+        val s = _state.value
+        val fit = fit()
+        return SubtitleBurn.overlays(SubtitleOps.toSrt(doc, choice), video?.width?.takeIf { it > 0 } ?: 1920,
+            video?.height?.takeIf { it > 0 } ?: 1080, "", s.look, s.size, fit.maxChars(config.subtitles), maxLines = fit.lines)
+    }
 
     val runs: StateFlow<List<MediaTaskRun>> get() = tasks.runs
 
@@ -144,14 +166,15 @@ class SubtitleBurnModel(
         if (font == null && burmese) { say(UiNotice(UiText.SUB_BURN_NO_FONT)); return null }
         frames?.installFont(open, font)?.let { say(UiNotice(UiText.RESULT_DETAIL, "detail" to it)); return null }
         val s = _state.value
+        val fit = s.fit ?: BurnFit.auto(video.width.takeIf { it > 0 } ?: 1920, video.height.takeIf { it > 0 } ?: 1080)
         val name = SubtitleExport.fileName(open.project.name, choice, version?.value.orEmpty(), "mp4").removeSuffix(".mp4") +
-            "-${s.look.name.lowercase()}-${s.size.name.lowercase()}"
+            "-${s.look.name.lowercase()}-${s.size.name.lowercase()}-${fit.nameSuffix()}"
         val ass = ".cache/burn/$name.ass"
         return try {
             fs.createDirectories(joinPath(open.dir, ".cache/burn"))
             fs.writeDurably(joinPath(open.dir, ass), SubtitleBurn.ass(SubtitleOps.toSrt(doc, choice), video.width.takeIf { it > 0 } ?: 1920,
-                video.height.takeIf { it > 0 } ?: 1080, font?.family ?: "Sans", s.look, s.size, config.subtitles.maxCharsPerLine,
-                font?.let { FontInfo.parse(it.bytes)?.assScale }).encodeToByteArray())
+                video.height.takeIf { it > 0 } ?: 1080, font?.family ?: "Sans", s.look, s.size, fit.maxChars(config.subtitles),
+                font?.let { FontInfo.parse(it.bytes)?.assScale }, maxLines = fit.lines).encodeToByteArray())
             Prepared(open.dir, open.project.name, video, name, ass)
         } catch (e: Exception) {
             say(UiNotice(UiText.RESULT_DETAIL, "detail" to (e.message ?: e::class.simpleName.orEmpty()))); null
