@@ -75,6 +75,23 @@ class ProviderRegistryTest {
     }
 
     @Test
+    fun theEdgeModelLockSpeaksWithEdgeWithoutAKeyOrGemini() = runTest {
+        val edge = io.github.alalkipgen.autoflow.ai.config.EdgeTtsConfig(model = "edge-tts", endpoint = "wss://edge.test", trustedClientToken = "T",
+            voices = listOf(io.github.alalkipgen.autoflow.ai.config.EdgeVoice("my-MM-ThihaNeural", "Thiha", lang = "my")))
+        val withEdge = config.copy(tts = config.tts.copy(edge = edge))
+        val urls = mutableListOf<String>()
+        val socket = io.github.alalkipgen.autoflow.ai.edge.EdgeSocket { url, _, _ -> urls += url; AiResult.Failed("http_403", "refused") }
+        val http = http()
+        val registry = ProviderRegistry(Host(fake = false), withEdge, http = http, edgeSocket = lazy { socket }, fakeDelayMs = 0)
+        assertEquals("http_403", assertIs<AiResult.Failed>(registry.tts.speak("x", VoiceRef("my-MM-ThihaNeural"), "my", lockedModel = "edge-tts")).code)
+        assertTrue(urls.single().startsWith("wss://edge.test?TrustedClientToken=T"))
+        assertEquals(false, http.isInitialized(), "Edge never calls Gemini")
+        assertTrue(registry.isEdge("edge-tts") && !registry.isEdge("gemini-3.8-flash-tts") && !registry.isEdge(null))
+        assertTrue(!ProviderRegistry(Host(fake = false), config, http = http, fakeDelayMs = 0).isEdge(""), "no Edge config → never Edge")
+        registry.close()
+    }
+
+    @Test
     fun keyTestAlwaysCallsGeminiEvenInFakeMode() = runTest {
         val registry = ProviderRegistry(Host(fake = true), config, http = http(), fakeDelayMs = 0)
         assertEquals("gemini-3.5-flash", assertIs<AiResult.Ok<Unit>>(registry.testGeminiKey()).usage!!.model)

@@ -67,6 +67,8 @@ val writeBuildIdentity = tasks.register("writeBuildIdentity") {
 tasks.named<ProcessResources>("processResources") {
     from(rootProject.layout.projectDirectory.file("config/models.json")) { into("config") }
     from(rootProject.layout.projectDirectory.file("config/features.json")) { into("config") }
+    // config/tools.json (D-84): Phase 7 tool tunables, as /config/tools.json.
+    from(rootProject.layout.projectDirectory.file("config/tools.json")) { into("config") }
     // Built-in Burmese fonts (D-49), as /config/fonts/*.ttf.
     from(decodeBuiltInFonts) { into("config/fonts") }
     from(writeBuildIdentity) { into("config") }

@@ -116,6 +116,7 @@ class RenderJobRunner(
     }
 
     suspend fun run(job: RenderJob, onProgress: (FfmpegProgress.Progress) -> Unit = {}): RenderState {
+        job.mediaTask?.let { return runTask(job.workDir, it, onProgress) }
         val abs = { p: String -> if (isAbsolute(p)) p else joinPath(job.workDir, p) }
         val graph = job.graph
         val out = abs(job.outputName)
@@ -167,6 +168,31 @@ class RenderJobRunner(
         }
     }
 
+    /** A [MediaTaskJob]: ffmpeg into its part file, then the rename; an output already there is the result. */
+    private suspend fun runTask(workDir: String, task: MediaTaskJob, onProgress: (FfmpegProgress.Progress) -> Unit): RenderState {
+        val out = MediaTaskJob.absolute(workDir, task.output)
+        if (fs.exists(out)) return RenderState.Done(out, 0, task.durationMs, null)
+        val part = task.partPath(workDir)
+        try {
+            fs.createDirectories(out.substringBeforeLast('/', "."))
+        } catch (e: Exception) {
+            return RenderState.Failed("cannot write to ${out.substringBeforeLast('/')}: ${e.message}")
+        }
+        val args = task.args.map { if (it == MediaTaskJob.PART) part else it }
+        return when (val r = ffmpeg.render(args, workDir, task.durationMs, onProgress = onProgress)) {
+            is FfmpegRunner.Outcome.CannotStart -> RenderState.Failed("ffmpeg cannot start: ${r.message}")
+            is FfmpegRunner.Outcome.Failed ->
+                RenderState.Failed(if (r.timedOut) "ffmpeg took too long and was stopped" else "ffmpeg failed (exit ${r.exitCode})", r.tail)
+            is FfmpegRunner.Outcome.Rendered -> try {
+                if (!fs.exists(part)) return RenderState.Failed("ffmpeg wrote nothing to ${part.substringAfterLast('/')}")
+                fs.atomicMove(part, out)
+                RenderState.Done(out, r.wallMs, task.durationMs, r.maxRssKb)
+            } catch (e: Exception) {
+                RenderState.Failed("cannot save $out: ${e.message}")
+            }
+        }
+    }
+
     /** Family → libass size factor for every `.ttf` / `.otf` in [dir] (unreadable fonts are skipped). */
     private fun fontScales(dir: String): Map<String, Double> = runCatching {
         fs.list(dir).filter { it.lowercase().endsWith(".ttf") || it.lowercase().endsWith(".otf") }
@@ -176,11 +202,12 @@ class RenderJobRunner(
 
     companion object {
         /**
-         * Where [run] writes [job]'s video before the rename: `<workDir>/<outputName>.part.mp4`. Owned by that job
+         * Where [run] writes [job]'s video before the rename: `<workDir>/<outputName>.part.mp4` (a media task: its
+         * [MediaTaskJob.partPath]). Owned by that job
          * alone, so the queue deletes it after a cancel or a failure (audit F16) — never the finished `<name>.mp4`.
          */
-        fun partPath(job: RenderJob): String =
-            job.outputName.let { if (isAbsolute(it)) it else joinPath(job.workDir, it) } + ".part.mp4"
+        fun partPath(job: RenderJob): String = job.mediaTask?.partPath(job.workDir)
+            ?: (job.outputName.let { if (isAbsolute(it)) it else joinPath(job.workDir, it) } + ".part.mp4")
 
         private fun isAbsolute(p: String) = p.startsWith("/") || (p.length > 2 && p[1] == ':' && (p[2] == '/' || p[2] == '\\'))
     }

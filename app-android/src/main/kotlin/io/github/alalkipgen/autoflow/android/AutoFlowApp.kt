@@ -19,7 +19,10 @@ class AutoFlowApp : Application() {
             // 5A-5 / D-51: wire the processor into AiWorker so it survives process recreation. Audit F11: it speaks the
             // job's own project and block ids (not the open project / scene indexes); other kinds fail, never Done.
             val koin = getKoin()
-            AiWorkerRegistry.processor = RecapJobProcessor { koin.getOrNull<RecapModel>() }
+            AiWorkerRegistry.processor = RecapJobProcessor({ koin.getOrNull<RecapModel>() }, { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber>() },
+                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob>() },
+                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob>() },
+                { koin.getOrNull<io.github.alalkipgen.autoflow.ui.dubbing.DubSpeakJob>() })
         } catch (e: Exception) {
             CrashLog.record(this, Thread.currentThread(), e)
         }

@@ -8,6 +8,7 @@ import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.export.ExportModel
 import io.github.alalkipgen.autoflow.ui.i18n.*
+import io.github.alalkipgen.autoflow.ui.media.MediaTasks
 import io.github.alalkipgen.autoflow.ui.projects.CurrentProject
 import io.github.alalkipgen.autoflow.ui.projects.DashboardModel
 import io.github.alalkipgen.autoflow.ui.recap.RecapModel
@@ -28,6 +29,7 @@ class JobsActions(
     private val fs: FileSystem? = null,
     private val share: FileShare? = null,
     private val renderHistory: RenderHistory? = null,
+    private val tasks: MediaTasks? = null,
 ) {
     var notice by mutableStateOf<UiNotice?>(null); private set
     var noticeTarget by mutableStateOf<String?>(null); private set
@@ -35,6 +37,9 @@ class JobsActions(
     private var pending by mutableStateOf(setOf<String>())
     private fun ai(row: JobRow) = runner?.history?.value?.firstOrNull { it.id == row.aiJobId && it.project == row.projectDir }
     private fun run(row: JobRow) = render?.state?.value?.run?.takeIf { it.id == row.jobId && it.projectDir == row.projectDir }
+    private fun task(row: JobRow) = row.jobId?.let { tasks?.run(it) }?.takeIf { it.projectDir == row.projectDir }
+    private fun doneOutput(row: JobRow) =
+        ((if (row.source == JobSource.MEDIA) task(row)?.state else run(row)?.state) as? RenderState.Done)?.output
     fun canResume(row: JobRow) = !row.projectDeleted && row.aiJobId !in pending && ai(row)?.canResume() == true
     fun canCancel(row: JobRow): Boolean = when (row.source) {
         JobSource.AI -> ai(row)?.state in listOf(AiJobState.QUEUED, AiJobState.RUNNING)
@@ -42,6 +47,7 @@ class JobsActions(
         JobSource.RECAP_VOICE -> recap?.canCancelForegroundVoice(row.jobId) == true
         JobSource.RENDER -> run(row)?.state.let { it == RenderState.Queued || it is RenderState.Running }
         JobSource.STORYBOARD -> storyboard?.matches(row.jobId) == true
+        JobSource.MEDIA -> task(row)?.state?.finished == false
     }
     fun cancel(row: JobRow) {
         if (!canCancel(row)) return
@@ -51,6 +57,7 @@ class JobsActions(
             JobSource.RECAP_VOICE -> recap?.cancelForegroundVoice(row.jobId)
             JobSource.RENDER -> render?.cancel()
             JobSource.STORYBOARD -> storyboard?.cancelRun(row.jobId)
+            JobSource.MEDIA -> tasks?.cancel(requireNotNull(row.jobId))
         } }
     }
     fun resume(row: JobRow) {
@@ -83,7 +90,7 @@ class JobsActions(
         }
     }
     fun hasOutput(row: JobRow): Boolean = share != null && row.output != null &&
-        (run(row)?.state as? RenderState.Done)?.output == row.output && fs?.exists(row.output) == true
+        doneOutput(row) == row.output && fs?.exists(row.output) == true
 
     fun file(row: JobRow, action: JobFileAction, language: UiLanguage) {
         if (saving) return
@@ -92,15 +99,15 @@ class JobsActions(
             notice = UiNotice(UiText.V3_JOB_OUTPUT_UNAVAILABLE)
             return
         }
-        val run = run(row) ?: return
         val output = row.output ?: return
+        val galleryName = run(row)?.let { ExportModel.galleryName(row.projectTitle ?: "AutoFlow", it) } ?: output.substringAfterLast('/')
         saving = true
         dispatch(row) {
             try {
                 val result = when (action) {
                     JobFileAction.OPEN -> share!!.open(output, ExportModel.MP4)
                     JobFileAction.SHARE -> share!!.share(output, ExportModel.MP4, UiText.EXPORT_SHARE_VIDEO.text(language))
-                    JobFileAction.GALLERY -> share!!.saveToGallery(output, ExportModel.MP4, ExportModel.galleryName(row.projectTitle ?: "AutoFlow", run))
+                    JobFileAction.GALLERY -> share!!.saveToGallery(output, ExportModel.MP4, galleryName)
                 }
                 notice = when (result) {
                     is PlatformResult.Ok -> if (action == JobFileAction.GALLERY) UiNotice(UiText.EXPORT_GALLERY_SAVED, "path" to result.value) else null
@@ -129,8 +136,17 @@ fun openJobProject(row: JobRow, dashboard: DashboardModel, current: CurrentProje
     if (row.projectIdentity != null && current.state.value?.project?.id != row.projectIdentity) return null
     val screen = when (row.source) {
         JobSource.RENDER -> "Export"
+        JobSource.MEDIA -> row.projectScreen ?: "Export"
         JobSource.STORYBOARD -> row.projectScreen ?: SHOT_SHEET
-        JobSource.AI -> if (row.aiKind == AiJobKind.PUBLISH_KIT) "Export" else "Recap"
+        JobSource.AI -> when (row.aiKind) {
+            AiJobKind.PUBLISH_KIT -> "Export"
+            // A Dubbing project's Video / Translate jobs open its own screen (D-88), not the Subtitles one.
+            AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE ->
+                if (current.state.value?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.DUBBING) DUBBING_SCREEN else SUBTITLES_SCREEN
+            AiJobKind.TEXT_TTS -> io.github.alalkipgen.autoflow.ui.shell.VOICE_SCREEN
+            AiJobKind.DUB_TTS -> DUBBING_SCREEN
+            else -> "Recap"
+        }
         JobSource.RECAP, JobSource.RECAP_VOICE -> "Recap"
     }
     val step = when {

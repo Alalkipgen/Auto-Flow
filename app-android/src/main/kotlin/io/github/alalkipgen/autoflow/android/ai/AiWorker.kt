@@ -68,6 +68,10 @@ class AiWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         AiJobKind.QUICK_RECAP -> "Quick Recap"
         AiJobKind.PUBLISH_KIT -> "Publish Kit"
         AiJobKind.SCRIPT -> "Script"
+        AiJobKind.MEDIA_TRANSCRIBE -> "Transcribing the video"
+        AiJobKind.SUB_TRANSLATE -> "Translating subtitles"
+        AiJobKind.TEXT_TTS -> "Speaking the text"
+        AiJobKind.DUB_TTS -> "Speaking the dub lines"
     }
 
     private fun buildForeground(title: String, text: String): ForegroundInfo {

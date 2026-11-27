@@ -45,15 +45,34 @@ class AndroidFileShare(private val context: Context) : FileShare {
     override suspend fun saveToGallery(path: String, mime: String, displayName: String): PlatformResult<String> =
         withContext(Dispatchers.IO) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) PlatformResult.Unsupported("Saving to the gallery needs Android 10 or newer")
-            else copyToMovies(File(path), mime, displayName)
+            else copyToShared(File(path), mime, displayName, Shared.MOVIES)
         }
+
+    override suspend fun saveToDownloads(path: String, mime: String, displayName: String): PlatformResult<String> =
+        withContext(Dispatchers.IO) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) PlatformResult.Unsupported("Saving to Downloads needs Android 10 or newer")
+            else copyToShared(File(path), mime, displayName, Shared.DOWNLOADS)
+        }
+
+    override suspend fun saveToMusic(path: String, mime: String, displayName: String): PlatformResult<String> =
+        withContext(Dispatchers.IO) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) PlatformResult.Unsupported("Saving to Music needs Android 10 or newer")
+            else copyToShared(File(path), mime, displayName, Shared.MUSIC)
+        }
+
+    private enum class Shared { MOVIES, DOWNLOADS, MUSIC }
 
     /** MediaStore insert as pending → copy → publish, like the backup in Download (D-27); a failed copy is removed. */
     @TargetApi(Build.VERSION_CODES.Q)
-    private suspend fun copyToMovies(source: File, mime: String, displayName: String): PlatformResult<String> {
-        if (!source.isFile) return PlatformResult.Failed("The video is gone: ${source.name}")
+    private suspend fun copyToShared(source: File, mime: String, displayName: String, to: Shared): PlatformResult<String> {
+        if (!source.isFile) return PlatformResult.Failed("The file is gone: ${source.name}")
         val resolver = context.contentResolver
-        val folder = "${Environment.DIRECTORY_MOVIES}/$GALLERY_FOLDER"
+        val folder = "${when (to) {
+            Shared.DOWNLOADS -> Environment.DIRECTORY_DOWNLOADS
+            Shared.MUSIC -> Environment.DIRECTORY_MUSIC
+            Shared.MOVIES -> Environment.DIRECTORY_MOVIES
+        }}/$GALLERY_FOLDER"
+        val where = when (to) { Shared.DOWNLOADS -> "Downloads"; Shared.MUSIC -> "Music"; Shared.MOVIES -> "the gallery" }
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, mime)
@@ -61,10 +80,14 @@ class AndroidFileShare(private val context: Context) : FileShare {
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val uri = try {
-            resolver.insert(MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
+            resolver.insert(when (to) {
+                Shared.DOWNLOADS -> MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                Shared.MUSIC -> MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                Shared.MOVIES -> MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            }, values)
         } catch (e: Exception) {
             null
-        } ?: return PlatformResult.Failed("Cannot create the video in $folder")
+        } ?: return PlatformResult.Failed("Cannot create the file in $folder")
         return try {
             resolver.openOutputStream(uri, "w")?.use { out -> source.inputStream().use { it.copyTo(out, BUFFER) } }
                 ?: throw java.io.IOException("Cannot write to $folder")
@@ -75,7 +98,7 @@ class AndroidFileShare(private val context: Context) : FileShare {
             throw e
         } catch (e: Exception) {
             delete(uri)
-            PlatformResult.Failed("Saving to the gallery failed: ${e.message ?: e::class.simpleName}")
+            PlatformResult.Failed("Saving to $where failed: ${e.message ?: e::class.simpleName}")
         }
     }
 

@@ -53,7 +53,9 @@ class FeatureFlagsTest {
     @Test
     fun everyFlagHasAnOverrideKey() {
         val keys = FeatureFlags().asMap().keys
-        assertEquals(10, keys.size)
+        assertEquals(12, keys.size)
+        assertTrue(FeatureFlags.TOOLS_SUBTITLES in keys)
+        assertTrue(FeatureFlags.TOOLS_VOICE_AUDIO in keys)
         val allOn = FeatureFlags().withOverrides(keys.associateWith { true })
         assertTrue(allOn.asMap().values.all { it })
     }

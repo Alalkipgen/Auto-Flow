@@ -1,5 +1,6 @@
 package io.github.alalkipgen.autoflow.ui.home
 
+import io.github.alalkipgen.autoflow.ui.projects.label
 import io.github.alalkipgen.autoflow.ui.jobs.JobRunCard
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -44,6 +45,12 @@ fun HomeScreen(
     continueProjectPath: String? = null,
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
     jobActions: io.github.alalkipgen.autoflow.ui.jobs.JobsActions? = null,
+    /** Opens the picker for a new Subtitles project; null keeps the tile Planned (flag `tools.subtitles` off, D-84). */
+    onNewSubtitles: (() -> Unit)? = null,
+    /** Opens the Voice & Audio chooser; null keeps the tile Planned (flag `tools.voiceAudio` off, D-84). */
+    onNewVoice: (() -> Unit)? = null,
+    /** Opens the picker for a new Dubbing project; null keeps the tile Planned (flag `labs.dubbing` off, D-84). */
+    onNewDubbing: (() -> Unit)? = null,
 ) {
     Box(modifier.fillMaxSize().background(AutoFlowColors.Background), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 900.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)
@@ -60,7 +67,7 @@ fun HomeScreen(
                 AfCard(tr(UiText.V3_CONTINUE), Modifier.testTag("home-continue")) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         HomeModeIcon(entry.mode)
-                        AfText(tr(if (entry.mode == Mode.MOVIE_RECAP) UiText.MOVIE_RECAP else UiText.MUSIC_VIDEO), muted = true)
+                        AfText(tr(entry.mode.label()), muted = true)
                     }
                     AfButton(entry.name, { onOpenProject(entry.path) }, Modifier.fillMaxWidth().testTag("recent-${entry.name}"))
                     if (entry.path == continueProjectPath) continueStep?.let {
@@ -71,12 +78,15 @@ fun HomeScreen(
             AfCard(tr(UiText.HOME_CREATE)) {
                 AfButton(tr(UiText.HOME_NEW_RECAP), onNewRecap, Modifier.fillMaxWidth().testTag("home-new-recap"))
                 AfButton(tr(UiText.HOME_NEW_MV), onNewMusicVideo, Modifier.fillMaxWidth().testTag("home-new-mv"))
-                PlannedTile(tr(UiText.V3_DUBBING), modifier = Modifier.testTag("home-dubbing"))
+                if (onNewDubbing != null) AfButton(tr(UiText.V3_DUBBING), onNewDubbing, Modifier.fillMaxWidth().testTag("home-dubbing"))
+                else PlannedTile(tr(UiText.V3_DUBBING), modifier = Modifier.testTag("home-dubbing"))
             }
             SectionCard(tr(UiText.V3_QUICK_TOOLS)) {
                 AfText(My.breakSyllables(tr(UiText.V3_TOOLS_IN_PROJECT)), muted = true)
-                PlannedTile(tr(UiText.V3_VOICE_AUDIO), modifier = Modifier.testTag("home-voice-tool"))
-                PlannedTile(tr(UiText.V3_SUBTITLES), modifier = Modifier.testTag("home-subtitles-tool"))
+                if (onNewVoice != null) AfButton(tr(UiText.V3_VOICE_AUDIO), onNewVoice, Modifier.fillMaxWidth().testTag("home-voice-tool"))
+                else PlannedTile(tr(UiText.V3_VOICE_AUDIO), modifier = Modifier.testTag("home-voice-tool"))
+                if (onNewSubtitles != null) AfButton(tr(UiText.V3_SUBTITLES), onNewSubtitles, Modifier.fillMaxWidth().testTag("home-subtitles-tool"))
+                else PlannedTile(tr(UiText.V3_SUBTITLES), modifier = Modifier.testTag("home-subtitles-tool"))
             }
             val running = jobs.filter { it.running }
             if (running.isNotEmpty()) SectionCard(tr(UiText.JOB_RUNNING), Modifier.testTag("home-running")) {
@@ -98,15 +108,32 @@ fun HomeScreen(
 private fun HomeModeIcon(mode: Mode) {
     Canvas(Modifier.size(20.dp).testTag("home-mode-${mode.name}")) {
         val u = size.width / 20f
-        if (mode == Mode.MOVIE_RECAP) {
-            drawRoundRect(AutoFlowColors.Purple, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
-            for (x in listOf(5f, 15f)) for (y in listOf(7f, 13f)) {
-                drawCircle(AutoFlowColors.Panel, u, Offset(x * u, y * u))
+        when (mode) {
+            Mode.MOVIE_RECAP -> {
+                drawRoundRect(AutoFlowColors.Purple, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
+                for (x in listOf(5f, 15f)) for (y in listOf(7f, 13f)) {
+                    drawCircle(AutoFlowColors.Panel, u, Offset(x * u, y * u))
+                }
             }
-        } else {
-            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 13 * u), Offset(10 * u, 4 * u), 2 * u)
-            drawLine(AutoFlowColors.Cyan, Offset(10 * u, 4 * u), Offset(16 * u, 6 * u), 2 * u)
-            drawOval(AutoFlowColors.Cyan, Offset(4 * u, 11 * u), Size(7 * u, 5 * u))
+            Mode.MUSIC_VIDEO -> {
+                drawLine(AutoFlowColors.Cyan, Offset(10 * u, 13 * u), Offset(10 * u, 4 * u), 2 * u)
+                drawLine(AutoFlowColors.Cyan, Offset(10 * u, 4 * u), Offset(16 * u, 6 * u), 2 * u)
+                drawOval(AutoFlowColors.Cyan, Offset(4 * u, 11 * u), Size(7 * u, 5 * u))
+            }
+            Mode.SUBTITLES -> {
+                drawRoundRect(AutoFlowColors.Green, Offset(2 * u, 4 * u), Size(16 * u, 12 * u), CornerRadius(2 * u))
+                drawLine(AutoFlowColors.Panel, Offset(5 * u, 10 * u), Offset(15 * u, 10 * u), 1.5f * u)
+                drawLine(AutoFlowColors.Panel, Offset(7 * u, 13 * u), Offset(13 * u, 13 * u), 1.5f * u)
+            }
+            Mode.VOICE_AUDIO -> { // three sound bars
+                for ((x, h) in listOf(6f to 6f, 10f to 12f, 14f to 8f)) {
+                    drawLine(AutoFlowColors.Amber, Offset(x * u, (10 - h / 2) * u), Offset(x * u, (10 + h / 2) * u), 2.5f * u)
+                }
+            }
+            Mode.DUBBING -> { // a speech bubble
+                drawRoundRect(AutoFlowColors.Cyan, Offset(2 * u, 3 * u), Size(16 * u, 11 * u), CornerRadius(3 * u))
+                drawLine(AutoFlowColors.Cyan, Offset(6 * u, 13 * u), Offset(5 * u, 18 * u), 2 * u)
+            }
         }
     }
 }

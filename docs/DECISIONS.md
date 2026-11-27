@@ -146,3 +146,60 @@ One optional `watermarkWidthPercent` (omitted when unset) is permitted in `Recap
 ### D-76 — Explicit whole-project end of life (UI v3 feedback F4)
 
 Owner selected Option B and requested permanent deletion for both new and existing projects. The artifact immutability rule still applies for every live project and to all individual artifacts: no editing, background pruning, or bulk deletion. The only exception is user-confirmed deletion of a whole excluded project inside the app-managed root, after the guard checks identity, revision, storage and pending writers. Retain existing ZIPs and migration snapshots; `project.json.bak` is an internal rolling save, not an exported backup. Never delete Gallery/Downloads copies, Library, external sources, or other projects. No project/backup schema change.
+
+### D-77 — Phase 7 tool projects (QT-1, 2026-11-20)
+
+Owner's Phase 7 plan: Subtitles, Voice & Audio and Dubbing are ordinary `<Name>.autoflow/` project folders with modes `SUBTITLES`, `VOICE_AUDIO`, `DUBBING`, registered in the project index. Quick tools (Subtitles, Voice & Audio) create the project when the owner picks a file or continues with text, auto-named `<file name> · <date time>`, with no naming dialog or settings form; Dubbing is a five-step project. Projects lists them with a mode chip (Q-43). Jobs, Backup, Remove/Restore and Delete permanently (D-76) must be proven by tests for each new mode. Every `Mode` use gets an explicit branch. Spec: specs/quick-tools.md §3.
+
+### D-78 — Forward compatibility of Phase 7 data (2026-11-20)
+
+`CoreJson` stays strict. New optional `Project` fields (`subtitles`, `voice`, `dubbing`) use `@EncodeDefault(EncodeDefault.Mode.NEVER)` (opt-in `ExperimentalSerializationApi`, no new dependency) so Music Video and Recap `project.json` bytes are unchanged; a test proves it. The project index decodes entries one by one, keeps entries with an unknown mode verbatim and shows "needs a newer Auto Flow" instead of dropping the file; persisted jobs with new `AiJobKind`s and Backup restore get the same treatment. Older builds cannot be fixed retroactively: once a tool project exists, the owner should not install a build without Phase 7.
+
+### D-79 — Subtitle document `st` (QT-2, 2026-11-20)
+
+New `ArtifactKind("st")`: one immutable JSON document per version with stable cue ids, `startMs`/`endMs`, original `text`, optional `textMy` with `myFrom` (hash of the translated `text`) and `myEdited`, Dubbing `spokenMy`, reserved `speaker`. Saves create a new version; only the `project.json` pointer moves. Raw transcription stays a `tx` artifact. Editing ops are pure `:core` functions. Spec: specs/quick-tools.md §4.
+
+### D-80 — Whole-video transcription (QT-3, 2026-11-20; extends D-44)
+
+Sends audio only, in chunks of at most 10 minutes cut at the nearest silence (else a hard cut with 2 s overlap), as a resumable `MEDIA_TRANSCRIBE` job with a confirm card (requests = chunks, sound length, today's usage). Finished chunks are never resent; only failed chunks retry. Result → `tx` → new `st`. It replaces the flag-only `labs.wholeMovieTranscribe` when it ships.
+
+### D-81 — Subtitle translation (QT-4, 2026-11-20)
+
+Translation to Burmese is an explicit action with a confirm card, never automatic. Line-aligned JSON (`{lines:[{id, textMy}]}`) in batches from config with previous lines as context; invalid output gets one retry, then that batch fails alone. Lines with a hand-edited `textMy` are never overwritten without an explicit choice; an "Original changed" chip comes from `myFrom`. Default style everyday spoken (Q-39).
+
+### D-82 — Phase 7 audio formats (QT-5, 2026-11-20)
+
+Audio exports are m4a (AAC) and wav. No mp3 without a separate ffmpeg build change (libmp3lame), DECISIONS entry, licence text and the owner's yes (Q-37). Audio-only edits copy the video stream (`-c:v copy`); single-source subtitle burns use a direct ffmpeg `ass` command at the source size and frame rate with the sound copied, not `RenderCompiler`.
+
+### D-83 — Dubbing v1 (QT-6, 2026-11-20)
+
+One voice, picture fixed (never Recap's picture-side fit), voice-side fit only (trim silence → use the pause → speed up to `dubbing.maxVoiceSpeed`, 1.0 until S8 → otherwise "too long"), original sound Lower or Mute stated plainly, no vocal separation or "remove only the voices". Spoken lines are approved in `WorkflowRules` before TTS. The maximum source length comes from the D-0 phone measurements; no Dubbing UI before the D-0 report is accepted. Spec: specs/dubbing.md.
+
+### D-84 — Phase 7 flags and tunables (QT-7, 2026-11-20)
+
+Flags `tools.subtitles`, `tools.voiceAudio`, `dubbing` in `config/features.json`, default off, toggled from Self-test → Preview features (D-41); a Home tile is enabled only when its flag is on and the route works. Tunables live in a new `config/tools.json`; model names and quotas stay in `config/models.json`. For these three routes only, Phase 7 supersedes UI v3 §5 "No new quick-tool screens". Phase 7 Draft PRs stack on the open UI v3 stack top (D-65), one `work/phase-7-<slug>` branch per task.
+
+### D-85 — Phase 7 phone checks never block (owner, 2026-11-20; amends D-65 for Phase 7)
+
+Q-36 answered: there is no fixed phone-QA schedule. The owner checks on the phone whenever he wants; the agent does not stop or wait for a phone test at milestones or at D-0. Each PR still lists what to check on the phone, keeps those items PHONE_PENDING in PLAN/PHONE-QA, and never claims a phone result. D-0's phone-only parts (S8 listening, naturalness of 30–60 s clips) become PHONE_PENDING; Dubbing proceeds with the configured defaults (`dubbing.maxVoiceSpeed` 1.0, `dubbing.maxSourceMs` 10 min) until the owner reports. CI-measurable D-0 parts (cue-count render scale, request counts and timings with fakes) still run before D-1. Stable signing and a rising versionCode stay required.
+
+### D-86 — Edge TTS instead of Azure (owner, 2026-11-20; resolves Q-14, amends D-45)
+
+No Azure: the owner has no Azure key, so `AzureTtsProvider` is not built. Instead Phase 7 adds `EdgeTtsProvider` in `:ai` (task V-1b): Microsoft Edge "Read aloud" Burmese neural voices (Thiha, Nilar) without an API key, over the existing Ktor client WebSockets plugin (part of `ktor-client-core`, no new dependency). Voice ids and endpoint values live in `config/models.json` (`tts.edge`), never in logic. It is unofficial and may stop working or change at any time, so it sits behind flag `tts.edge`, fails as a normal recoverable provider error, keeps Gemini TTS available, and never becomes the silent default; the owner picks it in the voice lock (D-35), and S9 compares it with Gemini whenever he listens. CI uses a fake plus a recorded-frame contract test; live calls only with `-PliveAi`. Only text is sent, never audio or video.
+
+### D-87 — DubMixer always mixes in stems of 50 cues (agent, 2026-11-21; from D-0)
+
+D-0 (docs/perf/dubbing-d0.md) mixed 50 / 150 / 300 cues with real ffmpeg. One run with every cue as an input works and keeps every cue within ±40 ms, but for 300 cues the command is 36 660 characters — above the Windows command-line limit (32 767) — and takes 20.5 s against 11.5 s for stems. So `DubMixer` (D-3) always pre-mixes groups of `dubbing.stemGroup` (50) cues into full-length stems, then mixes the stems with the original; one code path at every length. The v1 maximum length stays 10 min (Q-41 default): the mix is not the bottleneck, TTS time is.
+
+### D-88 — A Dubbing project keeps its video and lines in `project.subtitles` (agent, 2026-11-21; refines specs/dubbing.md §3)
+
+specs/dubbing.md §3 put `video` and the `st` id inside `DubbingTool`. The Video and Translate steps reuse the Subtitles source chooser, editor, transcription and translation (spec §2), and those read and move `project.subtitles` (`video`, `current`). So a Dubbing project stores them there, exactly as a Subtitles project does, and `project.dubbing` holds only what is Dubbing's own (approval, voice lock, tone, takes, original sound, burn choice). No second copy of the pointer can go stale, and no Subtitles code needs a Dubbing branch. Spoken lines stay on the `st` cues (`spokenMy`).
+
+### D-89 — Dubbing Export: one fixed subtitle look and a kept `.wav` (agent, 2026-11-21; D-3b)
+
+The spec (§2) offers "burn Burmese subtitles" and "save the voice track as wav" but no look or size. Export burns with the Subtitles burn's **Boxed / Medium** look (readable over any picture) and offers no look or size chips yet, so the step stays short on a phone; the owner may ask for the Subtitles chips later. The kept `.wav` is the same voice mix written once more into `exports/` (not a moved stem), so the video's file name never depends on the `.wav` choice and turning it on never re-makes the video. Stems and the voice track live in `exports/dub-parts/`, named by their own ffmpeg arguments (Resume reuses them; nothing is overwritten).
+
+### D-90 — Edge voices are built with the rotating token, chosen per voice lock (owner, 2026-11-20; answers Q-45, refines D-86)
+
+The owner answered Q-45 with (a): Edge voices are free, so they are added next to Gemini (which keeps its API key) and he picks one in the voice lock. `EdgeToken` is a straight port of edge-tts 7.3 `generate_sec_ms_gec_v2` (Windows file time rounded to 5 min + trusted client token → `CS64-SHA256 variant`), checked against reference vectors; its constants are Microsoft's protocol, not settings, while every endpoint value (URL, token, `Sec-MS-GEC-Version`, origin, user agent, output format, voices) lives in `config/models.json` `tts.edge`. The service only answers mp3, so the host decodes it with the ffmpeg the app already uses (`AiHost.mp3ToWav`, no new dependency) into 24 kHz PCM wav before it becomes a take. A lock whose model is `tts.edge.model` speaks only with Edge; any refusal (403 when Microsoft changes the token again) fails the item visibly and never switches to Gemini (D-35). The flag is D-86's `tts.edge`, named `labs.edgeVoices` in `config/features.json`, on by default so the choice shows. Clock skew correction (edge-tts retries with the server's `Date`) is not done: phones keep network time.
+

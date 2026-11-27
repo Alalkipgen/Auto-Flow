@@ -24,4 +24,6 @@ val aiModule = module {
     single<TranscribeProvider> { get<ProviderRegistry>().transcribe }
     single { StoryboardGenerator(get()) }
     single { io.github.alalkipgen.autoflow.ai.recap.RecapScriptGenerator(get()) }
+    single { io.github.alalkipgen.autoflow.ai.subtitles.SubtitleTranslator(get()) }
+    single { io.github.alalkipgen.autoflow.ai.dubbing.DubShortener(get()) }
 }

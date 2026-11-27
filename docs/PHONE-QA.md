@@ -202,3 +202,192 @@ Use a disposable synthetic project/restore, not an owner's irreplaceable media. 
 
 - In a disposable Music Video project, share an MP4 and a JPG from Gallery. Inbox must not show inline **Delete…**, and a short tap or **Attach to Shot…** must not open Delete. Long-press the MP4 card → **Delete…** → Cancel once, then repeat and confirm. Repeat on the photo. At 360/412 dp and English/Burmese large font, check the long filename and both confirmation buttons. Check the per-file TalkBack action; desktop equivalent is right-click.
 - Share the same file twice and delete just one Inbox copy. If shares are waiting, long-press one there to delete it without using **Move here**. Leave Inbox, reopen it, then force-stop/relaunch and check that deleted copies stay gone, the other copy still attaches, and the Gallery originals and any already-attached shot media still play.
+
+## Phase 7 — Subtitles · Voice & Audio · Dubbing (PHONE_PENDING, never blocks the next PR, D-85)
+
+### S-1a/S-1b — Subtitles projects (PHONE_PENDING)
+
+- With `tools.subtitles` off (default): Home → Quick tools shows Subtitles as **Planned**; Home, Projects, Music Video and Movie Recap look and work exactly as before.
+- Self-test → Preview features → turn on `tools.subtitles`. Home → Subtitles opens the system picker at once. Cancel: no project appears anywhere. Pick a short video: a project named `<file name> · <date time>` (phone's local time) opens, shows "Copying…", then the Video card (length · size · fps · sound). Pick an audio-only file: nothing is created and Home says the file has no picture.
+- Projects shows the new row with the Subtitles label and no shot counter; Home Continue shows it with the Subtitles icon and "Subtitles". Long-press → Remove → Restore → Remove → Delete permanently works as for other projects (D-76). Backup → Restore lists it again.
+- 360/412 dp, English/Burmese, font 1.0/2.0: the Video card and the "Subtitle source" card fit without clipping.
+
+### S-2 — Subtitle source (PHONE_PENDING)
+
+- A video with a text subtitle track (e.g. an `.mkv` with SubRip): the Source card lists each track (language · codec), the Burmese text track — else the first text track — already chosen; "Use the subtitles inside the video" → "Saved N lines from track N" and the Subtitles card shows the line count and the first lines. Picture tracks (PGS/DVD) are not options; one line says how many cannot be read as text. A video without sound shows Transcribe with "no sound to transcribe".
+- A video without tracks says so. "Import subtitles (.srt)": a UTF-8 file, a UTF-16 file (Windows Notepad "Unicode") and an old Windows-1252 English file all import and the message names the encoding; an empty file or one with a broken time line saves nothing and says which subtitle; a Zawgyi file imports with the amber Zawgyi warning.
+- "Choose another source" → pick again: the new lines replace the shown ones (the old version stays in `artifacts/`). Close and reopen the project: the same lines show. "Turn speech into text" is Planned.
+
+### S-3c — Subtitle editor (PHONE_PENDING)
+
+- After a source: the lines list (#n · start → end · length), Original · Burmese · Both chips, and an amber "n to check" chip when lines overlap / are too short / too long; tapping it jumps to the next such line.
+- ✎ on a line opens the edit panel under it: change the text, type a time (`1:02.5`) or use −0.1 / +0.1, Split (at the line break), Merge with next, Add after, Delete; Previous · Next · Done. The keyboard does not hide the field being typed in. "Not saved yet" with Discard · Save appears; Undo / Redo step through the changes; "Choose another source" is off until Save or Discard.
+- Save → "Saved: N lines."; reopen the project: the edited lines show. Edit, then Back → "Save your changes before leaving?" with Save · Discard · Keep editing. Edit, wait 2 seconds, close the app, reopen → "Unsaved changes from <time>" with Restore · Discard.
+- 360/412 dp, English/Burmese, font 1.0/2.0: the list, the edit panel and the Save bar fit without clipping; the header scrolls away with the lines.
+
+### S-3d — Subtitle preview (PHONE_PENDING)
+
+- The video shows above the lines with the time in its corner; Play plays it with sound and the line under the playhead appears over the picture (Original / Burmese / Both follow the view chips). Dragging the bar seeks.
+- Tap a line: the video jumps to its start. While playing, the list follows the line being spoken; scroll the list yourself and it stops following for about 3 s.
+- In the edit panel: "Use playhead" sets Start or End to the video's time; "Play line" plays just that line and pauses at its end; "Split here" while the video is inside the line splits at that time.
+- 360 dp at font 2.0: the video takes about a third of the screen and the lines are still visible below it.
+
+### S-3e — Shift times (PHONE_PENDING)
+
+- Shift times → All lines → +1 s: every line's times move 1 s later and "Moved n lines by 1.0 s." shows; Undo puts them back.
+- Tap line 5, Shift times → From line 5 to the end → −0.1 s: lines 1–4 stay, the rest move 0.1 s earlier.
+- All lines → −1 s repeatedly until the first line is near 0:00: the next press is refused and says the most you can move back.
+- 360 dp at font 2.0, English and Burmese: the Shift card's chips and buttons wrap without clipping.
+
+### S-3f — Wide layout and keys (Windows · tablet, PHONE_PENDING)
+
+- Window ≥ 840 dp wide: the video and the edit panel are on the left, the lines on the right; the lines stay visible while a line is edited. Narrower: as before.
+- Click an empty spot, then: ↓ / ↑ select the next / previous line and the video jumps to it; Enter opens its edit panel; Space plays / pauses; Ctrl+Z undoes; Ctrl+S saves ("Saved: N lines.").
+- Typing a space or Enter inside a text box types it; it does not play or open anything.
+
+### S-4a — Export .srt (phone + Windows, PHONE_PENDING)
+
+- Saved subtitles show **Export** at the bottom; while there are unsaved changes only Save · Discard show.
+- Export → language chips: **Burmese** is chosen when some line has Burmese, else **Original**. "Video with subtitles" shows Planned.
+- Phone: **Share…** opens the share sheet with an `.srt` file (Telegram/Drive receive it); **Save to Downloads** says "Saved to Downloads: Download/AutoFlow/…"; the file opens in a player (VLC/MX) next to the video and the lines match the editor.
+- Windows: **Save .srt** shows the path in the project's `exports` folder; **Open folder…** opens that folder in Explorer.
+- Export twice with the same language: the same file is used (no second copy). Change a line, Save, export again: a new file name.
+
+### S-4c — Video with subtitles (phone + Windows, PHONE_PENDING)
+
+- Export → **Video with subtitles**: look chips Clean / Boxed / Outline, size chips Small / Medium / Large, and "Same size and frame rate as the video; sound copied."
+- Burmese chosen with no Burmese font (none in Settings → Fonts and none built in): Make video says "No Burmese font…" and nothing starts. Original works without one.
+- Make video: a card shows "Making the video: N%" and Jobs shows the same row with Cancel. Cancel → "Cancelled. Nothing was saved." and no file in `exports`.
+- Done: the video plays (▶ Play); on the phone Share… and Save to Gallery work and the video is in Gallery (Movies/AutoFlow); on Windows Open folder… shows `exports`.
+- In a player: the picture is the same size and frame rate as the source (e.g. a 23.976 fps film stays 23.976), the sound is the original; each line appears and disappears at its time; Burmese shows joined letters (no broken stacks), long lines wrap into two.
+- Phone with the app in the background during the render: the notification shows progress and the file is there when it finishes.
+
+### S-4d — Check one frame (phone + Windows, PHONE_PENDING)
+
+- Select a line in the editor, Export: the Video with subtitles card says "Line N · time" for that line; ‹ › move to the previous / next line.
+- **Check one frame**: after a moment a still appears with the line burned in, in the chosen look and size, exactly as Make video will draw it (Burmese joined correctly).
+- Change Burmese ↔ Original, the look or the size: the still disappears until checked again. Nothing appears in Jobs for a check.
+
+### S-5a/S-5b — Transcribe the video (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- A Subtitles project with a spoken video: the source card has **Turn speech into text (Gemini)**. A video with no sound: the button is off and says why.
+- Press it: "Finding the pauses…", then a card "N min of sound · K Gemini requests · only the sound is sent", "Today: … requests", language chips (Find out, EN, KO, ZH, TH, JA, HI, MY). Back sends nothing.
+- Start: "Transcribing: chunk 1 of K"; Jobs shows "Transcribe video". Pause: the current chunk finishes, then "Paused: 1 of K chunks saved" and **Resume K−1 remaining**; Resume finishes without sending chunk 1 again.
+- Done: "Done: n lines…", the editor shows the lines at the right times (check a few against the speech; a line cut at a 10-minute boundary appears once).
+- With lines already there (Choose another source → Transcribe): the card says it makes a new version; after Done, Versions still has the old lines.
+- Cancel job: "Transcribe cancelled. Your subtitles did not change."
+- Phone: close the app during a long job, reopen: the job card is there (running or paused) and Resume sends only the rest.
+
+### S-6a/S-6b — Translate to Burmese (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- A Subtitles project with English (or other non-Burmese) lines, saved: the sticky bar has **Translate to Burmese (Gemini)** next to Export. Burmese lines (a `my` track): no Translate button.
+- Press it: a card "Translate N lines: K Gemini requests.", "Only new or changed lines…", Everyday spoken (selected) / Formal, names (+ Add a name), "Also replace my edits" (off). Tick it with a hand-edited Burmese line: N grows. Back sends nothing.
+- Add a name (e.g. a character → its Burmese), Start: "Translating: batch 1 of K"; Jobs shows "Translate subtitles". The lines cannot be edited and the bar says "Editing pauses while translating" with Cancel job.
+- Done: "Done: n lines have Burmese…", the editor shows the new version; Burmese view shows the lines, the name written as given, the hand-edited line unchanged. Versions still has the old lines.
+- Cancel job: "Translate cancelled. Your subtitles did not change." and editing comes back.
+- If Gemini is busy: the job card says Paused with **Resume n remaining**; Resume sends only the rest. If a batch fails: "n lines not translated. The rest is kept." + Retry asks again for only those lines.
+
+### V-1a — Voice & Audio project data (nothing to press yet)
+
+- Nothing new to see: Home still shows Voice & Audio as Planned. Existing Music Video, Movie Recap and Subtitles projects open and save exactly as before.
+
+### V-1c — Voice & Audio tile, chooser and text (phone + Windows, PHONE_PENDING)
+
+- Self-test → Preview features: turn on `tools.voiceAudio`. Home → Quick tools: **Voice & Audio** is a button (off: Planned).
+- Press it: "What do you want to do?" with **Text → voice**, and Clean up sound / Video sound as Planned. Nothing appears in Projects yet.
+- Text → voice: paste a long Burmese text (with names, numbers like 3.5 and English): the line under it shows characters and parts (about 500 characters per part). Back returns to the chooser and creates nothing.
+- **Continue with this text**: a project "Voice · <date time>" opens with the text; "Speak n parts" is shown as Planned. Change the text, wait a second, go Home and reopen it from Continue: the change is there.
+
+### V-1d — Voice, tone and parts list (phone + Windows, PHONE_PENDING)
+
+- Open a Text → voice project: under the text are **Voice** (saved voices from Library first, then Burmese models and the six voices), **Tone** (Calm / Lively / News / Storytelling) and the parts list; every part says "Not voiced yet" (Speak comes with V-1e, still Planned).
+- Pick another voice or tone, leave and reopen: the choice is kept. Tap the chosen tone again: no tone.
+- Burmese labels fit at 360 dp with large text; owner: check the Burmese wording of the tone chips.
+
+### V-1e — Speak the parts (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- **Speak n parts**: a card says how many Gemini requests, with which voice and model, and about how long (3 per minute). Back sends nothing.
+- **Start**: "Speaking: part k of n"; the text, voice and tone cannot be changed meanwhile. Each part turns "✓ Voiced" with ▶ (listen) and ↻ Speak this part again.
+- Lock the phone or switch apps during a long text: the job goes on (Jobs shows "Text to voice"); if Gemini is busy it pauses, and **Resume** speaks only the parts left.
+- Change one part's text afterwards: only that part says "Not voiced yet" and Speak asks for 1 request.
+
+### V-1f — Save the voice (phone + Windows, PHONE_PENDING)
+
+- With every part voiced the bottom bar shows **Save m4a** and **Save wav** (while a part is not voiced it shows Speak instead).
+- **Save wav**: "Saved: …/exports/<name>-voice-….wav" at once; listen to it — parts in order with a short pause, no clicks, nothing cut.
+- **Save m4a**: "Making the m4a: n%" with Cancel (also in Jobs as "Save m4a"); then the file path. Cancel leaves no m4a.
+- Phone: **Share…** opens the share sheet; **Save to Music** puts it in Music/AutoFlow (check a music app sees it). Windows: **Open folder…** shows the exports folder.
+
+### V-2a — Clean up sound commands (nothing to press yet)
+
+- Nothing new on screen; Clean up sound stays Planned until V-2b.
+
+### V-2b — Clean up sound (phone + Windows, PHONE_PENDING)
+
+- Home → Voice & Audio → **Clean up sound** opens the file picker at once; Cancel creates nothing. Pick a noisy voice recording (m4a / mp3 / wav) or a video.
+- "Copying the file into the project…", then the file name and length. For a video: "A video gives its sound only…".
+- Three chips (all on): Shorten long pauses · Reduce noise · Even loudness (−14 LUFS). The last one on cannot be turned off.
+- **Before / After (first 30 s)**: "Listening to the sound…", then ▶ Before and ▶ After — After should have shorter pauses, less hiss, and a steady level.
+- **Save m4a** / **Save wav**: "Cleaning the sound: n%" with Cancel (Jobs shows "Clean up sound"); then the file in exports, Share / Save to Music (phone) or Open folder (Windows). Play it in another app.
+
+### V-3a — Video sound commands (nothing to press yet)
+
+- Nothing new on screen; Video sound stays Planned until V-3b.
+
+### V-3b — Video sound (phone + Windows, PHONE_PENDING)
+
+- Home → Voice & Audio → **Video sound** opens the file picker at once; Cancel creates nothing. Picking an audio file says "This file has no picture…" and creates nothing.
+- Pick a video with sound: "Copying the file into the project…", then the name · length · size and "The picture is not re-encoded."
+- **Save the sound only** (default): bottom bar **Save m4a** / **Save wav** → the file in exports; play it in another app (same length as the video). Phone: Save to Music.
+- **Replace the sound**: **Choose the sound** (e.g. a voice m4a from Text → voice); "Sound: song.…"; **Make video** → "Making the video: n%" (Jobs shows "Replace the sound"); the result plays with the new sound, same length; a shorter sound ends in silence. Phone: **Save to Gallery**.
+- **Add voice or music on top**: Starts at 2, Volume 50 %, Lower the original on → **Make video**; the original is quieter while the added sound plays. A video without sound: the Lower chip is not shown and Save the sound only is off.
+- Check the picture looks exactly like the original (no blur, same size).
+
+### D-0 — Dubbing spikes (PHONE_PENDING, nothing on screen)
+
+- Nothing new on screen. Phone parts of D-0 wait for the owner whenever convenient (D-85): (a) S8 — listen to one Burmese line at 1.00 / 1.10 / 1.25× and say the fastest that still sounds natural (sets `dubbing.maxVoiceSpeed`); (b) three 30–60 s clips through Dubbing once D-2 ships — per-line time, any "busy" pauses, naturalness. Until then Dubbing uses 1.0× and 10 min.
+
+### D-1a — Dubbing data and rules (nothing to press yet)
+
+- Nothing new on screen; the Dubbing tile on Home stays Planned until D-1b.
+
+### D-1b — Dubbing: Video, Translate and Dub script (phone + Windows, PHONE_PENDING)
+
+- Settings → Self-test → Preview features → turn on `labs.dubbing`. Home → **Dubbing** opens the file picker at once; Cancel creates nothing. A video longer than 10 min says "Dubbing works with videos up to 10 min for now." and creates nothing.
+- Pick a short video: the project opens on **Video · Step 1 of 5** with the chips Video · Translate · Dub script · Voice · Export. Choose the lines as in Subtitles (text track, .srt or from the speech).
+- **Translate**: the same editor with Translate. Tap **Dub script** before every line has Burmese: "Not translated: n lines…" and **Go to Translate**.
+- **Dub script**: each line shows #, times, "Room until the next line: n s", the subtitle text and a Spoken line box. Change one spoken line → **Save** → "Spoken line saved as a new version."; **Use the subtitle text** brings the subtitle text back.
+- **Approve the dub script** → "Dub script approved." and the button greys out. Change any spoken line (or that line's Burmese subtitle in Translate) → the approval is gone and Approve is active again.
+- **Voice** and **Export** show Planned (not built yet). Back with unsaved subtitle edits asks Save / Discard / Keep editing.
+- Check the Burmese wording of the new lines.
+
+### D-2a — Dub voices job (no screen)
+
+- Nothing new on screen until D-2b; Jobs would show a "Dub voices" / "Dubbing အသံ" row once Voice starts one.
+
+### D-2b — Dubbing: Voice step (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- In a Dubbing project with an **approved** dub script, the project opens on **Voice · Step 4 of 5**. Before approval, Voice says "Approve the dub script first." with **Go to Dub script**.
+- **Voice** card: a model chip, the six voice chips, Tone (Calm / Lively / News / Storytelling) and **Original sound**: Lower (music and effects stay, original voices quietly) / Mute. A tap saves at once; the approval stays.
+- Every line shows its spoken text, "Room until the next line", and "No voice". **Speak n lines** → the confirm card (n Gemini requests, voice · model, about n/3 min) → **Start**. Nothing is sent before Start.
+- While it speaks: "Speaking: line k of n"; the voice, tone and original chips are greyed. Turn on airplane mode for a moment → "Paused …" with **Resume n remaining**; Resume sends only the lines left. Close and reopen the app during Speak: Jobs shows **Dub voices** and Resume continues.
+- Each spoken line: "Voice: n s", a fit chip — **Fits** (inside the line), **Uses the pause** (into the gap before the next line) or **+n s too long** (red) — ▶ plays the take, ↻ **Speak this line again** asks for exactly that one line; the other lines keep their takes.
+- Change the tone (or voice): every line shows "Script changed" (old take kept as a file, not used) and Speak asks for all lines again. Edit one spoken line on Dub script and approve again: only that line needs a new voice.
+- When every line has a voice: **Go to Export** (Export is still Planned until D-3). Check the Burmese wording of the new lines.
+
+### D-2c — Dubbing: Shorten (phone + Windows, PHONE_PENDING; needs a Gemini key)
+
+- Make a line too long on purpose (a long spoken line on a short subtitle), approve, Speak. Its fit chip says **+n s too long** and a **Shorten (Gemini)** card says "n lines are too long for their time." Lines that fit are never sent.
+- **Shorten (Gemini)** → "Asking Gemini for shorter lines…" → for each long line: the current text (grey), Gemini's shorter text (bold) and "n characters (at most m)" (amber if still over). Nothing changes until you choose.
+- Tap **Use** on the lines you want → **Use n lines**: the app opens **Dub script** with "n spoken lines changed. Approve the dub script again, then speak them." The subtitle text is unchanged; Approve is active again.
+- Approve → Voice: only the changed lines say "Script changed"; **Speak n lines** sends only those. **Back** on the Shorten card drops the suggestions. Without a key: "Gemini is not available here". Check the Burmese wording.
+
+### D-3a/D-3b — Dubbing: Export (phone + Windows, PHONE_PENDING)
+
+- With every line voiced and fitting: Voice → **Go to Export**. The card shows the original sound you chose on Voice; no "Before the export" card.
+- Leave a line without a voice (or change its spoken line and approve again): Export shows "n lines have no voice yet (or an old one)" with **Go to Voice**, and **Make the dubbed video** is off.
+- **Make the dubbed video** (no subtitles): "Step k of n: Mixing the voices … %" then "Making the video". Jobs shows the same rows; Cancel stops it and says Export again keeps the finished parts.
+- Done: play it. Every Burmese line starts on its own line's time, none overlaps the next, the voice is never sped up. **Lower**: music, effects and the original voices quietly under the dub. **Mute**: only the dub. The picture quality is the same as the source.
+- The `.srt` next to the video has the Burmese subtitle text. Share / Save to Gallery (phone) or Open folder (Windows) work.
+- **Add Burmese subtitles** on → make again: the subtitles are burned (boxed, medium) at their times; without a Burmese font it says so. **Also save the voice track (.wav)** → the `.wav` plays the dub alone.
+- One-line redo (↻ on Voice) → Export again: only that part is mixed again; kill the app during Export → open the project → Export again finishes. Check the Burmese wording.

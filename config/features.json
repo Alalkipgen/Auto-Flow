@@ -2,14 +2,18 @@
   "schemaVersion": 1,
   "studioV2": true,
   "quickRecap": true,
+  "tools": {
+    "subtitles": true,
+    "voiceAudio": true
+  },
   "labs": {
     "voiceClone": false,
-    "dubbing": false,
+    "dubbing": true,
     "vocalSeparation": false,
     "smartReframe": false,
     "autoCaptionPlacement": false,
     "wordKaraoke": false,
     "wholeMovieTranscribe": false,
-    "edgeVoices": false
+    "edgeVoices": true
   }
 }

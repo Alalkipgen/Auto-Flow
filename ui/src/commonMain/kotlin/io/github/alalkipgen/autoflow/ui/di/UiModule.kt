@@ -47,7 +47,11 @@ val uiModule = module {
     single { UsageCounter(get(), get<AppDirs>().usage) }
     single { loadModelConfig(get(), get<SettingsStore>().state.value.modelsConfigPath, get()) }
     single { get<LoadedModelConfig>().config }
-    single<AiHost> { AppAiHost(get(), get(), get(), get()) }
+    single<AiHost> {
+        val edge = io.github.alalkipgen.autoflow.ui.voice.EdgeMp3Decoder(get(),
+            getOrNull<AppDirs>()?.let { joinPath(it.root, io.github.alalkipgen.autoflow.ui.voice.EdgeMp3Decoder.DIR) }, { getOrNull<MediaTools>() })
+        AppAiHost(get(), get(), get(), get(), edge::wav)
+    }
     single { ProviderStatusModel(get(), get()) }
     single { ProjectStore(get()) }
     single { ProjectIndex(get(), get<AppDirs>().projectsIndex) }
@@ -72,6 +76,51 @@ val uiModule = module {
     single { StoryboardService(get(), get()) }
     single { StoryboardJobs(get(), MainScope()) }
     single { MediaTools(get(), get(), getOrNull()) }
+    single {
+        io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel(get(), get(), get(), picker = getOrNull(), scope = MainScope(),
+            probe = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.probeWith(get()),
+            extract = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.extractWith(get()),
+            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) },
+            dubMaxMs = get<io.github.alalkipgen.autoflow.core.config.ToolsConfig>().dubbing.maxSourceMs)
+    }
+    // config/tools.json (D-84): Phase 7 tunables; the defaults when the app does not ship the file.
+    single { io.github.alalkipgen.autoflow.core.config.ToolsConfig.parse(get<BundledConfig>().toolsJson()) }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleEditorModel(get(), get(), MainScope(), config = get()) }
+    single { io.github.alalkipgen.autoflow.ui.dubbing.DubScriptModel(get(), get(), config = get()) }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleExportModel(get(), get(), getOrNull(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.media.MediaTasks(getOrNull(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber(get(), get(), getOrNull(), getOrNull(), config = get()) }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob(get(), get(), getOrNull(), config = get()) }
+    single { io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob(get(), get(), getOrNull(), config = get(),
+        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
+    single { io.github.alalkipgen.autoflow.ui.dubbing.DubSpeakJob(get(), get(), getOrNull(), config = get(),
+        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
+    single { io.github.alalkipgen.autoflow.ui.dubbing.DubShortenModel(getOrNull(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.dubbing.DubExportModel(get(), get(), get(), MainScope(), frames = getOrNull(), config = get(),
+        share = getOrNull(), lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value }) }
+    single { io.github.alalkipgen.autoflow.ui.dubbing.DubVoiceModel(get(), getOrNull(), getOrNull(), MainScope(), config = get(),
+        lexicon = { get<io.github.alalkipgen.autoflow.core.library.LibraryStore>().lexicon.value },
+        models = getOrNull<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()?.tts?.chainFor("my").orEmpty(),
+        edgeVoices = io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.offeredWith(getOrNull(), getOrNull(), getOrNull())) }
+    single { io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakModel(get(), getOrNull(), getOrNull(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.voice.VoiceExportModel(get(), get(), get(), get(), getOrNull(), MainScope()) }
+    single {
+        io.github.alalkipgen.autoflow.ui.voice.VoiceCleanModel(get(), get(), get(), getOrNull(), get(), get(), get(), MainScope(),
+            probe = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.probeWith(get()),
+            ffmpeg = io.github.alalkipgen.autoflow.ui.voice.VoiceCleanModel.ffmpegWith(get()),
+            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) })
+    }
+    single {
+        io.github.alalkipgen.autoflow.ui.voice.VideoSoundModel(get(), get(), get(), getOrNull(), get(), get(), get(), MainScope(),
+            probe = io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel.probeWith(get()),
+            uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) })
+    }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranscribeModel(get(), getOrNull(), getOrNull(), getOrNull(), get(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateModel(get(), get(), getOrNull(), get(), MainScope()) }
+    single { io.github.alalkipgen.autoflow.ui.voice.VoiceAudioModel(get(), get(), get(), MainScope(), library = getOrNull(),
+        models = getOrNull<io.github.alalkipgen.autoflow.ai.config.ModelConfig>()?.tts?.chainFor("my").orEmpty(),
+        edgeVoices = io.github.alalkipgen.autoflow.ui.voice.EdgeVoices.offeredWith(getOrNull(), getOrNull(), getOrNull())) }
+    single { io.github.alalkipgen.autoflow.ui.subtitles.SubtitleBurnModel(get(), get(), get(), frames = getOrNull(), media = getOrNull(), config = get(), share = getOrNull()) }
     factory { InputModel(get(), get(), picker = getOrNull(), media = get(), transcribe = getOrNull(), uiLanguage = { UiLanguage.fromCode(get<SettingsStore>().state.value.uiLanguage) }) }
     factory { StoryboardModel(get(), get(), get(), media = get()) }
     factory { ShotsModel(get()) }

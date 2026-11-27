@@ -73,6 +73,9 @@ fun androidModule(app: Application) = module {
             override fun featuresJson(): String? = runCatching {
                 app.assets.open("features.json").use { it.readBytes().decodeToString() }
             }.getOrNull()
+            override fun toolsJson(): String? = runCatching {
+                app.assets.open("tools.json").use { it.readBytes().decodeToString() }
+            }.getOrNull()
             // Built-in Burmese fonts (D-49): decoded from fonts/*.ttf.b64 into assets fonts/ at build time.
             override fun bundledFont(name: String): ByteArray? = runCatching {
                 app.assets.open("fonts/$name").use { it.readBytes() }

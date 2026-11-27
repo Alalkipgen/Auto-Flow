@@ -48,6 +48,7 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
         object : BundledConfig {
             override fun modelsJson(): String = readResource("/config/models.json")
             override fun featuresJson(): String? = readResourceOrNull("/config/features.json")
+            override fun toolsJson(): String? = readResourceOrNull("/config/tools.json")
             override fun bundledFont(name: String): ByteArray? =
                 DesktopModule::class.java.getResourceAsStream("/config/fonts/$name")?.use { it.readBytes() }
         }
@@ -61,7 +62,10 @@ fun desktopModule(window: () -> Frame? = { null }) = module {
     single { AiJobStore(get(), get<AppDirs>().aiJobs) }
     single<AiJobRunner>(createdAtStart = true) {
         val koin = getKoin()
-        DesktopAiJobRunner(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), RecapJobProcessor { koin.getOrNull<RecapModel>() })
+        DesktopAiJobRunner(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), RecapJobProcessor({ koin.getOrNull<RecapModel>() }, { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.VideoTranscriber>() },
+            { koin.getOrNull<io.github.alalkipgen.autoflow.ui.subtitles.SubtitleTranslateJob>() },
+            { koin.getOrNull<io.github.alalkipgen.autoflow.ui.voice.VoiceSpeakJob>() },
+            { koin.getOrNull<io.github.alalkipgen.autoflow.ui.dubbing.DubSpeakJob>() }))
     }
     // D-52: exit hook; on desktop the Window's onCloseRequest handles it, so this is a no-op stub.
     single<AppExit> { AppExit { /* desktop exits via Window.onCloseRequest */ } }

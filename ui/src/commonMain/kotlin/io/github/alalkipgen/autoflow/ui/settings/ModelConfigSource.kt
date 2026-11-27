@@ -11,6 +11,9 @@ fun interface BundledConfig {
     /** Returns the text of the bundled `config/features.json`, or null if the file is not present. */
     fun featuresJson(): String? = null
 
+    /** Returns the text of the bundled `config/tools.json` (D-84), or null if the file is not present. */
+    fun toolsJson(): String? = null
+
     /** Bytes of a built-in font from `fonts/` ([BuiltInFonts.FILES]), or null when the app does not ship it. */
     fun bundledFont(name: String): ByteArray? = null
 }

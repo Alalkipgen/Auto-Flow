@@ -1,6 +1,8 @@
 package io.github.alalkipgen.autoflow.core.model
 
 import kotlin.time.Instant
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -29,6 +31,18 @@ data class Project(
     val flowCredits: FlowCredits = FlowCredits(),
     /** Movie Recap state v2 (docs/specs/studio-v2.md §2, D-36); null in Music Video projects. */
     val recap: io.github.alalkipgen.autoflow.core.recap.RecapV2? = null,
+    /** Subtitles tool state (D-77); never written when null, so other projects keep their bytes (D-78). */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val subtitles: SubtitlesTool? = null,
+    /** Voice & Audio tool state (D-77); never written when null (D-78). */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val voice: VoiceTool? = null,
+    /** Dubbing state (D-83); never written when null (D-78). */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val dubbing: DubbingTool? = null,
 ) {
     companion object {
         const val SCHEMA_VERSION = 2

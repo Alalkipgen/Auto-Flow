@@ -7,6 +7,7 @@ import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.Mode
 import io.github.alalkipgen.autoflow.core.model.Project
+import io.github.alalkipgen.autoflow.core.model.ProjectCompat
 import io.github.alalkipgen.autoflow.core.model.ProjectSettings
 import io.github.alalkipgen.autoflow.ai.config.ModelConfig
 import io.github.alalkipgen.autoflow.core.model.CoreJson
@@ -47,7 +48,7 @@ data class DashboardRow(val entry: ProjectEntry, val missing: Boolean)
 data class RemovedProject(val dir: String, val id: String, val name: String)
 
 data class DashboardUiState(val rows: List<DashboardRow>, val removed: List<RemovedProject>,
-    val message: String? = null, val notice: UiNotice? = null)
+    val message: String? = null, val notice: UiNotice? = null, val newer: List<NewerProjectEntry> = emptyList())
 
 /**
  * Dashboard logic (DESIGN.md §3): project list, New Music Video, Open folder. With a [projectsHome] (Android, D-27)
@@ -111,6 +112,17 @@ class DashboardModel(
         return name
     }
 
+    /** New Subtitles project (D-77, S-1b): automatic free name, no naming dialog or settings form; then opens it. */
+    fun createSubtitles(parent: String, name: String): Boolean = create(parent, freeName(parent, name), Mode.SUBTITLES)
+
+    /** New Dubbing project (D-1b): a Subtitles-shaped project (D-88) with an empty `project.dubbing`; then opens it. */
+    fun createDubbing(parent: String, name: String): Boolean =
+        create(parent, freeName(parent, name), Mode.DUBBING) { it.copy(dubbing = io.github.alalkipgen.autoflow.core.model.DubbingTool()) }
+
+    /** New Voice & Audio project at its first real step (V-1c): automatic free name, the task's state; then opens it. */
+    fun createVoice(parent: String, name: String, voice: io.github.alalkipgen.autoflow.core.model.VoiceTool): Boolean =
+        create(parent, freeName(parent, name), Mode.VOICE_AUDIO) { it.copy(voice = voice) }
+
     fun createMovieRecap(parent: String, name: String, rightsConfirmed: Boolean): Boolean {
         if (!rightsConfirmed) return fail(UiText.PROJECT_RIGHTS_REQUIRED)
         return create(parent, name, Mode.MOVIE_RECAP) { it.copy(recap = RecapV2(rightsConfirmed = true)) }
@@ -166,6 +178,8 @@ class DashboardModel(
         }
         val firstTry = store.open(dir)
         if (firstTry is CoreResult.Ok) return opened(dir, firstTry.value)
+        // A newer app's project is not damaged: never replace it from an older backup (D-78).
+        if (newerProject(dir)) return fail(UiText.NEEDS_NEWER_APP)
         val recovery = try {
             fs.withFolderLock(dir) { RecapMigration.recoverFromBackup(fs, dir, burmeseTtsModel) }
         } catch (e: Exception) {
@@ -264,7 +278,17 @@ class DashboardModel(
         return null
     }
 
+    private fun newerProject(dir: String): Boolean = try {
+        ProjectCompat.madeByNewerApp(fs.read(joinPath(dir, ProjectStore.PROJECT_FILE)))
+    } catch (e: Exception) {
+        false
+    }
+
     private fun opened(dir: String, project: Project): Boolean {
+        if (!project.mode.openableHere()) {
+            (index.record(dir, project, opened = false) as? PlatformResult.Failed)?.let { return fail(it.reason) }
+            return fail(UiText.NEEDS_NEWER_APP)
+        }
         current.set(OpenProject(dir, project))
         done((index.record(dir, project) as? PlatformResult.Failed)?.reason)
         return true
@@ -288,6 +312,7 @@ class DashboardModel(
     private fun snapshot(message: String?) = DashboardUiState(
         rows = index.entries.value.map { DashboardRow(it, missing = !exists(joinPath(it.path, ProjectStore.PROJECT_FILE))) },
         removed = removedManagedProjects(),
+        newer = index.newerEntries(),
         message = message,
         notice = message?.let { UiNotice(UiText.RESULT_DETAIL, "detail" to it) },
     )

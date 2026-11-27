@@ -30,7 +30,10 @@ import io.github.alalkipgen.autoflow.core.recap.AiJobRunner
 import io.github.alalkipgen.autoflow.core.recap.AiJobState
 import io.github.alalkipgen.autoflow.ui.i18n.My
 import io.github.alalkipgen.autoflow.media.render.Quality
+import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderState
+import io.github.alalkipgen.autoflow.ui.media.MediaTaskRun
+import io.github.alalkipgen.autoflow.ui.media.MediaTasks
 import io.github.alalkipgen.autoflow.ui.components.StudioStatus
 import io.github.alalkipgen.autoflow.ui.components.AfButton
 import io.github.alalkipgen.autoflow.ui.components.AfCard
@@ -51,7 +54,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.getKoin
 
 /** Where a job row came from; also where its "Open" button goes. */
-enum class JobSource { RECAP, RECAP_VOICE, RENDER, STORYBOARD, AI }
+enum class JobSource { RECAP, RECAP_VOICE, RENDER, STORYBOARD, AI, MEDIA }
 
 /** One row of the Jobs screen (5A-5). [progress] 0…1 when known; [running] = still working (counts in the badge). */
 data class JobRow(
@@ -88,7 +91,7 @@ val JobRow.group: JobGroup get() = when (status) {
     else -> JobGroup.FINISHED
 }
 
-internal fun AiJob.canResume() = kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE) &&
+internal fun AiJob.canResume() = kind in listOf(AiJobKind.TTS_ALL, AiJobKind.TRANSCRIBE, AiJobKind.MEDIA_TRANSCRIBE, AiJobKind.SUB_TRANSLATE, AiJobKind.TEXT_TTS, AiJobKind.DUB_TTS) &&
     state in listOf(AiJobState.PAUSED, AiJobState.FAILED) && items.isNotEmpty()
 
 internal val JobRow.identity get() = "${source.name}:${projectDir.orEmpty()}:${jobId.orEmpty()}"
@@ -104,6 +107,7 @@ internal fun List<JobRow>.withoutRemovedRenders(removed: Set<String>) =
 fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai: List<AiJob>, language: UiLanguage = UiLanguage.ENGLISH,
     projectNames: Map<String, String> = emptyMap(),
     voice: List<RecapVoiceRun> = listOfNotNull(recap?.voiceRun),
+    tasks: List<MediaTaskRun> = emptyList(),
 ): List<JobRow> = buildList {
     recap?.takeIf { it.runnerJobId == null }?.job?.let { label ->
         val script = recap.job == RecapModel.WRITING
@@ -124,20 +128,22 @@ fun jobRows(recap: RecapUiState?, render: ExportRun?, storyboard: JobState?, ai:
         add(row.copy(projectDir = run.projectDir, jobId = run.id))
     }
     storyboard?.let { musicGeminiRow(it, language) }?.let(::add)
+    tasks.forEach { add(mediaTaskRow(it, language, projectName(it.projectDir))) }
     voice.forEach { add(recapVoiceRow(it, language)) }
     ai.forEach { job ->
         val active = job.state == AiJobState.RUNNING || job.state == AiJobState.QUEUED
         val total = job.initialItemCount?.takeIf { it > 0 }
         val completed = total?.let { (it - job.items.size).coerceIn(0, it) }
         val clips = job.savedClips
-        val multi = job.kind == AiJobKind.TRANSCRIBE && total != null && total > 1
-        val timed = job.kind == AiJobKind.TRANSCRIBE || job.kind == AiJobKind.TTS_ALL
+        val transcribe = job.kind == AiJobKind.TRANSCRIBE || job.kind == AiJobKind.MEDIA_TRANSCRIBE || job.kind == AiJobKind.SUB_TRANSLATE
+        val multi = transcribe && total != null && total > 1
+        val timed = transcribe || job.kind == AiJobKind.TTS_ALL || job.kind == AiJobKind.TEXT_TTS || job.kind == AiJobKind.DUB_TTS
         val detail = listOfNotNull(
             projectName(job.project),
             when {
                 clips != null && total != null -> UiText.JOB_SAVED_CLIPS.text(language, "done" to clips, "total" to total)
                 multi && completed != null && active -> UiText.JOB_REQUEST_UNIT.text(language, "n" to minOf(completed + 1, total), "total" to total)
-                job.kind != AiJobKind.SCRIPT && !(active && job.kind == AiJobKind.TRANSCRIBE) ->
+                job.kind != AiJobKind.SCRIPT && !(active && transcribe) ->
                     UiText.JOB_ITEMS_LEFT.text(language, "size" to job.items.size)
                 else -> null
             },
@@ -179,6 +185,10 @@ internal fun aiKindLabel(kind: AiJobKind, language: UiLanguage = UiLanguage.ENGL
     AiJobKind.TTS_ALL -> UiText.JOB_TTS_ALL.text(language)
     AiJobKind.TRANSCRIBE -> UiText.JOB_TRANSCRIBE.text(language)
     AiJobKind.SCRIPT -> UiText.JOB_SCRIPT.text(language)
+    AiJobKind.MEDIA_TRANSCRIBE -> UiText.JOB_MEDIA_TRANSCRIBE.text(language)
+    AiJobKind.SUB_TRANSLATE -> UiText.JOB_SUB_TRANSLATE.text(language)
+    AiJobKind.TEXT_TTS -> UiText.JOB_TEXT_TTS.text(language)
+    AiJobKind.DUB_TTS -> UiText.JOB_DUB_TTS.text(language)
     AiJobKind.QUICK_RECAP -> UiText.JOB_QUICK_RECAP.text(language)
     AiJobKind.PUBLISH_KIT -> "Publish Kit"
 }
@@ -208,6 +218,29 @@ fun jobsBadgeValue(rows: List<JobRow>): Int {
 @kotlin.jvm.JvmName("aiJobsBadgeValue")
 fun jobsBadgeValue(jobs: List<AiJob>): Int = jobsBadgeValue(jobRows(null, null, null, jobs))
 
+/** A media task (§7): the same Queued / Done / Failed / Cancelled wording as a render, named by its kind. */
+private fun mediaTaskRow(run: MediaTaskRun, language: UiLanguage, name: String?): JobRow {
+    val kind = when (run.kind) {
+        MediaTaskJob.SUBTITLE_BURN -> UiText.SUB_EXPORT_VIDEO
+        io.github.alalkipgen.autoflow.media.audio.VoiceJoin.VOICE_M4A -> UiText.VA_SAVE_M4A
+        io.github.alalkipgen.autoflow.media.audio.CleanAudio.CLEAN_AUDIO -> UiText.VA_CLEAN
+        io.github.alalkipgen.autoflow.media.audio.VideoSound.SOUND_ONLY -> UiText.VA_SOUND_ONLY
+        io.github.alalkipgen.autoflow.media.audio.VideoSound.REPLACE -> UiText.VA_REPLACE_SOUND
+        io.github.alalkipgen.autoflow.media.audio.VideoSound.ADD -> UiText.VA_ADD_ON_TOP
+        io.github.alalkipgen.autoflow.media.audio.DubMixer.STEM, io.github.alalkipgen.autoflow.media.audio.DubMixer.VOICE -> UiText.DUB_EXPORT_MIXING
+        io.github.alalkipgen.autoflow.media.audio.DubMixer.EXPORT -> UiText.DUB_EXPORT_MAKING
+        else -> UiText.EXPORT
+    }.text(language)
+    val row = when (val s = run.state) {
+        RenderState.Queued -> JobRow(JobSource.MEDIA, UiText.JOB_RENDER_QUEUED.text(language, "kind" to kind), name, canCancel = true, status = StudioStatus.QUEUED)
+        is RenderState.Running -> JobRow(JobSource.MEDIA, kind, name, s.fraction, canCancel = true)
+        is RenderState.Done -> JobRow(JobSource.MEDIA, UiText.JOB_RENDER_DONE.text(language, "kind" to kind), name, 1.0, running = false, output = s.output)
+        is RenderState.Failed -> JobRow(JobSource.MEDIA, UiText.JOB_RENDER_FAILED.text(language, "kind" to kind), s.reason, running = false, failed = true)
+        RenderState.Cancelled -> JobRow(JobSource.MEDIA, UiText.JOB_RENDER_CANCELLED.text(language, "kind" to kind), name, running = false, status = StudioStatus.CANCELLED)
+    }
+    return row.copy(projectDir = run.projectDir, jobId = run.id, projectScreen = run.screen)
+}
+
 private fun projectName(dir: String?): String? =
     dir?.replace('\\', '/')?.trimEnd('/')?.substringAfterLast('/')?.removeSuffix(".autoflow")?.takeIf { it.isNotBlank() }
 
@@ -222,6 +255,8 @@ fun rememberJobRows(): List<JobRow> {
     val current = remember(koin) { koin.getOrNull<CurrentProject>() }
     val index = remember(koin) { koin.getOrNull<ProjectIndex>() }
     val renderHistory = remember(koin) { koin.getOrNull<RenderHistory>() }
+    val mediaTasks = remember(koin) { koin.getOrNull<MediaTasks>() }
+    val tasks by (mediaTasks?.runs?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
     val recap by (recapModel?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val voice by (recapModel?.foregroundVoiceRuns?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
     val export by (exportModel?.state?.collectAsState() ?: remember { mutableStateOf(null) })
@@ -231,7 +266,7 @@ fun rememberJobRows(): List<JobRow> {
     val open by (current?.state?.collectAsState() ?: remember { mutableStateOf(null) })
     val entries by (index?.entries?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
     val names = entries.associate { it.path to it.name } + listOfNotNull(open?.let { it.dir to it.project.name }).toMap()
-    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names, voice).withoutRemovedRenders(hidden).map { row ->
+    return jobRows(recap, export?.run, storyboard, ai, LocalUiLanguage.current, names, voice, tasks).withoutRemovedRenders(hidden).map { row ->
         if (row.projectDir?.let { index?.isDeleted(it, row.projectIdentity) } == true) row.copy(projectDeleted = true) else row
     }
 }
@@ -240,7 +275,8 @@ fun rememberJobRows(): List<JobRow> {
 internal fun rememberJobsActions(scope: CoroutineScope): JobsActions {
     val koin = getKoin()
     return remember(koin, scope) {
-        JobsActions(scope, koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull())
+        JobsActions(scope, koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(), koin.getOrNull(),
+            tasks = koin.getOrNull())
     }
 }
 

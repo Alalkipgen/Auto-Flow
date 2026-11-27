@@ -174,7 +174,7 @@ Every screen has a real empty state and a next action, not concept sample data.
 - The legacy mask view is pre-Looks; native proxy is approximate; Exact Frame is the export reference.
 - Output geometry tolerance stays existing S10 ±2%; no bit-identical text/blur rasterization claim.
 - Caption presets only use renderer-supported fields; an unavailable preset is omitted. No fake waveform.
-- Desktop multi-track timeline is out of scope. No new quick-tool screens, storage/privacy walls or cache guarantees.
+- Desktop multi-track timeline is out of scope. No new quick-tool screens, storage/privacy walls or cache guarantees. (Phase 7, D-84, supersedes "no new quick-tool screens" for Subtitles, Voice & Audio and Dubbing only.)
 - Android Back and arrow follow §1; concept top Previous/Next controls move to the sticky bar.
 
 ## 6. Separate implementation tasks and evidence

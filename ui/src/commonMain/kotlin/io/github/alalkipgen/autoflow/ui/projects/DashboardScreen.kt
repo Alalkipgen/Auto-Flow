@@ -109,6 +109,13 @@ fun DashboardScreen(model: DashboardModel, onOpened: () -> Unit, modifier: Modif
                         onRemove = { model.remove(row.entry.path) }, managed = model.projectsHome != null)
                 }
             }
+            state.newer.forEach { row ->
+                key("newer:" + row.path) {
+                    AfCard(row.name, Modifier.fillMaxWidth().testTag("projects-newer-${row.name}")) {
+                        AfText(My.breakSyllables(tr(UiText.NEEDS_NEWER_APP)), muted = true)
+                    }
+                }
+            }
         }
     }
 }
@@ -265,7 +272,7 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             onClick = onOpen,
             onLongClick = { options = true },
         )
-    val mode = if (e.mode == Mode.MUSIC_VIDEO) tr(UiText.MUSIC_VIDEO) else tr(UiText.MOVIE_RECAP)
+    val mode = tr(e.mode.label())
     val shots = tr(UiText.PROJECT_SHOTS, "acceptedShots" to (e.acceptedShots), "totalShots" to (e.totalShots))
     val shotsColor = if (e.totalShots > 0 && e.acceptedShots == e.totalShots) AutoFlowColors.Green else AutoFlowColors.Muted
     AfCard(e.name, box) {
@@ -282,7 +289,7 @@ private fun ProjectRow(row: DashboardRow, now: Instant, onOpen: () -> Unit, onRe
             WrapRow(spacing = 10.dp) {
                 AfText(mode, muted = true)
                 AfText(e.ratio.label, muted = true)
-                AfText(shots, color = shotsColor)
+                if (e.mode.hasShots()) AfText(shots, color = shotsColor)
                 AfText(relativeTime(e.lastOpenedAt, now, LocalUiLanguage.current), muted = true)
             }
         }

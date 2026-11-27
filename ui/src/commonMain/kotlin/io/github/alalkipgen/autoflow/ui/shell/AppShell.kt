@@ -102,6 +102,24 @@ import org.koin.compose.koinInject
 /** The Movie Recap workspace (docs/specs/recap.md §7): sidebar "Mode → Movie Recap", phone More. */
 const val RECAP_SCREEN = "Movie Recap"
 
+/** The Subtitles tool (D-77, specs/quick-tools.md §5); its only project screen in both shells. */
+const val SUBTITLES_SCREEN = "Subtitles"
+
+/** The Voice & Audio tool (specs/quick-tools.md §6): chooser and tasks on one project screen. */
+const val VOICE_SCREEN = "Voice & Audio"
+
+/** Dubbing (specs/dubbing.md §2): five steps on one project screen. */
+const val DUBBING_SCREEN = "Dubbing"
+
+/** First Studio v2 project screen per mode (D-77); null when this build has no screen for it. */
+internal fun v2EntryScreen(mode: io.github.alalkipgen.autoflow.core.model.Mode): String? = when (mode) {
+    io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP -> "Recap"
+    io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO -> "Input"
+    io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
+    io.github.alalkipgen.autoflow.core.model.Mode.VOICE_AUDIO -> VOICE_SCREEN
+    io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> DUBBING_SCREEN
+}
+
 /** Sidebar sections in pipeline order — docs/DESIGN.md §2. */
 val SidebarSections: List<Pair<String, List<String>>> = listOf(
     "Project" to listOf(
@@ -159,9 +177,18 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
             when (current) {
                 "Dashboard" -> DashboardScreen(koinInject(), onOpened = {
                     val mode = currentProject.state.value?.project?.mode
-                    screen = if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) RECAP_SCREEN else "Input"
+                    screen = when (mode) {
+                        io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP -> RECAP_SCREEN
+                        io.github.alalkipgen.autoflow.core.model.Mode.MUSIC_VIDEO, null -> "Input"
+                        io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES -> SUBTITLES_SCREEN
+                        io.github.alalkipgen.autoflow.core.model.Mode.VOICE_AUDIO -> VOICE_SCREEN
+                        io.github.alalkipgen.autoflow.core.model.Mode.DUBBING -> DUBBING_SCREEN
+                    }
                 })
                 RECAP_SCREEN -> io.github.alalkipgen.autoflow.ui.recap.RecapScreen(koinInject(), onGoToExport = { screen = "Export" })
+                SUBTITLES_SCREEN -> io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject())
+                VOICE_SCREEN -> io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), speak = koinInject(), export = koinInject(), clean = koinInject(), video = koinInject())
+                DUBBING_SCREEN -> io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { screen = "Dashboard" }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject(), voice = koinInject(), shorten = koinInject(), export = koinInject())
                 "Input" -> InputScreen(koinInject(), koinInject(), onGenerated = { screen = "Storyboard" })
                 "Storyboard" -> StoryboardScreen(koinInject(), koinInject(), onGoToInput = { screen = "Input" })
                 "Shots" -> io.github.alalkipgen.autoflow.ui.shots.ShotsScreen(koinInject())
@@ -195,6 +222,9 @@ fun App(backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit 
                     appInfo = appInfo,
                     backup = backup,
                     backHandler = backHandler,
+                    subtitlesTool = features.tools.subtitles,
+                    voiceTool = features.tools.voiceAudio,
+                    dubbingTool = features.labs.dubbing,
                 )
             } else if (compact) {
                 PhoneShell(status, selected = current, onSelect = { screen = it }, projectName = project?.project?.name,
@@ -255,6 +285,9 @@ private fun StudioV2App(
     appInfo: AppInfo?,
     backup: BackupModel?,
     backHandler: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit,
+    subtitlesTool: Boolean = false,
+    voiceTool: Boolean = false,
+    dubbingTool: Boolean = false,
 ) {
     val rows = io.github.alalkipgen.autoflow.ui.jobs.rememberJobRows()
     val badge = jobsBadgeValue(rows)
@@ -306,6 +339,9 @@ private fun StudioV2App(
             StudioV2Dest.HOME -> {
                 val dashboard = koinInject<io.github.alalkipgen.autoflow.ui.projects.DashboardModel>()
                 val dashboardState by dashboard.state.collectAsState()
+                val subtitlesModel = koinInject<io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesModel>()
+                val subtitlesState by subtitlesModel.state.collectAsState()
+                val voiceModel = koinInject<io.github.alalkipgen.autoflow.ui.voice.VoiceAudioModel>()
                 val recent = dashboardState.rows.filterNot { it.missing }.map { it.entry }
                 val latest = recent.maxByOrNull { it.lastOpenedAt }
                 val cached = remember(continueCache, latest?.path, latest?.mode) {
@@ -324,7 +360,8 @@ private fun StudioV2App(
                     },
                     onOpenSettings = { nav = nav.copy(settings = true) },
                     status = status,
-                    notice = dashboardState.notice?.text(LocalUiLanguage.current) ?: dashboardState.message,
+                    notice = subtitlesState.notice?.takeIf { subtitlesState.dir == null }?.text(LocalUiLanguage.current)
+                        ?: dashboardState.notice?.text(LocalUiLanguage.current) ?: dashboardState.message,
                     jobs = rows,
                     jobActions = io.github.alalkipgen.autoflow.ui.jobs.rememberJobsActions(scope),
                     onViewJobs = { nav = v2Select(nav, StudioV2Dest.JOBS) },
@@ -335,13 +372,22 @@ private fun StudioV2App(
                             ?: My.screen(target.screen)
                     },
                     recent = recent,
+                    onNewSubtitles = if (subtitlesTool) {
+                        { subtitlesModel.start { openProjectScreen(SUBTITLES_SCREEN) } }
+                    } else null,
+                    onNewDubbing = if (dubbingTool) {
+                        { subtitlesModel.start(dubbing = true) { openProjectScreen(DUBBING_SCREEN) } }
+                    } else null,
+                    onNewVoice = if (voiceTool) {
+                        { voiceModel.begin(); openProjectScreen(VOICE_SCREEN) }
+                    } else null,
                     onOpenProject = { dir ->
                         if (visibleRoute?.path == dir) nav = v2Select(nav, StudioV2Dest.PROJECTS)
                         else if (dashboard.open(dir)) {
                             val project = currentProject.state.value
                             val target = resume?.takeIf { project != null && it.belongsTo(project) }
                             if (target != null) nav = target.step.nav()
-                            else openProjectScreen(if (project?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
+                            else project?.project?.mode?.let(::v2EntryScreen)?.let { openProjectScreen(it) }
                         }
                     },
                 )
@@ -351,11 +397,18 @@ private fun StudioV2App(
                 if (screen == null) {
                     DashboardScreen(koinInject(), createMode = nav.createMode, onCreateModeChange = { nav = nav.copy(createMode = it) }, onOpened = {
                         val mode = currentProject.state.value?.project?.mode
-                        openProjectScreen(if (mode == io.github.alalkipgen.autoflow.core.model.Mode.MOVIE_RECAP) "Recap" else "Input")
+                        mode?.let(::v2EntryScreen)?.let { openProjectScreen(it) }
                     })
                 } else {
                     Column(Modifier.fillMaxSize()) {
-                        if (isRecap && screen in listOf("Recap", "Export")) {
+                        if (screen == VOICE_SCREEN) {
+                            io.github.alalkipgen.autoflow.ui.voice.VoiceAudioScreen(koinInject(), koinInject(), onBack = { openProjectScreen(null) },
+                                speak = koinInject(), export = koinInject(), clean = koinInject(), video = koinInject())
+                        } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.DUBBING && screen == DUBBING_SCREEN) {
+                            io.github.alalkipgen.autoflow.ui.dubbing.DubbingScreen(koinInject(), koinInject(), koinInject(), koinInject(), onBack = { openProjectScreen(null) }, vlcDir = subtitlesVlcDir(), transcribe = koinInject(), translate = koinInject(), voice = koinInject(), shorten = koinInject(), export = koinInject())
+                        } else if (open?.project?.mode == io.github.alalkipgen.autoflow.core.model.Mode.SUBTITLES && screen == SUBTITLES_SCREEN) {
+                            io.github.alalkipgen.autoflow.ui.subtitles.SubtitlesScreen(koinInject(), koinInject(), koinInject(), vlcDir = subtitlesVlcDir(), exporter = koinInject(), burner = koinInject(), transcribe = koinInject(), translate = koinInject(), onBack = { openProjectScreen(null) })
+                        } else if (isRecap && screen in listOf("Recap", "Export")) {
                             val nativeBlocks = screen == "Export" || screen == "Recap" && nav.recapStep in listOf(
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.SOURCE,
                                 io.github.alalkipgen.autoflow.ui.recap.RecapStep.STORY, io.github.alalkipgen.autoflow.ui.recap.RecapStep.VOICE,
@@ -711,4 +764,11 @@ fun AutoFlowLogo(size: Dp, modifier: Modifier = Modifier) {
         }
         drawPath(triangle, Color.White)
     }
+}
+
+/** The desktop movie decoder's VLC folder (settings, else found); Android ignores it. */
+@Composable
+private fun subtitlesVlcDir(): String? {
+    val media = koinInject<io.github.alalkipgen.autoflow.ui.media.MediaTools>()
+    return remember(media) { media.vlcDir() }
 }
