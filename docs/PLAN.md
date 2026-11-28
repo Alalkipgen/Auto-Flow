@@ -586,6 +586,7 @@ Make every screen follow the Phase 9 mockups (`docs/mockups/ui-polish/`: phone p
 - 2026-11-26 P9-G6-5 `va-g6-5`: Saving shows a job card with Cancel, then a green “Saved” card with Share / Save to Music or Open folder; cancelled and failed are coloured boxes. Clean up sound has a file card, three switches with icons (one always stays on), a Before / After card with round play buttons, and icons on Save wav / Save m4a. The saved files are byte-for-byte the same as before.
 - 2026-11-26 P9-G6-6 `va-g6-6`: Video sound has a file card, three choice rows with icons, a sound card with Choose / Change, an Add card with a switch, and icons on the bottom buttons. A long saved path now breaks cleanly. The made files are byte-for-byte the same as before.
 - 2026-11-27 P9-G6-7 `va-g6-7`: The Home Quick Recap card is a glass wizard with step dots and icon buttons, its last step says honestly what Start does, and the new recap starts Writing options on the chosen style. On a wide screen Text → voice shows the text and the parts side by side.
+- 2026-11-27 CI: the `windows` job time limit is 45 min instead of 30 (owner decision after Group 6). Its `:ui` tests alone take 20–28 min, so the 30-min limit cancelled runs before the tests finished (#332–#334, #336, #337 and `main` 532d37b); the tests and steps are unchanged.
 
 
 ### Selected-take waveform — separate task 5 (in progress; stacked after PR196)
