@@ -11,6 +11,7 @@ class ColourLiteralScanTest {
         "ui/src/commonMain/kotlin/io/github/alalkipgen/autoflow/ui/library/LibraryScreen.kt",
         "ui/src/commonMain/kotlin/io/github/alalkipgen/autoflow/ui/recap/NativeFramePainter.kt",
         "ui/src/commonMain/kotlin/io/github/alalkipgen/autoflow/ui/recap/RecapPictureControls.kt",
+        "ui/src/commonMain/kotlin/io/github/alalkipgen/autoflow/ui/subtitles/BurnedCaption.kt",
     )
 
     @Test fun colourLiteralsLiveOnlyInTheTheme() {

@@ -1503,6 +1503,7 @@ enum class UiText(val en: String, val my: String?) {
     V3_LIBRARY_DEFAULT_PRESET("My Caption Style", "ကိုယ်ပိုင် စာတန်းပုံစံ"),
     V3_LIBRARY_NAME_REQUIRED("Enter a name.", "အမည် ထည့်ပါ။"),
     V3_LIBRARY_NEEDS_RECAP("Open a Movie Recap project first.", "Movie Recap Project တစ်ခု အရင်ဖွင့်ပါ။"),
+    LIBRARY_NEEDS_CAPTIONS("Open a Movie Recap or Dubbing project first.", "Movie Recap (သို့) Dubbing Project တစ်ခု အရင်ဖွင့်ပါ။"),
     V3_LIBRARY_SAVED("Saved “{name}” to Library.", "“{name}” ကို စာကြည့်တိုက်ထဲ သိမ်းပြီးပါပြီ။"),
     V3_LIBRARY_DELETED("Brand Kit removed from Library.", "Brand Kit ကို စာကြည့်တိုက်ထဲမှ ဖယ်ရှားပြီးပါပြီ။"),
     V3_LIBRARY_NOT_FOUND("Library item not found.", "စာကြည့်တိုက်ရှိ အရာကို မတွေ့ပါ။"),

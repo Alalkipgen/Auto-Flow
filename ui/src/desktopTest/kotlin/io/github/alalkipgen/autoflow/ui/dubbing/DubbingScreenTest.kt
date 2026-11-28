@@ -356,6 +356,29 @@ class DubbingScreenTest {
                     waitUntil(timeoutMillis = 5_000) { export.fit().lines == 2 }
                     onNodeWithTag("dub-burn-lines-2").assert(chosen)
                     assertEquals(emptyList(), textFitProblems(width, font))
+                    // D-106: Movie Recap's caption style on the Dubbing project (saved; the preview draws it).
+                    val styleOf = { current.state.value!!.project.dubbing!!.captionStyle }
+                    onNodeWithTag("dub-caption-preset-status").performScrollTo()
+                        .assertTextEquals(My.breakSyllables(UiText.V3_CAPTION_PRESET_STATUS.text(language, "name" to UiText.V3_CAPTION_BOXED.text(language))))
+                    onNodeWithTag("dub-caption-preset-BOXED").assert(chosen)
+                    onNodeWithTag("dub-caption-outline-3").assertDoesNotExist() // the box has no outline
+                    onNodeWithTag("dub-caption-preset-OUTLINE").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { !styleOf().box && styleOf().strokeWidth == 3 }
+                    onNodeWithTag("dub-caption-outline-3").performScrollTo().assert(chosen)
+                    onNodeWithTag("dub-caption-colour-Yellow").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { styleOf().colour == "#FFE14D" }
+                    onNodeWithTag("dub-caption-preset-status")
+                        .assertTextEquals(My.breakSyllables(UiText.V3_CAPTION_PRESET_STATUS.text(language, "name" to UiText.V3_CAPTION_CUSTOM.text(language))))
+                    onNodeWithTag("dub-caption-outline-colour-Red").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { styleOf().strokeColour == "#FF4444" }
+                    onNodeWithTag("dub-burn-size-XL").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { styleOf().customSizeFactor == 1.4f }
+                    onNodeWithTag("dub-burn-size-MEDIUM").assert(!chosen)
+                    assertEquals(emptyList(), textFitProblems(width, font))
+                    ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "04b-style-captions-$width-${language.name.lowercase()}.png"))
+                    onNodeWithTag("dub-caption-preset-BOXED").performScrollTo().performMouseInput { click() }
+                    onNodeWithTag("dub-burn-size-MEDIUM").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { styleOf() == io.github.alalkipgen.autoflow.core.model.DubbingTool.DEFAULT_CAPTIONS }
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isEmpty() }
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() } // on again: Export says so

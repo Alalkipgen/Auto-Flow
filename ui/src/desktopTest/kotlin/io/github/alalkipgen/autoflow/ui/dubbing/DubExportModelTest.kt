@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.put
 import kotlin.test.*
 
 /** D-3b (specs/dubbing.md §2 Export, §6): pre-flight, the mix steps one after another, Lower / Mute, burn, .srt and .wav. */
@@ -95,8 +96,10 @@ class DubExportModelTest {
                 video = SourceVideo("source/movie.mp4", 9, 65_000, 1920, 1080, 25.0), current = st))) as CoreResult.Ok).value))
             if (withFont) { fs.createDirectories("/fonts"); fs.writeDurably("/fonts/noto.ttf", font); settings.update { it.copy(fontPaths = listOf("/fonts/noto.ttf")) } }
         }
+        val libraryStore = io.github.alalkipgen.autoflow.core.library.LibraryStore(fs, "/app/library")
+        val library = io.github.alalkipgen.autoflow.ui.library.LibraryModel(libraryStore, session, MainScope(), fs)
         val model = DubExportModel(session, fs, MediaTasks(queue.takeIf { tasks }, MainScope()), MainScope(), RecapFrames(session, settings, fs), share = share,
-            uiLanguage = { language })
+            uiLanguage = { language }, library = library)
         fun args(i: Int) = queue.task(i).args
         fun graph(i: Int) = args(i)[args(i).indexOf("-filter_complex") + 1]
     }
@@ -209,7 +212,8 @@ class DubExportModelTest {
         val (twoName, _) = assOf(5)
         assertTrue(twoName.endsWith("-dub-small-2l-long.ass"), twoName)
         assertTrue(f.queue.task(5).output != f.queue.task(2).output, "another choice makes another video")
-        assertEquals(BurnSize.SMALL, f.model.state.value.size, "the choice stays for the next export")
+        assertEquals(io.github.alalkipgen.autoflow.core.recap.CaptionSize.S, f.session.open!!.project.dubbing!!.captionStyle.size,
+            "the choice stays in the project (D-106)")
     }
 
     @Test fun burningWithoutABurmeseFontSaysSo() {
@@ -218,5 +222,61 @@ class DubExportModelTest {
         assertNull(f.model.start(f.doc))
         assertTrue(f.queue.jobs.isEmpty())
         assertEquals(UiText.DUB_BURN_NO_FONT, f.model.state.value.notice?.key)
+    }
+
+    /**
+     * D-106: the caption style is saved in the project, the preview shows the overlays the burn writes, and each look /
+     * size is its own video; the default keeps the boxed white Medium and its old name.
+     */
+    @Test fun captionStyleIsSavedPreviewedAndBurned() {
+        val f = Fixture(withFont = true)
+        f.model.setBurn(true)
+        assertEquals(DubbingTool.DEFAULT_CAPTIONS, f.model.style())
+        assertTrue(f.model.previewCaptions(f.session.open, f.doc).all { it.box && it.color == "#FFFFFF" && it.strokeWidth == 0 })
+        f.model.setCaptionStyle { it.copy(colour = "#FFE14D", box = false, strokeWidth = 6, strokeColour = "#FF4444") }
+        val saved = f.session.open!!.project.dubbing!!.captionStyle
+        assertEquals(io.github.alalkipgen.autoflow.core.recap.CaptionStyle(colour = "#FFE14D", strokeWidth = 6, strokeColour = "#FF4444"), saved)
+        val preview = f.model.previewCaptions(f.session.open, f.doc)
+        assertTrue(preview.isNotEmpty() && preview.all { !it.box && it.color == "#FFE14D" && it.strokeWidth == 6 && it.strokeColour == "#FF4444" })
+        f.model.start(f.doc); f.queue.done(0); f.queue.done(1)
+        val name = f.graph(2).substringAfter("filename=").substringBefore(":fontsdir")
+        assertTrue(Regex(".*-dub-medium-1l-short-[0-9a-f]{8}\\.ass").matches(name), name)
+        val ass = f.fs.read("${f.dir}/$name").decodeToString()
+        assertTrue("&H004DE1FF" in ass && "&H004444FF" in ass, ass)
+        assertEquals(preview.size, ass.lines().count { it.startsWith("Dialogue:") }, "the preview shows every part the burn draws")
+        f.queue.done(2)
+        f.model.setCustomSize(1.4f)
+        assertEquals(1.4f, f.model.style().customSizeFactor)
+        f.model.start(f.doc); f.queue.done(3); f.queue.done(4)
+        val big = f.graph(5).substringAfter("filename=").substringBefore(":fontsdir")
+        assertTrue(big.contains("-dub-x1.4-1l-short-"), big)
+        assertTrue(f.queue.task(5).output != f.queue.task(2).output, "another size makes another video")
+        f.queue.done(5)
+        f.model.setSize(BurnSize.LARGE)
+        assertEquals(null, f.model.style().customSizeFactor)
+        f.model.setCustomColour("12ab34"); assertEquals("#12AB34", f.model.style().customColour)
+        f.model.setCustomColour("zz"); assertEquals(null, f.model.style().customColour)
+        f.model.setCustomSize(9f); assertEquals(3f, f.model.style().customSizeFactor, "at most 3 × Medium")
+    }
+
+    /** D-106: Save caption style… keeps the Dubbing style in the Library; the preset applies back to a Dubbing project. */
+    @Test fun captionStyleIsSharedThroughTheLibrary() {
+        val f = Fixture()
+        f.model.setCaptionStyle { it.copy(colour = "#7FE7FF", box = false, strokeWidth = 3, customSizeFactor = 1.4f) }
+        f.model.saveCaptionStyle("Cyan outline")
+        assertTrue(f.model.state.value.styleOk, "${f.model.state.value.styleNotice}")
+        assertEquals(UiText.V3_LIBRARY_SAVED, f.model.state.value.styleNotice?.key)
+        val preset = f.libraryStore.load().presets.single()
+        assertEquals("Cyan outline", preset.name)
+        f.model.setCaptionStyle { DubbingTool.DEFAULT_CAPTIONS }
+        f.library.refresh(); f.library.applyPreset(preset.id)
+        assertTrue(f.library.state.value.messageOk, "${f.library.state.value.notice}")
+        assertEquals(io.github.alalkipgen.autoflow.core.recap.CaptionStyle(colour = "#7FE7FF", strokeWidth = 3, customSizeFactor = 1.4f), f.model.style())
+        // A preset saved before D-106 (size / colour / box only) keeps the rest of the project's style.
+        f.libraryStore.save(f.libraryStore.load().copy(presets = listOf(io.github.alalkipgen.autoflow.core.library.Preset("old", "Old", io.github.alalkipgen.autoflow.core.library.PresetKind.CAPTION,
+            kotlinx.serialization.json.buildJsonObject { put("size", "S"); put("colour", "#FF4444"); put("box", true) }))))
+        f.library.refresh(); f.library.applyPreset("old")
+        assertEquals(io.github.alalkipgen.autoflow.core.recap.CaptionStyle(size = io.github.alalkipgen.autoflow.core.recap.CaptionSize.S, colour = "#FF4444", box = true,
+            strokeWidth = 3, customSizeFactor = 1.4f), f.model.style())
     }
 }

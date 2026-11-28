@@ -1,5 +1,7 @@
 package io.github.alalkipgen.autoflow.media.render
 
+import io.github.alalkipgen.autoflow.core.recap.CaptionSize
+import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.SrtCue
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -102,5 +104,33 @@ class SubtitleBurnTest {
         assertEquals(BurnFit(2, BurnLength.SHORT), BurnFit.auto(1080, 1080))
         assertEquals(30, SubtitleBurn.fitChars(1920, 1080, BurnSize.MEDIUM, 30))
         assertTrue(SubtitleBurn.fitChars(1080, 1920, BurnSize.LARGE, 42) < 42)
+    }
+
+    /** D-106: Dubbing's caption style; its default (white, Medium, boxed) burns exactly what BOXED / MEDIUM burned before. */
+    @Test
+    fun captionStyleKeepsTheOldDefaultAndDrawsColourOutlineAndSize() {
+        val cues = listOf(SrtCue(1_000, 2_500, "မင်္ဂလာပါ ခင်ဗျာ"), SrtCue(6_000, 7_250, "Bye\nnow"))
+        val boxed = CaptionStyle(box = true)
+        for ((w, h) in listOf(1920 to 1080, 1080 to 1920, 1280 to 720)) {
+            assertEquals(SubtitleBurn.overlays(cues, w, h, "Sans", BurnLook.BOXED, BurnSize.MEDIUM, 30, maxLines = 1),
+                SubtitleBurn.overlays(cues, w, h, "Sans", boxed, 30, maxLines = 1))
+            assertEquals(SubtitleBurn.ass(cues, w, h, "Sans", BurnLook.BOXED, BurnSize.MEDIUM, 30, 1.1, maxLines = 2),
+                SubtitleBurn.ass(cues, w, h, "Sans", boxed, 30, 1.1, maxLines = 2))
+        }
+        assertEquals(BurnSize.SMALL.share, SubtitleBurn.share(CaptionStyle(size = CaptionSize.S)))
+        assertEquals(BurnSize.LARGE.share, SubtitleBurn.share(CaptionStyle(size = CaptionSize.L)))
+        assertEquals(BurnSize.MEDIUM.share * 1.4, SubtitleBurn.share(CaptionStyle(size = CaptionSize.L, customSizeFactor = 1.4f)), 1e-6)
+        val yellow = SubtitleBurn.overlays(cues, 1280, 720, "Sans", CaptionStyle(colour = "#FFE14D", strokeWidth = 6, strokeColour = "#FF4444"), 30)[0]
+        assertEquals("#FFE14D", yellow.color); assertFalse(yellow.box)
+        assertEquals(4, yellow.strokeWidth, "6 px at 1080 → 4 px on a 720p video"); assertEquals("#FF4444", yellow.strokeColour)
+        assertEquals(40, yellow.sizePx)
+        val custom = SubtitleBurn.overlays(cues, 1920, 1080, "Sans", CaptionStyle(customColour = "#123456", box = true, strokeWidth = 3), 30)[0]
+        assertEquals("#123456", custom.color); assertTrue(custom.box); assertEquals(0, custom.strokeWidth, "the box has no outline")
+        assertEquals(0, SubtitleBurn.overlays(cues, 1920, 1080, "Sans", CaptionStyle(), 30)[0].strokeWidth, "Clean = the automatic thin outline")
+        val big = SubtitleBurn.overlays(cues, 1920, 1080, "Sans", CaptionStyle(customSizeFactor = 3f), 42)
+        assertTrue(big.all { o -> o.text.split('\n').all { it.length <= SubtitleBurn.fitChars(1920, 1080, BurnSize.LARGE, 42) } }, "a larger text keeps shorter lines")
+        val onBand = SubtitleBurn.ass(cues, 1920, 1080, "Sans", CaptionStyle(colour = "#FFE14D", strokeWidth = 3), 30, null, centerY = .885f)
+        assertTrue(onBand.lines().filter { it.startsWith("Dialogue:") }.all { "\\an5\\pos(960,955)" in it }, onBand)
+        assertTrue("&H004DE1FF" in onBand, "the colour in the style line")
     }
 }

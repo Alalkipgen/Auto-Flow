@@ -193,21 +193,34 @@ class LibraryModel(
     // ── Caption Presets (5B-8, D-51) ────────────────────────────────────────────────────────────
 
     /**
-     * Save the current project's [CaptionStyle] as a CAPTION preset in the Library (5B-8).
+     * Save the current project's [CaptionStyle] as a CAPTION preset in the Library (5B-8): a Movie Recap's, or a
+     * Dubbing project's burned subtitles (D-106) — the same preset either tool applies. Size, colour and box as
+     * before, plus the custom colour, custom size and outline when they are set.
      */
     fun saveCaptionPreset(name: String) {
         if (name.isBlank()) return say(UiText.V3_LIBRARY_NAME_REQUIRED)
-        val recap = session.open?.project?.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
+        val style = session.open?.project?.let(::captionStyleOf) ?: return say(UiText.LIBRARY_NEEDS_CAPTIONS)
         val id = savedId("cp")
         val value = buildJsonObject {
-            put("size", recap.captionStyle.size.name)
-            put("colour", recap.captionStyle.colour)
-            put("box", recap.captionStyle.box)
+            put("size", style.size.name)
+            put("colour", style.colour)
+            put("box", style.box)
+            style.customColour?.let { put("customColour", it) }
+            style.customSizeFactor?.let { put("customSizeFactor", it) }
+            if (style.strokeWidth > 0) {
+                put("strokeWidth", style.strokeWidth)
+                put("strokeColour", style.strokeColour)
+            }
         }
         val preset = Preset(id = id, name = name, kind = PresetKind.CAPTION, value = value)
         val lib = store.load()
         saveLibrary(lib.copy(presets = lib.presets + preset), UiNotice(UiText.V3_LIBRARY_SAVED, "name" to name))
     }
+
+    /** The caption style a project burns: Movie Recap's, or a Dubbing project's (D-106); null for other tools. */
+    private fun captionStyleOf(project: io.github.alalkipgen.autoflow.core.model.Project): CaptionStyle? =
+        project.recap?.captionStyle ?: if (project.mode == io.github.alalkipgen.autoflow.core.model.Mode.DUBBING)
+            project.dubbing?.captionStyle ?: io.github.alalkipgen.autoflow.core.model.DubbingTool.DEFAULT_CAPTIONS else null
 
     /** Only the saved Library entry goes away, not style already copied into any project. */
     fun deletePreset(id: String) {
@@ -224,13 +237,23 @@ class LibraryModel(
         when (preset.kind) {
             PresetKind.CAPTION -> {
                 val open = session.open ?: return say(UiText.NO_PROJECT_IS_OPEN)
-                val recap = open.project.recap ?: return say(UiText.V3_LIBRARY_NEEDS_RECAP)
-                val sizeName = (preset.value["size"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return say(UiText.V3_LIBRARY_PRESET_INVALID)
-                val colour = (preset.value["colour"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: "#FFFFFF"
-                val box = (preset.value["box"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: false
+                val current = captionStyleOf(open.project) ?: return say(UiText.LIBRARY_NEEDS_CAPTIONS)
+                fun text(key: String) = (preset.value[key] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                val sizeName = text("size") ?: return say(UiText.V3_LIBRARY_PRESET_INVALID)
+                val colour = text("colour") ?: "#FFFFFF"
+                val box = text("box")?.toBooleanStrictOrNull() ?: false
                 val size = runCatching { io.github.alalkipgen.autoflow.core.recap.CaptionSize.valueOf(sizeName) }.getOrElse { io.github.alalkipgen.autoflow.core.recap.CaptionSize.M }
-                val newStyle = recap.captionStyle.copy(size = size, colour = colour, box = box)
-                when (val result = session.save(open.project.copy(recap = recap.copy(captionStyle = newStyle)))) {
+                // A preset saved before D-106 has only size / colour / box: the rest of the project's style stays.
+                val full = preset.value.containsKey("customColour") || preset.value.containsKey("customSizeFactor") || preset.value.containsKey("strokeWidth")
+                val newStyle = current.copy(size = size, colour = colour, box = box).let { s ->
+                    if (!full) s else s.copy(customColour = text("customColour"),
+                        customSizeFactor = text("customSizeFactor")?.toFloatOrNull(),
+                        strokeWidth = text("strokeWidth")?.toIntOrNull() ?: 0,
+                        strokeColour = text("strokeColour") ?: "#000000")
+                }
+                val project = open.project.recap?.let { open.project.copy(recap = it.copy(captionStyle = newStyle)) }
+                    ?: open.project.copy(dubbing = (open.project.dubbing ?: io.github.alalkipgen.autoflow.core.model.DubbingTool()).copy(captionStyle = newStyle))
+                when (val result = session.save(project)) {
                     is CoreResult.Ok -> say(UiNotice(UiText.V3_LIBRARY_APPLIED, "name" to preset.name), ok = true)
                     is CoreResult.Err -> say(UiNotice(UiText.SAVE_FAILED, "detail" to result.error.message))
                 }
