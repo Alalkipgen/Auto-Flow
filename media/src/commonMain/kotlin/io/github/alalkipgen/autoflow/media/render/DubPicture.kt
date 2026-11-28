@@ -1,21 +1,32 @@
 package io.github.alalkipgen.autoflow.media.render
 
+import io.github.alalkipgen.autoflow.core.dubbing.DubMarks
 import io.github.alalkipgen.autoflow.core.model.DubMask
+import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 
 /**
- * What a dub draws on the video's picture (D-107, specs/dubbing.md §2 Style), in this order so the Burmese subtitles
- * stay on top: the blur / colour boxes ([masks], blurred at [sigma] px), then the subtitles ([ass], fonts in
- * [fontsDir]). Nothing drawn = the picture is copied as it is.
+ * The watermark / logo on a dub (D-108): the image [file] scaled to [widthPx] (aspect kept) at [anchor], at [opacity].
+ * The export reads it as one more input (a single picture, held for the whole video by `overlay`).
  */
-data class DubPicture(val masks: List<DubMask> = emptyList(), val sigma: Int = 32, val ass: String? = null, val fontsDir: String = "") {
-    val drawn: Boolean get() = masks.isNotEmpty() || ass != null
+data class DubMark(val file: String, val widthPx: Int, val anchor: WatermarkAnchor = WatermarkAnchor.BOTTOM_RIGHT,
+    val opacity: Float = DubMarks.OPACITY)
+
+/**
+ * What a dub draws on the video's picture (D-107 / D-108, specs/dubbing.md §2 Style), in this order so the Burmese
+ * subtitles stay on top: the blur / colour boxes ([masks], blurred at [sigma] px), the watermark ([mark]), then the
+ * subtitles ([ass], fonts in [fontsDir]). Nothing drawn = the picture is copied as it is.
+ */
+data class DubPicture(val masks: List<DubMask> = emptyList(), val sigma: Int = 32, val ass: String? = null, val fontsDir: String = "",
+    val mark: DubMark? = null) {
+    val drawn: Boolean get() = masks.isNotEmpty() || ass != null || mark != null
 
     /**
      * The video chain from `[0:v]` to `[vout]`. A blurred box = split, crop the box (0–1 of the picture), `gblur`,
-     * overlay it back (as Movie Recap's boxes); a colour box = `drawbox … t=fill`. Subtitles only = the burn's chain as
+     * overlay it back (as Movie Recap's boxes); a colour box = `drawbox … t=fill`. The watermark = input [markInput]
+     * scaled, made see-through and overlaid at its anchor (as Recap's IMAGE layer). Subtitles only = the burn's chain as
      * before (`[0:v]ass=…[vout]`).
      */
-    fun chain(): String {
+    fun chain(markInput: Int = 2): String {
         val parts = mutableListOf<String>()
         var cur = "0:v"
         masks.forEachIndexed { j, m ->
@@ -26,6 +37,12 @@ data class DubPicture(val masks: List<DubMask> = emptyList(), val sigma: Int = 3
                 "[$cur]split[${l}a][${l}b];[${l}b]crop=w=iw*$w:h=ih*$h:x=iw*$x:y=ih*$y,gblur=sigma=$sigma[${l}c];[${l}a][${l}c]overlay=x=main_w*$x:y=main_h*$y[$l]"
             else "[$cur]drawbox=x=iw*$x:y=ih*$y:w=iw*$w:h=ih*$h:color=${hex(fill)}@1:t=fill[$l]"
             cur = l
+        }
+        mark?.let { m ->
+            val a = kotlin.math.round(m.opacity.coerceIn(0f, 1f) * 100).toInt().let { if (it >= 100) "1" else if (it <= 0) "0" else "0.${it.toString().padStart(2, '0').trimEnd('0')}" }
+            parts += "[$markInput:v]scale=${m.widthPx}:-2,format=yuva420p,colorchannelmixer=aa=$a[dwi]"
+            parts += "[$cur][dwi]overlay=x=${DubMarks.overlayX(m.anchor)}:y=${DubMarks.overlayY(m.anchor)}[dw]"
+            cur = "dw"
         }
         parts += if (ass != null) "[$cur]${SubtitleBurn.filter(ass, fontsDir)}[vout]" else "[$cur]null[vout]"
         return parts.joinToString(";")

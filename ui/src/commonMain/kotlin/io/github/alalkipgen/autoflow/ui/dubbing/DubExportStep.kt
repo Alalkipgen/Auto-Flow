@@ -68,6 +68,11 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                 val boxes = tool?.masks.orEmpty().size
                 GlassFact(AfIcons.Regular.EyeSlash, My.breakSyllables(if (boxes > 0) tr(UiText.DUB_EXPORT_BOXES, "n" to boxes) else tr(UiText.DUB_EXPORT_NO_BOXES)),
                     textModifier = Modifier.testTag("dub-export-boxes"))
+                // D-108: the watermark chosen on Style, where and how wide.
+                val mark = tool?.watermark
+                GlassFact(AfIcons.Regular.Image, My.breakSyllables(if (mark != null) tr(UiText.DUB_EXPORT_WATERMARK, "where" to mark.anchor.uiLabel(),
+                    "n" to io.github.alalkipgen.autoflow.core.dubbing.DubMarks.width(mark.widthPercent)) else tr(UiText.DUB_EXPORT_NO_WATERMARK)),
+                    textModifier = Modifier.testTag("dub-export-watermark"))
                 GlassButton(My.breakSyllables(tr(UiText.DUB_GO_TO, "step" to tr(UiText.DUB_STEP_STYLE))), { go(DubStep.STYLE) },
                     Modifier.padding(start = 25.dp).testTag("dub-export-go-style"), icon = DubStep.STYLE.icon,
                     trailingIcon = AfIcons.Regular.ArrowRight, enabled = !s.busy)

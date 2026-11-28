@@ -98,8 +98,9 @@ class DubExportModelTest {
         }
         val libraryStore = io.github.alalkipgen.autoflow.core.library.LibraryStore(fs, "/app/library")
         val library = io.github.alalkipgen.autoflow.ui.library.LibraryModel(libraryStore, session, MainScope(), fs)
+        val picker = io.github.alalkipgen.autoflow.ui.settings.FakePicker()
         val model = DubExportModel(session, fs, MediaTasks(queue.takeIf { tasks }, MainScope()), MainScope(), RecapFrames(session, settings, fs), share = share,
-            uiLanguage = { language }, library = library)
+            uiLanguage = { language }, library = library, picker = picker)
         fun args(i: Int) = queue.task(i).args
         fun graph(i: Int) = args(i)[args(i).indexOf("-filter_complex") + 1]
     }
@@ -255,6 +256,67 @@ class DubExportModelTest {
         f.model.removeBox(0); f.model.removeBox(0)
         assertEquals(emptyList(), f.model.masks())
         assertNull(f.model.state.value.box)
+    }
+
+    /**
+     * D-108: Set watermark… copies the image into the project under a name made from its bytes (a new image = a new
+     * video); a Brand Kit's watermark or logo image can be used instead (only the image, and the kit's width). The export
+     * reads it as input 2 and draws it over the boxes, under the subtitles; a missing image stops it with a notice.
+     */
+    @Test fun watermarkIsSetFromAFileOrABrandKitAndDrawnOverTheBoxes() {
+        val f = Fixture(withFont = true)
+        val hex = io.github.alalkipgen.autoflow.core.hash.Sha256::hex
+        val png = byteArrayOf(1, 2, 3, 4)
+        f.fs.createDirectories("/pick"); f.fs.writeDurably("/pick/Logo.PNG", png)
+        f.picker.files = listOf("/pick/Logo.PNG")
+        assertNull(f.model.watermark())
+        f.model.importWatermark()
+        assertTrue(f.model.state.value.markOk, "${f.model.state.value.markNotice}")
+        val mark = f.model.watermark()!!
+        assertEquals(io.github.alalkipgen.autoflow.core.model.DubWatermark("library/watermark-${hex(png).take(12)}.png"), mark)
+        assertContentEquals(png, f.fs.read("${f.dir}/${mark.file}"))
+        assertContentEquals(png, f.model.watermarkBytes(f.session.open))
+        f.model.setWatermarkWidth(80); f.model.setWatermarkAnchor(io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor.TOP_LEFT)
+        assertEquals(55, f.model.watermark()!!.widthPercent, "at most 55 % (Recap's limit)")
+        // The export: the image is input 2, 55 % of 1920 = 1056 px, over the top strip, under the subtitles.
+        f.model.toggleBox(io.github.alalkipgen.autoflow.core.model.DubMaskKind.TOP)
+        f.model.setBurn(true)
+        f.model.start(f.doc); f.queue.done(0); f.queue.done(1)
+        val args = f.args(2)
+        assertEquals(mark.file, args[args.indexOf("-filter_complex") - 1])
+        assertEquals(3, args.count { it == "-i" })
+        val g = f.graph(2)
+        assertTrue(g.startsWith("[0:v]split[dm0a][dm0b];") && "[2:v]scale=1056:-2,format=yuva420p,colorchannelmixer=aa=0.75[dwi];" +
+            "[dm0][dwi]overlay=x=main_w*0.02:y=main_h*0.02[dw];[dw]ass=" in g, g)
+        f.queue.done(2)
+        // A Brand Kit's watermark, then its logo: only the image (and the kit's width for its watermark).
+        f.fs.createDirectories("/app/library/files")
+        f.fs.writeDurably("/app/library/files/bk_w.png", byteArrayOf(9, 9)); f.fs.writeDurably("/app/library/files/bk_l.jpg", byteArrayOf(7))
+        f.libraryStore.save(f.libraryStore.load().copy(brandKits = listOf(io.github.alalkipgen.autoflow.core.library.BrandKit("bk1", "Studio",
+            logo = "files/bk_l.jpg", watermark = "files/bk_w.png", watermarkWidthPercent = 13))))
+        f.library.refresh()
+        assertEquals(listOf(DubKitImage("bk1", "Studio", false), DubKitImage("bk1", "Studio", true)), f.model.kitImages())
+        f.model.useKitImage("bk1", logo = false)
+        assertTrue(f.model.state.value.markOk, "${f.model.state.value.markNotice}")
+        assertEquals(io.github.alalkipgen.autoflow.core.model.DubWatermark("library/watermark-${hex(byteArrayOf(9, 9)).take(12)}.png",
+            io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor.TOP_LEFT, 13), f.model.watermark())
+        f.model.useKitImage("bk1", logo = true)
+        assertEquals(io.github.alalkipgen.autoflow.core.model.DubWatermark("library/watermark-${hex(byteArrayOf(7)).take(12)}.jpg",
+            io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor.TOP_LEFT, 13), f.model.watermark(), "a logo keeps the width and place")
+        assertEquals(DubbingTool.DEFAULT_CAPTIONS, f.model.style(), "the kit is not applied")
+        f.model.start(f.doc); f.queue.done(3); f.queue.done(4)
+        assertNotEquals(f.queue.task(2).output, f.queue.task(5).output, "another image, another video")
+        f.queue.done(5)
+        // The image is gone: the export says so instead of failing in FFmpeg.
+        f.session.update(f.dir, f.session.open!!.project.id) { p -> p.copy(dubbing = p.dubbing!!.copy(watermark = mark.copy(file = "library/gone.png"))) }
+        assertNull(f.model.start(f.doc))
+        assertEquals(UiText.DUB_WATERMARK_MISSING, f.model.state.value.notice?.key)
+        f.model.removeWatermark()
+        assertNull(f.model.watermark())
+        assertNull(f.model.state.value.markNotice)
+        f.picker.unsupported = true
+        f.model.importWatermark()
+        assertEquals(UiText.CHOOSE_FILES_UNAVAILABLE, f.model.state.value.markNotice?.key)
     }
 
     /**

@@ -322,7 +322,15 @@ class DubbingScreenTest {
                     null, MainScope(), probe = { null })
                 val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Default)
                 val queue = DubExportModelTest.Queue()
-                val export = DubExportModel(session, fs, io.github.alalkipgen.autoflow.ui.media.MediaTasks(queue, scope), scope)
+                // D-108: Set watermark… picks a real PNG (the preview decodes and draws it).
+                val logo = java.io.ByteArrayOutputStream().also { out ->
+                    ImageIO.write(java.awt.image.BufferedImage(64, 32, java.awt.image.BufferedImage.TYPE_INT_ARGB).apply {
+                        createGraphics().apply { color = java.awt.Color(0, 220, 120); fillRect(0, 0, 64, 32); dispose() }
+                    }, "png", out)
+                }.toByteArray()
+                fs.createDirectories("/pick"); fs.writeDurably("/pick/logo.png", logo)
+                val export = DubExportModel(session, fs, io.github.alalkipgen.autoflow.ui.media.MediaTasks(queue, scope), scope,
+                    picker = FakePicker(files = listOf("/pick/logo.png")))
                 try {
                     setContent {
                         CompositionLocalProvider(LocalDensity provides Density(1f, font), LocalUiLanguage provides language,
@@ -403,6 +411,27 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-hide-BOTTOM").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { masksOf().isEmpty() }
                     onNodeWithTag("dub-preview-boxes").assertDoesNotExist()
+                    // D-108: Watermark — Set watermark…, its place; drawn on the preview; Remove.
+                    val markOf = { current.state.value!!.project.dubbing!!.watermark }
+                    onNodeWithTag("dub-preview-watermark").assertDoesNotExist()
+                    onNodeWithTag("dub-watermark-set").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { markOf() != null }
+                    onNodeWithTag("dub-watermark-file").performScrollTo().assertTextEquals(markOf()!!.file.substringAfterLast('/'))
+                    onNodeWithTag("dub-watermark-notice")
+                        .assertTextEquals(My.breakSyllables(UiText.WATERMARK_SET.text(language, "name" to markOf()!!.file.substringAfterLast('/'))))
+                    onNodeWithTag("dub-watermark-at-BOTTOM_RIGHT").performScrollTo().assert(chosen)
+                    onNodeWithTag("dub-watermark-at-TOP_LEFT").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { markOf()?.anchor == io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor.TOP_LEFT }
+                    onNodeWithTag("dub-watermark-at-TOP_LEFT").assert(chosen)
+                    onNodeWithTag("watermark-width-value").performScrollTo()
+                        .assertTextEquals(My.breakSyllables(UiText.WATERMARK_WIDTH_VALUE.text(language, "n" to 22)))
+                    onNodeWithTag("dub-preview-watermark").assertExists()
+                    assertEquals(emptyList(), textFitProblems(width, font))
+                    ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "04d-style-watermark-$width-${language.name.lowercase()}.png"))
+                    onNodeWithTag("dub-watermark-remove").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { markOf() == null }
+                    onNodeWithTag("dub-preview-watermark").assertDoesNotExist()
+                    onNodeWithTag("dub-watermark-set").performScrollTo().assertIsDisplayed()
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isEmpty() }
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() } // on again: Export says so

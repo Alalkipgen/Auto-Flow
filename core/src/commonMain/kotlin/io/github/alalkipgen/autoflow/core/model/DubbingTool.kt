@@ -3,6 +3,8 @@ package io.github.alalkipgen.autoflow.core.model
 import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.MaskStrength
 import io.github.alalkipgen.autoflow.core.recap.VoiceLock
+import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
+import io.github.alalkipgen.autoflow.core.recap.WatermarkSize
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -57,13 +59,27 @@ data class DubMask(val kind: DubMaskKind, val rect: List<Float>, val fill: Strin
 }
 
 /**
+ * The dub's watermark / logo (D-108): the image [file] (project-relative, `library/watermark-<hash>.<ext>`, picked or
+ * taken from a Brand Kit), [widthPercent] of the video's width (aspect kept) at [anchor], over the boxes and under the
+ * subtitles, at Movie Recap's opacity.
+ */
+@Serializable
+@SerialName("DubWatermark")
+data class DubWatermark(
+    val file: String,
+    val anchor: WatermarkAnchor = WatermarkAnchor.BOTTOM_RIGHT,
+    val widthPercent: Int = WatermarkSize.MEDIUM,
+)
+
+/**
  * `project.dubbing` of a [Mode.DUBBING] project (specs/dubbing.md §3, D-83). The video and the current `st` version live
  * in `project.subtitles` as in a Subtitles project (D-88), so Video / Translate reuse the Subtitles screens; the
  * spoken lines (`spokenMy`) live on the `st` cues. [takes]: cue id → its [DubTake] (D-2). [captionStyle]: how the burned
  * Burmese subtitles look (D-106, Movie Recap's [CaptionStyle]; the default = the boxed white Medium of before, and a
  * project that keeps it writes nothing new). [masks]: the blur / colour boxes over the video's own subtitles, logos and
  * other things (D-107), blurred at [blurStrength]; [captionsOnBox] = the Burmese subtitles sit on the lowest box in the
- * lower half (the old subtitles' band). None of these is written while it keeps its default.
+ * lower half (the old subtitles' band). [watermark]: the image on every frame (D-108), null = none. None of these is
+ * written while it keeps its default.
  */
 @Serializable
 @SerialName("DubbingTool")
@@ -87,6 +103,9 @@ data class DubbingTool(
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val captionsOnBox: Boolean = true,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val watermark: DubWatermark? = null,
 ) {
     companion object {
         /** The burned subtitles before D-106: white, Medium, on the see-through dark box. */

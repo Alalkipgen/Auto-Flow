@@ -106,6 +106,23 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
             val open = f.session.open!!
             check(f.session.update(open.dir, open.project.id, change) is CoreResult.Ok)
         }
+        /** D-108: an "AutoFlow" badge (a cyan PNG) as the watermark at [anchor], Medium. */
+        fun watermark(anchor: io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor = io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor.BOTTOM_RIGHT) {
+            val open = f.session.open!!
+            val png = java.io.ByteArrayOutputStream().also { out ->
+                javax.imageio.ImageIO.write(java.awt.image.BufferedImage(180, 64, java.awt.image.BufferedImage.TYPE_INT_ARGB).apply {
+                    createGraphics().apply {
+                        setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON)
+                        color = java.awt.Color(0x22, 0xD3, 0xEE); fillRoundRect(0, 0, 180, 64, 28, 28)
+                        color = java.awt.Color.WHITE; font = java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.BOLD, 32); drawString("AutoFlow", 18, 44)
+                        dispose()
+                    }
+                }, "png", out)
+            }.toByteArray()
+            f.fs.createDirectories(io.github.alalkipgen.autoflow.core.io.joinPath(open.dir, "library"))
+            f.fs.writeDurably(io.github.alalkipgen.autoflow.core.io.joinPath(open.dir, "library/watermark-demo.png"), png)
+            update { it.copy(dubbing = it.dubbing!!.copy(watermark = io.github.alalkipgen.autoflow.core.model.DubWatermark("library/watermark-demo.png", anchor))) }
+        }
         fun noVideo() = update { it.copy(subtitles = it.subtitles?.copy(video = null)) }
         fun noLines() = update { it.copy(subtitles = it.subtitles?.copy(current = null)) }
         fun approve() { script.open(); check(script.approve()) }
@@ -468,6 +485,9 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         // D-107: Hide things on the video — the bottom strip blurred, the top-right logo and a white box; the preview shows them.
         shot("07c-style-hide", prep = { ready(this); boxes(this) }, only = "dub-style-hide", tall = 4) { toStyle(); toExport("dub-style-hide") }
         shot("07c-style-hide-preview", prep = { ready(this); boxes(this) }) { toStyle() }
+        // D-108: Watermark — the card with an image set (width, place), and the preview with the boxes and the watermark.
+        shot("07d-style-watermark", prep = { ready(this); watermark() }, only = "dub-style-watermark", tall = 3) { toStyle(); toExport("dub-style-watermark") }
+        shot("07d-style-watermark-preview", prep = { ready(this); boxes(this); watermark() }) { toStyle() }
     }
 
     /** D-107: three boxes — the bottom strip (blurred), the top-right logo corner and a custom box filled white (picked). */
@@ -495,6 +515,9 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("12c-desktop-export-blocked", desktop = true, prep = { approve(); voices(lock = NILAR, tone = "calm") }) { click("dub-step-EXPORT") }
         shot("12d-desktop-style-panes", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-STYLE") }
         shot("12e-desktop-style-boxes", desktop = true, prep = { go(this); export.setBurn(true); boxes(this) }) { click("dub-step-STYLE"); toExport("dub-style-hide") }
+        shot("12f-desktop-style-watermark", desktop = true, prep = { go(this); export.setBurn(true); boxes(this); watermark() }) {
+            click("dub-step-STYLE"); toExport("dub-style-watermark")
+        }
     }
 
     /**

@@ -18,7 +18,8 @@ import io.github.alalkipgen.autoflow.ui.theme.GlassColors
  * The Style step (D-105): how the dubbed video looks, between Voice and Export as in Movie Recap. The Captions card holds
  * the Burmese subtitles in the picture: the switch, then (D-106) their caption style — look, colour, outline, box — and
  * size, lines and line length, and Save caption style… (the `.srt` is always saved too). Hide things on the video (D-107):
- * blur / colour boxes, edited in the card or on the preview. The watermark joins this step later (specs/dubbing.md §2).
+ * blur / colour boxes, edited in the card or on the preview. Watermark (D-108): an image or a Brand Kit's watermark / logo
+ * image, its width and place (specs/dubbing.md §2).
  * Phone: the preview scrolls with the options; desktop (from 840 dp): the options on the left, the preview on the right.
  * The sticky bar is Next: Export with Previous step (Voice).
  */
@@ -48,6 +49,7 @@ internal fun StyleStep(model: DubExportModel, open: OpenProject?, go: (DubStep) 
                 GlassFact(AfIcons.Regular.FileText, My.breakSyllables(tr(UiText.CAPTIONS_SRT_ALWAYS)), colour = AutoFlowColors.Muted, caption = true)
             }
             open?.let { DubHideCard(model, it, idle, s.box, burn) }
+            open?.let { DubWatermarkCard(model, it, idle, s.markNotice, s.markOk) }
         } }
     Column(if (wide) Modifier.fillMaxSize() else Modifier.widthIn(max = 900.dp).fillMaxSize()) {
         if (wide) DubPanes({ options(Modifier.fillMaxSize()) }, { preview() }, Modifier.weight(1f))
