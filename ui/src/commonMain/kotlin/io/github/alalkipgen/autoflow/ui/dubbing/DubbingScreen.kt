@@ -95,7 +95,8 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
     // 🆕-6: the desktop keys (↑ / ↓ / Enter) and the line chosen in Dub script and Voice.
     val keys = remember(open?.dir) { DubLineKeys() }
     val preview: @Composable (Boolean) -> Unit = { captions ->
-        if (export != null && doc != null) DubPreview(export, open, doc, playhead, player, captions)
+        // D-107: the boxes are edited on the Style step's preview (a touch picks one, drag / pinch moves and resizes it).
+        if (export != null && doc != null) DubPreview(export, open, doc, playhead, player, captions, edit = shown == DubStep.STYLE)
     }
     // Group 4 A 3: the ambient background (Group 1) behind every step, not the flat Background fill.
     Column(modifier.fillMaxSize().ambientBackground()) {

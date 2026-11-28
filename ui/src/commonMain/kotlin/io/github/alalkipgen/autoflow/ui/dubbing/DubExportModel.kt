@@ -3,15 +3,19 @@ package io.github.alalkipgen.autoflow.ui.dubbing
 import io.github.alalkipgen.autoflow.core.config.ToolsConfig
 import io.github.alalkipgen.autoflow.core.dubbing.DubExport
 import io.github.alalkipgen.autoflow.core.dubbing.DubExportCheck
+import io.github.alalkipgen.autoflow.core.dubbing.DubMasks
 import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.FileSystem
 import io.github.alalkipgen.autoflow.core.io.joinPath
+import io.github.alalkipgen.autoflow.core.model.DubMask
+import io.github.alalkipgen.autoflow.core.model.DubMaskKind
 import io.github.alalkipgen.autoflow.core.model.DubOriginal
 import io.github.alalkipgen.autoflow.core.model.DubbingTool
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.recap.CaptionSize
 import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.Lexicon
+import io.github.alalkipgen.autoflow.core.recap.MaskStrength
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleExport
@@ -22,6 +26,7 @@ import io.github.alalkipgen.autoflow.media.audio.DubMixer
 import io.github.alalkipgen.autoflow.media.audio.VideoSound
 import io.github.alalkipgen.autoflow.media.render.BurnSize
 import io.github.alalkipgen.autoflow.media.render.BurnFit
+import io.github.alalkipgen.autoflow.media.render.DubPicture
 import io.github.alalkipgen.autoflow.ui.subtitles.maxChars
 import io.github.alalkipgen.autoflow.ui.subtitles.nameSuffix
 import io.github.alalkipgen.autoflow.media.render.FontInfo
@@ -61,11 +66,13 @@ data class DubExportUi(val dir: String? = null, val wav: Boolean = false, val ru
     /** Burned Burmese subtitles: lines / line length (null = [BurnFit.auto] by the video's frame); the size is in the caption style. */
     val fit: BurnFit? = null,
     /** Style: what Save caption style… answered (saved to the Library, or why not). */
-    val styleNotice: UiNotice? = null, val styleOk: Boolean = false)
+    val styleNotice: UiNotice? = null, val styleOk: Boolean = false,
+    /** Style: the blur / colour box picked on the preview or in its card (index in `masks`), null = none. */
+    val box: Int? = null)
 
 /**
  * The Export step (specs/dubbing.md §2, §6): pre-flight ([DubExport.check]), then the [DubMixer] tasks one after
- * another on the render queue — stems, the voice track, the video (picture copied, or Burmese subtitles burned) —
+ * another on the render queue — stems, the voice track, the video (picture copied, or the boxes and Burmese subtitles drawn) —
  * each a Jobs row; a step that fails or is cancelled stops the chain, and Export again reuses the finished files.
  * Also writes the Burmese `.srt` of the current version and, when asked, keeps the voice track as a `.wav` in exports.
  */
@@ -144,6 +151,50 @@ class DubExportModel(
     private fun styleSaid(dir: String, notice: UiNotice, ok: Boolean) =
         _state.update { (if (it.dir == dir) it else DubExportUi(dir)).copy(styleNotice = notice, styleOk = ok) }
 
+    /** A change to the open project's Dubbing choices (saved); none while an export runs. */
+    private fun setTool(f: (DubbingTool) -> DubbingTool) {
+        val open = session.open ?: return
+        if (_state.value.busy) return
+        session.update(open.dir, open.project.id) { p -> p.copy(dubbing = f(p.dubbing ?: DubbingTool())) }
+    }
+
+    /** The blur / colour boxes over the video (D-107), saved in the project. */
+    fun masks(open: OpenProject? = session.open): List<DubMask> = open?.project?.dubbing?.masks.orEmpty()
+
+    private fun setMasks(f: (List<DubMask>) -> List<DubMask>) = setTool { it.copy(masks = f(it.masks)) }
+
+    /** A strip / logo corner on or off; [DubMaskKind.CUSTOM] adds one more box (and picks it). */
+    fun toggleBox(kind: DubMaskKind) {
+        setMasks { DubMasks.toggle(it, kind) }
+        val added = masks().indexOfLast { it.kind == kind }.takeIf { it >= 0 }
+        select(if (kind == DubMaskKind.CUSTOM) added else _state.value.box?.takeIf { it < masks().size })
+    }
+
+    fun removeBox(index: Int) {
+        setMasks { DubMasks.remove(it, index) }
+        select(null)
+    }
+
+    fun moveBox(index: Int, dx: Float, dy: Float) = setMasks { DubMasks.move(it, index, dx, dy) }
+    fun resizeBox(index: Int, dw: Float, dh: Float) = setMasks { DubMasks.resize(it, index, dw, dh) }
+
+    /** Box [index] at [rect] (a drag / pinch on the preview), kept inside the picture. */
+    fun setBoxRect(index: Int, rect: List<Float>) = setMasks { DubMasks.setRect(it, index, rect) }
+
+    /** Box [index] blurred (null) or filled with `#RRGGBB` [fill]. */
+    fun fillBox(index: Int, fill: String?) = setMasks { DubMasks.fill(it, index, fill) }
+
+    fun setBlurStrength(strength: MaskStrength) = setTool { it.copy(blurStrength = strength) }
+
+    /** The Burmese subtitles on the lowest box in the lower half (the old subtitles' band), or in their usual place. */
+    fun setCaptionsOnBox(on: Boolean) = setTool { it.copy(captionsOnBox = on) }
+
+    /** The box picked on the preview / in the card (null = none); kept per project, not saved. */
+    fun select(index: Int?) {
+        val dir = session.open?.dir ?: return
+        _state.update { (if (it.dir == dir) it else DubExportUi(dir)).copy(box = index) }
+    }
+
     /** Burned subtitles' lines on screen and line length (this export only). */
     fun setFit(fit: BurnFit) = edit { it.copy(fit = fit) }
 
@@ -195,7 +246,8 @@ class DubExportModel(
         val video = open?.project?.subtitles?.video ?: return emptyList()
         val fit = fit(open)
         return SubtitleBurn.overlays(SubtitleOps.toSrt(doc, TextChoice.BURMESE), video.width.takeIf { it > 0 } ?: 1920,
-            video.height.takeIf { it > 0 } ?: 1080, "", style(open), fit.maxChars(config.subtitles), maxLines = fit.lines)
+            video.height.takeIf { it > 0 } ?: 1080, "", style(open), fit.maxChars(config.subtitles), maxLines = fit.lines,
+            centerY = DubMasks.captionY(open.project.dubbing))
     }
 
     /** F-6: the movie's own sound in the mix, 0–1 (0 = muted), as chosen on Voice. */
@@ -237,10 +289,12 @@ class DubExportModel(
         // the kept .wav is the same mix written once more into exports, so the video's name never depends on it
         val keep = if (!wav) null else voice.voice.copy(output = "${SubtitleExport.EXPORTS_DIR}/$base-voice-${voice.voice.output.substringAfterLast('-').take(8)}.wav")
         val ass = if (tool.burnSubtitles) burnAss(open, doc, base) ?: return null else null
-        val ext = if (ass != null) "mp4" else VideoSound.videoExt(video.file.substringAfterLast('.', "mp4"))
+        // D-107: the boxes, then the subtitles; nothing drawn = the picture copied as before.
+        val picture = DubPicture(tool.masks, DubMasks.sigma(tool.blurStrength, video.height.takeIf { it > 0 } ?: 1080), ass, RecapFrames.FONTS_DIR)
+        val ext = if (picture.drawn) "mp4" else VideoSound.videoExt(video.file.substringAfterLast('.', "mp4"))
         val volume = if (tool.original.mode == DubOriginal.MUTE) 0.0 else tool.original.volume
         val args = DubMixer.exportArgs(video.file, voice.voice.output, video.durationMs, volume, video.hasAudio, ext, config.tts.m4aBitrate,
-            ass, RecapFrames.FONTS_DIR, config.burn.x264Preset, config.burn.crf)
+            picture, config.burn.x264Preset, config.burn.crf)
         val all = voice.tasks + listOfNotNull(keep) + MediaTaskJob(DubMixer.EXPORT, args, "${SubtitleExport.EXPORTS_DIR}/$base-dub-${DubMixer.key(args).take(8)}.$ext", video.durationMs)
         val srt = writeSrt(open, doc, "$base.srt") ?: return null
         val kept = _state.value.takeIf { it.dir == open.dir }
@@ -281,12 +335,14 @@ class DubExportModel(
         frames.installFont(open, font)?.let { return say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to it)).let { null } }
         val style = style(open)
         val fit = fit(open)
-        val ass = ".cache/burn/$base-dub-${CaptionStyles.sizeName(style)}-${fit.nameSuffix()}${CaptionStyles.lookSuffix(style)}.ass"
+        val centerY = DubMasks.captionY(open.project.dubbing)
+        val ass = ".cache/burn/$base-dub-${CaptionStyles.sizeName(style)}-${fit.nameSuffix()}${CaptionStyles.lookSuffix(style)}" +
+            "${centerY?.let { "-y${(it * 1000).roundToInt()}" }.orEmpty()}.ass"
         return try {
             fs.createDirectories(joinPath(open.dir, ".cache/burn"))
             fs.writeDurably(joinPath(open.dir, ass), SubtitleBurn.ass(SubtitleOps.toSrt(doc, TextChoice.BURMESE), video.width.takeIf { it > 0 } ?: 1920,
                 video.height.takeIf { it > 0 } ?: 1080, font.family, style, fit.maxChars(config.subtitles),
-                FontInfo.parse(font.bytes)?.assScale, maxLines = fit.lines).encodeToByteArray())
+                FontInfo.parse(font.bytes)?.assScale, maxLines = fit.lines, centerY = centerY).encodeToByteArray())
             ass
         } catch (e: Exception) {
             say(open.dir, UiNotice(UiText.RESULT_DETAIL, "detail" to (e.message ?: e::class.simpleName.orEmpty()))); null

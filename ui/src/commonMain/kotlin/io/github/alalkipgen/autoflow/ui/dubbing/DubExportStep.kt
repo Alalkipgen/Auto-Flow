@@ -60,10 +60,14 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                     My.breakSyllables(tr(UiText.DUB_ORIGINAL) + ": " + (if (mute) tr(UiText.V3_DUB_MUTE) else tr(UiText.V3_DUB_LOWER, "percent" to percent))),
                     textModifier = Modifier.testTag("dub-export-original"))
                 Divider()
-                // D-105: the Burmese subtitles are chosen on Style; here only what was chosen, and the way back there.
+                // D-105: the Burmese subtitles (and D-107 the boxes) are chosen on Style; here only what was chosen, and the way back there.
                 val burn = tool?.burnSubtitles == true
                 GlassFact(AfIcons.Regular.Subtitles, My.breakSyllables(tr(if (burn) UiText.DUB_BURN_ON else UiText.DUB_BURN_OFF)),
                     textModifier = Modifier.testTag("dub-export-burn"))
+                // D-107: the boxes chosen on Style (blur / colour), counted.
+                val boxes = tool?.masks.orEmpty().size
+                GlassFact(AfIcons.Regular.EyeSlash, My.breakSyllables(if (boxes > 0) tr(UiText.DUB_EXPORT_BOXES, "n" to boxes) else tr(UiText.DUB_EXPORT_NO_BOXES)),
+                    textModifier = Modifier.testTag("dub-export-boxes"))
                 GlassButton(My.breakSyllables(tr(UiText.DUB_GO_TO, "step" to tr(UiText.DUB_STEP_STYLE))), { go(DubStep.STYLE) },
                     Modifier.padding(start = 25.dp).testTag("dub-export-go-style"), icon = DubStep.STYLE.icon,
                     trailingIcon = AfIcons.Regular.ArrowRight, enabled = !s.busy)

@@ -224,6 +224,39 @@ class DubExportModelTest {
         assertEquals(UiText.DUB_BURN_NO_FONT, f.model.state.value.notice?.key)
     }
 
+    /** D-107: the boxes are saved in the project, the subtitles sit on the bottom box, and the export draws boxes then subtitles. */
+    @Test fun boxesAreSavedPreviewedAndDrawnUnderTheSubtitles() {
+        val f = Fixture(withFont = true)
+        f.model.toggleBox(io.github.alalkipgen.autoflow.core.model.DubMaskKind.BOTTOM)
+        f.model.toggleBox(io.github.alalkipgen.autoflow.core.model.DubMaskKind.CUSTOM)
+        assertEquals(1, f.model.state.value.box, "a new box is picked")
+        f.model.fillBox(1, "#ffffff")
+        f.model.setBlurStrength(io.github.alalkipgen.autoflow.core.recap.MaskStrength.LIGHT)
+        val tool = f.session.open!!.project.dubbing!!
+        assertEquals(listOf(io.github.alalkipgen.autoflow.core.model.DubMaskKind.BOTTOM, io.github.alalkipgen.autoflow.core.model.DubMaskKind.CUSTOM),
+            tool.masks.map { it.kind })
+        assertEquals(listOf(null, "#FFFFFF"), tool.masks.map { it.fill })
+        // Without subtitles the boxes alone make a new mp4 (the picture is no longer copied).
+        f.model.start(f.doc); f.queue.done(0); f.queue.done(1)
+        val plain = f.graph(2)
+        assertTrue(plain.startsWith("[0:v]split[dm0a][dm0b];") && "gblur=sigma=12[dm0c]" in plain && "color=0xFFFFFF@1:t=fill[dm1]" in plain &&
+            "[dm1]null[vout];" in plain, plain)
+        assertTrue(f.queue.task(2).output.endsWith(".mp4") && "libx264" in f.args(2) && "copy" !in f.args(2))
+        f.queue.done(2)
+        f.model.setBurn(true)
+        assertTrue(f.model.previewCaptions(f.session.open, f.doc).all { o -> o.centerY?.let { kotlin.math.abs(it - .885f) < 1e-4f } == true },
+            "the subtitles sit on the bottom box")
+        f.model.start(f.doc); f.queue.done(3); f.queue.done(4)
+        val burned = f.graph(5)
+        assertTrue(Regex("\\[dm1\\]ass=filename=[^;]*-y885\\.ass:fontsdir=[^;]*\\[vout\\];").containsMatchIn(burned), burned)
+        f.queue.done(5)
+        f.model.setCaptionsOnBox(false)
+        assertTrue(f.model.previewCaptions(f.session.open, f.doc).all { it.centerY == null }, "the usual place")
+        f.model.removeBox(0); f.model.removeBox(0)
+        assertEquals(emptyList(), f.model.masks())
+        assertNull(f.model.state.value.box)
+    }
+
     /**
      * D-106: the caption style is saved in the project, the preview shows the overlays the burn writes, and each look /
      * size is its own video; the default keeps the boxed white Medium and its old name.
