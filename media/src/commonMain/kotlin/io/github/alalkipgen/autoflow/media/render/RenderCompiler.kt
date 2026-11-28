@@ -133,9 +133,12 @@ object RenderCompiler {
                     BackgroundMode.COLOUR -> "$fitted,pad=$w:$h:(ow-iw)/2:(oh-ih)/2:color=${hexColour(layer.params.colour)},"
                     BackgroundMode.IMAGE -> {
                         // invalid() made sure the image resolves. The still loops at the output rate for the clip's length.
+                        // settb=AVTB on both sides: the still (1/fps) and the movie (e.g. 1/12288) must share a time base.
+                        // FFmpeg 8 and 9 hand overlay's end time on without converting it, so 2 s became 1024 s; tpad /
+                        // fps then padded the clip to that and the next clips fell past the end (frozen picture).
                         val bi = input("-framerate", "${out.fps}", "-loop", "1", "-t", d, "-i", env.resolveLayerImage(layer.params.image!!)!!)
-                        chains += "[$bi:v]scale=$w:$h:force_original_aspect_ratio=increase,crop=$w:$h,setsar=1[lbg$tag]"
-                        "$fitted,setsar=1[lfg$tag];[lbg$tag][lfg$tag]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=1,"
+                        chains += "[$bi:v]scale=$w:$h:force_original_aspect_ratio=increase,crop=$w:$h,setsar=1,settb=AVTB[lbg$tag]"
+                        "$fitted,setsar=1,settb=AVTB[lfg$tag];[lbg$tag][lfg$tag]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=1,"
                     }
                 }
             }
