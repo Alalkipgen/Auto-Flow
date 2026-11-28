@@ -79,6 +79,11 @@ internal fun DubPreview(export: DubExportModel, open: OpenProject?, doc: Subtitl
     val picked = if (edit) ex.box?.takeIf { ex.dir == open.dir } else null
     var draft by remember(open.dir) { mutableStateOf<Pair<Int, List<Float>>?>(null) }
     val editing = if (edit && masks.isNotEmpty()) dubBoxEditing(export, masks) { draft = it } else Modifier
+    // D-108: the watermark where the export puts it (over the boxes, under the subtitles).
+    val mark = export.watermark(open)
+    val markImage = remember(open.dir, mark?.file) {
+        export.watermarkBytes(open)?.let { runCatching { io.github.alalkipgen.autoflow.ui.components.decodeImage(it) }.getOrNull() }
+    }
     val path = joinPath(open.dir, video.file)
     var hintOpen by rememberSaveable { mutableStateOf(false) }
     var failed by remember(path) { mutableStateOf(false) }
@@ -100,6 +105,7 @@ internal fun DubPreview(export: DubExportModel, open: OpenProject?, doc: Subtitl
             player(path, MovieRequest(playhead.seekMs, playhead.revision, playing = playhead.playing, muted = export.previewOriginal(open) <= 0f,
                 volume = export.previewOriginal(open).coerceIn(0f, 1f)), Modifier.fillMaxSize()) { if (!playhead.report(it)) failed = true }
             if (masks.isNotEmpty()) DubBoxes(masks, picked, draft, edit, Modifier.matchParentSize())
+            if (mark != null && markImage != null) DubWatermarkImage(mark, markImage, Modifier.matchParentSize())
             BurnedCaption(burned, playhead.positionMs, video.height, "dub-burned-line")
             if (!playhead.playing) Box(Modifier.align(Alignment.Center).testTag("dub-preview-big-play")) { BigPlay(bar.toggle) }
         }

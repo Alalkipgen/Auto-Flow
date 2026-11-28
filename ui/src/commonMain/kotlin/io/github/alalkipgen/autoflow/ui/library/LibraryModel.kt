@@ -51,6 +51,9 @@ class LibraryModel(
         _state.value = _state.value.copy(library = store.load())
     }
 
+    /** Where a Library file (`files/…`, e.g. a Brand Kit's watermark) is, to read it (Dubbing's watermark, D-108). */
+    fun assetPath(relative: String): String = store.assetPath(relative)
+
     // ── Brand Kit ───────────────────────────────────────────────────────────────────────────────
 
     /**

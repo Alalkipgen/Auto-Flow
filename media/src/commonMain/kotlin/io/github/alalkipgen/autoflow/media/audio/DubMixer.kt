@@ -66,9 +66,9 @@ object DubMixer {
         exportArgs(video, voice, totalMs, originalVolume, hasSound, outExt, bitrate, DubPicture(ass = ass, fontsDir = fontsDir), x264Preset, crf)
 
     /**
-     * The export with what Style draws on the picture (D-107): [picture] = the blur / colour boxes and the burned
-     * subtitles, made into a new libx264 mp4; nothing drawn = the picture copied, as above. Subtitles only make the
-     * same command as before.
+     * The export with what Style draws on the picture (D-107 / D-108): [picture] = the blur / colour boxes, the
+     * watermark (its image the third input) and the burned subtitles, made into a new libx264 mp4; nothing drawn = the
+     * picture copied, as above. Subtitles only make the same command as before.
      */
     fun exportArgs(video: String, voice: String, totalMs: Long, originalVolume: Double, hasSound: Boolean, outExt: String, bitrate: String,
         picture: DubPicture, x264Preset: String = "veryfast", crf: Int = 20): List<String> {
@@ -80,7 +80,8 @@ object DubMixer {
             else listOf("-map", "[vout]", "-c:v", "libx264", "-preset", x264Preset, "-crf", crf.toString(), "-pix_fmt", "yuv420p")
         val graph = if (!drawn) sound else "${picture.chain()};$sound"
         val container = if (!drawn && outExt == "mkv") listOf("-f", "matroska") else listOf("-movflags", "+faststart", "-f", "mp4")
-        return listOf("-hide_banner", "-y", "-nostdin", "-i", video, "-i", voice, "-filter_complex", graph) + pictureArgs +
+        val mark = picture.mark?.let { listOf("-i", it.file) }.orEmpty()
+        return listOf("-hide_banner", "-y", "-nostdin", "-i", video, "-i", voice) + mark + listOf("-filter_complex", graph) + pictureArgs +
             listOf("-map", "[aout]", "-c:a", "aac", "-b:a", bitrate, "-t", sec(totalMs)) + container + MediaTaskJob.PART
     }
 

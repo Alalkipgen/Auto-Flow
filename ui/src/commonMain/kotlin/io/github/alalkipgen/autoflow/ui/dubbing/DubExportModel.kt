@@ -3,6 +3,7 @@ package io.github.alalkipgen.autoflow.ui.dubbing
 import io.github.alalkipgen.autoflow.core.config.ToolsConfig
 import io.github.alalkipgen.autoflow.core.dubbing.DubExport
 import io.github.alalkipgen.autoflow.core.dubbing.DubExportCheck
+import io.github.alalkipgen.autoflow.core.dubbing.DubMarks
 import io.github.alalkipgen.autoflow.core.dubbing.DubMasks
 import io.github.alalkipgen.autoflow.core.getOrNull
 import io.github.alalkipgen.autoflow.core.io.FileSystem
@@ -10,12 +11,14 @@ import io.github.alalkipgen.autoflow.core.io.joinPath
 import io.github.alalkipgen.autoflow.core.model.DubMask
 import io.github.alalkipgen.autoflow.core.model.DubMaskKind
 import io.github.alalkipgen.autoflow.core.model.DubOriginal
+import io.github.alalkipgen.autoflow.core.model.DubWatermark
 import io.github.alalkipgen.autoflow.core.model.DubbingTool
 import io.github.alalkipgen.autoflow.core.hash.Sha256
 import io.github.alalkipgen.autoflow.core.recap.CaptionSize
 import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.Lexicon
 import io.github.alalkipgen.autoflow.core.recap.MaskStrength
+import io.github.alalkipgen.autoflow.core.recap.WatermarkAnchor
 import io.github.alalkipgen.autoflow.core.store.ArtifactStore
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc
 import io.github.alalkipgen.autoflow.core.subtitles.SubtitleExport
@@ -26,6 +29,7 @@ import io.github.alalkipgen.autoflow.media.audio.DubMixer
 import io.github.alalkipgen.autoflow.media.audio.VideoSound
 import io.github.alalkipgen.autoflow.media.render.BurnSize
 import io.github.alalkipgen.autoflow.media.render.BurnFit
+import io.github.alalkipgen.autoflow.media.render.DubMark
 import io.github.alalkipgen.autoflow.media.render.DubPicture
 import io.github.alalkipgen.autoflow.ui.subtitles.maxChars
 import io.github.alalkipgen.autoflow.ui.subtitles.nameSuffix
@@ -34,6 +38,7 @@ import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.RenderState
 import io.github.alalkipgen.autoflow.media.render.SubtitleBurn
 import io.github.alalkipgen.autoflow.media.render.Overlay
+import io.github.alalkipgen.autoflow.platform.FilePicker
 import io.github.alalkipgen.autoflow.platform.FileShare
 import io.github.alalkipgen.autoflow.platform.PlatformResult
 import io.github.alalkipgen.autoflow.ui.export.RecapFrames
@@ -56,6 +61,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+/** A Brand Kit image Style can use as the watermark (D-108): the kit's watermark, or its logo when [logo]. */
+data class DubKitImage(val kitId: String, val name: String, val logo: Boolean)
+
 /** A line on the preview's scrubber (Group 4 🆕-1): its number, its subtitle time and how it sounds now. */
 data class DubTick(val n: Int, val startMs: Long, val endMs: Long, val kind: DubTickKind, val voiceEndMs: Long = startMs)
 enum class DubTickKind { VOICED, NO_VOICE, TOO_LONG }
@@ -68,7 +76,9 @@ data class DubExportUi(val dir: String? = null, val wav: Boolean = false, val ru
     /** Style: what Save caption style… answered (saved to the Library, or why not). */
     val styleNotice: UiNotice? = null, val styleOk: Boolean = false,
     /** Style: the blur / colour box picked on the preview or in its card (index in `masks`), null = none. */
-    val box: Int? = null)
+    val box: Int? = null,
+    /** Style: what setting the watermark answered (set, or why not). */
+    val markNotice: UiNotice? = null, val markOk: Boolean = false)
 
 /**
  * The Export step (specs/dubbing.md §2, §6): pre-flight ([DubExport.check]), then the [DubMixer] tasks one after
@@ -89,6 +99,8 @@ class DubExportModel(
     private val uiLanguage: () -> UiLanguage = { UiLanguage.ENGLISH },
     /** Save caption style… keeps the style in the Library, shared with Movie Recap (D-106). */
     private val library: LibraryModel? = null,
+    /** Set watermark… chooses the image (D-108). */
+    private val picker: FilePicker? = null,
 ) {
     private val _state = MutableStateFlow(DubExportUi())
     val state: StateFlow<DubExportUi> = _state.asStateFlow()
@@ -195,6 +207,73 @@ class DubExportModel(
         _state.update { (if (it.dir == dir) it else DubExportUi(dir)).copy(box = index) }
     }
 
+    /** The watermark / logo on every frame (D-108), saved in the project; null = none. */
+    fun watermark(open: OpenProject? = session.open): DubWatermark? = open?.project?.dubbing?.watermark
+
+    /** The Brand Kits that have a watermark or a logo image (Use … on Style takes that image, nothing else of the kit). */
+    fun kitImages(): List<DubKitImage> = library?.let { it.state.value.library.brandKits }.orEmpty().flatMap { k ->
+        listOfNotNull(k.watermark?.let { DubKitImage(k.id, k.name, false) }, k.logo?.let { DubKitImage(k.id, k.name, true) })
+    }
+
+    /**
+     * Set watermark… (D-108): an image chosen with the file picker, copied into the project as
+     * `library/watermark-<hash>.<ext>` (a new image = a new name, so the export is made again), size and place kept.
+     */
+    fun importWatermark(): Job? {
+        val dir = session.open?.dir ?: return null
+        val p = picker ?: return markSaid(dir, UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE), false)
+        if (_state.value.busy) return null
+        return scope.launch {
+            val from = when (val r = p.pickFiles(UiText.PICK_RECAP_WATERMARK.text(uiLanguage()), DubMarks.EXTENSIONS)) {
+                is PlatformResult.Ok -> r.value.firstOrNull() ?: return@launch
+                is PlatformResult.Failed -> { markSaid(dir, UiNotice(UiText.WATERMARK_SAVE_FAILED, "detail" to r.reason), false); return@launch }
+                is PlatformResult.Unsupported -> { markSaid(dir, UiNotice(UiText.CHOOSE_FILES_UNAVAILABLE), false); return@launch }
+            }
+            val bytes = session.readFile(from)?.takeIf { it.isNotEmpty() }
+            if (bytes == null) { markSaid(dir, UiNotice(UiText.CANNOT_READ_FILE), false); return@launch }
+            setWatermarkImage(dir, bytes, DubMarks.ext(from))
+        }
+    }
+
+    /** Use a Brand Kit's watermark (or its [logo]) image as this dub's watermark (only the image, and the kit's width). */
+    fun useKitImage(kitId: String, logo: Boolean) {
+        val dir = session.open?.dir ?: return
+        val lib = library ?: run { markSaid(dir, UiNotice(UiText.LIBRARY_UNAVAILABLE), false); return }
+        val kit = lib.state.value.library.brandKits.firstOrNull { it.id == kitId } ?: run { markSaid(dir, UiNotice(UiText.V3_LIBRARY_NOT_FOUND), false); return }
+        val rel = (if (logo) kit.logo else kit.watermark) ?: run { markSaid(dir, UiNotice(UiText.V3_LIBRARY_NOT_FOUND), false); return }
+        val bytes = runCatching { fs.read(lib.assetPath(rel)) }.getOrNull()?.takeIf { it.isNotEmpty() }
+            ?: run { markSaid(dir, UiNotice(UiText.CANNOT_READ_FILE), false); return }
+        setWatermarkImage(dir, bytes, DubMarks.ext(rel), kit.watermarkWidthPercent.takeUnless { logo })
+    }
+
+    private fun setWatermarkImage(dir: String, bytes: ByteArray, ext: String, width: Int? = null) {
+        if (session.open?.dir != dir || _state.value.busy) return
+        val rel = DubMarks.file(Sha256.hex(bytes), ext)
+        val failed = runCatching { fs.createDirectories(joinPath(dir, "library")); fs.writeDurably(joinPath(dir, rel), bytes) }.exceptionOrNull()
+        if (failed != null) { markSaid(dir, UiNotice(UiText.WATERMARK_SAVE_FAILED, "detail" to failed.message), false); return }
+        setTool { t ->
+            val old = t.watermark
+            t.copy(watermark = DubWatermark(rel, old?.anchor ?: WatermarkAnchor.BOTTOM_RIGHT, DubMarks.width(width ?: old?.widthPercent ?: io.github.alalkipgen.autoflow.core.recap.WatermarkSize.MEDIUM)))
+        }
+        markSaid(dir, UiNotice(UiText.WATERMARK_SET, "name" to rel.substringAfterLast('/')), true)
+    }
+
+    fun removeWatermark() = setTool { it.copy(watermark = null) }.also { session.open?.dir?.let { d -> markSaid(d, null, false) } }
+
+    fun setWatermarkWidth(percent: Int) = setTool { t -> t.copy(watermark = t.watermark?.copy(widthPercent = DubMarks.width(percent))) }
+
+    fun setWatermarkAnchor(anchor: WatermarkAnchor) = setTool { t -> t.copy(watermark = t.watermark?.copy(anchor = anchor)) }
+
+    /** The watermark's image for the preview (null = none, or it cannot be read). */
+    fun watermarkBytes(open: OpenProject?): ByteArray? = open?.project?.dubbing?.watermark?.let { w ->
+        runCatching { fs.read(joinPath(open.dir, w.file)) }.getOrNull()
+    }
+
+    private fun markSaid(dir: String, notice: UiNotice?, ok: Boolean): Job? {
+        _state.update { (if (it.dir == dir) it else DubExportUi(dir)).copy(markNotice = notice, markOk = ok) }
+        return null
+    }
+
     /** Burned subtitles' lines on screen and line length (this export only). */
     fun setFit(fit: BurnFit) = edit { it.copy(fit = fit) }
 
@@ -289,8 +368,13 @@ class DubExportModel(
         // the kept .wav is the same mix written once more into exports, so the video's name never depends on it
         val keep = if (!wav) null else voice.voice.copy(output = "${SubtitleExport.EXPORTS_DIR}/$base-voice-${voice.voice.output.substringAfterLast('-').take(8)}.wav")
         val ass = if (tool.burnSubtitles) burnAss(open, doc, base) ?: return null else null
-        // D-107: the boxes, then the subtitles; nothing drawn = the picture copied as before.
-        val picture = DubPicture(tool.masks, DubMasks.sigma(tool.blurStrength, video.height.takeIf { it > 0 } ?: 1080), ass, RecapFrames.FONTS_DIR)
+        // D-108: the watermark's image must still be in the project.
+        val mark = tool.watermark?.let { w ->
+            if (!fs.exists(joinPath(open.dir, w.file))) return say(open.dir, UiNotice(UiText.DUB_WATERMARK_MISSING))
+            DubMark(w.file, DubMarks.widthPx(w.widthPercent, video.width.takeIf { it > 0 } ?: 1280), w.anchor)
+        }
+        // D-107 / D-108: the boxes, the watermark, then the subtitles; nothing drawn = the picture copied as before.
+        val picture = DubPicture(tool.masks, DubMasks.sigma(tool.blurStrength, video.height.takeIf { it > 0 } ?: 1080), ass, RecapFrames.FONTS_DIR, mark)
         val ext = if (picture.drawn) "mp4" else VideoSound.videoExt(video.file.substringAfterLast('.', "mp4"))
         val volume = if (tool.original.mode == DubOriginal.MUTE) 0.0 else tool.original.volume
         val args = DubMixer.exportArgs(video.file, voice.voice.output, video.durationMs, volume, video.hasAudio, ext, config.tts.m4aBitrate,
