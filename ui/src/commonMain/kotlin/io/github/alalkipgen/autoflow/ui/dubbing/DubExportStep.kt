@@ -2,14 +2,11 @@ package io.github.alalkipgen.autoflow.ui.dubbing
 
 import io.github.alalkipgen.autoflow.ui.icons.AfIcons
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -28,8 +25,6 @@ import io.github.alalkipgen.autoflow.ui.components.*
 import io.github.alalkipgen.autoflow.ui.i18n.*
 import io.github.alalkipgen.autoflow.ui.icons.AfIcon
 import io.github.alalkipgen.autoflow.ui.projects.OpenProject
-import io.github.alalkipgen.autoflow.ui.subtitles.BurnFitChips
-import io.github.alalkipgen.autoflow.ui.subtitles.BurnSizeChips
 import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 import io.github.alalkipgen.autoflow.ui.theme.GlassColors
@@ -37,8 +32,8 @@ import kotlinx.coroutines.launch
 
 /**
  * The Export step (D-3b, Group 4 §G): the checklist of the three real checks (green rows, or amber with Go to), the
- * options card (the original sound chosen on Voice, Burmese subtitles with size / lines / length inside, the `.wav`
- * switch), the mix's job card with progress / Cancel, the finished files with Play · Share · Save to Gallery (phone)
+ * options card (the original sound chosen on Voice, whether the Burmese subtitles go in the video — chosen on Style
+ * (D-105), with Go to Style — and the `.wav` switch), the mix's job card with progress / Cancel, the finished files with Play · Share · Save to Gallery (phone)
  * or Open folder (desktop), and the sticky Make the dubbed video with its reason while a check fails.
  */
 @Composable
@@ -65,17 +60,14 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                     My.breakSyllables(tr(UiText.DUB_ORIGINAL) + ": " + (if (mute) tr(UiText.V3_DUB_MUTE) else tr(UiText.V3_DUB_LOWER, "percent" to percent))),
                     textModifier = Modifier.testTag("dub-export-original"))
                 Divider()
+                // D-105: the Burmese subtitles are chosen on Style; here only what was chosen, and the way back there.
                 val burn = tool?.burnSubtitles == true
-                GlassSwitchRow(My.breakSyllables(tr(UiText.DUB_BURN)), burn, { model.setBurn(it) }, Modifier.testTag("dub-burn"),
-                    icon = AfIcons.Regular.Subtitles, enabled = !s.busy)
-                if (burn) {
-                    val box = RoundedCornerShape(12.dp)
-                    Column(Modifier.fillMaxWidth().clip(box).background(Color.White.copy(alpha = .04f))
-                        .border(1.dp, Color.White.copy(alpha = .08f), box).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BurnSizeChips(s.size, model::setSize, "dub-burn-size", enabled = !s.busy, glass = true)
-                        BurnFitChips(model.fit(open), model::setFit, "dub-burn", enabled = !s.busy, glass = true)
-                    }
-                }
+                GlassFact(AfIcons.Regular.Subtitles, My.breakSyllables(tr(if (burn) UiText.DUB_BURN_ON else UiText.DUB_BURN_OFF)),
+                    textModifier = Modifier.testTag("dub-export-burn"))
+                GlassButton(My.breakSyllables(tr(UiText.DUB_GO_TO, "step" to tr(UiText.DUB_STEP_STYLE))), { go(DubStep.STYLE) },
+                    Modifier.padding(start = 25.dp).testTag("dub-export-go-style"), icon = DubStep.STYLE.icon,
+                    trailingIcon = AfIcons.Regular.ArrowRight, enabled = !s.busy)
+                Divider()
                 GlassSwitchRow(My.breakSyllables(tr(UiText.DUB_SAVE_WAV)), s.wav, { model.setWav(it) }, Modifier.testTag("dub-save-wav"),
                     icon = AfIcons.Regular.FileAudio, enabled = !s.busy)
                 GlassFact(AfIcons.Regular.Info, My.breakSyllables(tr(UiText.DUB_EXPORT_KEEPS)), colour = AutoFlowColors.Muted, caption = true)

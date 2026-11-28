@@ -248,7 +248,7 @@ class GlassShotsTest(val language: UiLanguage, val font: Float) {
         if (out == null) return
         val f = Fixture(); val rows = f.rows(); liveTiming()
         val actions = JobsActions(scope, runner = f.ai)
-        val step = UiText.V3_STEP.text(language, "step" to UiText.STORY.text(language), "n" to 2)
+        val step = UiText.V3_STEP.text(language, "step" to UiText.STORY.text(language), "n" to 2, "total" to 5)
         shot("1-home", 3) {
             CompositionLocalProvider(LocalMediaThumbnails provides f.thumbs) {
                 StudioV2Shell(StudioV2Dest.HOME, {}, jobsBadgeValue(rows), WIDTH.toFloat(), ambient = true) {

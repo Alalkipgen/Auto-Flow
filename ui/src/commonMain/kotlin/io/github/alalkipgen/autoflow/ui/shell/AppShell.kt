@@ -398,7 +398,7 @@ private fun StudioV2App(
                     backHandler = backHandler,
                     continueProjectPath = resume?.path,
                     continueStep = resume?.step?.let { target ->
-                        target.recap?.let { tr(UiText.V3_STEP, "step" to tr(it.textKey), "n" to it.ordinal + 1) }
+                        target.recap?.let { tr(UiText.V3_STEP, "step" to tr(it.textKey), "n" to it.ordinal + 1, "total" to io.github.alalkipgen.autoflow.ui.recap.RecapStep.entries.size) }
                             ?: My.screen(target.screen)
                     },
                     recent = recent,

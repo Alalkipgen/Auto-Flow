@@ -167,7 +167,7 @@ class DubVoiceLinesTest {
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
             try {
                 run(Harness(scope, all = true), language, 1f)
-                onNodeWithTag("dub-go-export").assertIsDisplayed()
+                onNodeWithTag("dub-next-STYLE").assertIsDisplayed()
                 onNodeWithTag("dub-speak").assertDoesNotExist()
                 assertEquals(My.breakSyllables(UiText.DUB_ALL_VOICED.text(language)), text("dub-speak-caption"))
             } finally { scope.cancel() }

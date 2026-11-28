@@ -110,9 +110,10 @@ fun StepBar(labels: List<String>, current: Int, modifier: Modifier = Modifier, c
             width(texts[i], if (i == current - 1) FontWeight.SemiBold else FontWeight.Normal).size.width
         } + (dot + with(density) { AfSpace.S.roundToPx() }) * count +
             with(density) { (AfSpace.S * 2 + AfSpace.L).roundToPx() } * (count - 1) <= constraints.maxWidth
-        // A step as a tab (when the bar also navigates): 48 dp tall, centred, labelled, "selected" (as AfChip) when current.
+        // A step as a tab (when the bar also navigates): at least 48 × 48 dp (a short label such as "ပုံစံ" next to its dot is
+        // narrower), centred, labelled, "selected" (as AfChip) when current.
         val tab: @Composable (Int) -> Modifier = { i ->
-            if (onSelect == null) Modifier else Modifier.afTooltip(labels[i]).heightIn(min = AfSize.Touch)
+            if (onSelect == null) Modifier else Modifier.afTooltip(labels[i]).heightIn(min = AfSize.Touch).widthIn(min = AfSize.Touch)
                 .selectable(i == current - 1, remember(i) { MutableInteractionSource() }, null, role = Role.Tab) { onSelect(i) }
                 .semantics { contentDescription = labels[i]; stateDescription = if (i == current - 1) "selected" else "not selected" }
                 .let { m -> tags.getOrNull(i)?.let { m.testTag(it) } ?: m }

@@ -66,7 +66,7 @@ class DubbingScreenTest {
     private val chosen = SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "selected")
     private val tab = SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab)
 
-    /** P9-13a: the step bar is the chooser — five ≥ 48 dp tabs named by their step, only the shown one selected. */
+    /** P9-13a: the step bar is the chooser — six (D-105) ≥ 48 dp tabs named by their step, only the shown one selected. */
     private fun ComposeUiTest.assertStepTabs(language: UiLanguage, shown: DubStep) = DubStep.entries.forEach { s ->
         onNodeWithTag("dub-step-${s.name}").assertHeightIsAtLeast(AfSize.Touch).assert(tab)
             .assert(hasContentDescription(s.text.text(language))).assert(if (s == shown) chosen else !chosen)
@@ -147,8 +147,14 @@ class DubbingScreenTest {
                 onNodeWithTag("dub-slot-c1").assertTextEquals(My.breakSyllables(UiText.DUB_SLOT.text(language, "s" to 2.9)))
                 onNodeWithTag("dub-approve").assertIsEnabled().performMouseInput { click() }
                 waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.scriptApproved != null }
-                onNodeWithTag("dub-approve").assertIsNotEnabled()
-                onNodeWithTag("dub-step-VOICE").performMouseInput { click() }
+                // D-105: approved → the bar's button is Next: Voice (no disabled Approve), and "approved" is said once.
+                onNodeWithTag("dub-approve").assertDoesNotExist()
+                onNodeWithTag("dub-notice").assertDoesNotExist()
+                onAllNodesWithText(My.breakSyllables(UiText.DUB_APPROVED.text(language)), useUnmergedTree = true).assertCountEquals(1)
+                onNode(hasText(My.breakSyllables(UiText.NEXT_STEP.text(language, "step" to UiText.DUB_STEP_VOICE.text(language))))
+                    and hasAnyAncestor(hasTestTag("dub-next-VOICE")), useUnmergedTree = true).assertExists()
+                onNodeWithTag("dub-next-VOICE").assertIsEnabled().performMouseInput { click() }
+                onNodeWithTag("dub-step-VOICE").assert(chosen)
                 onNodeWithTag("dub-planned-VOICE").assertIsDisplayed().assertIsNotEnabled() // honest: D-2 not built
                 onNodeWithTag("dub-step-SCRIPT").performMouseInput { click() }
                 onNodeWithTag("dub-rows").performScrollToKey("c2")
@@ -222,7 +228,7 @@ class DubbingScreenTest {
                     // Desktop: the selected line opens in place with Speak this line again.
                     if (width >= 840) onNodeWithTag("dub-voice-head-c2").performMouseInput { click() }
                     onNodeWithTag("dub-redo-c2").assertIsEnabled()
-                    onNodeWithTag("dub-go-export").assertIsDisplayed()
+                    onNodeWithTag("dub-next-STYLE").assertIsDisplayed()
                     assertEquals(emptyList(), textFitProblems(width, font))
                     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "03-voice-$width-${language.name.lowercase()}.png"))
                 } finally { jobScope.cancel() }
@@ -326,7 +332,7 @@ class DubbingScreenTest {
                                 voice = DubVoiceModel(session, null, null, scope, models = listOf("tts-a")), export = export)
                         }
                     }
-                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-go-export").fetchSemanticsNodes().isNotEmpty() }
+                    waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-next-STYLE").fetchSemanticsNodes().isNotEmpty() }
                     // F-6 (D-95): Voice and Export show the dubbed video before any render, both spoken lines in it.
                     // Group 4 🆕-1: the scope caption names the voices; the long hint opens behind ⓘ.
                     onNodeWithTag("dub-preview-scope").assertTextEquals(My.breakSyllables(UiText.V3_DUB_PREVIEW_SCOPE.text(language, "n" to 2)))
@@ -334,13 +340,12 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-preview-info").performScrollTo().performMouseInput { click() }
                     onNodeWithTag("dub-preview-hint").assertTextEquals(My.breakSyllables(UiText.DUB_PREVIEW_HINT.text(language, "n" to 2)))
                     onNodeWithTag("dub-preview").performScrollTo().assertIsDisplayed()
-                    onNodeWithTag("dub-go-export").performMouseInput { click() }
-                    onNodeWithTag("dub-step-EXPORT").assert(chosen)
+                    // D-105: Voice → Style (the Burmese subtitles in the video) → Export.
+                    onNodeWithTag("dub-next-STYLE").performMouseInput { click() }
+                    onNodeWithTag("dub-step-STYLE").assert(chosen)
                     onNodeWithTag("dub-preview").assertIsDisplayed()
-                    onNodeWithTag("dub-play").performScrollTo().assertIsDisplayed()
-                    onNodeWithTag("dub-export-original").performScrollTo()
-                    onNodeWithTag("dub-export-blocks").assertDoesNotExist()
-                    onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.V3_DUB_LOWER.text(language, "percent" to 15)))
+                    onNodeWithTag("dub-style-captions").performScrollTo().assertIsDisplayed()
+                    onNodeWithTag("dub-back-VOICE").assertIsEnabled()
                     onNodeWithTag("dub-burn-lines-1").assertDoesNotExist()
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isNotEmpty() }
@@ -353,6 +358,23 @@ class DubbingScreenTest {
                     assertEquals(emptyList(), textFitProblems(width, font))
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isEmpty() }
+                    onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() } // on again: Export says so
+                    waitUntil(timeoutMillis = 5_000) { current.state.value!!.project.dubbing!!.burnSubtitles }
+                    onNodeWithTag("dub-next-EXPORT").assertIsEnabled().performMouseInput { click() }
+                    onNodeWithTag("dub-step-EXPORT").assert(chosen)
+                    onNodeWithTag("dub-preview").assertIsDisplayed()
+                    onNodeWithTag("dub-play").performScrollTo().assertIsDisplayed()
+                    onNodeWithTag("dub-export-original").performScrollTo()
+                    onNodeWithTag("dub-export-blocks").assertDoesNotExist()
+                    onNodeWithTag("dub-export-original").assertTextEquals(My.breakSyllables(UiText.DUB_ORIGINAL.text(language) + ": " + UiText.V3_DUB_LOWER.text(language, "percent" to 15)))
+                    onNodeWithTag("dub-export-burn").assertTextEquals(My.breakSyllables(UiText.DUB_BURN_ON.text(language)))
+                    onNodeWithTag("dub-burn").assertDoesNotExist() // chosen on Style, not here
+                    onNodeWithTag("dub-export-go-style").performScrollTo().performMouseInput { click() }
+                    onNodeWithTag("dub-step-STYLE").assert(chosen)
+                    onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() } // off for this export
+                    waitUntil(timeoutMillis = 5_000) { !current.state.value!!.project.dubbing!!.burnSubtitles }
+                    onNodeWithTag("dub-next-EXPORT").performMouseInput { click() }
+                    onNodeWithTag("dub-export-burn").performScrollTo().assertTextEquals(My.breakSyllables(UiText.DUB_BURN_OFF.text(language)))
                     onNodeWithTag("dub-save-wav").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { export.state.value.wav }
                     onNodeWithTag("dub-export-go").assertIsEnabled().performMouseInput { click() }
