@@ -258,3 +258,7 @@ The same Compose Multiplatform composables run on Android, Windows and Linux; on
 ### D-104 — Library: no desktop list–detail (owner, 2026-11-22; #288)
 
 At expanded width (≥ 840 dp) the Library keeps its centred column (≤ `AfSize.ContentMax`) instead of the list–detail pane planned in D-103 / P9-16 — a Library item has nothing to show beyond its row. Settings' list–detail (P9-17b) is unaffected.
+
+### D-105 — Dubbing: six steps with Style, and Next-step buttons (owner, 2026-11-28; Phase 9 Dubbing)
+
+Dubbing has six steps: Video → Translate → Dub script → Voice → **Style** → Export (`DUB_STEP_STYLE` "Style" / "ပုံစံ"). Style is where the dubbed video's look is chosen, on the phone and on the desktop (options left, preview right); it starts with the Burmese subtitles in the picture (the switch, size, lines and line length move there from Export), and later gets the same tools as Movie Recap's Style: caption colour / outline / box / position, blur of the original hard subtitles and logos, and the watermark / logo from the Brand Kit (each its own PR; the media part widens the v1 scope of D-83). A finished step's sticky bar shows the way on with the existing `NEXT_STEP` "Next: {step}": Dub script once approved → Next: Voice (not a disabled Approve, and "approved" is said once), Voice once every line is spoken → Next: Style, Style → Next: Export with Previous step. The step text counts the steps it has ("Step 5/6"). Not part of Dubbing Style: Look filters (Mirror …), removing the original voices, lip sync.

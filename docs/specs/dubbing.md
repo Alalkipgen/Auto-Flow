@@ -15,21 +15,28 @@ re-checked at `8d092a0` (PR #216). Builds on [quick-tools.md](quick-tools.md) (t
   exactly this. "Remove only the voices" is never offered. Only audio is sent to Gemini, never video.
 
 ## 2. Steps and screens
-Existing `ProjectTopBar` five segments: **Video → Translate → Dub script → Voice → Export**. A step opens only when
-the previous one is done and says why it is locked. Videos longer than `dubbing.maxSourceMs` (set after D-0, Q-41)
+Existing `ProjectTopBar` six segments (D-105): **Video → Translate → Dub script → Voice → Style → Export**. A step
+opens only when the previous one is done and says why it is locked. A finished step's sticky bar names the next one
+(`NEXT_STEP` "Next: {step}"), as in Movie Recap. Videos longer than `dubbing.maxSourceMs` (set after D-0, Q-41)
 are refused at Video with `DUB_LIMIT`.
 - **Video / Translate:** the Subtitles source chooser and editor (same components, Dubbing top bar). Every line needs
   `textMy` before Dub script opens ("Not translated" count with a jump button).
 - **Dub script:** per line: number, times, slot; Subtitle text; Spoken field (defaults to the subtitle text);
-  "Use the subtitle text". Sticky: **Approve the dub script** (`DUB_APPROVE`). Any spoken-line change after approval
-  clears the approval.
+  "Use the subtitle text". Sticky: **Approve the dub script** (`DUB_APPROVE`); once approved it is **Next: Voice** and
+  "Dub script approved." is said once (the sticky caption, no notice above the lines). Any spoken-line change after
+  approval clears the approval (Approve again).
 - **Voice:** voice lock, tone, Original sound Lower/Mute. Rows: slot, take length, fit chip, ▶, ↻, ⋯ (Edit spoken
   line · Shorten (Gemini)). Chips: Fits · Uses the pause · Faster ×N · +N s too long · No voice yet · Script changed.
-  Sticky: Speak n lines (confirm card) → Go to Export. Shorten shows old/new side by side; Use → spoken line changes →
+  Sticky: Speak n lines (confirm card) → **Next: Style**. Shorten shows old/new side by side; Use → spoken line changes →
   needs approval again → ↻.
+- **Style (D-105):** how the dubbed video looks; desktop: options left, preview right. Now: the Captions card — burn
+  Burmese subtitles (`textMy`; Size, Lines on screen 1 / 2 and Line length Short / Long, by default from the frame —
+  D-91; the `.srt` is always saved). Next PRs (as Movie Recap's Style): caption colour / outline / box / position,
+  blur of the original hard subtitles and logos, watermark / logo from the Brand Kit. Sticky: **Next: Export** with
+  Previous step.
 - **Export:** pre-flight blocks on any "too long", missing or old takes, or no Burmese font when burning. Options:
-  burn Burmese subtitles (`textMy`; Size, Lines on screen 1 / 2 and Line length Short / Long, by default from the frame —
-  D-91), save the voice track as wav. Output mp4 + `.srt`; Done card Open · Share · Save
+  the original sound (chosen on Voice), Burmese subtitles in the video or only the `.srt` (chosen on Style, with Go to
+  Style), save the voice track as wav. Output mp4 + `.srt`; Done card Open · Share · Save
   to Gallery. Video stream copied when nothing is burned.
 
 ## 3. Data
@@ -87,7 +94,7 @@ Reuse `V3_FITS`, `V3_TOO_LONG`, `V3_NO_VOICE`, `V3_SCRIPT_CHANGED`; Approve stay
 
 | Key | English | မြန်မာ |
 | --- | --- | --- |
-| DUB_STEP_* | Video / Translate / Dub script / Voice / Export | ဗီဒီယို / ဘာသာပြန် / ပြောမည့်စာ / အသံ / ထုတ်မယ် |
+| DUB_STEP_* | Video / Translate / Dub script / Voice / Style / Export | ဗီဒီယို / ဘာသာပြန် / ပြောမည့်စာ / အသံ / ပုံစံ / ထုတ်မယ် |
 | DUB_SPOKEN / DUB_USE_SUBTITLE | Spoken line / Use the subtitle text | ပြောမည့်စာ / စာတန်းစာကို ပြန်သုံးမယ် |
 | DUB_APPROVE | Approve the dub script | ပြောမည့်စာကို အတည်ပြုမယ် |
 | DUB_USES_PAUSE / DUB_FASTER | Uses the pause / Faster ×{x} | အနားယူချိန်ကို သုံးထားတယ် / ×{x} မြန်ထားတယ် |
