@@ -39,13 +39,16 @@ import io.github.alalkipgen.autoflow.ui.theme.AfSize
 import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
 
-/** The five Dubbing steps on the existing `ProjectTopBar`, whose step bar chooses them (specs/dubbing.md §2). */
+/**
+ * The six Dubbing steps on the existing `ProjectTopBar`, whose step bar chooses them (specs/dubbing.md §2; D-105: Style
+ * sits between Voice and Export, as in Movie Recap).
+ */
 enum class DubStep(val text: UiText) {
     VIDEO(UiText.DUB_STEP_VIDEO), TRANSLATE(UiText.DUB_STEP_TRANSLATE), SCRIPT(UiText.DUB_STEP_SCRIPT),
-    VOICE(UiText.DUB_STEP_VOICE), EXPORT(UiText.DUB_STEP_EXPORT);
+    VOICE(UiText.DUB_STEP_VOICE), STYLE(UiText.DUB_STEP_STYLE), EXPORT(UiText.DUB_STEP_EXPORT);
 
     companion object {
-        /** Where an opened project lands: the first step that is not done yet (Voice once approved; Export is chosen from there). */
+        /** Where an opened project lands: the first step that is not done yet (Voice once approved; Style and Export are chosen from there). */
         fun first(g: DubGates): DubStep = when {
             g.video != null || g.script == DubBlock.NO_LINES -> VIDEO
             g.script != null -> TRANSLATE
@@ -57,8 +60,9 @@ enum class DubStep(val text: UiText) {
 
 /**
  * Dubbing (D-1b). Video and Translate are the Subtitles source chooser and editor (D-88); Dub script shows every line
- * with its spoken line and the sticky Approve; Voice (D-2b) makes and checks each line's take; Export (D-3b) mixes and
- * saves the dubbed video. A locked step says why and where to go.
+ * with its spoken line and the sticky Approve (then Next: Voice); Voice (D-2b) makes and checks each line's take; Style
+ * (D-105) chooses how the video looks (the Burmese subtitles in the picture for now); Export (D-3b) mixes and saves the
+ * dubbed video. Each finished step's sticky bar names the next one. A locked step says why and where to go.
  */
 @Composable
 fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: ProjectSession, editor: SubtitleEditorModel,
@@ -122,15 +126,23 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.script != null -> Lock(block(gates.script, gates, script), target(gates.script), go)
                     doc != null -> Script(script, open, doc, gates.approved, st.notice, st.ok, playhead, export, focusLine,
-                        { focusLine = null }, wide, window >= DUB_COLUMNS_DP, voice, keys, { focusLine = it }) { preview(true) }
+                        { focusLine = null }, wide, window >= DUB_COLUMNS_DP, voice, keys, { focusLine = it }, { step = DubStep.VOICE }) { preview(true) }
                 }
                 DubStep.VOICE -> when {
                     dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
                     gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
-                    voice != null && doc != null -> VoiceStep(voice, open, doc, { step = DubStep.EXPORT }, shorten, script,
+                    voice != null && doc != null -> VoiceStep(voice, open, doc, { step = DubStep.STYLE }, shorten, script,
                         { step = DubStep.SCRIPT }, playhead, export, { focusLine = it; step = DubStep.SCRIPT }, wide, keys) { preview(true) }
                     else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
                         PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-VOICE"))
+                    }
+                }
+                DubStep.STYLE -> when {
+                    dirty -> Lock(tr(UiText.DUB_LOCK_UNSAVED), DubStep.TRANSLATE, go)
+                    gates.voice != null -> Lock(block(gates.voice, gates, script), target(gates.voice), go)
+                    export != null && doc != null -> StyleStep(export, open, go, wide) { preview(open?.project?.dubbing?.burnSubtitles == true) }
+                    else -> Column(Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(screenPadding)) {
+                        PlannedTile(tr(shown.text), null, Modifier.testTag("dub-planned-${shown.name}"))
                     }
                 }
                 DubStep.EXPORT -> when {
@@ -143,7 +155,7 @@ fun DubbingScreen(script: DubScriptModel, subtitles: SubtitlesModel, session: Pr
                 }
             }
         }
-        // 🆕-6 (desktop only): Space / ↑ / ↓ / Enter on Dub script, Voice and Export; Video and Translate keep the Subtitles editor's keys.
+        // 🆕-6 (desktop only): Space / ↑ / ↓ / Enter on Dub script, Voice, Style and Export; Video and Translate keep the Subtitles editor's keys.
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
             if (wide && shown >= DubStep.SCRIPT) ProjectShortcutHost(onKey = keys::handle) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) { body() }
@@ -178,6 +190,7 @@ internal val DubStep.icon: ImageVector get() = when (this) {
     DubStep.TRANSLATE -> AfIcons.Regular.Translate
     DubStep.SCRIPT -> AfIcons.Regular.NotePencil
     DubStep.VOICE -> AfIcons.Regular.Dub
+    DubStep.STYLE -> AfIcons.Regular.Palette
     DubStep.EXPORT -> AfIcons.Regular.Export
 }
 
@@ -210,7 +223,7 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
     doc: io.github.alalkipgen.autoflow.core.subtitles.SubtitleDoc, approved: Boolean, notice: UiNotice?, ok: Boolean,
     playhead: Playhead? = null, export: DubExportModel? = null, focus: String? = null, focused: () -> Unit = {},
     wide: Boolean = false, columns: Boolean = false, voice: DubVoiceModel? = null, keys: DubLineKeys = remember(open?.dir) { DubLineKeys() },
-    edit: (String) -> Unit = {}, preview: @Composable () -> Unit = {}) {
+    edit: (String) -> Unit = {}, next: () -> Unit = {}, preview: @Composable () -> Unit = {}) {
     val rows = remember(open?.project?.subtitles?.video, doc) { model.rows(open, doc) }
     val list = rememberLazyListState()
     // 🆕-5: scroll the line asked for into view (item 0 is the preview on a phone); its row then focuses the field.
@@ -224,8 +237,9 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
     val playingN = position?.let { pos -> ticks?.let { DubPreviewClock.line(it, pos) } ?: rows.lastOrNull { pos >= it.startMs && pos < it.endMs }?.n }
     Column(if (wide) Modifier.fillMaxSize() else Modifier.widthIn(max = 900.dp).fillMaxSize()) {
         // Group 4 E: the notice as a callout — green check-circle when it went well; amber warning when it failed or asks
-        // for more (Shorten's lines need a new approval and new takes). Same text, same tag.
-        notice?.let {
+        // for more (Shorten's lines need a new approval and new takes). Same text, same tag. D-105: "Dub script approved."
+        // is said once, by the sticky bar's caption, not again up here.
+        notice?.takeUnless { approved && it.key == UiText.DUB_APPROVED }?.let {
             val good = ok && it.key != UiText.DUB_SHORTEN_USED
             GlassCallout(if (good) AfIcons.Fill.CheckCircle else AfIcons.Fill.Warn, My.breakSyllables(it.text(LocalUiLanguage.current)),
                 if (good) AutoFlowColors.Green else AutoFlowColors.Amber, Modifier.padding(start = screenPadding, end = screenPadding, top = 12.dp),
@@ -254,8 +268,10 @@ private fun Script(model: DubScriptModel, open: io.github.alalkipgen.autoflow.ui
             }
         }, Modifier.weight(1f))
         else lines(Modifier.fillMaxWidth().weight(1f))
-        StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_APPROVE)), { model.approve() }, enabled = !approved, tag = "dub-approve",
-            icon = AfIcons.Regular.Check),
+        // D-105: once approved, the button is the way on (Next: Voice) instead of a disabled Approve.
+        StickyActionBar(if (approved) StudioAction(My.breakSyllables(tr(UiText.NEXT_STEP, "step" to tr(UiText.DUB_STEP_VOICE))), next,
+                tag = "dub-next-VOICE", trailingIcon = AfIcons.Regular.ArrowRight)
+            else StudioAction(My.breakSyllables(tr(UiText.DUB_APPROVE)), { model.approve() }, tag = "dub-approve", icon = AfIcons.Regular.Check),
             caption = My.breakSyllables(tr(if (approved) UiText.DUB_APPROVED else UiText.DUB_NOT_APPROVED)), glass = true,
             captionIcon = if (approved) AfIcons.Regular.CheckCircle else AfIcons.Regular.Info,
             captionColour = if (approved) AutoFlowColors.Green else null, keys = if (wide) ({ DubShortcutsHint() }) else null)

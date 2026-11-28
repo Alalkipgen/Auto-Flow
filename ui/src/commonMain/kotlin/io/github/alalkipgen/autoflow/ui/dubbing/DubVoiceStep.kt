@@ -68,12 +68,12 @@ internal enum class DubLineFilter(val tag: String) {
 
 /**
  * The Voice step (D-2b; Group 4 F 6–9): the preview, the voice card, Speak, Shorten, the line filters with counts and every
- * line as a glass card with its fit pill; the sticky Speak with the "33 of 40 lines spoken" caption, or Go to Export.
+ * line as a glass card with its fit pill; the sticky Speak with the "33 of 40 lines spoken" caption, or Next: Style (D-105).
  * [playhead] / [export] give the preview's line (🆕-2: the playing outline, a head tap seeks there); [editLine] opens Dub
  * script at a too-long line with its field focused (🆕-5).
  */
 @Composable
-internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, toExport: () -> Unit,
+internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDoc, next: () -> Unit,
     shorten: DubShortenModel? = null, script: DubScriptModel? = null, toScript: () -> Unit = {}, playhead: Playhead? = null,
     export: DubExportModel? = null, editLine: (String) -> Unit = {}, wide: Boolean = false,
     keys: DubLineKeys = remember(open?.dir) { DubLineKeys() }, preview: @Composable () -> Unit = {}) {
@@ -160,8 +160,8 @@ internal fun VoiceStep(model: DubVoiceModel, open: OpenProject?, doc: SubtitleDo
             caption = My.breakSyllables(tr(UiText.V3_DUB_SPEAK_CAPTION, "done" to (n - missing), "n" to n,
                 "minutes" to model.minutes(missing, open?.project?.dubbing?.lock))), glass = true, captionTag = "dub-speak-caption",
             keys = if (wide) ({ DubShortcutsHint() }) else null)
-        else StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.DUB_GO_TO, "step" to tr(UiText.DUB_STEP_EXPORT))), toExport, tag = "dub-go-export",
-            icon = AfIcons.Regular.Export, trailingIcon = AfIcons.Regular.ArrowRight),
+        else StickyActionBar(StudioAction(My.breakSyllables(tr(UiText.NEXT_STEP, "step" to tr(UiText.DUB_STEP_STYLE))), next, tag = "dub-next-STYLE",
+            trailingIcon = AfIcons.Regular.ArrowRight),
             caption = My.breakSyllables(tr(UiText.DUB_ALL_VOICED)), glass = true, captionIcon = AfIcons.Regular.CheckCircle,
             captionColour = AutoFlowColors.Green, captionTag = "dub-speak-caption", keys = if (wide) ({ DubShortcutsHint() }) else null)
         s.confirm?.takeIf { idle }?.let { SpeakDialog(model, it, open) }

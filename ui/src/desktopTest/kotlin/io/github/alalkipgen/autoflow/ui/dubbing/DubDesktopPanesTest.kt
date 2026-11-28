@@ -177,6 +177,30 @@ class DubDesktopPanesTest {
         } finally { scope.cancel() }
     }
 
+    /** D-105: Style on a desktop — the Captions options on the left, the preview on the right; Previous step / Next: Export. */
+    @Test fun styleHasTheOptionsLeftAndThePreviewRight() = runDesktopComposeUiTest(width = 1440, height = 900) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val h = Harness(scope)
+            run(h, UiLanguage.BURMESE)
+            click("dub-step-STYLE")
+            onNode(hasTestTag("dub-style-captions") and inPane("dub-style")).assertExists()
+            onNode(hasTestTag("dub-preview-card") and inPane("dub-style")).assertDoesNotExist()
+            onNodeWithTag("dub-preview-card").assertExists()
+            click("dub-burn")
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isNotEmpty() }
+            onNode(hasTestTag("dub-burn-size-MEDIUM") and inPane("dub-style")).assertExists()
+            onNodeWithTag("project-shortcuts").assertExists() // Space still plays the preview
+            assertEquals(emptyList(), textFitProblems(1440, 1f))
+            click("dub-back-VOICE")
+            onNodeWithTag("dub-voice-rows").assertExists()
+            click("dub-step-STYLE")
+            click("dub-next-EXPORT")
+            onNode(hasTestTag("dub-export-burn") and inPane("dub-export")).assertExists()
+            onNodeWithTag("dub-burn").assertDoesNotExist()
+        } finally { scope.cancel() }
+    }
+
     @Test fun aPhoneKeepsOneColumn() = runDesktopComposeUiTest(width = 360, height = 1600) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         try {

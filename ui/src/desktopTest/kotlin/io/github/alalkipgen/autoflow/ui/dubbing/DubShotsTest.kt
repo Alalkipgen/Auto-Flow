@@ -457,12 +457,20 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
             toExport(); click("dub-export-go"); toExport("dub-export-notice")
         }
         if (font == 1f) shot("12c-desktop-export", desktop = true, prep = ready) { toExport() }
+        // D-105: the Style step — the Burmese subtitles moved here from Export (on with size / lines / length, off), its sticky bar.
+        val toStyle: ComposeUiTest.() -> Unit = { click("dub-step-STYLE") }
+        shot("07b-style", prep = ready) { toStyle() }
+        shot("07b-style-captions", prep = ready, only = "dub-style-captions", tall = 3) { toStyle(); toExport("dub-style-captions") }
+        shot("07b-style-off", prep = { approve(); voices(all = true, lock = NILAR, tone = "calm") }, only = "dub-style-captions", tall = 3) {
+            toStyle(); toExport("dub-style-captions")
+        }
+        shot("07b-style-sticky", prep = ready, only = "sticky-action-bar") { toStyle() }
     }
 
     /**
      * PR 7 (H, samples 12 / 12b / 12c): the desktop two panes at 1440 × 900 — Voice (lines with the source line, the selected
      * line open, its waveform card, the voice card), Dub script (cards with the two fields side by side, the selected line's
-     * facts), Export (checklist and options; the preview and the done card on the right).
+     * facts), Export (checklist and options; the preview and the done card on the right), Style (D-105: options left, preview right).
      */
     @Test fun desktop() {
         if (font != 1f) return
@@ -474,6 +482,7 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("12c-desktop-export-panes", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-EXPORT") }
         shot("12c-desktop-export-done", desktop = true, prep = { go(this); through(null) }) { click("dub-step-EXPORT") }
         shot("12c-desktop-export-blocked", desktop = true, prep = { approve(); voices(lock = NILAR, tone = "calm") }) { click("dub-step-EXPORT") }
+        shot("12d-desktop-style-panes", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-STYLE") }
     }
 
     /**
@@ -487,6 +496,7 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("15-script", desktop = true, prep = lines) { click("dub-step-SCRIPT") }
         shot("15-script-keys", desktop = true, prep = lines, only = "sticky-action-bar", margin = 0) { click("dub-step-SCRIPT") }
         val go: Demo.() -> Unit = { approve(); voices(all = true, lock = NILAR, tone = "calm"); export.setWav(true) }
+        shot("15-style", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-STYLE") }
         shot("15-export", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-EXPORT") }
         shot("15-export-done", desktop = true, prep = { go(this); through(null) }) { click("dub-step-EXPORT") }
         shot("15-lock", desktop = true) { click("dub-step-VOICE") }

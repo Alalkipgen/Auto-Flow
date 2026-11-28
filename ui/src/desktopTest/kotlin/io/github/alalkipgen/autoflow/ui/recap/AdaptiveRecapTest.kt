@@ -71,7 +71,7 @@ class AdaptiveRecapTest {
             }
         }
         onNodeWithText(My.breakSyllables(UiText.V3_STEP.text(UiLanguage.BURMESE,
-            "step" to RecapStep.STORY.textKey.my, "n" to 2))).assertIsDisplayed()
+            "step" to RecapStep.STORY.textKey.my, "n" to 2, "total" to 5))).assertIsDisplayed()
         onNodeWithTag(if (width >= 840) "project-three-panes" else "project-single-pane").assertExists()
         if (width >= 840) {
             val a = onNodeWithTag("project-list").fetchSemanticsNode().boundsInRoot
@@ -124,10 +124,10 @@ class AdaptiveRecapTest {
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "recap-$width-font${(font * 100).toInt()}.png"))
         onNodeWithTag("recap-next").assertIsDisplayed().performMouseInput { click() }
         onNodeWithText(My.breakSyllables(UiText.V3_STEP.text(UiLanguage.BURMESE,
-            "step" to RecapStep.VOICE.textKey.my, "n" to 3))).assertIsDisplayed()
+            "step" to RecapStep.VOICE.textKey.my, "n" to 3, "total" to 5))).assertIsDisplayed()
         onNodeWithTag("project-back").assertIsDisplayed().performMouseInput { click() }
         onNodeWithText(My.breakSyllables(UiText.V3_STEP.text(UiLanguage.BURMESE,
-            "step" to RecapStep.STORY.textKey.my, "n" to 2))).assertIsDisplayed()
+            "step" to RecapStep.STORY.textKey.my, "n" to 2, "total" to 5))).assertIsDisplayed()
     }
 
     @Test fun below840IsStillSinglePane() = runDesktopComposeUiTest(width = 839, height = 500) {

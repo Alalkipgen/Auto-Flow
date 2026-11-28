@@ -95,7 +95,7 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
         val labels = recapLabels(language).count { onAllNodes(hasText(it) and hasAnyAncestor(hasTestTag("project-progress")), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         assertTrue(labels == 0 || labels == 5, "all step names or none at $width/$font/$language: $labels")
         if (font == 1f) assertEquals(5, labels)
-        onNodeWithText(My.breakSyllables(UiText.V3_STEP.text(language, "step" to UiText.VOICE.text(language), "n" to 3)), useUnmergedTree = true).assertExists()
+        onNodeWithText(My.breakSyllables(UiText.V3_STEP.text(language, "step" to UiText.VOICE.text(language), "n" to 3, "total" to 5)), useUnmergedTree = true).assertExists()
         // Desktop at font 1.0 has room for numbered steps: the steps still to do show their number.
         if (width >= 600 && font == 1f) onNode(hasText("4") and hasAnyAncestor(hasTestTag("project-progress")), useUnmergedTree = true).assertExists()
         onNodeWithTag("project-back").assertContentDescriptionEquals(UiText.BACK.text(language))
@@ -108,7 +108,7 @@ class BarsGalleryTest(val width: Int, val font: Float, val language: UiLanguage)
             onNode(hasTestTag("progress-segment-$i") and hasAnyAncestor(hasTestTag("tab-${s.name}")), useUnmergedTree = true).assertExists()
         }
         onNodeWithTag("tab-EXPORT").performMouseInput { click() }
-        assertEquals(4, picked)
+        assertEquals(DubStep.EXPORT.ordinal, picked) // D-105: the sixth step, after Style
         val dir = File(System.getenv("AUTOFLOW_SCREENSHOTS_DIR") ?: "build/reports/ui-v3", "gallery").apply { mkdirs() }
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(dir, "bars-$width-$font-${language.name.lowercase()}${if (glass) "-glass" else ""}.png"))
         System.getenv("AUTOFLOW_PR_SHOTS_DIR")?.let { if (language == UiLanguage.BURMESE && !glass)

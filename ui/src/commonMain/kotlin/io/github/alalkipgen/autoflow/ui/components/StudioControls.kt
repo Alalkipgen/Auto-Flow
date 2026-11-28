@@ -64,8 +64,9 @@ private fun Action(action: StudioAction, primary: Boolean = false, modifier: Mod
 }
 
 /**
- * Project editor header (DESIGN.md §9.4): [AfTopBar] (back, project name, "step k/5 · label", page preview and ⋮ as
- * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels); with [onStep] its steps are
+ * Project editor header (DESIGN.md §9.4): [AfTopBar] (back, project name, "step k/n · label", page preview and ⋮ as
+ * icon buttons) over a [StepBar] of [steps] (bars only when the caller passes no labels); n = the number of [steps]
+ * (Movie Recap five, Dubbing six — D-105; five when no labels are passed); with [onStep] its steps are
  * tabs tagged [stepTags] (Dubbing moves between its steps there). [glass] (Dubbing, Group 4 A 1–2): the glass panel
  * (White .08 → .03 with a White .08 line under it, as the Music Video project bar), the 40 dp glass back button, the
  * name 17 sp bold on one line, and the glass [StepBar]. [trailing] comes first among the right-hand icon buttons (Dubbing
@@ -77,7 +78,8 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
     steps: List<String> = emptyList(), onStep: ((Int) -> Unit)? = null, stepTags: List<String> = emptyList(), glass: Boolean = false,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
-    require(step in 1..5)
+    val count = steps.size.takeIf { it > 0 } ?: 5
+    require(step in 1..count)
     var open by remember(name) { mutableStateOf(false) }
     val page = LocalProjectPreviewPage.current?.takeIf { it.available }
     val panel = if (glass) Modifier.drawBehind {
@@ -85,7 +87,7 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
         drawRect(GlassColors.TopBarLine, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
     }.padding(horizontal = 12.dp, vertical = 8.dp) else Modifier.background(AutoFlowColors.Panel).padding(horizontal = 6.dp, vertical = 6.dp)
     Column(modifier.fillMaxWidth().then(panel), verticalArrangement = Arrangement.spacedBy(if (glass) 8.dp else 6.dp)) {
-        val subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step))
+        val subtitle = My.breakSyllables(tr(UiText.V3_STEP, "step" to stepLabel, "n" to step, "total" to count))
         val actions: @Composable RowScope.() -> Unit = {
             trailing()
             if (page != null) {
@@ -112,7 +114,7 @@ fun ProjectTopBar(name: String, step: Int, stepLabel: String, onBack: () -> Unit
             }
             actions()
         } else AfTopBar(name, menu, subtitle = subtitle, onBack = onBack, backModifier = Modifier.testTag("project-back"), actions = actions)
-        StepBar(steps, step, Modifier.padding(horizontal = if (glass) 0.dp else 6.dp).testTag("project-progress"), count = 5, onSelect = onStep,
+        StepBar(steps, step, Modifier.padding(horizontal = if (glass) 0.dp else 6.dp).testTag("project-progress"), count = count, onSelect = onStep,
             tags = stepTags, glass = glass)
         saveState?.let { StatusChip(it) } // callers omit this when no reliable save state exists
         // ⋮ actions (Group 2 D 25a): small glass buttons with their icons, inline under the step bar.
