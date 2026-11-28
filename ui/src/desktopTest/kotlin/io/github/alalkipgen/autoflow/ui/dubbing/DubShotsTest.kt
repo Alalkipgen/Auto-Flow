@@ -465,6 +465,17 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
             toStyle(); toExport("dub-style-captions")
         }
         shot("07b-style-sticky", prep = ready, only = "sticky-action-bar") { toStyle() }
+        // D-107: Hide things on the video — the bottom strip blurred, the top-right logo and a white box; the preview shows them.
+        shot("07c-style-hide", prep = { ready(this); boxes(this) }, only = "dub-style-hide", tall = 4) { toStyle(); toExport("dub-style-hide") }
+        shot("07c-style-hide-preview", prep = { ready(this); boxes(this) }) { toStyle() }
+    }
+
+    /** D-107: three boxes — the bottom strip (blurred), the top-right logo corner and a custom box filled white (picked). */
+    private val boxes: Demo.() -> Unit = {
+        export.toggleBox(io.github.alalkipgen.autoflow.core.model.DubMaskKind.BOTTOM)
+        export.toggleBox(io.github.alalkipgen.autoflow.core.model.DubMaskKind.LOGO_TR)
+        export.toggleBox(io.github.alalkipgen.autoflow.core.model.DubMaskKind.CUSTOM)
+        export.fillBox(2, "#FFFFFF")
     }
 
     /**
@@ -483,6 +494,7 @@ class DubShotsTest(val language: UiLanguage, val font: Float) {
         shot("12c-desktop-export-done", desktop = true, prep = { go(this); through(null) }) { click("dub-step-EXPORT") }
         shot("12c-desktop-export-blocked", desktop = true, prep = { approve(); voices(lock = NILAR, tone = "calm") }) { click("dub-step-EXPORT") }
         shot("12d-desktop-style-panes", desktop = true, prep = { go(this); export.setBurn(true) }) { click("dub-step-STYLE") }
+        shot("12e-desktop-style-boxes", desktop = true, prep = { go(this); export.setBurn(true); boxes(this) }) { click("dub-step-STYLE"); toExport("dub-style-hide") }
     }
 
     /**

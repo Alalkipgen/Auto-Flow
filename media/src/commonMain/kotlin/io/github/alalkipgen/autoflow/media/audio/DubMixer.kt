@@ -1,6 +1,7 @@
 package io.github.alalkipgen.autoflow.media.audio
 
 import io.github.alalkipgen.autoflow.core.hash.Sha256
+import io.github.alalkipgen.autoflow.media.render.DubPicture
 import io.github.alalkipgen.autoflow.media.render.MediaTaskJob
 import io.github.alalkipgen.autoflow.media.render.SubtitleBurn
 
@@ -61,15 +62,25 @@ object DubMixer {
      * [outExt] (`VideoSound.videoExt`); else the subtitles are burned (libx264 [x264Preset] / [crf], mp4).
      */
     fun exportArgs(video: String, voice: String, totalMs: Long, originalVolume: Double, hasSound: Boolean, outExt: String, bitrate: String,
-        ass: String? = null, fontsDir: String = "", x264Preset: String = "veryfast", crf: Int = 20): List<String> {
+        ass: String? = null, fontsDir: String = "", x264Preset: String = "veryfast", crf: Int = 20): List<String> =
+        exportArgs(video, voice, totalMs, originalVolume, hasSound, outExt, bitrate, DubPicture(ass = ass, fontsDir = fontsDir), x264Preset, crf)
+
+    /**
+     * The export with what Style draws on the picture (D-107): [picture] = the blur / colour boxes and the burned
+     * subtitles, made into a new libx264 mp4; nothing drawn = the picture copied, as above. Subtitles only make the
+     * same command as before.
+     */
+    fun exportArgs(video: String, voice: String, totalMs: Long, originalVolume: Double, hasSound: Boolean, outExt: String, bitrate: String,
+        picture: DubPicture, x264Preset: String = "veryfast", crf: Int = 20): List<String> {
         val sound = if (hasSound && originalVolume > 0)
             "[0:a]$FORMAT,volume=${num(originalVolume)}[orig];[1:a]$FORMAT[dub];[orig][dub]amix=inputs=2:duration=longest:normalize=0[aout]"
             else "[1:a]$FORMAT[aout]"
-        val picture = if (ass == null) listOf("-map", "0:v:0", "-c:v", "copy")
+        val drawn = picture.drawn
+        val pictureArgs = if (!drawn) listOf("-map", "0:v:0", "-c:v", "copy")
             else listOf("-map", "[vout]", "-c:v", "libx264", "-preset", x264Preset, "-crf", crf.toString(), "-pix_fmt", "yuv420p")
-        val graph = if (ass == null) sound else "[0:v]${SubtitleBurn.filter(ass, fontsDir)}[vout];$sound"
-        val container = if (ass == null && outExt == "mkv") listOf("-f", "matroska") else listOf("-movflags", "+faststart", "-f", "mp4")
-        return listOf("-hide_banner", "-y", "-nostdin", "-i", video, "-i", voice, "-filter_complex", graph) + picture +
+        val graph = if (!drawn) sound else "${picture.chain()};$sound"
+        val container = if (!drawn && outExt == "mkv") listOf("-f", "matroska") else listOf("-movflags", "+faststart", "-f", "mp4")
+        return listOf("-hide_banner", "-y", "-nostdin", "-i", video, "-i", voice, "-filter_complex", graph) + pictureArgs +
             listOf("-map", "[aout]", "-c:a", "aac", "-b:a", bitrate, "-t", sec(totalMs)) + container + MediaTaskJob.PART
     }
 

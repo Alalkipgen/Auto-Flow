@@ -379,6 +379,30 @@ class DubbingScreenTest {
                     onNodeWithTag("dub-caption-preset-BOXED").performScrollTo().performMouseInput { click() }
                     onNodeWithTag("dub-burn-size-MEDIUM").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { styleOf() == io.github.alalkipgen.autoflow.core.model.DubbingTool.DEFAULT_CAPTIONS }
+                    // D-107: Hide things — the bottom strip blurred, one more box filled white; drawn on the preview, then removed.
+                    val masksOf = { current.state.value!!.project.dubbing!!.masks }
+                    onNodeWithTag("dub-preview-boxes").assertDoesNotExist()
+                    onNodeWithTag("dub-hide-BOTTOM").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { masksOf().map { it.kind } == listOf(io.github.alalkipgen.autoflow.core.model.DubMaskKind.BOTTOM) }
+                    onNodeWithTag("dub-hide-BOTTOM").assert(chosen)
+                    onNodeWithTag("dub-preview-boxes").assertExists()
+                    onNodeWithTag("dub-hide-captions-on-box").performScrollTo().assertIsOn()
+                    onNodeWithTag("dub-hide-add").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { masksOf().size == 2 }
+                    onNodeWithTag("dub-box-1-fill").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { masksOf()[1].fill == "#000000" }
+                    onNodeWithTag("dub-box-1-fill-White").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { masksOf()[1].fill == "#FFFFFF" }
+                    onNodeWithTag("dub-box-1-wider").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { masksOf()[1].rect[2] > .4f }
+                    onNodeWithTag("dub-hide-touch").performScrollTo()
+                        .assertTextEquals(My.breakSyllables(UiText.MASK_GESTURE_HINT.text(language, "maskLabelp" to UiText.DUB_BOX_N.text(language, "n" to 1))))
+                    assertEquals(emptyList(), textFitProblems(width, font))
+                    ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(shots(), "04c-style-hide-$width-${language.name.lowercase()}.png"))
+                    onNodeWithTag("dub-box-1-remove").performScrollTo().performMouseInput { click() }
+                    onNodeWithTag("dub-hide-BOTTOM").performScrollTo().performMouseInput { click() }
+                    waitUntil(timeoutMillis = 5_000) { masksOf().isEmpty() }
+                    onNodeWithTag("dub-preview-boxes").assertDoesNotExist()
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() }
                     waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("dub-burn-lines-1").fetchSemanticsNodes().isEmpty() }
                     onNodeWithTag("dub-burn").performScrollTo().performMouseInput { click() } // on again: Export says so

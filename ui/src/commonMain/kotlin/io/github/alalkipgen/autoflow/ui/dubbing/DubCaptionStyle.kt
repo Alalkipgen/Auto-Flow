@@ -39,18 +39,18 @@ internal fun DubCaptionLook(model: DubExportModel, style: CaptionStyle, idle: Bo
     // The look ignores the size (it has its own chips): Boxed at Large is still Boxed.
     val preset = matchingCaptionPreset(style.copy(size = CaptionSize.M, customSizeFactor = null))
     InsetOptions(Modifier.testTag("dub-caption-look")) {
-        Label(tr(UiText.V3_CAPTION_PRESETS))
+        DubOptionLabel(tr(UiText.V3_CAPTION_PRESETS))
         AfText(My.breakSyllables(tr(UiText.V3_CAPTION_PRESET_STATUS, "name" to tr(preset?.label ?: UiText.V3_CAPTION_CUSTOM))),
             Modifier.testTag("dub-caption-preset-status"), type = AfType.Caption)
         WrapRow {
             CaptionLookPreset.entries.forEach { p ->
-                Chip(tr(p.label), preset == p, {
+                DubOptionChip(tr(p.label), preset == p, {
                     // A look keeps the chosen size (the size has its own chips below).
                     model.setCaptionStyle { p.style.copy(size = it.size, customSizeFactor = it.customSizeFactor) }; colourInput = ""
                 }, "dub-caption-preset-${p.name}", idle)
             }
         }
-        Label(tr(UiText.COLOUR))
+        DubOptionLabel(tr(UiText.COLOUR))
         WrapRow {
             CaptionStyle.COLOURS.forEach { (name, hex) ->
                 RecapSwatchChip(colourPresetLabel(name), overlayColour(hex), style.customColour == null && style.colour.equals(hex, ignoreCase = true),
@@ -58,7 +58,7 @@ internal fun DubCaptionLook(model: DubExportModel, style: CaptionStyle, idle: Bo
                     Modifier.testTag("dub-caption-colour-$name"), enabled = idle)
             }
         }
-        Label(tr(UiText.CUSTOM_COLOUR))
+        DubOptionLabel(tr(UiText.CUSTOM_COLOUR))
         GlassFieldRow({ AfTextField(colourInput, { colourInput = it }, "#RRGGBB", Modifier.fillMaxWidth().testTag("dub-caption-custom-colour"),
                 enabled = idle, glass = true) }, {
             GlassButton(tr(UiText.APPLY), { model.setCustomColour(colourInput.ifBlank { null }); colourInput = model.style().customColour ?: "" },
@@ -67,14 +67,14 @@ internal fun DubCaptionLook(model: DubExportModel, style: CaptionStyle, idle: Bo
                 Modifier.testTag("dub-caption-colour-clear"), enabled = idle, small = true)
         })
         if (!style.box) {
-            Label(tr(UiText.OUTLINE_WIDTH))
+            DubOptionLabel(tr(UiText.OUTLINE_WIDTH))
             WrapRow {
                 listOf(UiText.OFF to 0, UiText.THIN to 1, UiText.MEDIUM to 3, UiText.THICK to 6).forEach { (label, px) ->
-                    Chip(tr(label), style.strokeWidth == px, { model.setCaptionStyle { it.copy(strokeWidth = px) } }, "dub-caption-outline-$px", idle)
+                    DubOptionChip(tr(label), style.strokeWidth == px, { model.setCaptionStyle { it.copy(strokeWidth = px) } }, "dub-caption-outline-$px", idle)
                 }
             }
             if (style.strokeWidth > 0) {
-                Label(tr(UiText.OUTLINE_COLOUR))
+                DubOptionLabel(tr(UiText.OUTLINE_COLOUR))
                 WrapRow {
                     CaptionStyle.STROKE_COLOURS.forEach { (name, hex) ->
                         RecapSwatchChip(colourPresetLabel(name), overlayColour(hex), style.strokeColour.equals(hex, ignoreCase = true),
@@ -92,17 +92,17 @@ internal fun DubCaptionLook(model: DubExportModel, style: CaptionStyle, idle: Bo
 @Composable
 internal fun DubCaptionSize(model: DubExportModel, style: CaptionStyle, idle: Boolean, projectKey: String?) {
     var sizeInput by remember(projectKey) { mutableStateOf(style.customSizeFactor?.toString() ?: "") }
-    Label(tr(UiText.SIZE))
+    DubOptionLabel(tr(UiText.SIZE))
     WrapRow {
         listOf(BurnSize.SMALL to CaptionSize.S, BurnSize.MEDIUM to CaptionSize.M, BurnSize.LARGE to CaptionSize.L).forEach { (burn, size) ->
-            Chip(size.uiLabel(), style.customSizeFactor == null && style.size == size, { model.setSize(burn); sizeInput = "" },
+            DubOptionChip(size.uiLabel(), style.customSizeFactor == null && style.size == size, { model.setSize(burn); sizeInput = "" },
                 "dub-burn-size-${burn.name}", idle)
         }
-        Chip(tr(UiText.V3_CAPTION_XL), style.customSizeFactor == CAPTION_XL_FACTOR, {
+        DubOptionChip(tr(UiText.V3_CAPTION_XL), style.customSizeFactor == CAPTION_XL_FACTOR, {
             model.setCaptionStyle(::captionExtraLarge); sizeInput = CAPTION_XL_FACTOR.toString()
         }, "dub-burn-size-XL", idle)
     }
-    Label(tr(UiText.CUSTOM_SIZE_FACTOR))
+    DubOptionLabel(tr(UiText.CUSTOM_SIZE_FACTOR))
     GlassFieldRow({ AfTextField(sizeInput, { sizeInput = it }, tr(UiText.SIZE_FACTOR_EXAMPLE), Modifier.fillMaxWidth().testTag("dub-caption-custom-size"),
             enabled = idle, glass = true) }, {
         GlassButton(tr(UiText.APPLY), { model.setCustomSize(sizeInput.toFloatOrNull()); sizeInput = model.style().customSizeFactor?.toString() ?: "" },
@@ -124,7 +124,7 @@ internal fun DubSaveCaptionStyle(model: DubExportModel, style: CaptionStyle, idl
             name = "Caption ${style.size.label} ${if (style.box) "box" else "outline"}"
         }, Modifier.testTag("dub-caption-save"), enabled = idle, icon = AfIcons.Regular.FloppyDisk)
     } else InsetOptions(Modifier.testTag("dub-caption-save-form")) {
-        Label(tr(UiText.CAPTION_PRESET_NAME))
+        DubOptionLabel(tr(UiText.CAPTION_PRESET_NAME))
         AfTextField(name, { name = it }, tr(UiText.CAPTION_PRESET_NAME), Modifier.fillMaxWidth().testTag("dub-caption-save-name"), mono = false, glass = true)
         WrapRow {
             GlassButton(My.breakSyllables(tr(UiText.SAVE_TO_LIBRARY)), { if (name.isNotBlank()) { model.saveCaptionStyle(name.trim()); name = "" } },
@@ -149,10 +149,10 @@ internal fun InsetOptions(modifier: Modifier = Modifier, content: @Composable Co
 
 /** A group's label: Muted 12 sp (as the burn's size / lines labels). */
 @Composable
-private fun Label(text: String) = AfText(My.breakSyllables(text), muted = true, size = 12.sp)
+internal fun DubOptionLabel(text: String) = AfText(My.breakSyllables(text), muted = true, size = 12.sp)
 
 /** The glass filter chip with `check` when chosen (as the burn's chips). */
 @Composable
-private fun Chip(text: String, selected: Boolean, onClick: () -> Unit, tag: String, enabled: Boolean) =
+internal fun DubOptionChip(text: String, selected: Boolean, onClick: () -> Unit, tag: String, enabled: Boolean) =
     GlassFilterChip(My.breakSyllables(text), selected, onClick, Modifier.testTag(tag), enabled = enabled,
         leading = if (!selected) null else ({ ink -> AfIcon(AfIcons.Regular.Check, tint = ink, size = 14.dp) }))

@@ -6,8 +6,9 @@ re-checked at `8d092a0` (PR #216). Builds on [quick-tools.md](quick-tools.md) (t
 
 ## 1. v1 rules (D-83)
 - Short video, **one voice** for the whole video. Speaker voices, lip sync and vocal separation are not in v1.
-- **The picture is fixed.** Recap's picture-side fixes (EXTEND, NEXT_RANGE, SLOW_VIDEO, freeze) are never used, and
-  Dubbing does not build on `RecapModel` or reuse `RecapFit.rows` (its defaults are 1.5× / 0.7×).
+- **The picture's timing is fixed.** Recap's picture-side fixes (EXTEND, NEXT_RANGE, SLOW_VIDEO, freeze) are never
+  used, and Dubbing does not build on `RecapModel` or reuse `RecapFit.rows` (its defaults are 1.5× / 0.7×). Style only
+  draws on the picture (subtitles D-106, blur / colour boxes D-107); it never changes its length or speed.
 - Subtitle text (`textMy`) and spoken line (`spokenMy`) are different fields. The spoken line defaults to the subtitle
   text, may be shortened, and any change needs the owner's approval before TTS (WorkflowRules gate in `:core`).
 - Original sound: **Lower** (constant `clipsVolume`, default `dubbing.originalVolume` = 15 %, Q-40) keeps music and
@@ -34,8 +35,12 @@ are refused at Video with `DUB_LIMIT`.
   Boxed / Outline, colour (swatches or custom `#RRGGBB`), outline width and colour, box, size Small / Medium / Large /
   XL or custom 0.5–3 ×, Lines on screen 1 / 2 and Line length Short / Long (by default from the frame — D-91), and
   Save style to the Library (shared with Recap). Stored in the project (`DubbingTool.captionStyle`), default white on
-  a box at Medium = the old burn. Next PRs: blur of the original hard subtitles and logos, watermark / logo from the
-  Brand Kit. Sticky: **Next: Export** with Previous step.
+  a box at Medium = the old burn. The **Hide things on the video** card (D-107): Bottom strip / Top strip (the video's
+  own hard subtitles), the four logo corners and Add a box (as many as needed); each box Blur or Colour (Black / Grey /
+  White), moved and resized with buttons or on the preview (touch to pick, drag, pinch / mouse wheel); one blur
+  strength Light / Strong; Put my captions on the bottom box (Burmese subtitles centred on the lowest box in the lower
+  half). Stored in the project (`DubbingTool.masks`), 0–1 of the video's frame, so the preview and the export match.
+  Next PR: watermark / logo from the Brand Kit. Sticky: **Next: Export** with Previous step.
 - **Export:** pre-flight blocks on any "too long", missing or old takes, or no Burmese font when burning. Options:
   the original sound (chosen on Voice), Burmese subtitles in the video or only the `.srt` (chosen on Style, with Go to
   Style), save the voice track as wav. Output mp4 + `.srt`; Done card Open · Share · Save
@@ -44,7 +49,8 @@ are refused at Video with `DUB_LIMIT`.
 ## 3. Data
 `Project.dubbing: DubbingTool?` (`@EncodeDefault(NEVER)`, D-78): `video: SourceVideo`, `subtitles` (`st` id),
 `scriptApproved{hash, at}`, `lock: VoiceLock?`, `tone`, `takes{cueId → au}`, `original{mode: LOWER|MUTE, volume}`,
-`burnSubtitles`. `spokenMy` lives on the `st` cues.
+`burnSubtitles`, `captionStyle` (D-106), `masks[{kind, rect, fill}]`, `blurStrength`, `captionsOnBox` (D-107).
+`spokenMy` lives on the `st` cues.
 
 ## 4. Fit per line (picture fixed)
 ```
@@ -69,8 +75,9 @@ words, and lines that did not change are never re-spoken.
 
 ## 6. Mix and export
 `DubMixer` (cue builder lifted from `RenderCompiler`: `adelay`, `atempo`, `amix`) builds `VoiceTrack` cues at line
-starts with fit speed factors; original at `clipsVolume`. Stem → mux with `-c:v copy`, or into the burn command
-(quick-tools.md §9). If D-0 shows input limits, pre-mix groups of `dubbing.stemGroup` cues into one cue.
+starts with fit speed factors; original at `clipsVolume`. Stem → mux with `-c:v copy`, or into one picture chain
+(`DubPicture`: blurred boxes split / crop / `gblur` / overlay and colour boxes `drawbox`, in the list's order, then the
+subtitles' `ass` — quick-tools.md §9). If D-0 shows input limits, pre-mix groups of `dubbing.stemGroup` cues into one cue.
 
 ## 7. D-0 gate (owner's phone, before D-1)
 (a) S8 listening at 1.00–1.25× → chosen limit into `config/tools.json`. (b) Three 30–60 s clips through a debug-only
@@ -105,6 +112,9 @@ Reuse `V3_FITS`, `V3_TOO_LONG`, `V3_NO_VOICE`, `V3_SCRIPT_CHANGED`; Approve stay
 | DUB_LOWER | Lower — music and effects stay, original voices still heard quietly | လျှော့မယ် — တေးဂီတ၊ အသံထူးတွေ ကျန်မယ်၊ မူရင်းစကားသံကို တိုးတိုး ကြားရမယ် |
 | DUB_MUTE | Mute — music and effects go too | ပိတ်မယ် — တေးဂီတ၊ အသံထူးတွေပါ ပျောက်မယ် |
 | DUB_BURN | Add Burmese subtitles | မြန်မာ စာတန်း ထည့်မယ် |
+| DUB_HIDE_CARD | Hide things on the video | ဗီဒီယိုပေါ်က အရာတွေ ဖုံးမယ် |
+| DUB_ADD_BOX / DUB_BOX_N / DUB_BOX_BLUR | Add a box / Box {n} / Blur | ဘောင် ထပ်ထည့်မယ် / ဘောင် {n} / မှုန်ဝါး |
+| DUB_EXPORT_BOXES | Boxes over the picture: {n} | ပုံပေါ်က ဘောင်: {n} ခု |
 | DUB_LIMIT | Dubbing works with videos up to {minutes} min for now. | Dubbing က လောလောဆယ် {minutes} မိနစ်အထိ ဗီဒီယိုတွေနဲ့ပဲ ရပါတယ်။ |
 | JOB_DUB_TTS | Dub voices | Dubbing အသံ |
 

@@ -53,8 +53,9 @@ import io.github.alalkipgen.autoflow.ui.theme.Tone
 
 /**
  * F-6 (D-95): the dubbed video before Export, on Dub script, Voice and Export — the video with the movie's sound at
- * its mix level (muted when Mute), every spoken line's take where the mix puts it, and the Burmese subtitles as the burn
- * draws them ([captions] off on Export when Burmese subtitles are off). Nothing is rendered; the mix's exact levels,
+ * its mix level (muted when Mute), every spoken line's take where the mix puts it, the blur / colour boxes (D-107; a blur
+ * box frosted) and the Burmese subtitles as the burn draws them ([captions] off when Burmese subtitles are off). On Style
+ * ([edit]) a touch on a box picks it, a drag moves it and a pinch / the mouse wheel resizes it. Nothing is rendered; the mix's exact levels,
  * the stems and the burn itself are Export's.
  *
  * Glass look (Group 4 D + 🆕-1, samples 11 / 11b / 11c; the Group 2 / 3 preview card): a cyan-tinted glass card —
@@ -65,7 +66,7 @@ import io.github.alalkipgen.autoflow.ui.theme.Tone
  */
 @Composable
 internal fun DubPreview(export: DubExportModel, open: OpenProject?, doc: SubtitleDoc, playhead: Playhead, player: SubtitlePlayer,
-    captions: Boolean = true) {
+    captions: Boolean = true, edit: Boolean = false) {
     val video = open?.project?.subtitles?.video ?: return
     val ex by export.state.collectAsState()
     val voice = remember(open.dir, open.project, doc) { export.previewVoice(open, doc) }
@@ -73,6 +74,11 @@ internal fun DubPreview(export: DubExportModel, open: OpenProject?, doc: Subtitl
     val burned = remember(open.dir, open.project, doc, ex.fit, captions) {
         if (captions) export.previewCaptions(open, doc) else emptyList()
     }
+    // D-107: the blur / colour boxes where the export puts them; on Style ([edit]) picked, dragged and pinched there.
+    val masks = export.masks(open)
+    val picked = if (edit) ex.box?.takeIf { ex.dir == open.dir } else null
+    var draft by remember(open.dir) { mutableStateOf<Pair<Int, List<Float>>?>(null) }
+    val editing = if (edit && masks.isNotEmpty()) dubBoxEditing(export, masks) { draft = it } else Modifier
     val path = joinPath(open.dir, video.file)
     var hintOpen by rememberSaveable { mutableStateOf(false) }
     var failed by remember(path) { mutableStateOf(false) }
@@ -90,9 +96,10 @@ internal fun DubPreview(export: DubExportModel, open: OpenProject?, doc: Subtitl
     io.github.alalkipgen.autoflow.ui.components.PlayPauseShortcut(bar.toggle)
     // The picture lives in one place: the card, or the Fullscreen window (a new player there, from where the clock is).
     val picture: @Composable (Modifier) -> Unit = { modifier ->
-        Box(modifier, contentAlignment = Alignment.BottomCenter) {
+        Box(modifier.then(editing), contentAlignment = Alignment.BottomCenter) {
             player(path, MovieRequest(playhead.seekMs, playhead.revision, playing = playhead.playing, muted = export.previewOriginal(open) <= 0f,
                 volume = export.previewOriginal(open).coerceIn(0f, 1f)), Modifier.fillMaxSize()) { if (!playhead.report(it)) failed = true }
+            if (masks.isNotEmpty()) DubBoxes(masks, picked, draft, edit, Modifier.matchParentSize())
             BurnedCaption(burned, playhead.positionMs, video.height, "dub-burned-line")
             if (!playhead.playing) Box(Modifier.align(Alignment.Center).testTag("dub-preview-big-play")) { BigPlay(bar.toggle) }
         }

@@ -312,6 +312,11 @@ object GlassColors {
     val InnerRowBorder = Color.White.copy(alpha = .09f)
     /** Key / font cards: their tile colour at .14 behind the glass. */
     const val TintSettingsCard = .14f
+
+    // Dubbing Style (D-107): a blur box on the preview picture is frosted — grey .62 with a White .10 sheen (Export
+    // blurs it).
+    val DubBlurFrost = Color(0xFF9AA3AD).copy(alpha = .62f)
+    val DubBlurSheen = Color.White.copy(alpha = .10f)
 }
 
 /** Glass shapes and sizes (dp). */
