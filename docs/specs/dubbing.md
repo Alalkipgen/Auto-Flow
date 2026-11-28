@@ -29,11 +29,13 @@ are refused at Video with `DUB_LIMIT`.
   line · Shorten (Gemini)). Chips: Fits · Uses the pause · Faster ×N · +N s too long · No voice yet · Script changed.
   Sticky: Speak n lines (confirm card) → **Next: Style**. Shorten shows old/new side by side; Use → spoken line changes →
   needs approval again → ↻.
-- **Style (D-105):** how the dubbed video looks; desktop: options left, preview right. Now: the Captions card — burn
-  Burmese subtitles (`textMy`; Size, Lines on screen 1 / 2 and Line length Short / Long, by default from the frame —
-  D-91; the `.srt` is always saved). Next PRs (as Movie Recap's Style): caption colour / outline / box / position,
-  blur of the original hard subtitles and logos, watermark / logo from the Brand Kit. Sticky: **Next: Export** with
-  Previous step.
+- **Style (D-105):** how the dubbed video looks; desktop: options left, preview right. The Captions card — burn
+  Burmese subtitles (`textMy`; the `.srt` is always saved) in Movie Recap's caption look (D-106): presets Clean /
+  Boxed / Outline, colour (swatches or custom `#RRGGBB`), outline width and colour, box, size Small / Medium / Large /
+  XL or custom 0.5–3 ×, Lines on screen 1 / 2 and Line length Short / Long (by default from the frame — D-91), and
+  Save style to the Library (shared with Recap). Stored in the project (`DubbingTool.captionStyle`), default white on
+  a box at Medium = the old burn. Next PRs: blur of the original hard subtitles and logos, watermark / logo from the
+  Brand Kit. Sticky: **Next: Export** with Previous step.
 - **Export:** pre-flight blocks on any "too long", missing or old takes, or no Burmese font when burning. Options:
   the original sound (chosen on Voice), Burmese subtitles in the video or only the `.srt` (chosen on Style, with Go to
   Style), save the voice track as wav. Output mp4 + `.srt`; Done card Open · Share · Save
