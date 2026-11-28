@@ -195,6 +195,19 @@ class LayerCompileTest {
         assertContains(fc, "[1:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920")
     }
 
+    /**
+     * The still (1/fps) and the movie (e.g. 1/12288) reach overlay in one time base. FFmpeg 8 / 9 hand overlay's end
+     * time on unconverted otherwise (2 s → 1024 s), and the next clips fell past the export's end (frozen picture).
+     * The real-ffmpeg check is LayerMatrixFfmpegTest.imageBackgroundClipEndsOnTime.
+     */
+    @Test fun backgroundImage_overlayInputsShareOneTimeBase() {
+        val layer = Layer("l1", LayerType.BACKGROUND, params = LayerParams(mode = BackgroundMode.IMAGE, image = imgId))
+        val fc = filterComplex(compile(Ratio.R9_16, layer))
+        val bg = assertNotNull(Regex("""setsar=1,settb=AVTB\[(lbg[0-9_]+)]""").find(fc), fc).groupValues[1]
+        val fg = assertNotNull(Regex("""setsar=1,settb=AVTB\[(lfg[0-9_]+)]""").find(fc), fc).groupValues[1]
+        assertContains(fc, "[$bg][$fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=1,")
+    }
+
     @Test fun backgroundForPartOfAClip_isShownOnlyInItsWindow() {
         val layer = Layer("l1", LayerType.BACKGROUND, fromMs = 4_000, toMs = 6_000, params = LayerParams(mode = BackgroundMode.COLOUR, colour = "#00FF00"))
         val fc = filterComplex(compile(Ratio.R16_9, layer))

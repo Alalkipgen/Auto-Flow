@@ -181,6 +181,49 @@ class LayerMatrixFfmpegTest {
         }
     }
 
+    /**
+     * A clip over a BACKGROUND image ends at its own length. The still (1/24) and the movie (1/12288) used to reach
+     * overlay in different time bases; when the movie's end reached overlay last, FFmpeg 8 / 9 handed that end time on
+     * unconverted (1.5 s read as 768 s), tpad / fps padded the clip to it and the next clips fell past the export's
+     * end: a frozen picture (the NativeOutputParityTest flake). Which end arrives last depends on thread timing; this
+     * 24 fps movie with a 1.5 s clip hit it 10 / 10 times with FFmpeg 8.0.1 and about half the time with 8.1 / 9.0,
+     * so the clip is rendered five times. Only clip 0's picture is counted, frame by frame, without the export's -t
+     * that hides extra frames. FFmpeg 7 never had the fault, so there this passes either way.
+     */
+    @Test fun imageBackgroundClipEndsOnTime() {
+        val (ffmpeg, _) = RealFfmpeg.orSkip("LayerMatrixFfmpegTest") ?: return
+        val dir = RealFfmpeg.tempDir("layer-bg-end")
+        try {
+            fixture(ffmpeg, dir)
+            RealFfmpeg.ok(listOf(ffmpeg, "-hide_banner", "-y", "-nostdin", "-f", "lavfi", "-i", "testsrc2=s=320x180:r=24:d=4",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "source/movie24.mp4"), dir)
+            val layer = Layer("bg", LayerType.BACKGROUND, params = LayerParams(mode = BackgroundMode.IMAGE, image = backdrop))
+            val graph = RenderGraph(
+                clips = listOf(Clip(null, trimInMs = 500, trimOutMs = 2_000, source = "source/movie24.mp4")),
+                output = Output(Ratio.R9_16, 180, 320, 24, Quality.EXPORT, "end"),
+                layers = listOf(layer),
+            )
+            val env = RenderCompiler.Env(
+                resolve = { null }, songPath = null, assPath = "exports/end.ass", fontsDir = "fonts", outputPath = "exports/end.mp4",
+                resolveSource = { RenderCompiler.ClipMedia(File(dir, it).path, hasAudio = false) },
+                resolveLayerImage = { File(dir, "artifacts/$it.png").path },
+            )
+            val r = assertIs<RenderCompiler.Compiled.Ok>(RenderCompiler.compile(graph, env))
+            val at = r.args.indexOf("-filter_complex")
+            val chains = r.args[at + 1].split(';')
+            val clip0 = chains.subList(0, chains.indexOfFirst { it.endsWith("[v0]") } + 1).joinToString(";")
+            val crc = File(dir, "clip0.crc")
+            val counts = (1..5).map {
+                RealFfmpeg.ok(listOf(ffmpeg) + r.args.subList(0, at) + listOf("-filter_complex", clip0, "-map", "[v0]", "-f", "framecrc", crc.path), dir)
+                crc.readLines().count { it.isNotBlank() && !it.startsWith("#") }
+            }
+            println("MATRIX background image clip 0 (1.5 s at 24 fps), frames per run: $counts")
+            assertEquals(List(5) { 36 }, counts, "more than 36 frames = overlay's end time was read in the wrong time base")
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
     @Test fun realRenderJobMustResolveImageArtifactFromFilesMap() {
         val (ffmpeg, ffprobe) = RealFfmpeg.orSkip("LayerMatrixFfmpegTest") ?: return
         val dir = RealFfmpeg.tempDir("layer-image-id")
