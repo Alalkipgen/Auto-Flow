@@ -1,6 +1,8 @@
 package io.github.alalkipgen.autoflow.media.render
 
 import io.github.alalkipgen.autoflow.core.model.Ratio
+import io.github.alalkipgen.autoflow.core.recap.CaptionSize
+import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.SrtCue
 import kotlin.math.roundToInt
 
@@ -45,28 +47,69 @@ object SubtitleBurn {
      */
     fun overlays(cues: List<SrtCue>, width: Int, height: Int, font: String, look: BurnLook, size: BurnSize, maxChars: Int,
         maxLines: Int = 0): List<Overlay> {
-        val px = maxOf(12, (height * size.share).roundToInt())
-        val fit = fitChars(width, height, size, maxChars)
-        val shown = cues.filter { it.text.isNotBlank() && it.endMs > it.startMs }
-        val parts = if (maxLines > 0) CaptionChunks.split(shown, fit, maxLines).filter { it.text.isNotBlank() && it.endMs > it.startMs } else shown
-        return parts.map { c ->
-            val text = c.text.trim().split('\n').flatMap { l -> if (l.trim().length > fit) CaptionChunks.lines(l, fit) else listOf(l.trim()) }
-                .joinToString("\n")
-            Overlay(text, c.startMs, c.endMs, font, px, box = look == BurnLook.BOXED,
+        val px = px(height, size.share)
+        return parts(cues, width, px, maxChars, maxLines).map { c ->
+            Overlay(c.text, c.startMs, c.endMs, font, px, box = look == BurnLook.BOXED,
                 strokeWidth = if (look == BurnLook.OUTLINE) maxOf(3, px / 10) else 0)
         }
     }
 
-    /** The longest line in characters: [maxChars], fewer when the text is large for the picture width. */
-    fun fitChars(width: Int, height: Int, size: BurnSize, maxChars: Int): Int {
-        val px = maxOf(12, (height * size.share).roundToInt())
-        return maxOf(8, minOf(maxChars, (width * 0.9 / (px * 0.6)).toInt()))
+    /**
+     * Dubbing's burned subtitles in a caption style (D-106, Movie Recap's [CaptionStyle]): its colour, the dark box or
+     * the outline ([CaptionStyle.strokeWidth] is pixels at 1080, scaled to the video's short side; 0 = the thin
+     * automatic outline), at [share] of the video height. Cues are broken and split as in the [BurnLook] overlays;
+     * [centerY] (0–1 of the frame) = centred there instead of the usual bottom place (on a blur band).
+     * The default Dubbing style (white, Medium, boxed) gives the same overlays as [BurnLook.BOXED] at [BurnSize.MEDIUM].
+     */
+    fun overlays(cues: List<SrtCue>, width: Int, height: Int, font: String, style: CaptionStyle, maxChars: Int,
+        maxLines: Int = 0, centerY: Float? = null): List<Overlay> {
+        val px = px(height, share(style))
+        val stroke = if (style.box || style.strokeWidth <= 0) 0
+            else maxOf(1, (style.strokeWidth * minOf(width, height).coerceAtLeast(1) / 1080.0).roundToInt())
+        return parts(cues, width, px, maxChars, maxLines).map { c ->
+            Overlay(c.text, c.startMs, c.endMs, font, px, color = style.effectiveColour, centerY = centerY, box = style.box,
+                strokeWidth = stroke, strokeColour = style.strokeColour)
+        }
     }
+
+    /**
+     * A caption style's text height as a share of the video height (D-106): Small / Medium / Large = [BurnSize]'s (the
+     * sizes Dubbing always had); a custom factor (XL = 1.4) × Medium.
+     */
+    fun share(style: CaptionStyle): Double = if (style.customSizeFactor != null) BurnSize.MEDIUM.share * style.effectiveSizeFactor
+        else when (style.size) {
+            CaptionSize.S -> BurnSize.SMALL.share
+            CaptionSize.M -> BurnSize.MEDIUM.share
+            CaptionSize.L -> BurnSize.LARGE.share
+        }
+
+    private fun px(height: Int, share: Double) = maxOf(12, (height * share).roundToInt())
+
+    /** The shown cues (split into parts of [maxLines]) with every line at most [fit] characters for [px] text. */
+    private fun parts(cues: List<SrtCue>, width: Int, px: Int, maxChars: Int, maxLines: Int): List<SrtCue> {
+        val fit = fit(width, px, maxChars)
+        val shown = cues.filter { it.text.isNotBlank() && it.endMs > it.startMs }
+        val parts = if (maxLines > 0) CaptionChunks.split(shown, fit, maxLines).filter { it.text.isNotBlank() && it.endMs > it.startMs } else shown
+        return parts.map { c ->
+            c.copy(text = c.text.trim().split('\n').flatMap { l -> if (l.trim().length > fit) CaptionChunks.lines(l, fit) else listOf(l.trim()) }
+                .joinToString("\n"))
+        }
+    }
+
+    /** The longest line in characters: [maxChars], fewer when the text is large for the picture width. */
+    fun fitChars(width: Int, height: Int, size: BurnSize, maxChars: Int): Int = fit(width, px(height, size.share), maxChars)
+
+    private fun fit(width: Int, px: Int, maxChars: Int): Int = maxOf(8, minOf(maxChars, (width * 0.9 / (px * 0.6)).toInt()))
 
     /** The `.ass` text; [assScale] = the font's [FontInfo.assScale] (null = 1.0); [maxLines] as in [overlays]. */
     fun ass(cues: List<SrtCue>, width: Int, height: Int, font: String, look: BurnLook, size: BurnSize, maxChars: Int, assScale: Double?,
         maxLines: Int = 0): String =
         AssWriter.write(overlays(cues, width, height, font, look, size, maxChars, maxLines), Output(Ratio.R16_9, width, height, 0, Quality.EXPORT, ""), { assScale })
+
+    /** The `.ass` of a caption style (D-106), as the styled [overlays]. */
+    fun ass(cues: List<SrtCue>, width: Int, height: Int, font: String, style: CaptionStyle, maxChars: Int, assScale: Double?,
+        maxLines: Int = 0, centerY: Float? = null): String =
+        AssWriter.write(overlays(cues, width, height, font, style, maxChars, maxLines, centerY), Output(Ratio.R16_9, width, height, 0, Quality.EXPORT, ""), { assScale })
 
     internal fun filter(ass: String, fontsDir: String) = "ass=filename=${RenderCompiler.filterPath(ass)}:fontsdir=${RenderCompiler.filterPath(fontsDir)}"
 

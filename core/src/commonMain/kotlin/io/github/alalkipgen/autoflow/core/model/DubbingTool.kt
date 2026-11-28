@@ -1,6 +1,9 @@
 package io.github.alalkipgen.autoflow.core.model
 
+import io.github.alalkipgen.autoflow.core.recap.CaptionStyle
 import io.github.alalkipgen.autoflow.core.recap.VoiceLock
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -30,7 +33,9 @@ data class DubOriginal(val mode: String = LOWER, val volume: Double = 0.15) {
 /**
  * `project.dubbing` of a [Mode.DUBBING] project (specs/dubbing.md §3, D-83). The video and the current `st` version live
  * in `project.subtitles` as in a Subtitles project (D-88), so Video / Translate reuse the Subtitles screens; the
- * spoken lines (`spokenMy`) live on the `st` cues. [takes]: cue id → its [DubTake] (D-2).
+ * spoken lines (`spokenMy`) live on the `st` cues. [takes]: cue id → its [DubTake] (D-2). [captionStyle]: how the burned
+ * Burmese subtitles look (D-106, Movie Recap's [CaptionStyle]; the default = the boxed white Medium of before, and a
+ * project that keeps it writes nothing new).
  */
 @Serializable
 @SerialName("DubbingTool")
@@ -42,4 +47,12 @@ data class DubbingTool(
     val takes: Map<String, DubTake> = emptyMap(),
     val original: DubOriginal = DubOriginal(),
     val burnSubtitles: Boolean = false,
-)
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val captionStyle: CaptionStyle = DEFAULT_CAPTIONS,
+) {
+    companion object {
+        /** The burned subtitles before D-106: white, Medium, on the see-through dark box. */
+        val DEFAULT_CAPTIONS = CaptionStyle(box = true)
+    }
+}

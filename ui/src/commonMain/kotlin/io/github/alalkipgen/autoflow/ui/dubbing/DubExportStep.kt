@@ -73,10 +73,11 @@ internal fun ExportStep(model: DubExportModel, open: OpenProject?, doc: Subtitle
                 GlassFact(AfIcons.Regular.Info, My.breakSyllables(tr(UiText.DUB_EXPORT_KEEPS)), colour = AutoFlowColors.Muted, caption = true)
             }
             if (run != null && !wide) Progress(model, s, run.kind, run.state)
-            // F-7 (D-96): this export's choices and script in a render package, to render it elsewhere.
+            // F-7 (D-96): this export's choices and script in a render package, to render it elsewhere (the caption style,
+            // size included, travels in the project itself, D-106).
             RenderPackageCard({
                 val fit = model.fit(open)
-                RenderPlan(mode = Mode.DUBBING, size = s.size.name, lines = fit.lines, length = fit.length.name, wav = s.wav,
+                RenderPlan(mode = Mode.DUBBING, lines = fit.lines, length = fit.length.name, wav = s.wav,
                     docVersion = open?.project?.subtitles?.current?.value, doc = doc)
             }, tile = CardTile(AfIcons.Fill.Box, GlassColors.ExportTeal))
             s.notice?.let {

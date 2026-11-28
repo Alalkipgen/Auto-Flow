@@ -70,7 +70,7 @@ internal fun DubPreview(export: DubExportModel, open: OpenProject?, doc: Subtitl
     val ex by export.state.collectAsState()
     val voice = remember(open.dir, open.project, doc) { export.previewVoice(open, doc) }
     val ticks = remember(open.dir, open.project, doc) { export.previewTicks(open, doc) }
-    val burned = remember(open.dir, open.project, doc, ex.size, ex.fit, captions) {
+    val burned = remember(open.dir, open.project, doc, ex.fit, captions) {
         if (captions) export.previewCaptions(open, doc) else emptyList()
     }
     val path = joinPath(open.dir, video.file)
