@@ -40,6 +40,7 @@ import io.github.alalkipgen.autoflow.ui.recap.strengthLabel
 import io.github.alalkipgen.autoflow.ui.subtitles.overlayColour
 import io.github.alalkipgen.autoflow.ui.theme.AfType
 import io.github.alalkipgen.autoflow.ui.theme.AutoFlowColors
+import io.github.alalkipgen.autoflow.ui.theme.GlassColors
 
 /**
  * Hide things on the video (D-107, specs/dubbing.md §2 Style): blur or colour boxes over the video's own subtitles (the
@@ -156,8 +157,8 @@ internal fun DubBoxes(masks: List<DubMask>, picked: Int?, draft: Pair<Int, List<
             val fill = m.fill
             if (fill != null) drawRect(overlayColour(fill), topLeft, box)
             else {
-                drawRect(Color(0xFF9AA3AD).copy(alpha = .62f), topLeft, box)
-                drawRect(Color.White.copy(alpha = .10f), topLeft, box)
+                drawRect(GlassColors.DubBlurFrost, topLeft, box)
+                drawRect(GlassColors.DubBlurSheen, topLeft, box)
             }
             if (edit) {
                 if (i == picked) drawRect(AutoFlowColors.Cyan, topLeft, box, style = Stroke(width = 3.dp.toPx()))
